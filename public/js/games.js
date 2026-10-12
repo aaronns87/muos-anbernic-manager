@@ -3,7 +3,7 @@
 import {
   $, app, api, esc, human, plural, initial, highlight, store, copyText, toast, section, icon, scanWhen,
   ACCENTS, EXCLUDED, ART_KINDS, ICONS, TOKEN,
-  handheldMode, slowHint, devName, devWord, busy, ready, keyOf, onCardState, isOnCard, canCopy
+  handheldMode, slowHint, devName, devWord, cardWord, busy, ready, keyOf, onCardState, isOnCard, canCopy
 } from "./core.js";
 import { renderDevice } from "./device.js";
 import { startPlan } from "./copy.js";
@@ -529,7 +529,7 @@ function openRemove() {
   $("r-art").checked = !!g.i;
   $("r-device-row").hidden = !onCardState(sys, g);
   $("r-device").checked = false;
-  $("r-device-text").textContent = handheldMode() ? `Delete it from ${devName()}` : "Delete it from the TF2 card";
+  $("r-device-text").textContent = handheldMode() ? `Delete it from ${devName()}` : `Delete it from the ${cardWord()}`;
   $("r-error").innerHTML = "";
   syncRemove();
   $("viewer").close();
@@ -580,7 +580,7 @@ export function syncGamesControls() {
   $("copied-filter").hidden = !c || err || ui.where === "device";
   $("dev-filter").hidden = !c || ui.where !== "device";
   $("where").hidden = !c || err;
-  $("where-device").textContent = handheldMode() ? "On device" : "On TF2";
+  $("where-device").textContent = handheldMode() ? "On device" : `On ${cardWord()}`;
   document.querySelectorAll("#where button").forEach((b) => b.classList.toggle("on", b.dataset.where === (c ? ui.where : "library")));
   const filter = $("copied-filter").options;
   filter[0].text = `On ${devWord()} or not`; filter[1].text = `Not on ${devWord()} yet`; filter[2].text = `Already on ${devWord()}`;

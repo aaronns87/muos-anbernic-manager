@@ -1,8 +1,9 @@
 // Artwork > Roms/ library: the health of Roms/<SYS>/Imgs and tools to fix it.
 
-import { $, app, api, esc, human, plural, initial, busy, toast, icon } from "./core.js";
+import { $, app, api, esc, human, plural, initial, busy, toast, icon, model } from "./core.js";
+import { screenText } from "./devices.js";
 import { loadLibrary } from "./games.js";
-import { MAX_SIDES, artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-images.js";
+import { maxSides, artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-images.js";
 
 const GRID_LIMIT = 300;
 const FILTERS = [["all", "All images"], ["missing", "Missing"], ["orphan", "Leftovers"], ["dup", "Duplicates"], ["convert", "Not PNG"], ["large", "Oversized"]];
@@ -50,7 +51,7 @@ async function loadSummary(quiet = false) {
   if (!quiet) { state.status = "loading"; redraw(); }
   else if (state.status === "idle") state.status = "loading";
   try {
-    state.data = await api("artwork/local");
+    state.data = await api("artwork/local?screen=" + Math.max(...model().screen));
     state.status = "ready";
   } catch (error) {
     state.status = "error";
@@ -64,7 +65,7 @@ async function loadDetail(quiet = false) {
   if (!code) return;
   if (!quiet) { state.detailStatus = "loading"; redraw(); }
   try {
-    const detail = await api("artwork/local/system?code=" + encodeURIComponent(code));
+    const detail = await api(`artwork/local/system?screen=${Math.max(...model().screen)}&code=` + encodeURIComponent(code));
     if (state.code !== code) return;
     state.detail = detail;
     state.detailStatus = "ready";
@@ -101,7 +102,7 @@ async function afterChange() {
 function sizePicker() {
   const max = artMax.get();
   return `<label class="inline-field" title="Images you add, convert or shrink are saved as PNG no larger than this">Save at most
-    <select class="control" data-al-max>${MAX_SIDES.map(([v, label]) => `<option value="${v}"${v === max ? " selected" : ""}>${label}</option>`).join("")}</select></label>`;
+    <select class="control" data-al-max>${maxSides().map(([v, label]) => `<option value="${v}"${v === max ? " selected" : ""}>${label}</option>`).join("")}</select></label>`;
 }
 
 function taskLine() {
@@ -137,7 +138,7 @@ function healthPanel() {
       <div class="fix info">${icon("folder")}<span><b>${t.images.toLocaleString()}</b>images &middot; ${human(t.bytes)}</span></div>
     </div>
     <div class="al-task" id="al-task">${taskLine()}</div>`,
-    `<span class="muted-note">Trashed images go to the Trash, so you can put them back. The screen is 640&times;480.</span><span class="grow"></span>${sizePicker()}<button class="btn icon" data-al="reload"${state.task ? " disabled" : ""} title="Check again" aria-label="Check again">${icon("refresh")}</button>`);
+    `<span class="muted-note">Trashed images go to the Trash, so you can put them back. The screen is ${esc(screenText(model()))}.</span><span class="grow"></span>${sizePicker()}<button class="btn icon" data-al="reload"${state.task ? " disabled" : ""} title="Check again" aria-label="Check again">${icon("refresh")}</button>`);
 }
 
 function systemsList() {
@@ -372,7 +373,7 @@ function extraCopies(images) {
 
 async function details(rows) {
   const out = [];
-  for (const r of rows) out.push(await api("artwork/local/system?code=" + encodeURIComponent(r.code)));
+  for (const r of rows) out.push(await api(`artwork/local/system?screen=${Math.max(...model().screen)}&code=` + encodeURIComponent(r.code)));
   return out;
 }
 
@@ -391,7 +392,7 @@ async function bulk(op) {
       });
       if (!ok) return;
       await runTask("Moving leftovers to the Trash", which, async (r) => {
-        const d = await api("artwork/local/system?code=" + encodeURIComponent(r.code));
+        const d = await api(`artwork/local/system?screen=${Math.max(...model().screen)}&code=` + encodeURIComponent(r.code));
         const names = d.images.filter((i) => i.orphan).map((i) => i.name);
         if (names.length) await trashNames(r.code, names);
       });
@@ -404,7 +405,7 @@ async function bulk(op) {
       });
       if (!ok) return;
       await runTask("Resolving duplicates", rows.filter((r) => r.duplicates), async (r) => {
-        const names = extraCopies((await api("artwork/local/system?code=" + encodeURIComponent(r.code))).images);
+        const names = extraCopies((await api(`artwork/local/system?screen=${Math.max(...model().screen)}&code=` + encodeURIComponent(r.code))).images);
         if (names.length) await trashNames(r.code, names);
       });
     } else if (op === "convert" || op === "shrink") {

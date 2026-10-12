@@ -15,9 +15,14 @@ import { platform } from "./platform/index.ts";
 import { inside, isFile, listDir, safePart, splitName } from "./util.ts";
 import { referencedNames, workspaceSystems } from "./workspace.ts";
 
-/** Bigger than this is flagged: the handheld's screen is 640x480, so such images only cost space. */
+/** Bigger than this is flagged, as such images only cost space; the side grows with screens wider than 1000 px. */
 const LARGE_BYTES = 700 * 1024;
 const LARGE_SIDE = 1000;
+
+function limitsFor(query?: URLSearchParams) {
+  const side = Math.max(LARGE_SIDE, Math.min(4096, Math.round(Number(query?.get("screen")) || 0)));
+  return { side, bytes: Math.round(LARGE_BYTES * (side / LARGE_SIDE) ** 2) };
+}
 
 // ---------------------------------------------------------------- Roms/
 
@@ -72,7 +77,7 @@ async function romStems(system: string) {
   return { stems, games };
 }
 
-async function systemArt(system: string) {
+async function systemArt(system: string, limits = limitsFor()) {
   const { stems, games } = await romStems(system);
   const imgs = path.join(ctx.roms, system, "Imgs");
   const images: LocalImage[] = [];
@@ -87,7 +92,7 @@ async function systemArt(system: string) {
     perStem.set(key, (perStem.get(key) ?? 0) + 1);
     images.push({
       name: entry.name, size: st.size, w, h, ext, game: games.get(key) ?? "", orphan: !stems.has(key), dup: false,
-      large: st.size > LARGE_BYTES || Math.max(w, h) > LARGE_SIDE, convert: ext !== "png" || !w,
+      large: st.size > limits.bytes || Math.max(w, h) > limits.side, convert: ext !== "png" || !w,
       url: `/Roms/${encodeURIComponent(system)}/Imgs/${encodeURIComponent(entry.name)}?v=${Math.trunc(st.mtimeMs)}`,
     });
   }
@@ -98,11 +103,11 @@ async function systemArt(system: string) {
 }
 
 /** Per-system artwork health for the whole of Roms/. */
-export async function localArtwork() {
-  const systems = [];
+export async function localArtwork(query?: URLSearchParams) {
+  const limits = limitsFor(query), systems = [];
   const totals = { games: 0, missing: 0, images: 0, bytes: 0, orphans: 0, duplicates: 0, convert: 0, large: 0 };
   for (const system of await workspaceSystems()) {
-    const { games, images, missing } = await systemArt(system);
+    const { games, images, missing } = await systemArt(system, limits);
     if (!games && !images.length) continue;
     const row = {
       code: system, games, missing: missing.length, images: images.length,
@@ -115,11 +120,11 @@ export async function localArtwork() {
     for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] += row[key];
     systems.push(row);
   }
-  return { systems, totals, limits: { bytes: LARGE_BYTES, side: LARGE_SIDE } };
+  return { systems, totals, limits };
 }
 
 export async function localArtworkSystem(query: URLSearchParams) {
-  return systemArt(await systemFolder(query.get("code")));
+  return systemArt(await systemFolder(query.get("code")), limitsFor(query));
 }
 
 /** Saves an uploaded PNG as a game's Roms/ artwork; its previous images go to the Trash. */

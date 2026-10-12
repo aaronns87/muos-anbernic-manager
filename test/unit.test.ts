@@ -14,6 +14,7 @@ import { collectionItem, fnv1a, romOf } from "../src/play.ts";
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
+import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
@@ -278,4 +279,24 @@ test("a ScummVM game brings its data folder along, whichever name the folder use
   assert.equal(await scummFolder("SCUMMVM", "lure"), "_Lure");
   assert.deepEqual((await companions("SCUMMVM", "Lure.scummvm")).map(([rel]) => rel).sort(), ["SCUMMVM/_Lure/disk1.vga", "SCUMMVM/_Lure/sub/lure.dat"]);
   assert.deepEqual(await companions("SCUMMVM", "Other.scummvm"), []);
+});
+
+test("devices: board names, PortMaster capabilities and image names", () => {
+  assert.equal(new Set(DEVICES.map((d) => d.id)).size, DEVICES.length);
+  for (const [board, id] of [["rg40xx-h", "rg40xx-h"], ["RG40XX-H", "rg40xx-h"], ["RG40XX H", "rg40xx-h"], ["rg40xxh", "rg40xx-h"], ["rg28xx", "rg28xx-h"],
+    ["RGCUBEXX", "rgcubexx-h"], ["TUI-BRICK", "tui-brick"], ["TrimUI Smart Pro", "tui-spoon"]]) assert.equal(deviceFor(board)?.id, id, board);
+  assert.equal(deviceFor("rg99xx"), null);
+  assert.equal(deviceFor(""), null);
+  assert.deepEqual(new Set(portCaps(byId("rg40xx-h")!)),
+    new Set(["aarch64", "armhf", "power", "restore", "4:3", "640x480", "muos", "rg40xx-h", "analog_0", "analog_1", "analog_2", "1gb"]));
+  const sp = portCaps(byId("rg34xx-sp")!);
+  for (const cap of ["3:2", "720x480", "hires", "wide", "2gb", "1gb", "analog_2"]) assert.ok(sp.includes(cap), cap);
+  assert.ok(portCaps(byId("rgcubexx-h")!).includes("opengl"));
+  assert.ok(!portCaps(byId("tui-spoon")!).includes("armhf"));
+  assert.equal(unfit({ reqs: ["analog_1"] }, new Set(portCaps(byId("rg35xx-plus")!))), "Needs analog_1");
+  assert.equal(unfit({ reqs: ["2gb"] }, new Set(portCaps(byId("rg34xx-sp")!))), "");
+  assert.equal(imageDevice("/x/MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz")?.id, "rg40xx-h");
+  assert.equal(imageDevice("MustardOS_TUI-BRICK_2601.1_X.img")?.id, "tui-brick");
+  assert.equal(imageDevice("random.img"), null);
+  assert.ok(specs(byId("tui-brick")!).some(([k, v]) => k === "Cards" && /One microSD/.test(v)));
 });

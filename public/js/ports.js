@@ -1,7 +1,7 @@
 // Ports: the PortMaster platform in Games. Browse the PortMaster library, install and remove ports with the handheld's own
 // PortMaster over Wi-Fi, and copy your own game files into ports that need them.
 
-import { $, api, esc, human, icon, ICONS, plural, store, toast, TOKEN } from "./core.js";
+import { $, api, esc, human, icon, ICONS, plural, store, toast, TOKEN, model } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { consoleIcon } from "./consoles.js";
 import { renderCurrent } from "./views.js";
@@ -27,7 +27,8 @@ async function load(refresh = false) {
   P.error = "";
   redraw();
   try {
-    P.data = await api(`ports${refresh ? "?refresh=1" : ""}`);
+    P.model = model().id;
+    P.data = await api(`ports?model=${encodeURIComponent(P.model)}${refresh ? "&refresh=1" : ""}`);
     if (running()) watch();
   } catch (error) {
     P.error = error.message;
@@ -60,7 +61,7 @@ function taskBar() {
 /** The Ports system in Games: the ports installed on the handheld, from PortMaster. */
 export function portsSection({ accent, collapsed, chevron, q = "", localFiles = 0 }) {
   if (!P.bound) bind();
-  if (!P.data && !P.loading && !P.error) load();
+  if ((!P.data || P.model !== model().id) && !P.loading && !P.error) load();
   const dev = device(), list = (dev?.installed || []).filter((p) => !q || p.title.toLowerCase().includes(q) || p.name.includes(q));
   if (q && !list.length) return "";
   const known = new Set((dev?.installed || []).flatMap((p) => p.items.map((i) => i.toLowerCase())));
@@ -126,7 +127,7 @@ function badges(p) {
   return [
     installed(p.name) ? `<span class="th-badge ok">Installed</span>` : "",
     p.rtr ? `<span class="th-badge ok">Ready to run</span>` : `<span class="th-badge warn" title="Needs files from your own copy of the game">Needs game files</span>`,
-    p.fits ? "" : `<span class="th-badge warn" title="PortMaster does not offer it for this handheld">${esc(p.why)}</span>`,
+    p.fits ? "" : `<span class="th-badge warn" title="PortMaster does not offer it for the ${esc(model().name)}">${esc(p.why)}</span>`,
     p.genres[0] ? `<span class="th-badge">${esc(p.genres[0])}</span>` : "",
     p.size ? `<span class="th-badge">${human(p.size)}</span>` : "",
   ].join("");
@@ -142,7 +143,7 @@ function installButton(p, compact = false) {
 
 export function openPortMaster() {
   if (!P.bound) bind();
-  if (!P.data && !P.loading) load();
+  if ((!P.data || P.model !== model().id) && !P.loading) load();
   renderBrowser();
   if (!$("portmaster").open) $("portmaster").showModal();
 }
@@ -167,7 +168,7 @@ function renderBrowser() {
       <select class="control" data-pm-genre aria-label="Genre"><option value="all">Any genre</option>${genres().map(([g, n]) => `<option value="${esc(g)}"${g === P.genre ? " selected" : ""}>${esc(g[0].toUpperCase() + g.slice(1))} (${n})</option>`).join("")}</select>
       <select class="control" data-pm-sort aria-label="Sort">${SORTS.map(([v, l]) => `<option value="${v}"${v === P.sort ? " selected" : ""}>${l}</option>`).join("")}</select>
       <label class="switch" title="Only ports that come with everything they need"><input type="checkbox" data-pm-rtr role="switch"${P.rtr ? " checked" : ""}><span class="switch-track"></span>Ready to run</label>
-      <label class="switch" title="Only ports PortMaster offers for this handheld"><input type="checkbox" data-pm-fit role="switch"${P.fit ? " checked" : ""}><span class="switch-track"></span>Runs on this handheld</label>
+      <label class="switch" title="Only ports PortMaster offers for the ${esc(model().name)}"><input type="checkbox" data-pm-fit role="switch"${P.fit ? " checked" : ""}><span class="switch-track"></span>Runs on the ${esc(model().name)}</label>
       <span class="muted-note">${list.length === c.ports.length ? plural(list.length, "port") : `${list.length.toLocaleString()} of ${c.ports.length.toLocaleString()}`}</span>
     </div>
     ${shown.length ? `<div class="th-grid pm-grid">${shown.map((p) => `<article class="th-card pm-card${installed(p.name) ? " have" : ""}">
@@ -284,7 +285,7 @@ async function uninstall(name) {
   P.busy = true;
   redraw();
   try {
-    P.data = await api("ports/uninstall", { name: have.name });
+    P.data = await api("ports/uninstall", { name: have.name, model: model().id });
     toast(`${have.title} is removed from the handheld.`, 3000);
     if (P.view && !byName(P.view) && $("portview").open) $("portview").close();
   } catch (error) { toast(error.message, 5000); }

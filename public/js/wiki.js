@@ -1,6 +1,7 @@
 // Wiki: what every section of the manager does, in plain words, with search and a table of contents.
 
 import { $, esc, icon, section } from "./core.js";
+import { DEVICES, screenText } from "./devices.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
 const SSH_ON = path("Configuration", "Web Services", "Secure Shell");
@@ -9,17 +10,30 @@ const SFTP_ON = path("Configuration", "Web Services", "SFTP + Filebrowser");
 /** [id, icon, title, section it explains (or ""), one-line summary, [[heading, html], ...]] */
 const ARTICLES = [
   ["start", "star", "Getting started", "", "What the manager is, how it reaches the handheld, and what is safe to click.", [
-    ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic handheld running MustardOS: the games in your
+    ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
       <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device Settings, Themes,
       Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
       (Settings, Wiki) is about the manager itself.</p>`],
     ["Three ways to connect", `<ul>
-      <li><b>Card reader.</b> Take the TF2 games card out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
+      <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
+    </ul>`],
+    ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
+      artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
+      <table class="wiki-table">
+      <tr><th>Model</th><th>Screen</th><th>Sticks</th><th>Wi-Fi</th><th>Cards</th></tr>
+      ${DEVICES.map((d) => `<tr><td>${esc(d.maker)} ${esc(d.name.replace(/^TrimUI /, ""))}</td><td>${d.inches}&Prime;, ${esc(screenText(d))}</td><td>${d.sticks}</td><td>${d.wifi ? "Yes" : "No"}</td><td>${d.slots === 2 ? "SD1 + TF2" : "One SD card"}</td></tr>`).join("")}
+      </table>`],
+    ["How the manager knows your model", `<ul>
+      <li><b>USB cable:</b> the handheld introduces itself by its model name.</li>
+      <li><b>Wi-Fi:</b> the manager reads the model from MustardOS (over SFTP, or SSH when that is on).</li>
+      <li><b>Card reader:</b> a card cannot say which handheld it is from. SD1 often can, from its play time records; otherwise the manager
+        asks once and remembers the answer for that card. <b>Change</b> next to <b>Handheld</b> in Overview asks again.</li>
+      <li>With nothing connected, the model picker under the logo decides. While a handheld is connected it shows the reported model and cannot be changed.</li>
     </ul>`],
     ["Which connection each feature needs", `<table class="wiki-table">
       <tr><th>Feature</th><th>Works with</th></tr>
@@ -74,7 +88,7 @@ const ARTICLES = [
       with ${SSH_ON} on.</p>
       <ul>
         <li><b>Browse</b> (or <b>Ports</b> at the top) opens the PortMaster library with screenshots. <b>Runs on this handheld</b> hides the few ports
-          PortMaster does not offer for the RG40XX H; <b>Ready to run</b> keeps only ports that come with everything they need.</li>
+          PortMaster does not offer for your model; <b>Ready to run</b> keeps only ports that come with everything they need.</li>
         <li><b>Install</b> asks the handheld's PortMaster to download the port and any runtime it needs, so the handheld needs internet access. It runs
           in the background; the port then shows under <b>Ports</b> in the handheld's menu. Go back to the main menu on the handheld first.</li>
         <li>Ports marked <b>Needs game files</b> run a commercial or freeware game you supply. After installing, open the port and use
@@ -246,7 +260,7 @@ const ARTICLES = [
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">
       <dt>SD1</dt><dd>The card in the handheld's first slot, holding MustardOS itself.</dd>
-      <dt>TF2</dt><dd>The card in the second slot, holding your games (<code>ROMS</code>), artwork and packages (<code>ARCHIVE</code>).</dd>
+      <dt>TF2</dt><dd>The card in the second slot, holding your games (<code>ROMS</code>), artwork and packages (<code>ARCHIVE</code>). One-slot handhelds, such as the TrimUI models, keep MustardOS and games on one SD card.</dd>
       <dt>ROM</dt><dd>A game file: a copy of a cartridge or disc.</dd>
       <dt>Dump</dt><dd>How a ROM was copied from the original. A good dump is an exact copy.</dd>
       <dt>No-Intro</dt><dd>A project that lists known good cartridge dumps and their official names.</dd>

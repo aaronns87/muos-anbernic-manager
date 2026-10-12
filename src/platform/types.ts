@@ -24,6 +24,8 @@ export interface Handheld {
   serial: string;
   speed: string;
   libmtp?: boolean;
+  /** The model id from devices.js when the USB name is a known board, else "". */
+  model?: string;
   /** The manager has let go of the USB connection until the user connects again. */
   released?: boolean;
 }

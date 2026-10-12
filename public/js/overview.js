@@ -1,7 +1,9 @@
 // Overview: the connection, the device, how the library and the device compare, and the workspace.
 
-import { $, app, api, esc, human, plural, initial, icon, ICONS, EXCLUDED, model, usbMode, handheldMode, devName, devWord, ready, busy, isOnCard, osVersion, scanWhen, section } from "./core.js";
-import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice } from "./device.js";
+import { $, app, api, esc, human, plural, initial, icon, ICONS, EXCLUDED, model, modelInfo, cardWord, usbMode, handheldMode, devName, devWord, ready, busy, isOnCard, osVersion, scanWhen, section } from "./core.js";
+import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative } from "./device.js";
+import { specs } from "./devices.js";
+import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
 import { activityPanel } from "./activity.js";
 
@@ -79,8 +81,11 @@ function devicePanel(conn) {
       : conn.state === "wifi" ? ["wifi", "Connection", "Wi-Fi \u00b7 SFTP", `<code>${esc(`${w.host}:${w.port}`)}</code>`]
       : ["sd", "Connection", "Card reader", `${esc(c.fs === "fat" ? "FAT32" : "exFAT")} \u00b7 <code>${esc(c.mount || c.id)}</code>`];
     const battery = typeof id.battery === "number" && id.battery > 0 ? id.battery : 0;
+    const { device: m, via: known } = modelInfo();
+    const how = { usb: "Reported over USB", wifi: "Read from MustardOS over Wi-Fi", ssh: "Read from MustardOS over SSH", card: "Chosen for this card", picked: "From the model picker" }[known];
     const facts = [
       fact(via[0], via[1], via[2], via[3]),
+      fact("handheld", "Handheld", esc(m.name), c.mode === "card" ? `${esc(how)} &middot; <button class="link-btn" data-ov="model">Change</button>` : esc(how)),
       fact("layers", "MustardOS", esc(osVersion(id.version) || "Installed"), id.serial ? `Serial <code>${esc(id.serial)}</code>` : esc(id.model || model().name)),
       battery ? fact("battery", "Battery", `${battery}%`, `<span class="meter${battery <= 15 ? " bad" : ""}"><i style="width:${battery}%"></i></span>`) : "",
       fact("image", "Artwork catalogue", esc(c.art ? `On ${c.art}` : handheldMode() ? "None yet" : "On SD1"), c.art ? "MUOS/info/catalogue" : handheldMode() ? "Scrappy creates it" : "Not on this card"),
@@ -96,13 +101,8 @@ function devicePanel(conn) {
     if (app.ui.mode === "wifi" && conn.state !== "checking") body += wifiForm();
     if (h && app.ui.mode === "usb") body += kv([["Model", esc(h.name)], ["USB function", esc(h.function || "-")], h.serial ? ["Serial", `<code>${esc(h.serial)}</code>`] : null]);
   }
-  const other = app.ui.mode === "card"
-    ? h && `${h.name} is connected over USB.`
-    : app.ui.mode === "usb" && app.device.targets.length && "A TF2 card is in a card reader.";
-  if (other && conn.state !== "checking") {
-    const to = app.ui.mode === "card" ? "usb" : "card";
-    body += `<div class="muted-note">${esc(other)} <button class="link-btn" data-device="mode" data-mode="${to}"${busy() ? " disabled" : ""}>Switch to ${to === "usb" ? "USB cable" : "Card reader"}</button></div>`;
-  }
+  const alt = alternative();
+  if (alt) body += `<div class="notice">${icon("info")} ${esc(alt.text)} Use the button below to switch.</div>`;
   const actions = live
     ? `<button class="btn primary" data-device="browse">${icon("handheld")}<span>Games on ${esc(devWord())}</span></button>${deviceButtons(conn)}`
     : deviceButtons(conn);
@@ -130,7 +130,7 @@ function syncCounts() {
 function syncPanel(conn) {
   const title = "Library on the device";
   if (!app.data) return panel("", title, `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "sync");
-  if (!isLive(conn)) return panel("", title, `<div class="empty-state">${icon("sync")}<p>Connect the handheld or insert TF2 to compare it with Roms/.</p></div>`, "", "sync");
+  if (!isLive(conn)) return panel("", title, `<div class="empty-state">${icon("sync")}<p>Connect the handheld or insert ${esc(cardWord())} to compare it with Roms/.</p></div>`, "", "sync");
   if (app.device.error) return panel("", title, `<div class="notice err">${esc(app.device.error)}</div>`, "", "sync");
   const s = syncCounts();
   const pct = s.total ? Math.floor((s.on / s.total) * 100) : 0;
@@ -225,7 +225,7 @@ function workspacePanel() {
 
 function hardwarePanel() {
   const m = model();
-  return panel("half", `${esc(m.maker)} ${esc(m.name)}`, kv(m.specs.map(([k, v]) => [k, esc(v)])), "", "chip");
+  return panel("half", `${esc(m.maker)} ${esc(m.name)}`, kv(specs(m).map(([k, v]) => [k, esc(v)])), "", "chip");
 }
 
 export function renderOverview() {
@@ -253,3 +253,5 @@ export function renderOverview() {
   loadInfo();
   loadSummary();
 }
+
+document.addEventListener("click", (e) => { if (e.target.closest('[data-ov="model"]')) openCardModel(); });

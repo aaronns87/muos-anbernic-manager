@@ -1,6 +1,8 @@
 // The connection to the handheld: a TF2 card in a reader, or the handheld over USB (MTP).
 
-import { $, app, api, esc, human, store, icon, ICONS, DEVICES, model, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime } from "./core.js";
+import { byId } from "./devices.js";
+import { renderModelPicker, checkCardModel } from "./model-pick.js";
 import { render, setWhere, loadDevice, resetListing, syncGamesControls } from "./games.js";
 import { renderOverview, resetOverview, loadInfo } from "./overview.js";
 import { renderArtwork } from "./artwork-view.js";
@@ -39,20 +41,25 @@ export function connection() {
       steps: ["Start the manager again with ./muos-anbernic-manager/run.sh.", "Use the link it opens; earlier tabs stop working when it restarts."] };
   }
   if (!c && app.ui.mode === "card") {
-    return { state: "none", cls: "", icon: ICONS.card, title: "No TF2 card found",
-      sub: "Insert the TF2 games card in a card reader",
+    const one = model().slots === 1;
+    return { state: "none", cls: "", icon: ICONS.card, title: `No ${cardWord()} found`,
+      sub: one ? "Insert the handheld's SD card in a card reader" : "Insert the TF2 games card in a card reader",
       steps: [
-        "Take the TF2 card (the second slot) out of the handheld and put it in a card reader.",
-        "It needs one FAT32 or exFAT volume; setup-device.sh prepares one.",
+        one ? `Turn the ${model().name} off, take its SD card out and put it in a card reader.`
+          : "Take the TF2 card (the second slot) out of the handheld and put it in a card reader.",
+        one ? "The computer reads its games partition, which has the ROMS and ARCHIVE folders."
+          : "It needs one FAT32 or exFAT volume; setup-device.sh prepares one.",
         ...d.rejects
       ] };
   }
   if (!c && app.ui.mode === "wifi") {
     const w = d.wifi || {};
+    const noWifi = !model().wifi ? [`The ${model().name} has no Wi-Fi. Use the USB cable or a card reader, or pick another model under the logo.`] : [];
     if (!w.configured) {
       return { state: "wifisetup", cls: "", icon: ICONS.wifi, title: "Connect over Wi-Fi",
         sub: "Enter the handheld's address",
         steps: [
+          ...noWifi,
           "On the handheld open Configuration \u203a Web Services and enable SFTP + Filebrowser.",
           "Join the same Wi-Fi network as this computer. Configuration \u203a Wi-Fi Network shows the handheld's IP address.",
           "Enter that address below, or press Find on network."
@@ -61,6 +68,7 @@ export function connection() {
     return { state: "wifioff", cls: "warn", icon: ICONS.wifi, title: "Handheld not reachable",
       sub: `Nothing answers at ${w.host}:${w.port}`,
       steps: [
+        ...noWifi,
         "Wake the handheld. It drops Wi-Fi while it sleeps.",
         "Check that Configuration \u203a Web Services \u203a SFTP + Filebrowser is enabled.",
         "Check its address in Configuration \u203a Wi-Fi Network, as it can change. Find on network looks for it."
@@ -106,7 +114,7 @@ export function connection() {
   const usb = c.mode === "usb", wifi = c.mode === "wifi", handheld = usb || wifi;
   const base = {
     cls: wifi ? "wifi" : usb ? "usb" : "ok", icon: ICONS[c.mode] || ICONS.card,
-    title: handheld ? c.name : c.name || "TF2", code: wifi ? "Wi-Fi" : usb ? "USB" : c.id
+    title: handheld ? c.name : c.name || cardWord(), code: wifi ? "Wi-Fi" : usb ? "USB" : c.id
   };
   if (d.error) return { ...base, state: "error", cls: "err", sub: d.error, steps: [] };
   const used = c.total ? Math.round(((c.total - c.free) / c.total) * 100) : 0;
@@ -124,6 +132,21 @@ export function connection() {
     steps: []
   };
 }
+
+/** Another way in when the chosen one finds nothing: the handheld on USB or Wi-Fi, or a card in a reader. */
+export function alternative() {
+  const d = app.device, h = d.handheld, w = d.wifi, m = app.ui.mode;
+  if (d.target || d.status !== "ready") return null;
+  if (m !== "usb" && h && !h.released) return { mode: "usb", text: `${h.name} is connected with a USB cable.` };
+  if (m !== "wifi" && w && w.configured && w.reachable) return { mode: "wifi", text: `${byId(d.models?.wifi?.id)?.name || "The handheld"} answers over Wi-Fi at ${w.host}.` };
+  if (m !== "card" && d.targets.length) return { mode: "card", text: `A card (${d.targets[0].name || d.targets[0].id}) is in a card reader.` };
+  return null;
+}
+
+const altButton = (alt, iconOnly) => {
+  const [ico, label] = VIA[alt.mode];
+  return `<button class="btn primary${iconOnly ? " icon" : ""}" data-device="mode" data-mode="${alt.mode}"${busy() ? " disabled" : ""} title="${esc(alt.text)} Switch to it." aria-label="Use ${esc(label)}">${icon(ico)}${iconOnly ? "" : `<span>Use ${esc(label)}</span>`}</button>`;
+};
 
 /** A [data-device] button with an icon; iconOnly keeps the label for the tooltip and screen readers. */
 const devBtn = (action, iconName, label, { title = label, cls = "", disabled = false, iconOnly = false } = {}) =>
@@ -143,8 +166,9 @@ export function filebrowserUrl() {
 export function deviceButtons(conn, { iconOnly = false } = {}) {
   const c = app.device.target, disabled = busy();
   if (conn.state === "released") return devBtn("connect", "plug", "Connect", { cls: "primary", title: "Use the handheld here again" });
-  if (conn.state === "wifisetup") return section() === "overview" ? "" : `<a class="btn primary" href="#overview">${icon("wifi")}<span>Set up Wi-Fi</span></a>`;
-  if (!["card", "usb", "wifi", "error"].includes(conn.state)) return conn.state === "checking" ? "" : retryButton("Check again", { cls: iconOnly ? "primary" : "" });
+  const alt = alternative(), other = alt ? altButton(alt, iconOnly) : "";
+  if (conn.state === "wifisetup") return other + (section() === "overview" ? "" : `<a class="btn${other ? "" : " primary"}" href="#overview">${icon("wifi")}<span>Set up Wi-Fi</span></a>`);
+  if (!["card", "usb", "wifi", "error"].includes(conn.state)) return conn.state === "checking" ? "" : other + retryButton("Check again", { cls: iconOnly && !other ? "primary" : "" });
   if (c.mode === "wifi") {
     const web = filebrowserUrl();
     return devBtn("refresh", "refresh", "Reconnect", { title: "Close the SFTP session and connect again", disabled, iconOnly })
@@ -185,7 +209,7 @@ export function storeRow(s, { card = false } = {}) {
   const level = pct >= 95 ? " bad" : pct >= 85 ? " warn" : "";
   const key = s.key || s.name;
   return `<div class="store${level}">
-    <div class="store-top"><span class="tag">${esc(card ? "TF2" : key)}</span><span class="store-role">${esc(card ? s.name : ROLE[key] || s.name)}</span><b>${human(s.free)} free</b></div>
+    <div class="store-top"><span class="tag">${esc(card ? cardWord() : key)}</span><span class="store-role">${esc(card ? (model().slots === 1 ? "MustardOS and games" : "Games card") : ROLE[key] || s.name)}</span><b>${human(s.free)} free</b></div>
     <div class="meter"><i style="width:${pct}%"></i></div>
     <small>${human(used)} used of ${human(s.total)} &middot; ${pct}%</small></div>`;
 }
@@ -198,7 +222,7 @@ export function renderSideDevice() {
     : conn.state === "error" || conn.state === "offline" ? "Connection problem" : "Not connected";
   box.className = `sd ${live ? "live" : conn.state === "checking" ? "checking" : conn.cls || "off"}`;
   box.title = conn.tip || conn.steps.join("\n");
-  const who = live ? (t.mode === "card" ? `${t.name || "TF2"} \u00b7 ${t.fs === "fat" ? "FAT32" : "exFAT"}` : `${conn.title}`) : model().name;
+  const who = live ? (t.mode === "card" ? `${t.name || cardWord()} \u00b7 ${t.fs === "fat" ? "FAT32" : "exFAT"}` : `${conn.title}`) : model().name;
   const open = store.get("sdOpen", false);
   const title = `<span class="sd-ico">${icon(viaIcon)}</span>
       <span class="sd-title"><b><span class="dot"></span>${esc(status)}${live ? icon("down", "sd-chev") : ""}</b><small>${esc(via)} &middot; ${esc(who)}</small></span>`;
@@ -253,45 +277,6 @@ export function renderStatusbar() {
   box.innerHTML = parts.join("");
 }
 
-/** The device model dropdown under the brand; one model for now, more Anbernic handhelds later. */
-export function renderModelPicker() {
-  const box = $("model-pick");
-  if (!box) return;
-  const m = model(), open = box.classList.contains("open");
-  box.innerHTML = `<button class="mp-btn" aria-haspopup="listbox" aria-expanded="${open}" title="Device model">
-      <span class="mp-ico">${icon("handheld")}</span>
-      <span class="mp-text"><b>${esc(m.name)}</b><small>${esc(m.maker)} &middot; ${esc(m.os)}</small></span>
-      ${icon("down", "mp-chev")}
-    </button>
-    <div class="mp-menu" role="listbox" aria-label="Device model">
-      ${DEVICES.map((d) => `<button class="mp-opt${d.id === m.id ? " on" : ""}" role="option" aria-selected="${d.id === m.id}" data-model="${esc(d.id)}">
-        ${icon("handheld")}<span><b>${esc(d.name)}</b><small>${esc(d.maker)} &middot; ${esc(d.screen)}</small></span>${d.id === m.id ? icon("check", "mp-check") : ""}</button>`).join("")}
-      <div class="mp-soon">More Anbernic handhelds will appear here.</div>
-    </div>`;
-}
-
-export function bindModelPicker() {
-  const box = $("model-pick");
-  renderModelPicker();
-  const close = () => { box.classList.remove("open"); box.querySelector(".mp-btn")?.setAttribute("aria-expanded", "false"); };
-  box.addEventListener("click", (e) => {
-    const opt = e.target.closest("[data-model]");
-    if (opt) {
-      store.set("model", opt.dataset.model);
-      close();
-      renderModelPicker();
-      renderDevice();
-      return;
-    }
-    if (e.target.closest(".mp-btn")) {
-      box.classList.toggle("open");
-      box.querySelector(".mp-btn").setAttribute("aria-expanded", String(box.classList.contains("open")));
-    }
-  });
-  document.addEventListener("click", (e) => { if (!box.contains(e.target)) close(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-}
-
 /** The connection in the Games header: a compact status chip. */
 export function renderStrip() {
   const conn = connection(), box = $("games-device");
@@ -309,6 +294,7 @@ export function renderStrip() {
 
 /** Redraw everything that depends on the connection. */
 export function renderDevice() {
+  renderModelPicker();
   renderSideDevice();
   renderStatusbar();
   renderStrip();
@@ -348,11 +334,13 @@ export async function refreshDevice(force = false) {
     d.rejects = status.rejects;
     d.handheld = status.handheld;
     d.wifi = status.wifi;
+    d.models = status.models || {};
     d.platform = status.platform;
-    const h = status.handheld, w = status.wifi;
+    const h = status.handheld, w = status.wifi, board = d.models.wifi;
     const card = (previous && status.cards.find((c) => c.id === previous.id)) || status.cards[0];
+    const wifiName = board ? byId(board.id)?.name || board.board.toUpperCase() : "Handheld";
     if (app.ui.mode === "card") d.target = card ? Object.assign({ mode: "card" }, card) : null;
-    else if (app.ui.mode === "wifi") d.target = w && w.configured && w.reachable ? { id: "wifi", mode: "wifi", name: model().name, free: 0, total: 0, art: "" } : null;
+    else if (app.ui.mode === "wifi") d.target = w && w.configured && w.reachable ? { id: "wifi", mode: "wifi", name: wifiName, free: 0, total: 0, art: "" } : null;
     else d.target = h && h.mtp && h.ready && h.libmtp && !h.released ? { id: "usb", mode: "usb", name: h.name, free: 0, total: 0, art: "" } : null;
     await loadIndex();
     d.status = "ready";
@@ -368,6 +356,7 @@ export async function refreshDevice(force = false) {
   if (changed || force) resetOverview();
   if (!d.target || d.error) setWhere("library", false);
   renderDevice();
+  checkCardModel();
   if (section() !== "games") return;
   if (app.ui.where === "device" && d.target && app.listing.status !== "loading") loadDevice();
   else render();
@@ -533,7 +522,7 @@ export async function deviceAction(action, el) {
     working(el, "Ejecting");
     try {
       await api("device/eject", { volume: app.device.target.id });
-      toast("TF2 ejected. You can remove the card.");
+      toast(`${cardWord()} ejected. You can remove the card.`);
     } catch (error) { toast(error.message); }
     return refreshDevice();
   }
@@ -547,8 +536,8 @@ export function handleArtButton(kind) {
 /** What the watcher compares: only changes that matter in the chosen mode reload the device. */
 const deviceKey = (status) => JSON.stringify(app.ui.mode === "card"
   ? [status.cards.map((c) => [c.id, c.catalogue]), !!status.handheld]
-  : app.ui.mode === "wifi" ? [status.wifi && status.wifi.host, status.wifi && status.wifi.reachable]
-  : [status.handheld, status.cards.length > 0]);
+  : app.ui.mode === "wifi" ? [status.wifi && status.wifi.host, status.wifi && status.wifi.reachable, status.models?.wifi?.board, !!status.handheld]
+  : [status.handheld, status.cards.length > 0, status.wifi && status.wifi.reachable]);
 
 /** Notices cards and handhelds coming and going. */
 export async function watchDevices() {
@@ -557,7 +546,7 @@ export async function watchDevices() {
   if (quiet && (d.status === "ready" || d.status === "offline")) {
     try {
       const status = await api("status");
-      if (d.status === "offline" || deviceKey(status) !== deviceKey({ cards: d.targets, handheld: d.handheld, wifi: d.wifi })) await refreshDevice();
+      if (d.status === "offline" || deviceKey(status) !== deviceKey({ cards: d.targets, handheld: d.handheld, wifi: d.wifi, models: d.models })) await refreshDevice();
     } catch {}
   }
   setTimeout(watchDevices, 5000);

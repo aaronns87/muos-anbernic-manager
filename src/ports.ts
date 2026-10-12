@@ -13,6 +13,7 @@ import { ctx } from "./context.ts";
 import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { say } from "./log.ts";
+import { byId, DEFAULT_DEVICE, deviceFor, portCaps } from "../public/js/devices.js";
 
 const DATA_URL = "https://github.com/PortsMaster/PortMaster-New/releases/latest/download/ports.json";
 const SHOT_URL = "https://raw.githubusercontent.com/PortsMaster/PortMaster-New/main/ports/";
@@ -23,9 +24,10 @@ const DONE = "/tmp/mgr-port.done";
 const FRESH_MS = 12 * 3600_000;
 const AGENT = { "User-Agent": "muos-anbernic-manager" };
 
-/** What harbourmaster device_info reports for an RG40XX H on MustardOS. */
-const CAPS = new Set(["aarch64", "armhf", "power", "restore", "4:3", "640x480", "muos", "rg40xx-h", "analog_0", "analog_1", "analog_2", "1gb"]);
+/** MustardOS's glibc (2.38), for ports that need a newer one. */
 const GLIBC = 2038;
+const capsOf = (id: unknown) => new Set(portCaps(deviceFor(id) ?? byId(DEFAULT_DEVICE)!));
+const DEFAULT_CAPS = capsOf(DEFAULT_DEVICE);
 
 const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 export const safePort = (n: unknown): n is string => typeof n === "string" && /^[a-z0-9][a-z0-9._+-]{0,80}\.zip$/i.test(n);
@@ -35,19 +37,23 @@ export interface Port {
   name: string; title: string; desc: string; inst: string; porter: string[]; genres: string[]; rtr: boolean; avail: string;
   size: number; added: string; updated: string; shot: string; runtime: string[]; store: { name: string; url: string }[];
   items: string[]; fits: boolean; why: string;
+  /** PortMaster's requirements, checked against the model each time. */
+  need: Need;
 }
 
-/** Why a port will not run on this handheld, or "" when it will (PortMaster's reqs and arch rules). */
-export function unfit(attr: { reqs?: unknown; arch?: unknown; min_glibc?: unknown }): string {
+interface Need { reqs?: string[]; arch?: string[]; min_glibc?: string }
+
+/** Why a port will not run on a handheld with these capabilities, or "" when it will (PortMaster's reqs and arch rules). */
+export function unfit(attr: { reqs?: unknown; arch?: unknown; min_glibc?: unknown }, caps = DEFAULT_CAPS): string {
   const arch = Array.isArray(attr.arch) ? attr.arch.map(String) : [];
-  if (arch.length && !arch.some((a) => CAPS.has(a))) return `Built for ${arch.join(" and ")}`;
+  if (arch.length && !arch.some((a) => caps.has(a))) return `Built for ${arch.join(" and ")}`;
   const glibc = /^(\d+)\.(\d+)$/.exec(String(attr.min_glibc ?? ""));
   if (glibc && Number(glibc[1]) * 1000 + Number(glibc[2]) > GLIBC) return `Needs glibc ${glibc[0]}`;
   for (const raw of Array.isArray(attr.reqs) ? attr.reqs.map(String) : []) {
     const req = raw.trim().toLowerCase();
     if (!req) continue;
-    if (req.startsWith("!")) { if (CAPS.has(req.slice(1))) return `Not for ${req.slice(1)}`; continue; }
-    if (!req.split("|").some((r) => CAPS.has(r))) return `Needs ${req.replace("|", " or ")}`;
+    if (req.startsWith("!")) { if (caps.has(req.slice(1))) return `Not for ${req.slice(1)}`; continue; }
+    if (!req.split("|").some((r) => caps.has(r))) return `Needs ${req.replace("|", " or ")}`;
   }
   return "";
 }
@@ -66,7 +72,8 @@ export function parseCatalogue(raw: unknown): Port[] {
     if (!safePort(name) || typeof source.url !== "string") continue;
     const image = (attr.image ?? {}) as Record<string, unknown>;
     const shot = typeof image.screenshot === "string" && /^[\w.-]+\.(png|jpg|jpeg)$/i.test(image.screenshot) ? image.screenshot : "";
-    const why = unfit(attr);
+    const need: Need = { reqs: strings(attr.reqs).slice(0, 20), arch: strings(attr.arch).slice(0, 8), min_glibc: text(attr.min_glibc, 12) };
+    const why = unfit(need);
     out.push({
       name, title: text(attr.title, 120) || name.replace(/\.zip$/i, ""), desc: text(attr.desc, 700), inst: text(attr.inst, 700),
       porter: strings(attr.porter).slice(0, 6), genres: strings(attr.genres).slice(0, 6), rtr: attr.rtr === true,
@@ -74,7 +81,7 @@ export function parseCatalogue(raw: unknown): Port[] {
       added: text(source.date_added, 10), updated: text(source.date_updated, 10), shot, runtime: strings(attr.runtime).slice(0, 6),
       store: (Array.isArray(attr.store) ? attr.store : []).flatMap((s: Record<string, unknown>) =>
         typeof s?.gameurl === "string" && /^https:\/\//.test(s.gameurl) ? [{ name: text(s.name, 40) || "Store", url: s.gameurl }] : []).slice(0, 4),
-      items: strings(p.items).slice(0, 20), fits: !why, why,
+      items: strings(p.items).slice(0, 20), fits: !why, why, need,
     });
   }
   return out.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
@@ -88,6 +95,7 @@ const catalogueFile = () => path.join(cacheDir(), "catalogue.json");
 
 async function loadCatalogue(refresh: boolean): Promise<{ fetched: number; ports: Port[]; error: string }> {
   if (!catalogue) { try { catalogue = JSON.parse(await fsp.readFile(catalogueFile(), "utf8")); } catch {} }
+  if (catalogue && catalogue.ports.length && !catalogue.ports[0].need) catalogue.fetched = 0;
   if (catalogue && !refresh && Date.now() - catalogue.fetched < FRESH_MS) return { ...catalogue, error: "" };
   try {
     const res = await fetch(DATA_URL, { headers: AGENT, redirect: "follow", signal: AbortSignal.timeout(30_000) });
@@ -161,7 +169,12 @@ export async function portsJson(query?: URLSearchParams) {
   if (reachable && query?.get("device") !== "0") {
     try { device = await readDevice(); } catch (error) { deviceError = (error as Error).message; }
   }
-  return { catalogue: { fetched: cat.fetched, error: cat.error, ports: cat.ports }, reachable, host: status.host, device, deviceError, task };
+  const caps = capsOf(query?.get("model"));
+  const ports = cat.ports.map((p) => {
+    const why = unfit(p.need ?? {}, caps);
+    return { ...p, fits: !why, why };
+  });
+  return { catalogue: { fetched: cat.fetched, error: cat.error, ports }, reachable, host: status.host, device, deviceError, task };
 }
 
 /** Just the running (or last) install, for polling. */
@@ -236,7 +249,7 @@ export async function uninstallPort(body: Record<string, unknown>) {
     const after = await readDevice();
     if (after.installed.some((p) => p.name.toLowerCase() === port.name.toLowerCase())) throw new UserError(lastLine(out || err) || "PortMaster could not remove the port.");
     say("yellow", "REMOVED", `${port.title} from the handheld, with PortMaster.`);
-    return portsJson(new URLSearchParams("device=1"));
+    return portsJson(new URLSearchParams({ device: "1", model: String(body.model ?? "") }));
   } finally {
     busy = "";
   }

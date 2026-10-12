@@ -21,6 +21,8 @@ import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device
 import { attachTerminal, deviceStats, forgetHostKey, power, saveSshSettings, SshError, sshStatus } from "./device/ssh.ts";
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "./device/muos-settings.ts";
 import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.ts";
+import { cardHint, usbModel, wifiModel } from "./device/model.ts";
+import { deviceFor } from "../public/js/devices.js";
 import { UserError } from "./errors.ts";
 import { deleteGame } from "./games/actions.ts";
 import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./games/add.ts";
@@ -53,7 +55,9 @@ const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
 const routes: Record<string, Handler> = {
   "GET /api/status": async () => {
     const [{ cards, rejects }, handheld, wifi] = await Promise.all([findCards(), handheldStatus(), wifiStatus()]);
-    return { cards, rejects, handheld, wifi, platform: process.platform };
+    const [hints, wifiModelFound] = await Promise.all([Promise.all(cards.map((c) => cardHint(c.mount))), wifiModel(wifi.reachable)]);
+    const models = { usb: handheld ? usbModel(handheld.name) : null, wifi: wifiModelFound };
+    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, models, platform: process.platform };
   },
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
@@ -210,7 +214,7 @@ const routes: Record<string, Handler> = {
   "POST /api/artwork/send-plan": (_, body) => sendPlan(body),
   "POST /api/artwork/start": async (_, body) => ({ job: await startArtJob(body) }),
   "POST /api/artwork/keep-on-card": (_, body) => keepArtOnCard(body),
-  "GET /api/artwork/local": () => localArtwork(),
+  "GET /api/artwork/local": (q) => localArtwork(q),
   "GET /api/artwork/local/system": (q) => localArtworkSystem(q),
   "POST /api/artwork/local/put": (_, body) => putLocalArt(body),
   "POST /api/artwork/local/delete": (_, body) => deleteLocalArt(body),

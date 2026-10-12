@@ -1,6 +1,7 @@
 // System section: the SD card in a card reader, and the jobs that rewrite it (install MustardOS, set up TF2, reset).
 
-import { $, app, api, clock, esc, human, icon, plural, section, store, toast } from "./core.js";
+import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model } from "./core.js";
+import { imageDevice } from "./devices.js";
 import { renderStatusbar } from "./device.js";
 import { confirmBox } from "./art-images.js";
 
@@ -144,6 +145,15 @@ const step = (n, title, state, aside, body) => `<section class="panel sys-step $
   <header class="ss-head"><span class="ss-num">${state === "done" ? icon("check") : n}</span><h3>${title}</h3>${aside || ""}</header>
   <div class="ss-body">${body}</div></section>`;
 
+/** MustardOS images are built per model ("MustardOS_RG40XX-H_..."); one for another handheld will not boot. */
+function modelNotice(file) {
+  const built = imageDevice(file), m = model();
+  if (!built) return "";
+  return built.id === m.id
+    ? `<div class="notice ok">Built for the ${esc(built.name)}, the model picked.</div>`
+    : `<div class="notice warn">${icon("alert")}This image is for the ${esc(built.name)}, but the model picked is the ${esc(m.name)}. It only boots on the handheld it is built for. Pick the right image, or change the model under the logo.</div>`;
+}
+
 function installForm() {
   const c = card(), im = S.image;
   const list = S.images?.length
@@ -166,6 +176,7 @@ function installForm() {
       ${c ? `<div class="notice ${fits ? "ok" : "err"}">${fits
         ? `Fits on ${esc(c.id)} (${nominal(c.size)}) with ${human(c.size - im.bytes)} to spare. MustardOS takes over the rest of the card on first boot.`
         : `Needs ${human(im.bytes)}, but ${esc(c.id)} holds ${human(c.size)}. Use a larger card.`}</div>` : ""}
+      ${modelNotice(im.name)}
     </div>`;
   }
   const imageStep = step(1, "Disk image", im && !S.imageError ? "done" : "", im ? `<span class="ss-aside">${im.kind === "gz" ? ".img.gz" : ".img"}</span>` : "", `
@@ -375,7 +386,8 @@ async function loadImages() {
     const r = await api("system/images");
     S.images = r.images;
     S.tf2 = r.tf2;
-    if (!S.path && r.images.length) await useImage(r.images[0].path, false);
+    const mine = r.images.find((x) => imageDevice(x.name)?.id === model().id) || r.images[0];
+    if (!S.path && mine) await useImage(mine.path, false);
     else renderBody();
   } catch (error) {
     S.images = [];

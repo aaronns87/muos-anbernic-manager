@@ -4,7 +4,7 @@ import { $, api, esc, formatDate, human, icon, model, toast } from "./core.js";
 
 const U = { data: null, error: "", loading: false, getting: "", changes: false, bound: false, onDownload: null };
 
-const slug = () => model().name.toLowerCase().replace(/\s+/g, "-");
+const slug = () => model().id;
 
 /** Shows the panel; onDownload runs after a package lands in the apps folder. */
 export function showUpdates(onDownload) {

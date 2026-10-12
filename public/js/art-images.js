@@ -1,11 +1,17 @@
 // Image helpers for the artwork tools: PNG conversion and resizing in the browser, file picking, and confirmations.
 
-import { $, store } from "./core.js";
+import { $, store, model } from "./core.js";
 
-/** Longest side for uploaded and shrunk images; 0 keeps the original size. The handheld's screen is 640x480. */
-export const MAX_SIDES = [[480, "480 px"], [640, "640 px"], [800, "800 px"], [1000, "1000 px"], [0, "Original size"]];
+/** Longest side choices for uploaded and shrunk images, the screen's own marked; 0 keeps the original size. */
+export const maxSides = () => {
+  const screen = Math.max(...model().screen);
+  return [480, 640, 720, 800, 1024, 1280].map((v) => [v, `${v} px${v === screen ? " (the screen)" : ""}`]).concat([[0, "Original size"]]);
+};
 export const artMax = {
-  get: () => store.get("artMax", 640),
+  get: () => {
+    const v = store.get("artMax", Math.max(...model().screen));
+    return v === 1000 ? 1024 : v;
+  },
   set: (v) => store.set("artMax", +v)
 };
 

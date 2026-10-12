@@ -8,6 +8,8 @@ import { UserError } from "../errors.ts";
 import { platform, type Handheld, type Volume } from "../platform/index.ts";
 import { isDir } from "../util.ts";
 import { CardFs, type DeviceFs } from "./fs.ts";
+import { deviceFor } from "../../public/js/devices.js";
+import { usbModel, wifiModelName } from "./model.ts";
 import { library, MtpFs, usbReleased, withSession, type Session, type StorageInfo } from "./mtp.ts";
 import { SftpFs, wifiSettings, withSftp, type SftpStorage } from "./sftp.ts";
 
@@ -96,6 +98,9 @@ export async function handheldStatus(): Promise<Handheld | null> {
   if (handheld) {
     handheld.libmtp = library() !== null;
     handheld.released = usbReleased();
+    const known = usbModel(handheld.name);
+    handheld.model = known?.id ?? "";
+    if (known) handheld.name = deviceFor(known.board)!.name;
     handheldState.name = handheld.name;
   }
   return handheld;
@@ -103,8 +108,8 @@ export async function handheldStatus(): Promise<Handheld | null> {
 
 const storageLabel = (name: string) => (name.toUpperCase() === "SD2" ? "TF2" : name.toUpperCase());
 
-/** The handheld's name for Wi-Fi, where it does not introduce itself: the USB name if it was seen, else the model. */
-const wifiName = () => (handheldState.name === "Handheld" ? "RG40XX H" : handheldState.name);
+/** The handheld's name over Wi-Fi: its board config once read, else the USB name if it was seen. */
+const wifiName = () => wifiModelName() || handheldState.name;
 
 /** Runs fn with the device behind a volume id: a card id, "usb" for the handheld over MTP, or "wifi" for SFTP. */
 export async function withTarget<T>(volume: string, fn: (t: Target) => Promise<T>): Promise<T> {

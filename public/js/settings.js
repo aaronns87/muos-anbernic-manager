@@ -1,10 +1,11 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
-import { $, app, api, esc, human, plural, store, toast, busy, icon, DATE_FORMATS, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, plural, store, toast, busy, icon, model, DATE_FORMATS, formatDate, formatTime } from "./core.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
-import { artMax, confirmBox, MAX_SIDES } from "./art-images.js";
+import { artMax, confirmBox, maxSides } from "./art-images.js";
+import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
@@ -176,7 +177,7 @@ function appearancePanel() {
   const theme = app.ui.theme;
   const seg = [["dark", "Dark"], ["light", "Light"], ["system", "Match system"]]
     .map(([v, l]) => `<button type="button" data-set-theme="${v}" class="${theme === v ? "on" : ""}">${l}</button>`).join("");
-  const sizes = MAX_SIDES.map(([v, l]) => `<option value="${v}"${artMax.get() === v ? " selected" : ""}>${l}</option>`).join("");
+  const sizes = maxSides().map(([v, l]) => `<option value="${v}"${artMax.get() === v ? " selected" : ""}>${l}</option>`).join("");
   const now = new Date();
   const clockSeg = [["24", "24-hour"], ["12", "12-hour"]]
     .map(([v, l]) => `<button type="button" data-set-clock="${v}" class="${app.ui.clock === v ? "on" : ""}" title="${esc(formatTime(now, v))}">${l}</button>`).join("");
@@ -188,7 +189,7 @@ function appearancePanel() {
       <div class="segmented">${clockSeg}</div></div>
     <div class="set-row"><span><b>Date</b><small>Shown next to the clock.</small></span>
       <select class="control" data-set-date>${dates}</select></div>
-    <div class="set-row"><span><b>Uploaded artwork size</b><small>Longest side for images you upload or shrink. The handheld's screen is 640 &times; 480.</small></span>
+    <div class="set-row"><span><b>Uploaded artwork size</b><small>Longest side for images you upload or shrink. The ${esc(model().name)}'s screen is ${esc(screenText(model()))}.</small></span>
       <select class="control" data-set-artmax>${sizes}</select></div>`);
 }
 

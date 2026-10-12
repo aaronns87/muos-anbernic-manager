@@ -1,5 +1,7 @@
 // Shared state, helpers and the API client for the manager app.
 
+import { DEVICES, DEFAULT_DEVICE, byId, deviceFor } from "./devices.js";
+
 export const $ = (id) => document.getElementById(id);
 
 export const ACCENTS = {
@@ -13,23 +15,32 @@ export const SECTIONS = ["overview", "games", "play", "artwork", "apps", "handhe
 /** The section each number key opens: 1 to 9 in order, 0 for the Wiki. */
 export const sectionForKey = (k) => (k === "0" ? "wiki" : SECTIONS[+k - 1]);
 
-/** Handhelds the manager knows. More Anbernic models slot in here; the rest of the app reads model(). */
-export const DEVICES = [
-  {
-    id: "rg40xxh", name: "RG40XX H", maker: "Anbernic", os: "MustardOS", screen: "640 \u00d7 480",
-    specs: [
-      ["Chip", "Allwinner H700, quad-core Cortex-A53 at 1.5 GHz"],
-      ["Graphics", "Mali-G31 MP2"],
-      ["Memory", "1 GB LPDDR4"],
-      ["Screen", "4.0\u2033 IPS, 640 \u00d7 480"],
-      ["Cards", "SD1 for MustardOS, SD2 (TF2) for games"],
-      ["Wireless", "Wi-Fi 2.4/5 GHz, Bluetooth 4.2"],
-      ["Ports", "USB-C (charging, MTP), mini HDMI, 3.5 mm audio"],
-      ["Battery", "3200 mAh"]
-    ]
+export { DEVICES };
+
+/** A card's identity across runs: the reader's volume id changes, its name, size and format do not. */
+export const cardKey = (c) => [c.name, c.total, c.fs].join("|");
+
+/**
+ * The model the app works with and how it is known: "usb", "wifi" or "ssh" when the handheld reported it, "card" when
+ * it was chosen (or hinted) for the card in the reader, else "picked" for the model picker's choice.
+ */
+export function modelInfo() {
+  const d = app.device, m = d.models || {}, t = d.target;
+  if (app.ui.mode === "usb" && byId(m.usb?.id)) return { device: byId(m.usb.id), via: "usb" };
+  if (app.ui.mode === "wifi" && byId(m.wifi?.id)) return { device: byId(m.wifi.id), via: m.wifi.via };
+  if (app.ui.mode === "card" && t && t.mode === "card") {
+    const id = store.get("cardModels", {})[cardKey(t)];
+    if (byId(id)) return { device: byId(id), via: "card" };
   }
-];
-export const model = () => DEVICES.find((d) => d.id === store.get("model", DEVICES[0].id)) || DEVICES[0];
+  return { device: deviceFor(store.get("model", DEFAULT_DEVICE)) || byId(DEFAULT_DEVICE), via: "picked" };
+}
+export const model = () => modelInfo().device;
+
+/** Remembers the model for a card in the reader, and as the default for the next one. */
+export function setCardModel(card, id) {
+  store.set("cardModels", { ...store.get("cardModels", {}), [cardKey(card)]: id });
+  store.set("model", id);
+}
 
 const PATHS = {
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
@@ -138,7 +149,7 @@ export const app = {
     mode: ["usb", "wifi", "card"].includes(store.get("mode", "usb")) ? store.get("mode", "usb") : "usb"
   },
   /** The connection: status is checking | ready | offline | error. target is the card, "usb" or "wifi" device in use. */
-  device: { status: "checking", targets: [], target: null, rejects: [], files: {}, error: "", handheld: null, wifi: null, platform: "" },
+  device: { status: "checking", targets: [], target: null, rejects: [], files: {}, error: "", handheld: null, wifi: null, models: {}, platform: "" },
   /** The games on the device (Games > On device). */
   listing: { status: "idle", volume: "", data: null, error: "" },
   overview: { workspace: null, info: null, infoFor: "", infoError: "", summary: null, summaryFor: "", summaryError: "", loading: "" },
@@ -252,10 +263,12 @@ export const usbMode = () => !!app.device.target && app.device.target.mode === "
 export const handheldMode = () => !!app.device.target && app.device.target.mode !== "card";
 /** A sentence for slow device reads, or "" for a card reader. */
 export const slowHint = () => (!handheldMode() ? "" : usbMode() ? " Over USB this can take a minute." : " Over Wi-Fi this can take a minute.");
-/** "TF2" or the handheld's name, for sentences. */
-export const devName = () => (handheldMode() ? app.device.target.name || "the handheld" : "TF2");
-/** "TF2" or "device", for short labels. */
-export const devWord = () => (handheldMode() ? "device" : "TF2");
+/** The games card: "TF2" on two-slot handhelds, "SD card" where one card holds MustardOS and games. */
+export const cardWord = () => (model().slots === 1 ? "SD card" : "TF2");
+/** The card or the handheld's name, for sentences. */
+export const devName = () => (handheldMode() ? app.device.target.name || "the handheld" : cardWord());
+/** The card or "device", for short labels. */
+export const devWord = () => (handheldMode() ? "device" : cardWord());
 export const ready = () => !!app.device.target && !app.device.error && app.device.status === "ready";
 export const busy = () => !!app.job && app.job.state === "running";
 

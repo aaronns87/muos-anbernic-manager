@@ -11,7 +11,7 @@ const KINDS = [["all", "Any kind"], ["grid", "Grid menus"], ["language", "Langua
 const T = { data: null, loading: false, error: "", q: "", fit: store.get("themeFit", true), kind: "all", sort: "name", busy: "", limit: 60, bound: false };
 
 const tab = () => TABS.find((t) => t[0] === store.get("themesTab", "browse")) || TABS[0];
-const res = () => T.data?.device?.res || "640x480";
+const res = () => T.data?.device?.res || model().screen.join("x");
 const device = () => T.data?.device || null;
 const installed = (name) => device()?.installed.find((t) => t.name === name) || null;
 const qs = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");

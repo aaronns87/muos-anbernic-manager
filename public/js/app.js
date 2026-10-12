@@ -1,7 +1,8 @@
 // Starts the manager: sections, shared buttons, keyboard, and the first loads.
 
 import { $, app, esc, icon, section, sectionForKey, store, toast, TOKEN, SECTIONS } from "./core.js";
-import { bindModelPicker, deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatusbar, watchDevices } from "./device.js";
+import { deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatusbar, watchDevices } from "./device.js";
+import { bindModelPicker } from "./model-pick.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, loadLibrary, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch

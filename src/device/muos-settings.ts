@@ -43,6 +43,8 @@ interface Setting {
   pattern?: RegExp;
   /** Asked before saving a change to this option. */
   warn?: string;
+  /** Hardware the setting is for; models without it do not show it. */
+  needs?: "stick" | "lid" | "rumble";
 }
 
 interface Group {
@@ -183,16 +185,16 @@ export const GROUPS: Group[] = [
       select("settings/advanced/sticknav", "Menu navigation", "Which controls move through the menus.", "menu", [
         ["0", "D-pad only"], ["1", "Left stick only"], ["2", "Right stick only"], ["3", "D-pad and left stick"],
         ["4", "D-pad and right stick"], ["5", "D-pad and both sticks"], ["6", "Both sticks"],
-      ]),
+      ], { needs: "stick" }),
       toggle("settings/advanced/dpad_swap", "D-pad swap on power button", "Lets the power button switch the D-pad between D-pad and stick mode.", "tweak"),
       select("settings/advanced/rumble", "Rumble", "When the handheld vibrates.", "live", [
         ["0", "Disabled"], ["1", "Startup"], ["2", "Shutdown"], ["3", "Sleep"], ["4", "Startup and shutdown"],
         ["5", "Startup and sleep"], ["6", "Shutdown and sleep"],
-      ]),
+      ], { needs: "rumble" }),
       toggle("settings/advanced/led", "LED while playing", "Keeps the power LED on during games.", "live"),
       toggle("settings/advanced/activity", "Activity tracker", "Records play time for each game.", "live"),
       toggle("settings/advanced/thermal", "Thermal shutdown", "Shuts the handheld down when it gets too hot.", "boot"),
-      toggle("settings/advanced/lidswitch", "Lid switch", "Uses the lid sensor on devices that have one.", "boot"),
+      toggle("settings/advanced/lidswitch", "Lid switch", "Uses the lid sensor to sleep when the lid closes.", "boot", { needs: "lid" }),
       toggle("settings/advanced/disp_suspend", "Display suspend", "Turns the display off while sleeping. Some screens do not like this.", "live"),
       toggle("settings/advanced/audio_swap", "Swap left and right audio", "Reverses the speaker channels.", "tweak"),
       toggle("settings/advanced/overdrive", "Audio overdrive", "Lets the volume go to 200%.", "tweak"),
@@ -215,7 +217,11 @@ const BY_KEY = new Map(GROUPS.flatMap((g) => g.items.map((s) => [s.key, s] as co
 
 const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
-interface Facts { bright: number; audioMax: number; governors: string[]; languages: string[]; version: string; host: string }
+interface Facts {
+  bright: number; audioMax: number; governors: string[]; languages: string[]; version: string; host: string;
+  /** From the board config: analog sticks, and whether there is a lid sensor and a rumble motor (null if unknown). */
+  board: { stick: number | null; lid: boolean | null; rumble: boolean | null };
+}
 
 async function readValues(keys: string[]): Promise<{ values: Record<string, string>; facts: Facts }> {
   const script = [
@@ -227,12 +233,13 @@ async function readValues(keys: string[]): Promise<{ values: Record<string, stri
     `printf '@lang\\t%s\\n' "$(ls /opt/muos/share/language 2>/dev/null | sed -n 's/\\.json$//p' | tr '\\n' '|')"`,
     `printf '@version\\t%s\\n' "$(cat system/version 2>/dev/null)"`,
     `printf '@build\\t%s\\n' "$(cat system/build 2>/dev/null)"`,
+    `B=/opt/muos/device/config/board; printf '@board\\t%s\\t%s\\t%s\\n' "$(cat $B/stick 2>/dev/null)" "$(cat $B/lid 2>/dev/null)" "$(cat $B/rumble 2>/dev/null)"`,
   ].join("\n");
   const { out, code } = await runCommand(script, 20_000);
   if (out.includes("@missing")) throw new UserError("This handheld has no /opt/muos/config folder. Is it running MustardOS?");
   if (code !== 0 && !out) throw new UserError("Could not read the settings from the handheld.");
   const values: Record<string, string> = {};
-  const facts: Facts = { bright: 255, audioMax: 100, governors: [], languages: [], version: "", host: "" };
+  const facts: Facts = { bright: 255, audioMax: 100, governors: [], languages: [], version: "", host: "", board: { stick: null, lid: null, rumble: null } };
   let build = "";
   for (const line of out.split("\n")) {
     const tab = line.indexOf("\t");
@@ -245,6 +252,10 @@ async function readValues(keys: string[]): Promise<{ values: Record<string, stri
     else if (name === "@lang") facts.languages = value.split("|").filter(Boolean).sort((a, b) => a.localeCompare(b));
     else if (name === "@version") facts.version = value;
     else if (name === "@build") build = value;
+    else if (name === "@board") {
+      const [stick = "", lid = "", rumble = ""] = line.slice(tab + 1).split("\t").map((v) => v.trim());
+      facts.board = { stick: /^\d+$/.test(stick) ? Number(stick) : null, lid: lid ? lid !== "0" : null, rumble: rumble ? rumble !== "0" : null };
+    }
   }
   facts.version = await runningVersion(facts.version, build);
   facts.host = (await sshStatus()).host;
@@ -257,7 +268,17 @@ function resolve(s: Setting, facts: Facts): Setting {
   if (s.dyn === "volume") return { ...s, max: facts.audioMax };
   if (s.dyn === "governors") return { ...s, options: facts.governors.map((g) => [g, g[0].toUpperCase() + g.slice(1)] as Option) };
   if (s.dyn === "languages") return { ...s, options: facts.languages.map((l) => [l, l] as Option) };
+  if (s.needs === "stick" && facts.board.stick === 1) return { ...s, options: s.options?.filter(([v]) => ["0", "1", "3"].includes(v)) };
   return s;
+}
+
+/** Whether the handheld has what a setting is for; unknown hardware counts as present. */
+function fitsBoard(s: Setting, facts: Facts): boolean {
+  const b = facts.board;
+  if (s.needs === "stick") return b.stick !== 0;
+  if (s.needs === "lid") return b.lid !== false;
+  if (s.needs === "rumble") return b.rumble !== false;
+  return true;
 }
 
 const keysOf = () => [...BY_KEY.keys()];
@@ -266,7 +287,7 @@ export async function handheldSettings() {
   const { values, facts } = await readValues(keysOf());
   const groups = GROUPS.map((g) => ({
     id: g.id, title: g.title, icon: g.icon, intro: g.intro, advanced: !!g.advanced,
-    items: g.items.filter((s) => s.key in values).map((s) => {
+    items: g.items.filter((s) => s.key in values && fitsBoard(s, facts)).map((s) => {
       const r = resolve(s, facts);
       const options = r.options && !r.options.some(([v]) => v === values[s.key]) && values[s.key] !== ""
         ? [...r.options, [values[s.key], `${values[s.key]} (set on the handheld)`] as Option] : r.options;
