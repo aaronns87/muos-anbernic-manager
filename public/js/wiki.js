@@ -50,9 +50,10 @@ const ARTICLES = [
       anything that failed. <b>Show all</b> opens the full log with a search box and a filter for warnings and errors. The log is kept on this computer
       in the manager's cache folder and holds the last few thousand entries.</p>`],
   ]],
-  ["games", "handheld", "Games", "games", "Your game library: find, add, copy to the handheld and remove games.", [
+  ["games", "handheld", "Games", "games", "Your game library: find, add, copy to the handheld and remove games, plus ScummVM games and PortMaster ports.", [
     ["The library", `<p>Every game file in <code>Roms/&lt;SYSTEM&gt;/</code>, grouped by system, with box art and a description from the LaunchBox games
-      database. Switch between grid and list view, and make the cards bigger or smaller with the slider.</p>`],
+      database. The controls next to the search box switch between grid and list view, show <b>Empty systems</b> (folders with no games yet),
+      expand or collapse every system, and make the cards bigger or smaller with the slider.</p>`],
     ["Finding games", `<p>Type in the search box to match titles, file names, regions such as <i>Japan</i>, or systems. The filters narrow the list by
       platform, genre and year. <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
@@ -260,6 +261,12 @@ const ARTICLES = [
       <dt>SSH</dt><dd>A secure remote command line; the manager uses it to change things on the handheld.</dd>
       <dt>MTP</dt><dd>The USB mode that lets a computer see the handheld's files over a cable.</dd>
       <dt>Save state</dt><dd>A snapshot of a game at any moment, made by the emulator; different from the game's own save.</dd>
+      <dt>Port</dt><dd>A PC game rebuilt to run natively on handhelds, instead of in an emulator.</dd>
+      <dt>PortMaster</dt><dd>The app on MustardOS that downloads, installs and removes ports. The manager asks it to do the work over SSH.</dd>
+      <dt>Runtime</dt><dd>A shared engine some ports need (for example Godot or .NET). PortMaster downloads it once and every port that needs it uses it.</dd>
+      <dt>Ready to run</dt><dd>A port that comes with everything it needs. The others need files from your own copy of the game.</dd>
+      <dt>ScummVM</dt><dd>A program that runs classic point-and-click adventures from their original data files.</dd>
+      <dt>.scummvm file</dt><dd>The empty file the handheld lists for a ScummVM game. The game itself sits in the data folder next to it.</dd>
     </dl>`],
   ]],
   ["help", "info", "Troubleshooting", "", "Common problems and what to try.", [
@@ -277,6 +284,17 @@ const ARTICLES = [
       <li>Games must be in the right system folder inside <code>ROMS</code> on the TF2 card.</li>
       <li>Artwork needs to be synced: Artwork &rsaquo; Sync. Missing art can be downloaded with Scrape first.</li>
       <li>After copying, go back to the handheld's main menu so it reloads the list.</li>
+    </ul>`],
+    ["A port won't install", `<ul>
+      <li>PortMaster downloads on the handheld itself, so the handheld needs internet access over Wi-Fi, not just a connection to this computer.</li>
+      <li>Go back to the handheld's main menu first; installs are refused while a game or app is running.</li>
+      <li>The last line PortMaster printed shows in the Ports section. Opening the PortMaster app on the handheld once can repair it.</li>
+      <li>A port that installed but shows a black screen usually needs game files; open it in Ports and check its <b>Game files</b> notes.</li>
+    </ul>`],
+    ["A ScummVM game isn't recognised", `<ul>
+      <li>The <code>.scummvm</code> file and its data folder must have the same name (<code>Lure.scummvm</code> with <code>.Lure/</code>, <code>_Lure/</code> or <code>Lure/</code>).</li>
+      <li>The data folder must hold the game's own files directly, not another folder inside it.</li>
+      <li>Some games need an engine this handheld's ScummVM was not built with; the free games in Games all work.</li>
     </ul>`],
     ["The page says the token is wrong", `<p>Each start of the manager makes a new private address. Close this tab and open the manager again from
       <code>muos-anbernic-manager/run.sh</code> (or the address printed in its terminal window).</p>`],
