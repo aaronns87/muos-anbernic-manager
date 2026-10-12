@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe04a"/>
+      <stop offset=".55" stop-color="#e2b712"/>
+      <stop offset="1" stop-color="#b98500"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe35a"/>
+      <stop offset="1" stop-color="#d9a400"/>
+    </linearGradient>
+    <pattern id="stripes" width="4" height="3.4" patternUnits="userSpaceOnUse" y="22">
+      <rect width="4" height="2.5" fill="url(#gold)"/>
+    </pattern>
+  </defs>
+  <polygon points="32,6 54.5,19 54.5,45 32,58 9.5,45 9.5,19" fill="url(#rim)" stroke="url(#rim)" stroke-width="8" stroke-linejoin="round"/>
+  <polygon points="32,12.5 48.8,22.2 48.8,41.8 32,51.5 15.2,41.8 15.2,22.2" fill="#100808" stroke="#100808" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M19.5 42V21.5h6.2L32 30l6.3-8.5h6.2V42h-5.6V31.6L32 40.4l-6.9-8.8V42z" fill="url(#stripes)"/>
+  <g transform="translate(26.5 29.5) scale(.19) rotate(-10 90 91)">
+    <path d="M4 149 68 42q6-9 16-9h15q10 0 16 9l61 107H57l15-25h53L93 70q-3-5-6 0L40 149z" fill="#e60012" stroke="#fff" stroke-width="16" stroke-linejoin="round" paint-order="stroke"/>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+{
+  "name": "muos-anbernic-manager",
+  "version": "2.0.0",
+  "description": "Local manager for an Anbernic RG40XX H running MustardOS: device status, games and artwork over TF2 or USB (MTP).",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "check": "tsc --noEmit -p .",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-unicode11": "^0.9.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
+    "koffi": "^2.11.0",
+    "saxes": "^6.0.0",
+    "ssh2": "^1.17.0",
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ssh2": "^1.15.6",
+    "@types/yauzl": "^2.10.3",
+    "typescript": "^5.8.0"
+  }
+}

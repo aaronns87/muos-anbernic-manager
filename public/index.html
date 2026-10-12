@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>muOS Anbernic Manager</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="180x180" href="/assets/favicon-180.png">
+<link rel="apple-touch-icon" href="/assets/favicon-180.png">
+<link rel="stylesheet" href="/vendor/xterm/xterm/css/xterm.css">
+<link rel="stylesheet" href="/css/app.css">
+<script type="module" src="/js/app.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <img class="brand-mark" src="/assets/favicon.svg" alt="" aria-hidden="true">
+      <div><b>muOS</b><small>Anbernic Manager</small></div>
+    </div>
+    <div class="model-pick" id="model-pick"></div>
+    <div class="sd" id="side-device"></div>
+    <nav class="sections" aria-label="Sections">
+      <a class="section-link" href="#overview" data-section="overview" title="Overview (1)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span class="nav-label">Overview</span></a>
+      <div class="nav-group">Library</div>
+      <a class="section-link" href="#games" data-section="games" title="Games (2)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+        <span class="nav-label">Games</span> <span class="nav-count" id="games-count"></span></a>
+      <a class="section-link" href="#play" data-section="play" title="Play (3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span class="nav-label">Play</span></a>
+      <a class="section-link" href="#artwork" data-section="artwork" title="Artwork (4)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+        <span class="nav-label">Artwork</span> <span class="nav-count" id="art-count"></span></a>
+      <div class="nav-group">Handheld</div>
+      <a class="section-link" href="#apps" data-section="apps" title="Apps (5)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        <span class="nav-label">Apps</span> <span class="nav-count" id="apps-count"></span></a>
+      <a class="section-link" href="#handheld" data-section="handheld" title="Device Settings (6)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+        <span class="nav-label">Device Settings</span></a>
+      <a class="section-link" href="#themes" data-section="themes" title="Themes (7)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/><circle cx="17" cy="11" r="1"/></svg>
+        <span class="nav-label">Themes</span></a>
+      <a class="section-link" href="#emulation" data-section="emulation" title="Emulation (8)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        <span class="nav-label">Emulation</span></a>
+      <a class="section-link" href="#files" data-section="files" title="Files (9)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span class="nav-label">Files</span></a>
+      <div class="nav-group">Tools</div>
+      <a class="section-link" href="#system" data-section="system" title="System Tools">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 7v3M12 7v3M15 9v1"/></svg>
+        <span class="nav-label">System Tools</span> <span class="nav-count" id="sys-count"></span></a>
+      <a class="section-link" href="#ssh" data-section="ssh" title="SSH">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="m6 9 3.5 3L6 15M12 15h6"/></svg>
+        <span class="nav-label">SSH</span></a>
+      <div class="nav-group">Manager</div>
+      <a class="section-link" href="#settings" data-section="settings" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        <span class="nav-label">Settings</span></a>
+      <a class="section-link" href="#wiki" data-section="wiki" title="Wiki (0)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5v-2Z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 7h6M9 11h4"/></svg>
+        <span class="nav-label">Wiki</span></a>
+    </nav>
+    <div class="side-fill"></div>
+    <button class="side-toggle" id="side-toggle" type="button" title="Collapse sidebar ([)" aria-label="Collapse sidebar" aria-expanded="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
+      <span class="nav-label">Collapse</span></button>
+  </aside>
+  <main>
+    <header class="statusbar">
+      <h1 id="sb-title">Overview</h1>
+      <div class="sb-status" id="sb-status"></div>
+    </header>
+    <section class="view" id="view-overview" hidden>
+      <header class="page-head">
+        <div><p id="ov-sub">Connection, device and what is on it</p></div>
+        <div class="page-actions" id="ov-actions"></div>
+      </header>
+      <div class="ov-grid" id="overview"></div>
+    </section>
+    <section class="view" id="view-handheld" hidden>
+      <header class="page-head">
+        <div><p id="hh-sub">MustardOS settings on the handheld, changed over SSH</p></div>
+        <div class="page-actions" id="hh-actions"></div>
+      </header>
+      <div id="handheld"></div>
+      <div class="hh-bar" id="hh-bar" hidden></div>
+    </section>
+    <section class="view" id="view-games" hidden>
+      <header class="page-head">
+        <div><div class="stats" id="stats"></div></div>
+        <div class="page-actions">
+          <div class="dev-chip off" id="games-device" hidden></div>
+          <span id="games-add"></span>
+        </div>
+      </header>
+      <div class="toolbar">
+        <div class="tool-row">
+          <div class="search">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="Search games, files, regions or systems" autocomplete="off" spellcheck="false">
+            <kbd>/</kbd>
+          </div>
+          <div class="segmented where" id="where" role="group" aria-label="Show" hidden>
+            <button data-where="library" class="on">Roms/ library</button>
+            <button data-where="device" id="where-device">On TF2</button>
+          </div>
+          <button class="btn" id="select-mode" title="Pick games for bulk actions (S)" aria-pressed="false">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg>
+            <span>Select</span>
+          </button>
+          <div class="segmented icons" role="group" aria-label="View">
+            <button id="view-grid" title="Grid view" aria-label="Grid view"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+            <button id="view-list" title="List view" aria-label="List view"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></button>
+          </div>
+          <div class="tool-end">
+            <label class="switch" title="Also list system folders that have no games yet"><input type="checkbox" id="show-empty" role="switch"><span class="switch-track"></span>Empty systems</label>
+            <button id="collapse-all" class="btn ghost" title="Collapse or expand every system">Expand all</button>
+            <label class="size-range" title="Card size"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg><input id="card-size" type="range" min="130" max="300" step="10" aria-label="Card size"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="4"/></svg></label>
+          </div>
+        </div>
+        <div class="tool-row filters">
+          <div class="plat" id="plat" hidden>
+            <button class="plat-step" data-plat-step="-1" title="Previous platform" aria-label="Previous platform"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button class="plat-cur" id="plat-cur" aria-haspopup="true" aria-expanded="false"></button>
+            <button class="plat-step" data-plat-step="1" title="Next platform" aria-label="Next platform"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+            <div class="plat-menu" id="plat-menu" hidden>
+              <div class="plat-head">
+                <b>Platforms</b><small id="plat-count"></small>
+                <button class="btn icon small" data-plat-scroll="-1" title="Scroll left" aria-label="Scroll left"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                <button class="btn icon small" data-plat-scroll="1" title="Scroll right" aria-label="Scroll right"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+              </div>
+              <div class="plat-track" id="plat-track"></div>
+            </div>
+          </div>
+          <select id="art" class="control" aria-label="Artwork filter">
+            <option value="all">Any artwork</option>
+            <option value="with">With artwork</option>
+            <option value="without">Missing artwork</option>
+          </select>
+          <select id="copied-filter" class="control" aria-label="Device filter" hidden>
+            <option value="all">On TF2 or not</option>
+            <option value="missing">Not on TF2 yet</option>
+            <option value="on">Already on TF2</option>
+          </select>
+          <select id="dev-filter" class="control" aria-label="Library filter" hidden>
+            <option value="all">In Roms/ or not</option>
+            <option value="lib">Also in Roms/</option>
+            <option value="only">Only on the device</option>
+            <option value="changed">Differs from Roms/</option>
+          </select>
+          <select id="sort" class="control" aria-label="Sort">
+            <option value="title">Title A-Z</option>
+            <option value="size">Largest first</option>
+            <option value="recent">Recently added</option>
+            <option value="type">File type</option>
+            <option value="rating">Highest rated</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+          <select id="genre" class="control" aria-label="Genre filter"><option value="all">Any genre</option></select>
+          <select id="rating" class="control" aria-label="Rating filter">
+            <option value="all">Any rating</option>
+            <option value="4.5">&#9733; 4.5 and up</option>
+            <option value="4">&#9733; 4 and up</option>
+            <option value="3.5">&#9733; 3.5 and up</option>
+            <option value="3">&#9733; 3 and up</option>
+            <option value="2">&#9733; 2 and up</option>
+            <option value="low">Under &#9733; 2</option>
+            <option value="none">Not rated</option>
+          </select>
+          <select id="year" class="control" aria-label="Release year filter"><option value="all">Any year</option></select>
+          <div class="result-note" id="note"></div>
+        </div>
+      </div>
+      <div id="games-list"></div>
+    </section>
+    <section class="view" id="view-emulation" hidden>
+      <header class="page-head">
+        <div><p id="emu-sub">Saves and save states on the handheld: back them up and restore them</p></div>
+        <div class="page-actions" id="emu-actions"></div>
+      </header>
+      <nav class="tabs" id="emu-tabs" role="tablist" aria-label="Emulation tools"></nav>
+      <div id="emu-body"></div>
+      <input type="file" id="bios-files" multiple hidden>
+    </section>
+    <section class="view" id="view-play" hidden>
+      <header class="page-head">
+        <div><p id="play-sub">How long and how often you play each game on the handheld</p></div>
+        <div class="page-actions" id="play-actions"></div>
+      </header>
+      <nav class="tabs" id="play-tabs" role="tablist" aria-label="Play"></nav>
+      <div id="play-body"></div>
+    </section>
+    <section class="view" id="view-themes" hidden>
+      <header class="page-head">
+        <div><p id="th-sub">Browse MustardOS themes, preview them, and install and apply them on the handheld</p></div>
+        <div class="page-actions" id="th-actions"></div>
+      </header>
+      <nav class="tabs" id="th-tabs" role="tablist" aria-label="Themes"></nav>
+      <div id="themes"></div>
+    </section>
+    <section class="view" id="view-files" hidden>
+      <header class="page-head">
+        <div><p>This computer and the handheld side by side: copy, rename, delete, preview and edit</p></div>
+      </header>
+      <div id="files"></div>
+    </section>
+    <section class="view" id="view-artwork" hidden>
+      <header class="page-head">
+        <div><p id="art-sub">Box art, screenshots and splash screens in Roms/ and on the device</p></div>
+      </header>
+      <div class="art-kpis" id="art-kpis"></div>
+      <nav class="tabs art-tabs" id="art-tabs" role="tablist" aria-label="Artwork tools"></nav>
+      <div class="ov-grid" id="artwork"></div>
+    </section>
+    <section class="view" id="view-apps" hidden>
+      <header class="page-head">
+        <div><p id="apps-sub">MustardOS apps and updates: send them to the handheld and install them there</p></div>
+        <div class="page-actions" id="apps-actions"></div>
+      </header>
+      <div id="apps-updates"></div>
+      <div id="apps"></div>
+      <input type="file" id="apps-files" multiple hidden>
+    </section>
+    <section class="view" id="view-system" hidden>
+      <header class="page-head">
+        <div><p>Prepare SD cards in a card reader: install MustardOS on SD1, set up a TF2 games card, or wipe a card.</p></div>
+        <div class="page-actions" id="sys-actions"></div>
+      </header>
+      <div id="sys-card"></div>
+      <div id="sys-body"></div>
+    </section>
+    <section class="view" id="view-ssh" hidden>
+      <header class="page-head">
+        <div><p id="ssh-sub">A shell on the handheld over Wi-Fi</p></div>
+        <div class="page-actions" id="ssh-actions"></div>
+      </header>
+      <div id="ssh"></div>
+    </section>
+    <section class="view" id="view-settings" hidden>
+      <header class="page-head">
+        <div><p id="settings-sub">Where the manager finds your games, and how it behaves</p></div>
+      </header>
+      <div id="settings"></div>
+    </section>
+    <section class="view" id="view-wiki" hidden>
+      <header class="page-head">
+        <div><p>What every part of the manager does, and how to use it</p></div>
+      </header>
+      <div id="wiki"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="viewer">
+  <div class="viewer-wrap">
+    <div class="viewer">
+      <div class="viewer-art" id="v-art"></div>
+      <div class="viewer-info">
+        <div class="viewer-sys" id="v-sys"></div>
+        <h2 id="v-title"></h2>
+        <div class="tags" id="v-tags"></div>
+        <div id="v-about"></div>
+        <dl id="v-meta"></dl>
+        <div class="viewer-actions">
+          <button class="btn primary v-main" id="v-transfer" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>
+            <span id="v-transfer-label">Transfer to TF2</span>
+          </button>
+          <div class="v-row">
+            <div class="v-group">
+              <button class="btn" id="v-copy" title="Copy the ROM's full path on this Mac">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
+                Copy path
+              </button>
+              <a class="btn" id="v-open-art" target="_blank" rel="noopener" title="Open the artwork in a new tab">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+                Open artwork
+              </a>
+            </div>
+            <button class="btn danger-soft" id="v-delete" title="Delete this game" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="counter" id="v-count"></span>
+    <button class="icon-btn close" id="v-close" title="Close (Esc)">&times;</button>
+    <button class="icon-btn prev" id="v-prev" title="Previous">&#8249;</button>
+    <button class="icon-btn next" id="v-next" title="Next">&#8250;</button>
+  </div>
+</dialog>
+<dialog id="transfer">
+  <div class="t-body">
+    <h2 id="t-title">Transfer to TF2</h2>
+    <div class="t-scope" id="t-scope"></div>
+    <div id="t-plan"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="t-cancel">Cancel</button>
+      <button class="btn primary" id="t-start" hidden>Transfer</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="remove">
+  <div class="t-body">
+    <h2>Delete game</h2>
+    <div class="t-scope" id="r-title"></div>
+    <label class="check"><input type="checkbox" id="r-library" checked>
+      <span>Move the ROM to the Trash on this Mac<br><small style="color:var(--muted)" id="r-path"></small></span></label>
+    <label class="check" id="r-art-row"><input type="checkbox" id="r-art" checked>
+      <span>Also move its artwork to the Trash</span></label>
+    <label class="check" id="r-device-row"><input type="checkbox" id="r-device">
+      <span><span id="r-device-text">Delete it from the TF2 card</span><br><small style="color:var(--muted)">Permanent. There is no Trash on the device.</small></span></label>
+    <div id="r-error"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="r-cancel">Cancel</button>
+      <button class="btn danger-solid" id="r-confirm">Delete</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="artsync">
+  <div class="t-body">
+    <h2 id="a-title">Sync artwork</h2>
+    <div class="t-scope" id="a-scope"></div>
+    <div id="a-body"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="a-cancel">Cancel</button>
+      <button class="btn primary" id="a-start" hidden>Copy</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="devgame">
+  <div class="t-body">
+    <h2 id="d-title"></h2>
+    <div class="t-scope" id="d-scope"></div>
+    <div class="d-art" id="d-art"></div>
+    <div id="d-msg"></div>
+    <div class="dialog-actions">
+      <button class="btn danger" id="d-delete">Delete from device</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="d-close">Close</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="addgames" class="ag" aria-labelledby="ag-title">
+  <div class="ag-shell">
+    <header class="ag-head">
+      <span class="ag-head-ico"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+      <div><h2 id="ag-title">Add games</h2><p>Copy game files into your Roms/ library, with a description and artwork.</p></div>
+      <button class="icon-btn ag-x" id="ag-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <div class="ag-main" id="ag-main"></div>
+    <footer class="ag-foot" id="ag-foot"></footer>
+  </div>
+  <div class="ag-drop-veil"><div><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg><b>Drop to add games</b></div></div>
+  <input type="file" id="ag-files" multiple hidden>
+  <input type="file" id="ag-folder" webkitdirectory hidden>
+</dialog>
+
+<dialog id="confirm">
+  <div class="t-body">
+    <h2 id="c-title"></h2>
+    <div id="c-body"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="c-cancel">Cancel</button>
+      <button class="btn primary" id="c-ok">OK</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="help" class="help" aria-labelledby="help-title">
+  <header class="help-head">
+    <div><h2 id="help-title">Help</h2><p>Read about any part of the manager without leaving this page.</p></div>
+    <a class="btn small" href="#wiki" id="help-full">Open the Wiki</a>
+    <button class="icon-btn help-x" id="help-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="help-main" id="help-wiki"></div>
+</dialog>
+<dialog id="fileview" class="fv" aria-labelledby="fv-title">
+  <header class="help-head">
+    <div><h2 id="fv-title">File</h2><p id="fv-where"></p></div>
+    <button class="icon-btn help-x" id="fv-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body" id="fv-body"></div>
+  <footer class="fv-foot">
+    <span class="muted-note" id="fv-note"></span>
+    <span class="grow"></span>
+    <button class="btn" id="fv-done">Close</button>
+    <button class="btn primary" id="fv-save" hidden>Save</button>
+  </footer>
+</dialog>
+<dialog id="themeview" class="fv thv" aria-labelledby="thv-title">
+  <header class="help-head">
+    <div><h2 id="thv-title">Theme</h2><p id="thv-sub"></p></div>
+    <button class="icon-btn help-x" id="thv-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body thv-body" id="thv-body"></div>
+  <footer class="fv-foot" id="thv-foot"></footer>
+</dialog>
+<dialog id="portmaster" class="ag pm" aria-labelledby="pm-title">
+  <div class="ag-shell">
+    <header class="ag-head">
+      <span class="ag-head-ico"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"/></svg></span>
+      <div><h2 id="pm-title">PortMaster</h2><p>PC game ports for the handheld, installed over Wi-Fi by the handheld's own PortMaster.</p></div>
+      <button class="icon-btn ag-x" id="pm-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <div class="ag-main pm-main" id="pm-main"></div>
+    <footer class="ag-foot" id="pm-foot"></footer>
+  </div>
+</dialog>
+<dialog id="portview" class="fv thv pmv" aria-labelledby="pmv-title">
+  <header class="help-head">
+    <div><h2 id="pmv-title">Port</h2><p id="pmv-sub"></p></div>
+    <button class="icon-btn help-x" id="pmv-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body thv-body pmv-body" id="pmv-body"></div>
+  <footer class="fv-foot" id="pmv-foot"></footer>
+  <input type="file" id="pm-files" multiple hidden>
+  <input type="file" id="pm-folder" webkitdirectory hidden>
+</dialog>
+<dialog id="svmfree" class="fv svf" aria-labelledby="svf-title">
+  <header class="help-head">
+    <div><h2 id="svf-title">Free ScummVM games</h2><p>Classic adventures their makers released for free, ready for the handheld's ScummVM.</p></div>
+    <button class="icon-btn help-x" id="svf-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body svf-body" id="svf-body"></div>
+  <footer class="fv-foot"><span class="muted-note" id="svf-note"></span><span class="grow"></span><button class="btn" data-svf="close">Close</button></footer>
+</dialog>
+<dialog id="activity" class="act" aria-labelledby="act-title">
+  <header class="help-head">
+    <div><h2 id="act-title">Activity</h2><p id="act-count"></p></div>
+    <button class="icon-btn help-x" id="act-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="act-bar">
+    <label class="search small"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="act-q" placeholder="Search activity" aria-label="Search activity"></label>
+    <select class="control" id="act-level" aria-label="Show"></select>
+  </div>
+  <ul class="act-list act-all" id="act-list"></ul>
+  <footer class="fv-foot"><span class="grow"></span><button class="btn" id="act-more" hidden>Show more</button></footer>
+</dialog>
+<input type="file" id="art-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<div class="busy" id="busy" hidden><div><span class="spinner"></span><span id="busy-text">Working&hellip;</span></div></div>
+<div class="bulk" id="bulk" hidden></div>
+<div class="dock" id="dock" hidden></div>
+<button class="top" id="top" title="Back to top">&#8593;</button>
+<div class="toast" id="toast"></div>
+
+</html>

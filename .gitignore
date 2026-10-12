@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Manager cache: downloads, scraped art, logs, and ssh.json / wifi settings with device passwords
+.cache/
+
+# Local dev scratch scripts (may hold device addresses and passwords)
+.devq.mjs
+.dev*.mjs
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Logs and temp files
+*.log
+npm-debug.log*
+*.tmp
+*.partial
+
+# OS and editor files
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
