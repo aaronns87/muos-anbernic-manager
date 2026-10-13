@@ -2327,6 +2327,8 @@ dialog.thv { height: fit-content; }
 .pm-task.ok { border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
 .pm-line { color: var(--muted); font-size: 12px; font-family: var(--mono, ui-monospace, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .pm-main { display: block; }
+.pm-main > .planning { padding: 20px 22px; }
+.pm-main > .notice { margin: 16px 22px; }
 .pm-scroll { height: 100%; overflow: auto; padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
 .pm-scroll .th-bar .search { flex: 1 1 220px; }
 dialog.pmv { width: min(900px, 96vw); }
