@@ -12,10 +12,13 @@ next version number.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
+| [Unreleased](#unreleased) | | |
+| [1.1.0](#110---2026-10-13) | 2026-10-13 | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-10-13
 
 ### Added
 
@@ -117,5 +120,6 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/bc43b5c...main
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.1.0...main
+[1.1.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.1.0
 [1.0.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/bc43b5c
