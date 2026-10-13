@@ -219,6 +219,11 @@ The server is in `src/` (TypeScript run directly by Node; entry point `src/main.
 interface is plain ES modules in `public/` with no framework or bundler. Issues and pull requests are welcome; please run
 the tests and type check first, and keep changes that write to the handheld behind an explicit user action.
 
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, tests, pull requests and how versions are released.
+- [docs/architecture.md](docs/architecture.md): module map, request flow, device access and the MustardOS paths used.
+- [AGENTS.md](AGENTS.md): short guide for coding agents; Cursor also picks up the rules in `.cursor/rules/` and the
+  task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing).
+
 ## Credits
 
 - [MustardOS](https://muos.dev/) and its community, for the firmware and the theme library.

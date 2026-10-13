@@ -1,0 +1,36 @@
+---
+description: Safety rules for the handheld, SD cards, user data and secrets
+alwaysApply: true
+---
+
+# Safety
+
+The app writes to real devices and disks. These rules are not optional.
+
+## Devices and cards
+
+- Code that writes to the handheld or a card runs only from an explicit user action (a button, a confirmed
+  dialog), never on load, on a timer or as a side effect of reading.
+- Deleting on the handheld or a card is permanent: confirm first and say so. Deleting on this computer moves to
+  the Trash (`platform.trash`), never `rm`.
+- System Tools (`src/system/`) only touches whole external removable disks; never widen that check.
+- Long writes go through `src/jobs.ts`: call `requireIdle()` before starting anything that conflicts with a copy
+  or a card job.
+
+## While working as an agent
+
+- Never run installs, applies, deletes, uploads, power actions or card writes against the user's real handheld
+  or cards to "test". Read-only checks (listing, `GET` routes) are fine.
+- Never start a test server with the default `.cache/` or workspace: always pass `--root` and `--cache-dir`
+  pointing at a temp folder, and a port other than 8765 (the user's manager may be running there).
+- Never kill or restart the user's running manager.
+
+## Paths and input
+
+- Validate every path from a request: `safePart()` for single names, `inside(parent, child)` for paths
+  (`src/util.ts`). Reject `..`, absolute paths and hidden names.
+- Escape everything put into HTML with `esc()` (`public/js/core.js`).
+
+## Secrets
+
+Never commit `.cache/` (Wi-Fi and SSH logins, settings), keys, passwords, tokens, ROMs or personal paths.

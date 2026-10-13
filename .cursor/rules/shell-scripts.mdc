@@ -1,0 +1,20 @@
+---
+description: Conventions for run.sh, installer.sh and scripts/
+globs: "{*.sh,scripts/**}"
+alwaysApply: false
+---
+
+# Shell scripts
+
+- Bash with `set -euo pipefail`; they must work with macOS's bash 3.2 (no `mapfile`, no `${var,,}`, no
+  associative arrays).
+- Shared helpers (colours, `die`, `note`, `ask`, `ensure_node`, `ensure_packages`) live in `scripts/common.sh`;
+  scripts set `MANAGER_DIR` and `source` it.
+- `run.sh` loops on exit code 75 (the manager restarting after an update) and exports `MANAGER_RESTART=1`;
+  keep that loop when editing it.
+- Packages install with `npm ci` when `package-lock.json` exists, so a git clone stays clean for updates.
+- Prompts must have a default and work without a TTY (`--yes`, piped input).
+- Never touch anything outside the manager folder and the workspace the user chose; never `sudo`.
+- Check syntax after editing: `bash -n run.sh installer.sh scripts/common.sh`.
+- Test `installer.sh` only on a copy under `/tmp` (`rsync` the repo without `.cache`, `.git`), never in a real
+  install.
