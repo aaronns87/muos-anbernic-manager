@@ -94,6 +94,12 @@ interface Remote { fetched: number; releases: Release[]; images: Record<string, 
 let remote: Remote | null = null;
 const cacheFile = () => path.join(ctx.cacheDir, "updates.json");
 
+/** Forgets the last MustardOS and app release check; the next look goes online again. */
+export async function clearUpdateCache(): Promise<void> {
+  remote = null;
+  await fsp.rm(cacheFile(), { force: true });
+}
+
 function release(y: Record<string, unknown>): Release {
   const ua = (y.update_archive || {}) as Record<string, unknown>;
   const fi = (y.full_image || {}) as Record<string, unknown>;

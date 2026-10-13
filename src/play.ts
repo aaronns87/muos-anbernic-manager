@@ -90,6 +90,30 @@ export async function playJson(query: URLSearchParams) {
   });
 }
 
+/** Resets the tracker to "{}" (what MustardOS writes itself when the file is missing) or empties the history list. */
+export async function resetPlay(body: Record<string, unknown>) {
+  const what = body.what === "time" ? "time" : body.what === "history" ? "history" : "";
+  if (!what) throw new UserError("Choose play time or history.");
+  requireIdle();
+  return withTarget(String(body.volume ?? ""), async (t) => {
+    const f = sd1(t);
+    if (!f) throw new UserError(NEED_SD1);
+    if (what === "time") {
+      if (await f.entry(TRACK)) await writeText(f, TRACK, "{}");
+      say("yellow", "PLAY", "Reset the play time on the handheld.");
+      return { ok: true, removed: 0 };
+    }
+    let removed = 0;
+    for (const e of (await f.list(HISTORY)) ?? []) {
+      if (e.folder || !e.name.endsWith(".cfg")) continue;
+      await f.delete([...HISTORY, e.name]);
+      removed++;
+    }
+    say("yellow", "PLAY", `Cleared ${removed} game${removed === 1 ? "" : "s"} from the handheld's history.`);
+    return { ok: true, removed };
+  });
+}
+
 // ---------------------------------------------------------------- collections
 
 /** The collection folder MustardOS uses: TF2's if it has one, else SD1's. */

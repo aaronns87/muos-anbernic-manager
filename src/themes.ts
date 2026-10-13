@@ -161,6 +161,14 @@ async function exclusive<T>(what: string, fn: () => Promise<T>): Promise<T> {
   try { return await fn(); } finally { busy = ""; }
 }
 
+/** Forgets the theme list and every preview; they are downloaded or read again when Themes opens. */
+export async function clearThemeCache(): Promise<void> {
+  if (busy) throw new UserError(`Wait until ${busy} finishes.`);
+  catalogue = null;
+  previews.clear();
+  await fsp.rm(cacheDir(), { recursive: true, force: true });
+}
+
 const inMenu = (d: DeviceThemes) => d.foreground === "" || d.foreground === "muxfrontend";
 const startApply = (name: string) =>
   runCommand(`printf '%s\\n' ${quote(name)} > ${ACTIVE} && setsid -f /opt/muos/script/package/theme.sh bootlogo launcher </dev/null >/dev/null 2>&1; echo @ok`);

@@ -236,6 +236,17 @@ async function lastResults() {
   return results?.root === ctx.roms ? results : null;
 }
 
+/** The files behind Checks: verify results, ROM checksums and the downloaded No-Intro lists. */
+export const checksCacheFiles = () => [resultFile(), hashFile(), path.join(ctx.cacheDir, "dats")];
+
+export async function clearChecks(): Promise<void> {
+  if (run.running) throw new UserError("Wait for the ROM check to finish first.");
+  dats.clear();
+  hashes = null;
+  results = null;
+  await Promise.all(checksCacheFiles().map((p) => fsp.rm(p, { recursive: true, force: true })));
+}
+
 export async function startVerify(body: Record<string, unknown>) {
   if (run.running) throw new UserError("A check is already running.");
   const library = await getLibrary();

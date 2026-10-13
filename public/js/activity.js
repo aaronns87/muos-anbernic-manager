@@ -18,6 +18,11 @@ const entry = (e) => `<li class="act-row ${esc(e.level)}" title="${esc(new Date(
   <span class="act-text"><b>${esc(e.tag.toLowerCase())}</b> ${esc(e.text)}</span>
   <time>${stamp(e.t)}</time></li>`;
 
+export function forgetActivity() {
+  A.recent = null;
+  A.at = 0;
+}
+
 /** The Overview panel: the last few things the manager did. */
 export function activityPanel() {
   if (Date.now() - A.at > 5000 && !A.loading) loadRecent();

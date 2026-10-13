@@ -9,6 +9,8 @@ import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
 import { openWizard } from "./wizard.js";
 import { checkManager } from "./manager-update.js";
+import { forgetActivity } from "./activity.js";
+import { forgetPlay } from "./play.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -62,7 +64,7 @@ function render() {
   }
   const d = s.data;
   $("settings-sub").textContent = d.settings.roms ? `Roms folder: ${d.roms}` : "Where the manager finds your games, and how it behaves";
-  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${dataPanel(d)}${cachePanel(d)}</div>`;
+  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}</div>`;
 }
 
 const KINDS = {
@@ -218,13 +220,54 @@ function dataPanel(d) {
     + dataRow("Arcade titles", "Full names for MAME and FinalBurn Neo ROMs", d.cache.names, "names", "Download again"));
 }
 
+const clearButton = (attr, what, enabled, label = "Clear") => {
+  const working = s.working === `${attr}-${what}`;
+  return `<button class="btn danger" data-${attr}="${what}"${!enabled || s.working ? " disabled" : ""}>${working ? `<span class="spinner"></span>` : icon("trash")}<span>${label}</span></button>`;
+};
+
 function cachePanel(d) {
   const row = (label, note, size, what) => `<div class="set-row"><span><b>${label}</b><small>${note} &middot; ${size ? human(size) : "empty"}</small></span>
-    <button class="btn" data-set-clear="${what}"${!size || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear</span></button></div>`;
+    ${clearButton("set-clear", what, size)}</div>`;
   return panel("half", "Cache",
     row("Scraper file lists", "What the libretro thumbnail project has, kept for 14 days", d.cache.thumbnails, "thumbnails")
     + row("Device artwork previews", "Pictures already read from the handheld", d.cache.deviceArt, "deviceArt")
+    + row("Online catalogues", "PortMaster, theme and MustardOS update lists with their previews; downloaded again when needed", d.cache.catalogues, "catalogues")
+    + row("ROM check results", "Verify results, ROM checksums and No-Intro lists", d.cache.checks, "checks")
     + `<p class="muted-note set-cache-path">Kept in <code>${esc(d.cache.folder)}</code></p>`);
+}
+
+const PREF_KEEP = new Set(["mode", "model", "cardModels", "ssh.snippets"]);
+const prefKeys = () => {
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i), m = /^(manager|library)\.(.+)$/.exec(k || "");
+    if (m && !PREF_KEEP.has(m[2])) out.push(k);
+  }
+  return out;
+};
+
+const handheldReady = () => app.ui.mode !== "card" && !!app.device.target;
+
+/** Redraws Settings when the handheld comes or goes, so its reset buttons follow the connection. */
+export function settingsDeviceChanged() {
+  if (section() === "settings" && s.data && s.handheld !== handheldReady()) render();
+}
+
+function historyPanel(d) {
+  const handheld = s.handheld = handheldReady();
+  const away = handheld ? "" : " &middot; connect over USB or Wi-Fi first";
+  const row = (label, note, button) => `<div class="set-row"><span><b>${label}</b><small>${note}</small></span>${button}</div>`;
+  let prefs = 0;
+  try { prefs = prefKeys().length; } catch {}
+  return panel("full", "History and resets", `<div class="set-cols">
+    <div><h3>On this computer</h3>
+      ${row("Activity log", `Everything the manager changed, shown on Overview &middot; ${d.cache.activity ? `${d.cache.activity.toLocaleString()} ${d.cache.activity === 1 ? "entry" : "entries"}` : "empty"}`, clearButton("set-clear", "activity", d.cache.activity))}
+      ${row("View preferences", "Sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. Keeps the connection, handheld model and SSH snippets", clearButton("set-reset", "prefs", prefs, "Reset"))}
+    </div>
+    <div><h3>On the handheld</h3>
+      ${row("Play time", `Launches and time played per game, shown in Play${away}`, clearButton("set-play", "time", handheld, "Reset"))}
+      ${row("Recently played", `The History list in the MustardOS menu${away}`, clearButton("set-play", "history", handheld))}
+    </div></div>`);
 }
 
 // ---------------------------------------------------------------- actions
@@ -319,21 +362,69 @@ async function refresh(what) {
   render();
 }
 
+const CLEAR_CONFIRM = {
+  checks: { title: "Clear ROM check results?", html: "<p>Checks forgets what it verified. The next check reads every ROM again, which takes a while for a big library.</p>" },
+  activity: { title: "Clear the activity log?", html: "<p>Everything under Recent activity is removed. This cannot be undone.</p>" },
+};
+
 async function clear(what) {
+  const ask = CLEAR_CONFIRM[what];
+  if (ask && !(await confirmBox({ ...ask, ok: "Clear", danger: true }))) return;
+  s.working = `set-clear-${what}`;
+  render();
   try {
     s.data = await api("settings/clear-cache", { what });
+    if (what === "activity") forgetActivity();
     toast("Cleared");
   } catch (error) {
     toast(error.message, 3000);
   }
+  s.working = "";
   render();
+}
+
+async function resetPlay(what) {
+  const time = what === "time";
+  const ok = await confirmBox({
+    title: time ? "Reset play time on the handheld?" : "Clear the handheld's history?",
+    html: time
+      ? "<p>MustardOS forgets how often and how long you played every game. This changes the handheld and cannot be undone.</p>"
+      : "<p>Every game leaves the History list in the MustardOS menu; the games themselves stay. This changes the handheld and cannot be undone.</p>",
+    ok: time ? "Reset play time" : "Clear history",
+    danger: true,
+  });
+  if (!ok) return;
+  s.working = `set-play-${what}`;
+  render();
+  try {
+    const r = await api("play/reset", { volume: app.device.target?.id || "", what });
+    forgetPlay();
+    forgetActivity();
+    toast(time ? "Play time reset" : r.removed ? `Removed ${plural(r.removed, "game")} from the history` : "The history was already empty", 2600);
+  } catch (error) {
+    toast(error.message, 3500);
+  }
+  s.working = "";
+  render();
+}
+
+async function resetPrefs() {
+  const ok = await confirmBox({
+    title: "Reset view preferences?",
+    html: "<p>Sorting, layout, open tabs, theme, clock and scraper choices go back to their defaults and the page reloads. The connection, handheld model and SSH snippets stay.</p>",
+    ok: "Reset and reload",
+    danger: true,
+  });
+  if (!ok) return;
+  try { for (const k of prefKeys()) localStorage.removeItem(k); } catch {}
+  location.reload();
 }
 
 function bind() {
   s.bound = true;
   const root = $("view-settings");
   root.addEventListener("click", async (e) => {
-    const el = e.target.closest("[data-set], [data-browse], [data-set-theme], [data-set-clock], [data-set-refresh], [data-set-clear]");
+    const el = e.target.closest("[data-set], [data-browse], [data-set-theme], [data-set-clock], [data-set-refresh], [data-set-clear], [data-set-play], [data-set-reset]");
     if (!el || el.disabled) return;
     if (el.dataset.browse !== undefined) { if (el.dataset.browse) browse(el.dataset.browse); return; }
     if (el.dataset.setTheme) {
@@ -352,6 +443,8 @@ function bind() {
     }
     if (el.dataset.setRefresh) { refresh(el.dataset.setRefresh); return; }
     if (el.dataset.setClear) { clear(el.dataset.setClear); return; }
+    if (el.dataset.setPlay) { resetPlay(el.dataset.setPlay); return; }
+    if (el.dataset.setReset) { resetPrefs(); return; }
     const action = el.dataset.set;
     const which = el.dataset.which || "roms";
     if (action === "browse") browse(s.data.folders[which].path, which);

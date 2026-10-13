@@ -52,6 +52,17 @@ export async function startActivityLog(): Promise<void> {
   pending = [];
 }
 
+export const activityCount = (): number => log.length;
+
+/** Empties the activity log in memory and on disk; returns how many entries it held. */
+export async function clearActivity(): Promise<number> {
+  const n = log.length;
+  log = [];
+  pending = [];
+  if (file) await fsp.rm(file, { force: true });
+  return n;
+}
+
 const LEVELS: Record<string, string> = { green: "done", cyan: "info", yellow: "warn", red: "error" };
 
 export function activityJson(query: URLSearchParams) {

@@ -108,6 +108,12 @@ MustardOS layout the code relies on:
 `activity.jsonl`, `rom-crc.json`, `checks.json`, `dats/`, `thumbnails/`, `themes/`, `ports/`,
 `updates.json`, `device-art/`. Never commit any of it.
 
+Settings > Cache and History and resets clear parts of it through `POST /api/settings/clear-cache`
+(`thumbnails`, `deviceArt`, `catalogues`, `checks`, `activity`); each owning module exposes a `clear*`
+function that also drops its in-memory copy. Logins, settings and the big downloads are not cleared there.
+`POST /api/play/reset` (`time` writes `{}` to the tracker, `history` deletes `MUOS/info/history/*.cfg`)
+changes the handheld, and View preferences only removes this browser's `manager.*` localStorage keys.
+
 ## Self-update (`src/manager-update.ts`, `public/js/manager-update.js`)
 
 `VERSION` is compared with `https://raw.githubusercontent.com/<repo>/main/VERSION` (repo from

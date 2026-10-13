@@ -1162,6 +1162,9 @@ body.in-ssh #view-ssh { flex: 1; min-height: 0; display: flex; flex-direction: c
 .set-chip.bad { color: var(--bad-text); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
 .set-actions .btn svg { width: 15px; height: 15px; }
 .set-working { display: inline-flex; align-items: center; gap: 8px; margin-left: 4px; }
+.set-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 4px 32px; }
+.set-cols h3 { margin: 2px 0 2px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.set-cols h3 + .set-row { border-top: 0; }
 .set-cache-path code { font-size: 11.5px; word-break: break-all; }
 .set-folder { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
 .set-folder + .set-folder { margin-top: 18px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent); }

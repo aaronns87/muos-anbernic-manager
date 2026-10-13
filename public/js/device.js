@@ -12,6 +12,7 @@ import { renderApps } from "./apps.js";
 import { renderEmulation } from "./emulation.js";
 import { renderFiles } from "./files.js";
 import { renderPlay } from "./play.js";
+import { settingsDeviceChanged } from "./settings.js";
 import { openArtSync, openKeepOnCard } from "./artwork.js";
 
 const LIBMTP = {
@@ -308,6 +309,7 @@ export function renderDevice() {
   if (section() === "emulation") renderEmulation();
   if (section() === "files") renderFiles();
   if (section() === "play") renderPlay();
+  settingsDeviceChanged();
   renderWizard();
 }
 

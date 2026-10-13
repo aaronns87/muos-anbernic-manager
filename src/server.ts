@@ -7,7 +7,7 @@ import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
-import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection } from "./play.ts";
+import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
 import { retroarchJson, saveRetroarch } from "./retroarch.ts";
 import { applyTheme, deleteTheme, deviceThemePreview, installTheme, themePreview, themesJson } from "./themes.ts";
 import { installPort, portShot, portTask, portsJson, uninstallPort, uploadPortFile } from "./ports.ts";
@@ -77,6 +77,7 @@ const routes: Record<string, Handler> = {
   "POST /api/files/write": (_, body) => filesWrite(body),
   "POST /api/files/copy": (_, body) => filesCopy(body),
   "GET /api/play": (q) => playJson(q),
+  "POST /api/play/reset": (_, body) => resetPlay(body),
   "GET /api/collections": (q) => collectionsJson(q),
   "POST /api/collections/create": (_, body) => createCollection(body),
   "POST /api/collections/rename": (_, body) => renameCollection(body),

@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { activityCount, clearActivity } from "./activity.ts";
+import { checksCacheFiles, clearChecks } from "./checks.ts";
 import { ctx } from "./context.ts";
 import { UserError } from "./errors.ts";
 import { rescanLibrary } from "./games/library.ts";
@@ -13,7 +15,10 @@ import { SYSTEMS } from "./games/systems.ts";
 import { requireIdle } from "./jobs.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
+import { clearPortCache } from "./ports.ts";
 import { clearScrapeCache } from "./scrape.ts";
+import { clearThemeCache } from "./themes.ts";
+import { clearUpdateCache } from "./updates.ts";
 import { isDir, listDir } from "./util.ts";
 import { APP_FILE, OS_FILE } from "./workspace.ts";
 import { tf2Systems } from "./system/ops.ts";
@@ -137,11 +142,16 @@ async function cacheUsage() {
     return total;
   };
   const at = (name: string) => path.join(ctx.cacheDir, name);
-  const [descriptions, names, thumbnails, deviceArt] = await Promise.all(
-    ["metadata-index.json", "mamenames.xml", "thumbnails", "device-art"].map((name) => sizeOf(at(name))),
-  );
-  return { folder: ctx.cacheDir, descriptions, names, thumbnails, deviceArt };
+  const total = async (paths: string[]) => (await Promise.all(paths.map(sizeOf))).reduce((a, b) => a + b, 0);
+  const [descriptions, names, thumbnails, deviceArt, catalogues, checks] = await Promise.all([
+    ...["metadata-index.json", "mamenames.xml", "thumbnails", "device-art"].map((name) => sizeOf(at(name))),
+    total(CATALOGUES.map(at)),
+    total(checksCacheFiles()),
+  ]);
+  return { folder: ctx.cacheDir, descriptions, names, thumbnails, deviceArt, catalogues, checks, activity: activityCount() };
 }
+
+const CATALOGUES = ["ports", "themes", "updates.json"];
 
 /** Files directly in a folder whose lowercase name matches. */
 async function filesIn(folder: string, match: RegExp): Promise<number> {
@@ -305,9 +315,23 @@ export async function clearCache(body: Record<string, unknown>) {
     await fsp.rm(path.join(ctx.cacheDir, "thumbnails"), { recursive: true, force: true });
   } else if (what === "deviceArt") {
     await fsp.rm(path.join(ctx.cacheDir, "device-art"), { recursive: true, force: true });
+  } else if (what === "catalogues") {
+    await clearPortCache();
+    await clearThemeCache();
+    await clearUpdateCache();
+  } else if (what === "checks") {
+    await clearChecks();
+  } else if (what === "activity") {
+    const n = await clearActivity();
+    say("cyan", "CLEARED", `Activity log (${n} entr${n === 1 ? "y" : "ies"}).`);
+    return settingsJson();
   } else {
     throw new UserError("Unknown cache.");
   }
-  say("cyan", "CLEARED", what === "thumbnails" ? "Scraper thumbnail lists." : "Device artwork previews.");
+  const LABELS: Record<string, string> = {
+    thumbnails: "Scraper thumbnail lists.", deviceArt: "Device artwork previews.",
+    catalogues: "PortMaster, theme and update lists with their previews.", checks: "ROM check results and checksums.",
+  };
+  say("cyan", "CLEARED", LABELS[what]);
   return settingsJson();
 }

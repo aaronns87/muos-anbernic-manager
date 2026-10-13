@@ -106,6 +106,31 @@ test("files refuse paths outside the workspace and unsafe names", async () => {
   assert.ok(fs.existsSync(path.join(root, "Roms")));
 });
 
+test("settings clear the activity log, ROM check results and catalogues; handheld resets need a handheld", async () => {
+  const cache = path.join(root, ".cache");
+  fs.writeFileSync(path.join(cache, "checks.json"), "{}");
+  fs.writeFileSync(path.join(cache, "rom-crc.json"), "{}");
+  fs.mkdirSync(path.join(cache, "ports", "shots"), { recursive: true });
+  fs.writeFileSync(path.join(cache, "ports", "catalogue.json"), "{}");
+  fs.writeFileSync(path.join(cache, "updates.json"), "{}");
+  const before = (await api("settings")).json.cache;
+  assert.ok(before.checks > 0 && before.catalogues > 0 && before.activity > 0, JSON.stringify(before));
+
+  assert.equal((await api("settings/clear-cache", { what: "checks" })).status, 200);
+  assert.ok(!fs.existsSync(path.join(cache, "checks.json")) && !fs.existsSync(path.join(cache, "rom-crc.json")));
+  assert.equal((await api("settings/clear-cache", { what: "catalogues" })).status, 200);
+  assert.ok(!fs.existsSync(path.join(cache, "ports")) && !fs.existsSync(path.join(cache, "updates.json")));
+  const cleared = (await api("settings/clear-cache", { what: "activity" })).json.cache;
+  assert.deepEqual([cleared.checks, cleared.catalogues], [0, 0]);
+  const log = (await api("activity")).json;
+  assert.equal(log.all, 1);
+  assert.equal(log.entries[0].tag, "CLEARED");
+  assert.equal((await api("settings/clear-cache", { what: "settings" })).status, 400);
+
+  assert.equal((await api("play/reset", { what: "everything" })).status, 400);
+  assert.equal((await api("play/reset", { what: "time" })).status, 400);
+});
+
 test("BIOS sends and app downloads are validated before any network access", async () => {
   assert.equal((await api("bios/send", { keys: [] })).status, 400);
   assert.equal((await api("updates/download", { repo: "someone/else", asset: "x.muxapp" })).status, 400);

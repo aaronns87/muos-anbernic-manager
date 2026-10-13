@@ -19,6 +19,12 @@ export function showPlay() {
   else render();
 }
 
+/** Reads the handheld again the next time Play opens. */
+export function forgetPlay() {
+  P.play = null;
+  P.volume = "";
+}
+
 export function renderPlay() {
   if ($("view-play").hidden) return;
   if (P.volume !== volume()) load();

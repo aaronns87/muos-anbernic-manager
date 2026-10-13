@@ -161,6 +161,13 @@ let task: Task | null = null;
 let busy = "";
 const inMenu = (d: DevicePorts) => d.foreground === "" || d.foreground === "muxfrontend";
 
+/** Forgets the PortMaster list and its screenshots; both are downloaded again when Ports opens. */
+export async function clearPortCache(): Promise<void> {
+  if (busy) throw new UserError(`Wait until the manager has finished ${busy}.`);
+  catalogue = null;
+  await fsp.rm(cacheDir(), { recursive: true, force: true });
+}
+
 /** The catalogue, the ports on the handheld when it can be reached over SSH, and a running install. */
 export async function portsJson(query?: URLSearchParams) {
   const [cat, status] = await Promise.all([loadCatalogue(query?.get("refresh") === "1"), sshStatus()]);
