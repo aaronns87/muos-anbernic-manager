@@ -89,8 +89,13 @@ function showAsk(card, pick) {
 function renderAsk() {
   const t = ask.card;
   $("mask-sub").textContent = `${t.name || "The card"} (${t.kind || "card"}) does not say which handheld it is from. The manager remembers your answer for this card.`;
-  $("mask-body").innerHTML = makers().map((maker) => `<h3 class="sub-head">${esc(maker)}</h3><div class="mask-grid">${DEVICES.filter((d) => d.maker === maker).map((d) =>
-    `<button type="button" class="mask-opt${d.id === ask.pick ? " on" : ""}" data-mask-pick="${esc(d.id)}" aria-pressed="${d.id === ask.pick}">
+  $("mask-body").innerHTML = modelGrid(ask.pick, "data-mask-pick");
+}
+
+/** Every model as a tile, grouped by maker; attr names the data attribute holding the id. */
+export function modelGrid(pick, attr) {
+  return makers().map((maker) => `<h3 class="sub-head">${esc(maker)}</h3><div class="mask-grid">${DEVICES.filter((d) => d.maker === maker).map((d) =>
+    `<button type="button" class="mask-opt${d.id === pick ? " on" : ""}" ${attr}="${esc(d.id)}" aria-pressed="${d.id === pick}">
       ${icon("handheld")}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span></button>`).join("")}</div>`).join("");
 }
 

@@ -432,6 +432,14 @@
   <div class="fv-body svf-body" id="svf-body"></div>
   <footer class="fv-foot"><span class="muted-note" id="svf-note"></span><span class="grow"></span><button class="btn" data-svf="close">Close</button></footer>
 </dialog>
+<dialog id="wizard" class="wiz" aria-labelledby="wiz-title">
+  <header class="wiz-head">
+    <ol class="wiz-steps" id="wiz-steps"></ol>
+    <h2 id="wiz-title">Setup</h2>
+  </header>
+  <div class="wiz-body" id="wiz-body"></div>
+  <footer class="fv-foot"><button class="btn ghost" id="wiz-skip" title="Close the wizard; Settings can run it again">Skip setup</button><span class="grow"></span><button class="btn" id="wiz-back">Back</button><button class="btn primary" id="wiz-next">Next</button></footer>
+</dialog>
 <dialog id="model-ask" class="mask" aria-labelledby="mask-title">
   <header class="help-head">
     <div><h2 id="mask-title">Which handheld is this card from?</h2><p id="mask-sub"></p></div>

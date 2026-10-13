@@ -43,7 +43,7 @@ import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } fro
 import { biosJson, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
-import { browseFolders, clearCache, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
+import { browseFolders, clearCache, createWorkspace, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
@@ -151,6 +151,11 @@ const routes: Record<string, Handler> = {
   "POST /api/settings/reveal": (_, body) => revealFolder(body),
   "POST /api/settings/refresh": (_, body) => refreshData(body),
   "POST /api/settings/clear-cache": (_, body) => clearCache(body),
+  "POST /api/settings/workspace": async () => {
+    const created = await createWorkspace();
+    if (created.length) await rescanLibrary();
+    return { created, ...(await settingsJson()) };
+  },
   "POST /api/shutdown": () => {
     requireIdle("A copy is running in the manager that is already open. Let it finish or cancel it first.");
     setImmediate(() => shutdownHook());

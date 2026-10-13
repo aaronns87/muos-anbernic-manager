@@ -83,10 +83,47 @@ code { font-family: var(--mono); overflow-wrap: anywhere; }
 .mp-opt:disabled:not(.on):hover { background: none; color: var(--text); }
 .mp-opt:disabled:not(.on):hover small { color: var(--muted); }
 
+dialog.wiz { width: min(820px, 95vw); height: min(760px, 92vh); max-height: 92vh; }
+dialog.wiz[open] { display: flex; flex-direction: column; }
+.wiz-head { padding: 18px 22px 10px; border-bottom: 1px solid var(--line); }
+.wiz-head h2 { margin: 12px 0 0; font-size: 20px; }
+.wiz-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; color: var(--faint); font-size: 12.5px; font-weight: 700; }
+.wiz-steps li { display: flex; align-items: center; gap: 7px; }
+.wiz-steps li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-2); font-size: 11.5px; }
+.wiz-steps li.past { color: var(--muted); }
+.wiz-steps li.past span { background: color-mix(in srgb, var(--mustard) 25%, transparent); border-color: transparent; color: var(--text); }
+.wiz-steps li.on { color: var(--text); }
+.wiz-steps li.on span { background: var(--mustard); border-color: var(--mustard); color: var(--on-mustard); }
+.wiz-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 12px; }
+.wiz-body > .mask-grid, .wiz-body > .sub-head { margin-top: 0; }
+.wiz-lead { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.wiz-q { margin: 6px 0 0; font-size: 15px; }
+.wiz-folders { display: flex; flex-direction: column; gap: 8px; }
+.wiz-folder { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 1.3fr) 130px; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 11px; background: var(--panel-2); }
+.wiz-folder b { display: block; font-size: 13.5px; }
+.wiz-folder small { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.wiz-folder code { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wiz-folder .set-chip { justify-self: end; }
+.wiz-body .panel-actions { margin-top: 0; }
+.wiz-body .panel-actions { margin-top: 2px; }
+.wiz-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wiz-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); cursor: pointer; text-align: left; }
+.wiz-mode .i { width: 22px; height: 22px; color: var(--muted); }
+.wiz-mode b { display: block; font-size: 14px; }
+.wiz-mode small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.wiz-mode:hover { border-color: var(--mustard); }
+.wiz-mode.on { border-color: var(--mustard); background: color-mix(in srgb, var(--mustard) 14%, var(--panel-2)); }
+.wiz-mode.on .i { color: var(--mustard); }
+.wiz-sum { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.wiz-sum li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 13.5px; }
+.wiz-sum .i { width: 18px; height: 18px; color: var(--mustard); flex: none; }
+.wiz-next { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 640px) { .wiz-modes { grid-template-columns: 1fr; } .wiz-folder { grid-template-columns: 1fr; } }
+
 dialog.mask { width: min(760px, 94vw); height: fit-content; }
 dialog.mask[open] { display: flex; flex-direction: column; }
 .mask-body { overflow-y: auto; padding: 6px 20px 16px; }
-.mask-body .sub-head { margin: 14px 0 8px; }
+.mask-body .sub-head, .wiz-body .sub-head { margin: 14px 0 8px; }
 .mask-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 .mask-opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); cursor: pointer; text-align: left; }
 .mask-opt .i { width: 20px; height: 20px; flex: none; color: var(--muted); }

@@ -1,6 +1,6 @@
 // muOS Anbernic Manager: scans Roms/, then serves the manager app on 127.0.0.1 until Ctrl-C.
 // Usage: node src/main.ts [--no-open] [--port N] [--refresh-names] [--refresh-descriptions]
-//                         [--skip-descriptions] [--tf2-dir DIR] [--root DIR] [--cache-dir DIR]
+//                         [--skip-descriptions] [--tf2-dir DIR] [--root DIR] [--cache-dir DIR] [--init [--workspace DIR]]
 
 import crypto from "node:crypto";
 import fsp from "node:fs/promises";
@@ -17,7 +17,7 @@ import { cancelJob, jobRunning, waitForJob } from "./jobs.ts";
 import { C, dim, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { listen, onShutdown } from "./server.ts";
-import { loadSettings, settings } from "./settings.ts";
+import { createWorkspace, firstRun, loadSettings, settings } from "./settings.ts";
 import { isDir } from "./util.ts";
 
 const USAGE = `Usage: run.sh [options]
@@ -41,7 +41,9 @@ Keep it running while you use it and press Ctrl-C to stop.
   --skip-descriptions     do not download descriptions; use the cached ones if any
   --tf2-dir DIR           use a folder holding ROMS/ and ARCHIVE/ as the TF2 card (testing)
   --root DIR              workspace holding Roms/ (default: the folder above muos-anbernic-manager/)
-  --cache-dir DIR         keep downloads, settings and logins there instead of muos-anbernic-manager/.cache (testing)`;
+  --cache-dir DIR         keep downloads, settings and logins there instead of muos-anbernic-manager/.cache (testing)
+  --init                  create the missing workspace folders (Roms with its system folders, apps, os, bios, backups) and exit
+  --workspace DIR         with --init: create them in DIR and use them from now on (installer.sh)`;
 
 interface Instance { pid: number; port: number; token: string }
 
@@ -104,6 +106,7 @@ async function main(): Promise<void> {
         "no-open": { type: "boolean" }, port: { type: "string" }, "refresh-names": { type: "boolean" },
         "refresh-descriptions": { type: "boolean" }, "skip-descriptions": { type: "boolean" },
         "tf2-dir": { type: "string" }, root: { type: "string" }, "cache-dir": { type: "string" }, help: { type: "boolean", short: "h" },
+        init: { type: "boolean" }, workspace: { type: "string" },
       },
     }).values;
   } catch (error) {
@@ -125,12 +128,18 @@ async function main(): Promise<void> {
     }
   }
   await loadSettings();
+  if (args.init) {
+    const created = await createWorkspace(args.workspace ?? "");
+    say("green", "READY", created.length ? `Created ${created.length} folders.` : "Every workspace folder is there already.");
+    for (const f of ["roms", "apps", "os", "bios", "backups"] as const) dim(`${f.padEnd(8)} ${ctx[f]}`);
+    return;
+  }
   if (!(await isDir(ctx.roms))) {
-    if (!settings().roms) {
-      say("red", "STOPPED", `${ctx.roms} does not exist.`);
+    if (firstRun()) say("yellow", "SETUP", `There is no Roms folder at ${ctx.roms} yet. The setup wizard in the browser creates it, or picks another.`);
+    else if (!settings().roms) {
+      say("red", "STOPPED", `${ctx.roms} does not exist. Run ./muos-anbernic-manager/installer.sh to create the workspace folders.`);
       process.exit(1);
-    }
-    say("yellow", "CHECK", `The Roms folder ${ctx.roms} is not available. Connect its drive, or choose another in Settings.`);
+    } else say("yellow", "CHECK", `The Roms folder ${ctx.roms} is not available. Connect its drive, or choose another in Settings.`);
   }
 
   console.log();
@@ -142,7 +151,8 @@ async function main(): Promise<void> {
   await startActivityLog();
   const previous = await stopPrevious();
   await ensureArcadeNames(!!args["refresh-names"]);
-  await ensureDescriptions(args["skip-descriptions"] ? "skip" : args["refresh-descriptions"] ? "refresh" : "auto");
+  // On a first run the setup wizard offers the large description download, so the browser opens right away.
+  await ensureDescriptions(args["skip-descriptions"] || firstRun() ? "skip" : args["refresh-descriptions"] ? "refresh" : "auto");
 
   dim("Scanning Roms/...");
   const { totals } = await rescanLibrary();

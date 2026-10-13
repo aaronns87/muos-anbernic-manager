@@ -3,6 +3,7 @@
 import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime } from "./core.js";
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
+import { renderWizard } from "./wizard.js";
 import { render, setWhere, loadDevice, resetListing, syncGamesControls } from "./games.js";
 import { renderOverview, resetOverview, loadInfo } from "./overview.js";
 import { renderArtwork } from "./artwork-view.js";
@@ -305,6 +306,7 @@ export function renderDevice() {
   if (section() === "emulation") renderEmulation();
   if (section() === "files") renderFiles();
   if (section() === "play") renderPlay();
+  renderWizard();
 }
 
 export async function loadIndex() {

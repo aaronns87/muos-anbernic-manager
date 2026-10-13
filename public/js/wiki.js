@@ -16,6 +16,13 @@ const ARTICLES = [
       <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device Settings, Themes,
       Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
       (Settings, Wiki) is about the manager itself.</p>`],
+    ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> gets a computer ready: it checks Node.js and the
+      manager's packages (and offers <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per
+      system), <code>apps/</code>, <code>os/</code>, <code>bios/</code> and <code>backups/</code> next to the manager or in a folder you name, and
+      can start from a clean cache. Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
+      <p>The first start with a clean cache opens the <b>setup wizard</b>: your handheld model, the folders, how to connect, and the optional game
+      description download. <b>Skip setup</b> closes it; ${path("Settings", "Game data", "Run setup")} opens it again. After that,
+      <code>./muos-anbernic-manager/run.sh</code> starts the manager.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>

@@ -1,12 +1,13 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
-import { $, app, api, esc, human, plural, store, toast, busy, icon, model, DATE_FORMATS, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime } from "./core.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
 import { artMax, confirmBox, maxSides } from "./art-images.js";
 import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
+import { openWizard } from "./wizard.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -17,6 +18,12 @@ const PLACE_ICONS = {
 };
 
 const s = { data: null, error: "", loading: false, working: "", browse: null, bound: false };
+
+/** Reads the settings again the next time the section opens, after the setup wizard changed them. */
+export function forgetSettings() {
+  s.data = null;
+  if (section() === "settings") showSettings();
+}
 
 export function showSettings() {
   if (!s.bound) bind();
@@ -201,6 +208,8 @@ function dataRow(label, note, size, action, button, title = "") {
 
 function dataPanel(d) {
   return panel("half", "Game data",
+    `<div class="set-row"><span><b>Setup wizard</b><small>Walk through the handheld, folders, connection and downloads again</small></span>
+      <button class="btn" data-set="wizard">${icon("star")}<span>Run setup</span></button></div>` +
     dataRow("Roms folder scan", "Reads every system folder again, as at start", null, "rescan", "Rescan now")
     + dataRow("Game descriptions", "Text, genres, ratings and years from the LaunchBox Games Database", d.cache.descriptions, "descriptions", "Download again", "About 110 MB; takes a minute or two")
     + dataRow("Arcade titles", "Full names for MAME and FinalBurn Neo ROMs", d.cache.names, "names", "Download again"));
@@ -338,6 +347,7 @@ function bind() {
     const which = el.dataset.which || "roms";
     if (action === "browse") browse(s.data.folders[which].path, which);
     else if (action === "cancel") { s.browse = null; render(); }
+    else if (action === "wizard") openWizard();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));

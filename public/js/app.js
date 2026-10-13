@@ -3,6 +3,7 @@
 import { $, app, esc, icon, section, sectionForKey, store, toast, TOKEN, SECTIONS } from "./core.js";
 import { deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatusbar, watchDevices } from "./device.js";
 import { bindModelPicker } from "./model-pick.js";
+import { checkWizard } from "./wizard.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, loadLibrary, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch
@@ -173,6 +174,7 @@ if (!TOKEN) {
     toast(error.message, 4000);
   });
   refreshDevice();
+  checkWizard();
   if (section() !== "apps") countApps();
   poll();
   watchSystemJob();

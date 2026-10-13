@@ -16,6 +16,7 @@ import { platform } from "./platform/index.ts";
 import { clearScrapeCache } from "./scrape.ts";
 import { isDir, listDir } from "./util.ts";
 import { APP_FILE, OS_FILE } from "./workspace.ts";
+import { tf2Systems } from "./system/ops.ts";
 
 export interface Settings {
   /** Absolute path of the Roms folder; "" means Roms/ in the workspace. */
@@ -32,13 +33,16 @@ export interface Settings {
   copyArt: boolean;
   /** Open the manager in the browser when it starts. */
   openBrowser: boolean;
+  /** "pending" from a first start with a clean cache until the setup wizard is finished. */
+  wizard: "pending" | "done";
 }
 
 type Folder = "roms" | "apps" | "os" | "bios" | "backups";
 const FOLDERS: Folder[] = ["roms", "apps", "os", "bios", "backups"];
+const WORKSPACE_NAMES: Record<Folder, string> = { roms: "Roms", apps: "apps", os: "os", bios: "bios", backups: "backups" };
 const FOLDER_NAMES: Record<Folder, string> = { roms: "Roms folder", apps: "apps folder", os: "OS images folder", bios: "BIOS folder", backups: "backups folder" };
 
-const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", copyArt: true, openBrowser: true };
+const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", copyArt: true, openBrowser: true, wizard: "done" };
 let current: Settings = { ...DEFAULTS };
 const defaults: Record<Folder, string> = { roms: "", apps: "", os: "", bios: "", backups: "" };
 
@@ -54,6 +58,7 @@ export const settings = (): Readonly<Settings> => current;
 /** Reads the settings and points ctx.roms, ctx.apps, ctx.os, ctx.bios and ctx.backups at the chosen folders. Call after --root is applied. */
 export async function loadSettings(): Promise<void> {
   for (const f of FOLDERS) defaults[f] = ctx[f];
+  const fresh = !(await listDir(ctx.cacheDir)).some((e) => !e.name.startsWith("."));
   try {
     const saved = JSON.parse(await fsp.readFile(settingsFile(), "utf8")) as Partial<Settings>;
     const text = (v: unknown) => (typeof v === "string" ? v : "");
@@ -65,11 +70,43 @@ export async function loadSettings(): Promise<void> {
       backups: text(saved.backups),
       copyArt: saved.copyArt !== false,
       openBrowser: saved.openBrowser !== false,
+      wizard: saved.wizard === "pending" ? "pending" : "done",
     };
   } catch {
-    current = { ...DEFAULTS };
+    current = { ...DEFAULTS, wizard: fresh ? "pending" : "done" };
+    if (fresh) await save();
   }
   for (const f of FOLDERS) if (current[f]) ctx[f] = current[f];
+}
+
+export const firstRun = () => current.wizard === "pending";
+
+/**
+ * Creates the workspace folders that are missing: Roms (with a folder per MustardOS system when it has none yet),
+ * apps, os, bios and backups. With base, the folders go there and become the chosen folders. Never touches files.
+ */
+export async function createWorkspace(base = ""): Promise<string[]> {
+  const created: string[] = [];
+  const mkdir = async (dir: string) => {
+    if (await isDir(dir)) return;
+    await fsp.mkdir(dir, { recursive: true });
+    created.push(dir);
+  };
+  if (base) {
+    const root = path.resolve(base.replace(/^~(?=$|\/)/, os.homedir()));
+    for (const f of FOLDERS) {
+      const dir = path.join(root, WORKSPACE_NAMES[f]);
+      await mkdir(dir);
+      const isDefault = dir === defaults[f];
+      current[f] = isDefault ? "" : dir;
+      ctx[f] = dir;
+    }
+    await save();
+  } else {
+    for (const f of FOLDERS) await mkdir(ctx[f]);
+  }
+  if (!(await systemFolders(ctx.roms))) for (const code of tf2Systems()) await mkdir(path.join(ctx.roms, code));
+  return created;
 }
 
 async function save(): Promise<void> {
@@ -129,6 +166,8 @@ export async function settingsJson() {
     folders: Object.fromEntries(await Promise.all(FOLDERS.map(async (f) => [f, await folderInfo(f)]))),
     cache: await cacheUsage(),
     pickFolder: !!platform.pickFolder,
+    root: ctx.root,
+    wizard: current.wizard === "pending",
     fileManager: platform.name === "macOS" ? "Finder" : platform.name === "Windows" ? "Explorer" : "the file manager",
   };
 }
@@ -158,6 +197,7 @@ export async function saveSettings(body: Record<string, unknown>) {
   }
   if (typeof body.copyArt === "boolean") current.copyArt = body.copyArt;
   if (typeof body.openBrowser === "boolean") current.openBrowser = body.openBrowser;
+  if (body.wizard === "pending" || body.wizard === "done") current.wizard = body.wizard;
   await save();
   if (rescan) {
     say("cyan", "SETTINGS", `Roms folder is now ${ctx.roms}.`);

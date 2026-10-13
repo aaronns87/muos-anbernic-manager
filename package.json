@@ -1,7 +1,8 @@
 {
   "name": "muos-anbernic-manager",
   "version": "2.0.0",
-  "description": "Local manager for an Anbernic RG40XX H running MustardOS: device status, games and artwork over TF2 or USB (MTP).",
+  "description": "Local manager for Anbernic and TrimUI handhelds running MustardOS: games, artwork, apps, themes, ports and settings over a card reader, USB or Wi-Fi.",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {

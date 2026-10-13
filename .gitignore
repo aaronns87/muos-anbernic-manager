@@ -31,3 +31,4 @@ desktop.ini
 .idea/
 *.swp
 *~
+.cache-backup-*/
