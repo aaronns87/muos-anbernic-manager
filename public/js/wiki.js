@@ -220,7 +220,20 @@ const ARTICLES = [
         <li><b>Change</b> sets the system and core for a whole folder. <b>Keep the games with their own core</b> leaves games that you gave their own core alone.</li>
         <li>You can also give one game its own core, and later switch it back with <b>Use the folder's core</b>.</li>
         <li>MustardOS also remembers a core per game when you start a game with a different core on the handheld.</li>
+        <li><i>Needs a system</i> means MustardOS has no system with the folder's name. The note under the folder says why: its games may run under
+          another system (MAME and CPS folders under Arcade, FDS under NES), it may need an extra core, or nothing on the handheld runs it.</li>
       </ul>`],
+    ["Systems", `<p>Lists every system the manager knows, grouped like the Games section, with what MustardOS on the handheld can do with it.
+      By default only systems with games in your library are shown; <b>Show all systems</b> lists the rest.</p>
+      <ul>
+        <li><b>On the handheld</b>: MustardOS has the system, shown with its default core and how many cores it has.</li>
+        <li><b>Pick its system</b>: the games run under another MustardOS system. Set it for the folder in the Cores tab.</li>
+        <li><b>Needs an extra core</b>: MustardOS 2601 Jacaranda leaves the system out (Sega Saturn, Nintendo DS, WonderSwan, Virtual Boy, MSX,
+          the smaller Atari machines and others). Newer MustardOS versions offer optional cores for them under
+          ${path("Configuration", "Advanced Settings", "Extra Cores")}. Some, like the Saturn, are too demanding to run well on these handhelds.</li>
+        <li><b>No core</b>: nothing in MustardOS runs these games, such as PolyGame Master 2 and OpenBOR.</li>
+      </ul>
+      <p>The list needs the handheld over Wi-Fi with Secure Shell on, like the Cores tab.</p>`],
     ["RetroArch", `<p>Most systems run in RetroArch. This tab sets its picture and play options per ROM folder, without opening RetroArch's menu on the handheld:
       aspect ratio, integer scaling, smoothing, shader, overlay (screen border) and its opacity, rewind and the FPS counter.</p>
       <ul>

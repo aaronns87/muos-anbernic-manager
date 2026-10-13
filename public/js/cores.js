@@ -2,6 +2,7 @@
 
 import { $, api, esc, icon, plural, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { systemNote, useCore, useSystem } from "./system-notes.js";
 
 const K = { data: null, error: "", loading: false, saving: "", edit: "", draft: null, games: {}, all: false, wifi: undefined };
 
@@ -33,6 +34,7 @@ async function load() {
 
 const system = (name) => K.data.systems.find((s) => s.name === name);
 const coreName = (sys, key) => system(sys)?.cores.find((c) => c.key === key)?.name || key;
+const libraryName = (folder) => K.data.library?.find((s) => s.code === folder.toUpperCase())?.name || "";
 const current = (f) => (f.folder ? { system: f.folder.system, core: f.folder.key } : f.auto ? { system: f.auto, core: system(f.auto)?.defaultCore || "" } : { system: "", core: "" });
 
 function coreOptions(sys, selected) {
@@ -86,6 +88,7 @@ function folderRow(f) {
       ${chip}
       <button class="btn small${editing ? " ghost" : ""}" data-co="edit" data-folder="${esc(f.name)}"${K.saving ? " disabled" : ""}>${editing ? "Close" : "Change"}</button>
     </div>
+    ${cur.system ? "" : `<p class="core-note">${icon("info")}<span>${systemNote(f.name, libraryName(f.name))}</span></p>`}
     ${f.overrides.length ? `<div class="core-games">${f.overrides.map((o) => `<div class="core-game">
         <span class="core-game-name" title="${esc(o.file || o.name)}">${esc(o.name)}</span>
         <span class="muted-note">${esc(coreName(o.system, o.key))}${o.system !== cur.system ? ` &middot; ${esc(o.system)}` : ""}</span>
@@ -124,8 +127,10 @@ async function openEditor(name) {
   if (K.edit === name) { K.edit = ""; render(); return; }
   const f = K.data.folders.find((x) => x.name === name);
   const cur = current(f);
+  const sys = cur.system || (system(useSystem(name)) ? useSystem(name) : "");
+  const core = cur.core || (cur.system ? "" : useCore(name, system(sys)?.cores)) || system(sys)?.defaultCore || "";
   K.edit = name;
-  K.draft = { system: cur.system, core: cur.core || system(cur.system)?.defaultCore || "", keep: false, file: "", gameCore: cur.core };
+  K.draft = { system: sys, core, keep: false, file: "", gameCore: core };
   render();
   if (!K.games[name]) {
     try { K.games[name] = await api(`cores/games?folder=${encodeURIComponent(name)}`); } catch (error) { K.games[name] = { error: error.message }; }

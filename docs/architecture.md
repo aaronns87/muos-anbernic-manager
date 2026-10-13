@@ -70,8 +70,8 @@ of DOM and Node APIs.
   `ICONS`, `store` (localStorage `manager.*`), `app` (shared state), `toast`, `plural`, `human`, model helpers.
 - `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`).
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
-  (+ `updates.js`), `handheld.js`, `themes.js`, `emulation.js` (+ `bios.js`, `cores.js`, `retroarch.js`,
-  `saves.js`, `checks.js`), `files.js`, `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
+  (+ `updates.js`), `handheld.js`, `themes.js`, `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
+  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
   their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
   `manager-update.js`, `activity.js`.

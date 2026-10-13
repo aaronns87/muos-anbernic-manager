@@ -4,6 +4,7 @@ import { $, app, icon, store } from "./core.js";
 import { bindBios, renderBios, showBios } from "./bios.js";
 import { bindChecks, renderChecks, showChecks } from "./checks.js";
 import { bindCores, renderCores, showCores } from "./cores.js";
+import { bindSystems, renderSystems, showSystems } from "./emu-systems.js";
 import { bindRetroarch, renderRetroarch, showRetroarch } from "./retroarch.js";
 import { bindSaves, renderSaves, showSaves } from "./saves.js";
 
@@ -11,6 +12,7 @@ const TABS = [
   ["saves", "save", "Saves", showSaves, renderSaves, "Saves and save states on the handheld: back them up and restore them"],
   ["bios", "shield", "BIOS", showBios, renderBios, "BIOS files the emulators need, checked by MD5 and sent to the handheld"],
   ["cores", "chip", "Cores", showCores, renderCores, "The core MustardOS starts for each ROM folder, and for single games"],
+  ["systems", "layers", "Systems", showSystems, renderSystems, "Which systems MustardOS on the handheld can run, and why some are missing"],
   ["retroarch", "sliders", "RetroArch", showRetroarch, renderRetroarch, "Picture and play options for each ROM folder, saved as RetroArch overrides"],
   ["checks", "hash", "Library check", showChecks, renderChecks, "Your Roms/ library checked against No-Intro, and games you have more than once"],
 ];
@@ -36,6 +38,7 @@ export function showEmulation() {
     bindSaves($("view-emulation"));
     bindBios($("view-emulation"));
     bindCores($("view-emulation"));
+    bindSystems($("view-emulation"));
     bindRetroarch($("view-emulation"));
     bindChecks($("view-emulation"));
   }

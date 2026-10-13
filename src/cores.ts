@@ -6,6 +6,8 @@ import { Readable } from "node:stream";
 import { parseIni } from "./bios.ts";
 import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
+import { getLibrary } from "./games/library.ts";
+import { SYSTEMS } from "./games/systems.ts";
 import { say } from "./log.ts";
 import { shq as quote } from "./util.ts";
 
@@ -81,7 +83,7 @@ async function read() {
 /** Every ROM folder on the handheld with the core it starts, and the games that have their own core. */
 export async function coresJson() {
   const { status, data } = await read();
-  if (!data) return { reachable: false, host: status.host, frontend: false, systems: [], folders: [] };
+  if (!data) return { reachable: false, host: status.host, frontend: false, systems: [], folders: [], library: await librarySystems() };
   const norm = (s: string) => s.toLowerCase().replace(/[ \-_+]/g, "");
   const auto = (folder: string) => {
     const name = data.aliases[norm(folder)];
@@ -103,7 +105,14 @@ export async function coresJson() {
     return { name, count, folder, auto: folder ? "" : auto(name), overrides: overrides.sort((a, b) => a.name.localeCompare(b.name)), following };
   });
   const systems = [...data.systems.values()].filter((s) => s.cores.length).map(({ aliases: _, ...s }) => s).sort((a, b) => a.name.localeCompare(b.name));
-  return { reachable: true, host: status.host, frontend: data.frontend, systems, folders };
+  return { reachable: true, host: status.host, frontend: data.frontend, systems, folders, library: await librarySystems(auto) };
+}
+
+/** Every system the games library knows, with its game count and the MustardOS system its folder name matches. */
+async function librarySystems(auto: (folder: string) => string = () => "") {
+  const lib = await getLibrary().catch(() => null);
+  const counts = new Map((lib?.systems ?? []).map((s) => [s.code, s.games.length]));
+  return SYSTEMS.map(([code, name, , , category]) => ({ code, name, category, games: counts.get(code) ?? 0, system: auto(code) }));
 }
 
 async function context(body: Record<string, unknown>) {

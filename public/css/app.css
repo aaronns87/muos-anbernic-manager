@@ -1969,6 +1969,12 @@ body.has-hh-bar #view-handheld { padding-bottom: 90px; }
 .core-keep { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .core-keep input { accent-color: var(--mustard); }
 .core-one { padding-top: 10px; border-top: 1px dashed var(--line); }
+.core-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 0 14px 10px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.core-note .i { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.core-note b { color: var(--text); }
+.sys-main { grid-template-columns: minmax(110px, 190px) minmax(0, 1fr) auto; }
+.core-now b small { color: var(--muted); font-weight: 500; font-size: 11.5px; margin-left: 4px; }
+.sys-cat { margin: 6px 0 0; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .sv-ok { display: flex; align-items: center; gap: 6px; }
 .sv-ok .i { width: 14px; height: 14px; color: var(--ok); }
 .chk-switch { margin-bottom: 14px; }
@@ -2133,6 +2139,7 @@ dialog.help[open] { display: flex; flex-direction: column; }
   .core-now { grid-column: 1 / -1; grid-row: 2; }
   .core-main > .btn { grid-column: 2; grid-row: 1; }
   .core-main > .set-chip { display: none; }
+  .sys-main > .set-chip { display: inline-flex; grid-column: 2; grid-row: 1; }
   .core-edit-row label { min-width: 0; flex: 1 1 100%; }
   .core-game { flex-wrap: wrap; }
   .bios-file { flex-wrap: wrap; }
