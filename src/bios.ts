@@ -297,6 +297,23 @@ export async function biosJson(query?: URLSearchParams) {
   };
 }
 
+/** The BIOS files a ROM folder's system needs, checked against the bios folder; null before the BIOS tab has read the handheld. */
+export async function folderBios(folder: string) {
+  const catalog = await cachedCatalog();
+  if (!catalog) return null;
+  const s = catalog.systems.find((x) => norm(x.name) === norm(folder) || x.aliases.some((a) => norm(a) === norm(folder)));
+  if (!s) return { system: "", required: false, requiredBy: [] as string[], files: [] as { path: string; desc: string; state: State }[] };
+  const local = (await isDir(ctx.bios)) ? await localFiles() : [];
+  const files = s.main.map((key) => {
+    const f = catalog.files[key];
+    const here = local.find((x) => x.rel.toLowerCase() === key);
+    const ok = (here && (!f.md5s.length || f.md5s.includes(here.md5))) || (f.md5s.length && local.some((x) => f.md5s.includes(x.md5)));
+    return { path: f.path, desc: f.desc, state: (ok ? "ok" : here ? "unknown" : "missing") as State };
+  });
+  const def = s.cores.find((c) => c.key === s.defaultCore);
+  return { system: s.name, required: !!def?.required, requiredBy: s.cores.filter((c) => c.required).map((c) => c.name), files };
+}
+
 // ---------------------------------------------------------------- sending and adding
 
 /** Copies BIOS files from the bios folder to the handheld over SSH, checking each copy's MD5. */

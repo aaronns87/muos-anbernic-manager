@@ -121,6 +121,7 @@ function bindShared() {
   document.addEventListener("keydown", (e) => {
     if (document.querySelector("dialog[open]:not(#viewer)")) return;
     if ($("viewer").open) {
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
       if (e.key === "ArrowLeft") openViewer(app.current - 1);
       if (e.key === "ArrowRight") openViewer(app.current + 1);
       return;

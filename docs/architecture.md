@@ -74,7 +74,9 @@ of DOM and Node APIs.
   `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
   their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
-  `manager-update.js`, `activity.js`.
+  `manager-update.js`, `activity.js`. The library game viewer is opened by `games.js` and filled by
+  `game-view.js` (status cards, tabs, related games), which reads `GET /api/game` and the handheld's play,
+  collections, cores and saves lists, kept for two minutes across games.
 - `wiki.js`: `ARTICLES` = `[id, icon, title, section, summary, [[heading, html], ...]]`; the `?` button opens
   the article for the current section.
 

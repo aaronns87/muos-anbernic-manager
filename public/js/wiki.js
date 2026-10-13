@@ -112,8 +112,21 @@ const ARTICLES = [
       </ul>
       <p>Ports land on TF2 when it is in (<code>/mnt/sdcard/ports</code>), otherwise on SD1. Files you put in <code>Roms/PORTS</code> on this computer
       are not copied.</p>`],
-    ["One game in detail", `<p>Click a game to see its big artwork and description. You can write your own description; it is saved next to the game in
-      <code>Roms/&lt;SYSTEM&gt;/Text/</code>.</p>`],
+    ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
+      (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>
+      <p>With the handheld connected, cards at the top show whether the game is on it, the core it starts with, how long you have played
+      it and its saves. If its folder has no system yet, the card offers a one-click fix, such as using Arcade for CPS3 games.</p>
+      <p>The tabs hold the rest:</p>
+      <ul><li><b>About</b>: the description and its source, a video from YouTube when the database has one, and <b>Write your own</b>.
+      Your description is saved next to the game in <code>Roms/&lt;SYSTEM&gt;/Text/</code>.</li>
+      <li><b>Details</b>: the database facts, the file (size, date, CRC32, path), the library check result, the BIOS files the system
+      needs, and for arcade games the parent or clone set.</li>
+      <li><b>Handheld</b>: the core and who set it, play time (total, launches, average session, first and last played, cores used),
+      collections and save files. <b>Read again</b> refreshes it.</li>
+      <li><b>Related</b>: other versions, the arcade family, the same series, more from the developer and more of the genre. Opening one
+      adds a <b>Back</b> link.</li></ul>
+      <p>Drop an image on the artwork, or use <b>Replace artwork</b>, to change the box art. <b>Show in Finder</b> (Explorer on Windows)
+      opens the game's folder.</p>`],
     ["Deleting a game", `<p>From this computer it goes to the Trash, optionally with its artwork. From the handheld's card it is deleted for good.</p>`],
   ]],
   ["play", "clock", "Play", "play", "Play time, recently played games and collections on the handheld.", [

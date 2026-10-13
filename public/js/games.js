@@ -13,6 +13,7 @@ import { artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-imag
 import { consoleIcon } from "./consoles.js";
 import { portsSection } from "./ports.js";
 import { openFreeScummvm } from "./free-scummvm.js";
+import { bindGameView, enrichViewer } from "./game-view.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -461,30 +462,6 @@ function observeSections() {
 
 // ---------------------------------------------------------------- one library game
 
-function aboutHtml(m) {
-  if (!m) return `<div class="no-desc">No description found for this game.</div>`;
-  const facts = [
-    m.y ? `<span>${esc(m.y)}</span>` : "",
-    ...String(m.g || "").split(/,\s*/).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`),
-    m.pl ? `<span>${esc(m.pl)} player${m.pl === "1" ? "" : "s"}</span>` : "",
-    m.r ? `<span class="stars" title="LaunchBox community rating from ${m.rc} votes">&#9733; ${m.r.toFixed(1)} / 5 (${m.rc.toLocaleString()})</span>` : ""
-  ].join("");
-  const paragraphs = String(m.d || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
-    .map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
-  const links = [
-    m.id ? `<a href="https://gamesdb.launchbox-app.com/games/details/${encodeURIComponent(m.id)}" target="_blank" rel="noopener">LaunchBox</a>` : "",
-    /^https?:\/\//.test(m.w || "") ? `<a href="${esc(m.w)}" target="_blank" rel="noopener">Wikipedia</a>` : "",
-    /^https?:\/\//.test(m.v || "") ? `<a href="${esc(m.v)}" target="_blank" rel="noopener">Video</a>` : ""
-  ].filter(Boolean).join(" &middot; ");
-  const source = m.u ? `Your own description${m.id ? `, alongside LaunchBox details for &ldquo;${esc(m.n)}&rdquo;` : ""}` : m.id ? `Matched as &ldquo;${esc(m.n)}&rdquo; in the LaunchBox Games Database` : "Details from the MAME arcade list";
-  return `<div style="display:flex;flex-direction:column;gap:10px">
-    ${facts ? `<div class="facts">${facts}</div>` : ""}
-    ${paragraphs ? `<div class="desc clamp" id="v-desc">${paragraphs}</div><button class="link-btn" id="v-more">Read more</button>`
-      : `<div class="no-desc">No description available.</div>`}
-    <div class="source">${source}${links ? ` &middot; ${links}` : ""}</div>
-  </div>`;
-}
-
 export function openViewer(index) {
   if (index < 0 || index >= app.visible.length) return;
   app.current = index;
@@ -495,25 +472,9 @@ export function openViewer(index) {
   $("v-art").innerHTML = g.i ? `<img src="${g.i}" alt="">` : `<span class="ph">${esc(initial(g.t))}</span>`;
   $("v-sys").innerHTML = `<span class="code" style="--accent:${sys.accent}">${esc(sys.code)}</span> ${esc(sys.name)}`;
   $("v-title").textContent = g.t;
-  $("v-tags").innerHTML = g.g.map((t) => `<span>${esc(t)}</span>`).join("");
-  const m = g.lb ? app.data.meta[g.lb] : null;
-  $("v-about").innerHTML = aboutHtml(m);
-  const rows = [
-    ["File", `<code>${esc(g.f)}</code>`],
-    g.a ? ["Arcade set", `<code>${esc(g.a)}</code>`] : null,
-    m && m.dev ? ["Developer", esc(m.dev)] : null,
-    m && m.pub ? ["Publisher", esc(m.pub)] : null,
-    ["Size", human(g.s)],
-    ["Type", esc(g.x.toUpperCase() || "-")],
-    ["File date", new Date(g.m * 1000).toLocaleDateString()],
-    ["Artwork", g.i ? "Yes" : "Missing"],
-    canCopy(sys) ? [esc(devName()), { same: "Transferred", check: "Transferred (date differs)", changed: `Different copy on ${esc(devName())}` }[onCardState(sys, g)] || "Not transferred yet"] : null,
-    ["Path", `<code>${esc(g.p)}</code>`]
-  ].filter(Boolean);
   $("v-transfer").hidden = !canCopy(sys);
   $("v-transfer-label").textContent = `Transfer to ${devName()}`;
   $("v-delete").hidden = EXCLUDED.has(sys.code);
-  $("v-meta").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
   const openArt = $("v-open-art");
   openArt.style.display = g.i ? "" : "none";
   if (g.i) openArt.href = g.i;
@@ -522,12 +483,18 @@ export function openViewer(index) {
   $("v-next").style.visibility = index < app.visible.length - 1 ? "visible" : "hidden";
   if (!viewer.open) viewer.showModal();
   viewer.scrollTop = 0;
-  const more = $("v-more");
-  if (more) {
-    const desc = $("v-desc");
-    if (desc.scrollHeight <= desc.clientHeight + 4) { desc.classList.remove("clamp"); more.remove(); }
-    else more.addEventListener("click", () => { desc.classList.remove("clamp"); more.remove(); });
+  enrichViewer(index);
+}
+
+/** Rescans Roms/ and shows the game with this key again, after its artwork or description changed. */
+async function reloadGame(key) {
+  await api("games/rescan", {});
+  await loadLibrary();
+  let idx = app.visible.findIndex(([si, g]) => keyOf(app.data.systems[si], g) === key);
+  if (idx < 0) {
+    app.data.systems.forEach((sys, si) => sys.games.forEach((g) => { if (idx < 0 && keyOf(sys, g) === key) idx = app.visible.push([si, g]) - 1; }));
   }
+  if (idx >= 0) openViewer(idx);
 }
 
 let removing = null;
@@ -1228,6 +1195,7 @@ export function bindGames() {
     startPlan([keyOf(app.data.systems[si], g)], `${g.t} (${app.data.systems[si].code}/${g.f})`);
   });
   $("v-delete").addEventListener("click", openRemove);
+  bindGameView({ open: openViewer, reload: reloadGame });
   $("v-close").addEventListener("click", () => $("viewer").close());
   $("v-prev").addEventListener("click", () => openViewer(app.current - 1));
   $("v-next").addEventListener("click", () => openViewer(app.current + 1));

@@ -142,6 +142,10 @@ export const darwin: Platform = {
     detached("open", [url]);
   },
 
+  reveal(file) {
+    detached("open", ["-R", file]);
+  },
+
   async pickFolder(prompt, start) {
     const quote = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
     const script = `POSIX path of (choose folder with prompt ${quote(prompt)} default location POSIX file ${quote(start)})`;

@@ -260,13 +260,24 @@
 <dialog id="viewer">
   <div class="viewer-wrap">
     <div class="viewer">
-      <div class="viewer-art" id="v-art"></div>
+      <div class="viewer-art" id="v-art-wrap">
+        <div class="v-art" id="v-art"></div>
+        <button class="btn small v-art-replace" id="v-art-replace" title="Choose an image, or drop one on the artwork">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+          <span>Replace artwork</span>
+        </button>
+      </div>
       <div class="viewer-info">
-        <div class="viewer-sys" id="v-sys"></div>
-        <h2 id="v-title"></h2>
-        <div class="tags" id="v-tags"></div>
-        <div id="v-about"></div>
-        <dl id="v-meta"></dl>
+        <div class="viewer-head">
+          <button class="link-btn v-back" id="v-back" hidden></button>
+          <div class="viewer-sys" id="v-sys"></div>
+          <h2 id="v-title"></h2>
+          <div class="tags" id="v-tags"></div>
+          <div class="v-facts" id="v-facts"></div>
+        </div>
+        <div class="v-cards" id="v-cards"></div>
+        <div class="v-tabs" role="tablist" aria-label="Game details" id="v-tabs"></div>
+        <div class="v-pane" id="v-pane" role="tabpanel"></div>
         <div class="viewer-actions">
           <button class="btn primary v-main" id="v-transfer" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>
@@ -274,6 +285,10 @@
           </button>
           <div class="v-row">
             <div class="v-group">
+              <button class="btn" id="v-reveal" title="Show the ROM file on this computer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                <span id="v-reveal-label">Show in folder</span>
+              </button>
               <button class="btn" id="v-copy" title="Copy the ROM's full path on this computer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
                 Copy path

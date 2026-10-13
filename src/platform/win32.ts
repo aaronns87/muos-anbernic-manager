@@ -80,4 +80,7 @@ export const win32: Platform = {
     if (/^https?:\/\//i.test(url)) detached("rundll32.exe", ["url.dll,FileProtocolHandler", url]);
     else detached("explorer.exe", [url]);
   },
+  reveal(file) {
+    detached("explorer.exe", [`/select,${file}`]);
+  },
 };

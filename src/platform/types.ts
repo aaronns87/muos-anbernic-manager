@@ -45,6 +45,8 @@ export interface Platform {
   usbHolders?(): Promise<{ pid: number; name: string }[] | null>;
   libmtpPaths: string[];
   openUrl(url: string): void;
+  /** Shows a file selected in Finder or Explorer; on Linux opens its folder. */
+  reveal(file: string): void;
   /** The system's own folder picker; resolves to "" when cancelled. Missing where there is none. */
   pickFolder?(prompt: string, start: string): Promise<string>;
   /** The system's own file picker limited to these extensions; resolves to "" when cancelled. */

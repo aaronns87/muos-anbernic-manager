@@ -21,6 +21,8 @@ export interface Game {
   t: string; k: string; f: string; x: string; s: number; m: number; g: string[]; a: string; i: string; p: string; lb: string;
   /** ScummVM only: files in the game's data folder (counted in s). */
   n?: number;
+  /** Arcade only: the MAME parent set when this game is a clone. */
+  c?: string;
 }
 
 export interface System {
@@ -108,7 +110,8 @@ function describer(metadata: MetadataIndex | null, metaOut: Record<string, GameM
 export async function scanLibrary(): Promise<Library> {
   const arcadeNames = await loadArcadeNames();
   const metaOut: Record<string, GameMeta> = {};
-  const describe = describer(await loadIndex(), metaOut);
+  const index = await loadIndex();
+  const describe = describer(index, metaOut);
   const known = new Map(SYSTEMS.map((s) => [s[0], s]));
   for (const dir of await listDir(ctx.roms)) {
     if (dir.isDirectory() && !dir.name.startsWith(".") && !known.has(dir.name) && !SKIP_FOLDERS.has(dir.name.toUpperCase())) {
@@ -155,6 +158,7 @@ export async function scanLibrary(): Promise<Library> {
         t: title, k: sortKey(title), f: fileName, x: ext, s: size, m: Math.trunc(st.mtimeMs / 1000), g: tags,
         a: fullName ? stem : "", i: image ? imageUrl(code, image) : "", p: `Roms/${code}/${fileName}`, lb,
         ...(isRunner(code, fileName) ? { n: extra.length } : {}),
+        ...(ARCADE.has(code) && index?.mame[stem]?.c ? { c: index.mame[stem].c } : {}),
       });
       totals.games++;
       totals.bytes += size;

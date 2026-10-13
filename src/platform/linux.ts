@@ -125,4 +125,7 @@ export const linux: Platform = {
   openUrl(url) {
     detached("xdg-open", [url]);
   },
+  reveal(file) {
+    detached("xdg-open", [path.dirname(file)]);
+  },
 };

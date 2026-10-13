@@ -40,6 +40,15 @@ test("the library lists the temp workspace's games", async () => {
   assert.equal(sf2.a, "sf2");
 });
 
+test("one game's details list its other versions; unknown games are refused", async () => {
+  const { status, json } = await api(`game?code=GB&file=${encodeURIComponent("Tetris (World).gb")}`);
+  assert.equal(status, 200);
+  assert.equal(json.check.supported, true);
+  assert.deepEqual(json.check.copies.map((c: { f: string }) => c.f), ["Tetris (Japan).gb"]);
+  assert.equal((await api("game?code=GB&file=Nope.gb")).status, 400);
+  assert.equal((await api("game/reveal", { code: "GB", file: "../../etc/passwd" })).status, 400);
+});
+
 test("duplicates: one group for Tetris, keeping the preferred region", async () => {
   const usa = (await api("checks?prefer=usa")).json;
   assert.equal(usa.run.running, false);

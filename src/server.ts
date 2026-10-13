@@ -27,6 +27,7 @@ import { deviceFor } from "../public/js/devices.js";
 import { UserError } from "./errors.ts";
 import { deleteGame } from "./games/actions.ts";
 import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./games/add.ts";
+import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
@@ -104,6 +105,8 @@ const routes: Record<string, Handler> = {
   "POST /api/ports/uninstall": (_, body) => uninstallPort(body),
   "PUT /api/ports/upload": (query, _, req) => uploadPortFile(req, query),
   "GET /api/games": async () => ({ raw: await libraryJson() }),
+  "GET /api/game": (q) => gameDetails(q),
+  "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
     requireIdle("Wait for the current job to finish first.");
     const library = await rescanLibrary();
