@@ -26,12 +26,13 @@ Prefer minor over major. The new number must be higher than the current `VERSION
 - [ ] 3. Move CHANGELOG.md "Unreleased" to the new version
 - [ ] 4. npm run check && npm test
 - [ ] 5. Commit "Version X.Y.Z" and push
+- [ ] 6. Tag vX.Y.Z and create the GitHub release with the changelog section as notes
 ```
 
 In `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]`
-above it, add a row to the version history table, and update the links at the bottom (`[Unreleased]` compares the
-release commit with `main`; `[X.Y.Z]` points at the release commit, or at the tag if one is made). If Unreleased is
-empty, ask what the release contains before releasing.
+above it, add a row to the version history table, and update the links at the bottom (`[Unreleased]` compares
+`vX.Y.Z` with `main`; `[X.Y.Z]` points at `tree/vX.Y.Z`). If Unreleased is empty, ask what the release contains
+before releasing.
 
 ```bash
 V=1.3.0
@@ -42,10 +43,14 @@ npm run check && npm test
 git add VERSION package.json package-lock.json CHANGELOG.md
 git commit -m "Version $V"
 git push origin main
+git tag "v$V" && git push origin "v$V"
+awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[|^\[Unreleased\]:/ {f=0} f' CHANGELOG.md > /tmp/notes.md
+gh release create "v$V" --verify-tag --title "$V" --notes-file /tmp/notes.md --latest
 ```
 
-Release commits contain only the version change and the changelog (features are committed before). Tags and GitHub releases are
-optional; the update check reads `VERSION` on `main`, not tags.
+Release commits contain only the version change and the changelog (features are committed before). The GitHub release
+is only for the repository page: the update check reads `VERSION` on `main` and updates pull `main`, never tags or
+releases. Release notes must use absolute links, since relative ones break on the releases page.
 
 ## How users get it
 

@@ -47,7 +47,9 @@ norm; major releases are kept for big or breaking changes. Pull requests should 
 
 Add a line for every change users will notice under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) (Added, Changed,
 Fixed or Removed), written for users rather than developers. When releasing, the maintainer renames **Unreleased** to
-the new version and date and adds it to the version history table.
+the new version and date and adds it to the version history table, then tags the release commit `vX.Y.Z` and
+publishes a [GitHub release](https://github.com/aaronns87/muos-anbernic-manager/releases) with the same notes.
+Running managers only look at `VERSION` on `main`, so tags and releases never change what they offer.
 
 ## License
 

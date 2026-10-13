@@ -122,4 +122,4 @@ First public release, licensed under MIT.
 
 [Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.1.0...main
 [1.1.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.1.0
-[1.0.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/bc43b5c
+[1.0.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.0.0
