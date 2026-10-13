@@ -14,6 +14,7 @@ import { renderFiles } from "./files.js";
 import { renderPlay } from "./play.js";
 import { settingsDeviceChanged } from "./settings.js";
 import { openArtSync, openKeepOnCard } from "./artwork.js";
+import { viewerDeviceChanged } from "./game-view.js";
 
 const LIBMTP = {
   darwin: "brew install libmtp",
@@ -312,6 +313,7 @@ export function renderDevice() {
   if (section() === "play") renderPlay();
   settingsDeviceChanged();
   renderWizard();
+  viewerDeviceChanged();
 }
 
 export async function loadIndex() {

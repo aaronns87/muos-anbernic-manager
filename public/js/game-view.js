@@ -475,10 +475,24 @@ export function enrichViewer(index) {
   $("v-back").hidden = !V.back.length;
   const fm = fileManager();
   $("v-reveal-label").textContent = fm ? `Show in ${fm}` : "Open folder";
+  V.devSig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}`;
   loadDetails();
   loadDevice();
   paint();
   $("v-pane").scrollTop = 0;
+}
+
+/** Refreshes the handheld parts of an open viewer when the connection changes. */
+export function viewerDeviceChanged() {
+  if (!V.cur || !$("viewer").open) return;
+  const { sys } = V.cur;
+  const sig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}`;
+  if (sig === V.devSig) return;
+  V.devSig = sig;
+  $("v-transfer").hidden = !canCopy(sys);
+  $("v-transfer-label").textContent = `Transfer to ${devName()}`;
+  loadDevice();
+  paint("device");
 }
 
 function openAt(index) {

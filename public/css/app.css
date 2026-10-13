@@ -750,7 +750,8 @@ dialog::backdrop { background: rgba(6, 4, 3, .74); backdrop-filter: blur(6px); -
 .v-facts:empty, .v-cards:empty { display: none; }
 .viewer .muted { color: var(--muted); }
 
-.v-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.v-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.v-cards:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
 .v-card { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); cursor: pointer; min-width: 0; transition: border-color .15s; --tone: var(--muted); }
 .v-card:hover, .v-card:focus-visible { border-color: color-mix(in srgb, var(--tone) 55%, var(--line-2)); }
 .v-card.ok { --tone: var(--ok); }
