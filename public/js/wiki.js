@@ -52,7 +52,7 @@ const ARTICLES = [
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
       <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS, set up or wipe a card</td><td>Card reader</td></tr>
-      <tr><td>Library check, Updates, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
+      <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
     </table>`],
     ["What is safe", `<ul>
       <li>Deleting something on this computer moves it to the <b>Trash</b>, so you can put it back.</li>
@@ -140,9 +140,22 @@ const ARTICLES = [
     ["A good routine", `<p>Add games, run <b>Scrape</b> to fill in missing art, then <b>Sync</b> to put it on the handheld. The size pictures are saved at
       is set in Settings under <b>Uploaded artwork size</b>.</p>`],
   ]],
-  ["apps", "package", "Apps", "apps", "Install apps and updates on the handheld, and keep them current.", [
+  ["apps", "package", "Apps", "apps", "Find apps in the App market, install them and updates on the handheld, and keep them current.", [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
-      They sit in your <code>apps</code> folder; <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
+      They sit in your <code>apps</code> folder; the <b>App market</b>, <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
+    ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps, such as Scrappy, Artie, Grout and Bluetooth, with
+      screenshots, GitHub stars, the latest release notes and links to each app's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
+      <ul>
+        <li><b>Runs on the &hellip;</b> hides apps that cannot work on your handheld model, for example apps that need Wi-Fi on a model without it.
+          Badges warn about the rest: <i>Made for</i> another handheld, <i>No longer developed</i>, or a <i>Pre-release</i>.</li>
+        <li><b>Get</b> downloads the package that suits your handheld into the <code>apps</code> folder. Many apps publish one package per handheld
+          maker or MustardOS release; the manager picks the right one, and matches the MustardOS release once the handheld is connected over SSH.
+          <b>About</b> lists every package in the release if you want a different one.</li>
+        <li>Then <b>Send</b> it, or <b>Send and install</b> over Wi-Fi, as described below. Apps already on the handheld show <i>Installed</i>;
+          <b>Reinstall</b> in About replaces the app with the package in your <code>apps</code> folder, for example to update it.</li>
+      </ul>
+      <p>The apps come from their makers' GitHub releases and are not checked by MustardOS, so read an app's page before installing it.
+        The list is checked again every 12 hours; <b>Refresh</b> checks now.</p>`],
     ["Send, then install", `<ol>
       <li><b>Send</b> copies a package into the handheld's <code>ARCHIVE</code> folder. It shows under <b>Waiting in ARCHIVE</b>.</li>
       <li><b>Install</b> runs MustardOS's Archive Manager on the handheld over Wi-Fi with SSH. The handheld's menu closes while it works and comes back when it is done.
@@ -265,8 +278,17 @@ const ARTICLES = [
       images, BIOS files and save backups are kept.</p>`],
     ["Behaviour and looks", `<p><b>Transfers and startup</b> controls how copying and starting up behave. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],
-    ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists;
-      they are fetched again when needed.</p>`],
+    ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
+      scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
+      ROM check results. They are fetched or worked out again when needed.</p>`],
+    ["History and resets", `<p>Start some things over:</p>
+      <ul>
+        <li><b>Activity log</b> clears Recent activity on Overview.</li>
+        <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. The connection,
+          handheld model and SSH snippets stay.</li>
+        <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
+          handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>
+      </ul>`],
   ]],
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">

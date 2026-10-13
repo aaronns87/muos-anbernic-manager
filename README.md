@@ -50,7 +50,8 @@ per-session token. Nothing is uploaded anywhere.
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
-- **Apps**: install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
+- **Apps**: an app market of popular MustardOS apps with screenshots and release notes, picking the package for your
+  handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
 - **Device Settings**: change MustardOS settings (display, audio, network, interface and more) from the computer.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
 - **Emulation**: back up and restore saves and save states, check BIOS files, choose emulator cores per system or game,
