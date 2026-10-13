@@ -44,9 +44,9 @@ import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } fro
 import { biosJson, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
-import { browseFolders, clearCache, createWorkspace, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
+import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
 import { createShortcut } from "./shortcut.ts";
-import { managerStatus, updateManager } from "./manager-update.ts";
+import { managerStatus, restartManager, startedAt, updateManager } from "./manager-update.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
@@ -160,6 +160,12 @@ const routes: Record<string, Handler> = {
   "POST /api/settings/reveal": (_, body) => revealFolder(body),
   "POST /api/settings/refresh": (_, body) => refreshData(body),
   "POST /api/settings/clear-cache": (_, body) => clearCache(body),
+  "POST /api/settings/factory-reset": async (_, body) => {
+    const result = await factoryReset(body);
+    const restart = restartManager();
+    if (!restart) setTimeout(() => shutdownHook(), 400);
+    return { ...result, restart, started: startedAt() };
+  },
   "POST /api/settings/shortcut": async () => {
     const made = await createShortcut();
     say("green", "SHORTCUT", `Added the manager to ${made.place}: ${made.path}`);

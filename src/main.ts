@@ -216,7 +216,7 @@ async function main(): Promise<void> {
       if (mine.pid === process.pid && code === RESTART_CODE) await fsp.writeFile(instanceFile(), JSON.stringify({ ...mine, restart: Date.now() }), { mode: 0o600 });
       else if (mine.pid === process.pid) await fsp.rm(instanceFile(), { force: true });
     } catch {}
-    say("cyan", "CLOSED", code === RESTART_CODE ? "Starting the new version..." : "Manager stopped.");
+    say("cyan", "CLOSED", code === RESTART_CODE ? "Restarting the manager..." : "Manager stopped.");
     console.log();
     process.exit(code);
   };

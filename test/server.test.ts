@@ -126,6 +126,8 @@ test("settings clear the activity log, ROM check results and catalogues; handhel
   assert.equal(log.all, 1);
   assert.equal(log.entries[0].tag, "CLEARED");
   assert.equal((await api("settings/clear-cache", { what: "settings" })).status, 400);
+  assert.equal((await api("settings/factory-reset", { confirm: "reset", folders: ["roms"] })).status, 400);
+  assert.ok(fs.existsSync(path.join(cache, "activity.jsonl")));
 
   assert.equal((await api("play/reset", { what: "everything" })).status, 400);
   assert.equal((await api("play/reset", { what: "time" })).status, 400);

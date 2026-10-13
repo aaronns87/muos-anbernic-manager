@@ -21,7 +21,7 @@ import { clearScrapeCache } from "./scrape.ts";
 import { shortcutInfo } from "./shortcut.ts";
 import { clearThemeCache } from "./themes.ts";
 import { clearUpdateCache } from "./updates.ts";
-import { isDir, listDir } from "./util.ts";
+import { inside, isDir, listDir } from "./util.ts";
 import { APP_FILE, OS_FILE } from "./workspace.ts";
 import { tf2Systems } from "./system/ops.ts";
 
@@ -338,4 +338,62 @@ export async function clearCache(body: Record<string, unknown>) {
   };
   say("cyan", "CLEARED", LABELS[what]);
   return settingsJson();
+}
+
+export const RESET_WORD = "RESET";
+
+/** Why a factory reset must not move this folder: a drive root, the home folder, or anything holding the manager or its cache. */
+function resetBlocker(dir: string): string {
+  const d = path.resolve(dir);
+  if (d === path.parse(d).root || d === path.resolve(os.homedir())) return "is a whole drive or your home folder";
+  if (d === ctx.managerDir || d === ctx.cacheDir || inside(d, ctx.managerDir) || inside(d, ctx.cacheDir)) return "holds the manager itself";
+  return "";
+}
+
+/** Moves the chosen workspace folders and the whole cache (settings, logins, downloads, history) to the Trash, so the next
+ *  start is a first run. The handheld and its cards are not touched. Folders on another drive than the Mac's Trash stay. */
+export async function factoryReset(body: Record<string, unknown>) {
+  requireIdle("Wait for the current job to finish before a factory reset.");
+  if (body.confirm !== RESET_WORD) throw new UserError(`Type ${RESET_WORD} to confirm the factory reset.`);
+  const wanted = Array.isArray(body.folders) ? body.folders : [];
+  const chosen = FOLDERS.filter((f) => wanted.includes(f));
+  for (const f of chosen) {
+    const why = resetBlocker(ctx[f]);
+    if (why) throw new UserError(`The ${FOLDER_NAMES[f]} is ${ctx[f]}, which ${why}; the manager will not move it. Untick it, or choose another folder in Settings first.`);
+  }
+  const dirs = [...new Set(chosen.map((f) => path.resolve(ctx[f])))];
+  const tops = dirs.filter((d) => !dirs.some((o) => o !== d && inside(o, d)));
+  const trashDev = process.platform === "darwin" ? (await fsp.stat(path.join(os.homedir(), ".Trash")).catch(() => null))?.dev : undefined;
+  const trashed: string[] = [], kept: string[] = [];
+  for (const dir of tops) {
+    const st = await fsp.stat(dir).catch(() => null);
+    if (!st?.isDirectory()) continue;
+    if (trashDev !== undefined && st.dev !== trashDev) { kept.push(dir); continue; }
+    await platform.trash(dir);
+    trashed.push(dir);
+  }
+
+  const instances: [string, string][] = [];
+  for (const e of await listDir(ctx.cacheDir)) {
+    if (/^instance-.*\.json$/.test(e.name)) instances.push([e.name, await fsp.readFile(path.join(ctx.cacheDir, e.name), "utf8")]);
+  }
+  if (await isDir(ctx.cacheDir)) {
+    const named = path.join(path.dirname(ctx.cacheDir), `manager-cache-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}`);
+    await fsp.rename(ctx.cacheDir, named);
+    try {
+      await platform.trash(named);
+    } catch (error) {
+      await fsp.rename(named, ctx.cacheDir).catch(() => {});
+      throw error;
+    }
+  }
+  await fsp.mkdir(ctx.cacheDir, { recursive: true });
+  for (const [name, text] of instances) await fsp.writeFile(path.join(ctx.cacheDir, name), text, { mode: 0o600 });
+  current = { ...DEFAULTS, wizard: "pending" };
+  await save();
+  for (const f of FOLDERS) ctx[f] = defaults[f];
+  await createWorkspace();
+  say("yellow", "RESET", `Factory reset: moved ${trashed.length ? `${trashed.join(", ")} and ` : ""}the manager's settings, logins and downloads to the Trash.`);
+  if (kept.length) say("yellow", "RESET", `Left on their own drive (delete them yourself if you want): ${kept.join(", ")}`);
+  return { trashed, kept };
 }

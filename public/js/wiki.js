@@ -293,6 +293,17 @@ const ARTICLES = [
         <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
           handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>
       </ul>`],
+    ["Factory reset", `<p>The red panel at the bottom starts the manager over as if it had just been installed. It moves to the Trash:</p>
+      <ul>
+        <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios and backups;</li>
+        <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, downloaded game data and
+          catalogues, ROM check results and the activity log;</li>
+        <li>this browser's view preferences.</li>
+      </ul>
+      <p>Then it creates empty workspace folders, restarts and opens the setup wizard. Type <b>RESET</b> to confirm. The handheld and its cards are
+        not touched, and neither is the app shortcut. Nothing is deleted outright, so you can get it back from the Trash until you empty it. On a
+        Mac, a folder on another drive is left where it is instead of being copied to the Trash; delete it yourself if you want it gone.
+        When the manager was not started with <code>run.sh</code> or <code>run.cmd</code> it stops instead of restarting, so start it again.</p>`],
   ]],
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">

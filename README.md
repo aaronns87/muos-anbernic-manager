@@ -228,6 +228,8 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
 
 - Deleting something on the computer moves it to the **Trash**. Deleting on the handheld or its cards is **permanent**,
   and the manager says so before it does it.
+- **Settings > Factory reset** asks you to type RESET, then moves the game library, the other workspace folders and the
+  manager's cache to the Trash.
 - Anything that changes the handheld or erases a card asks first and explains what will happen. System Tools only offers
   removable cards, never internal disks.
 - Logins for Wi-Fi and SSH are stored in `muos-anbernic-manager/.cache/` on your computer only (file mode 600).
@@ -243,7 +245,9 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
   under the logo so the manager knows.
 - **Start over**: `./muos-anbernic-manager/installer.sh --clean-cache` (or `installer.cmd --clean-cache` on Windows)
-  moves the cache aside (Wi-Fi logins, downloads and settings) and shows the setup wizard on the next start.
+  moves the cache aside (Wi-Fi logins, downloads and settings) and shows the setup wizard on the next start. To also
+  clear your games and the other workspace folders, use **Settings > Factory reset**: it moves everything to the Trash,
+  creates empty folders and restarts into the setup wizard. The handheld is not touched.
 - **Windows asks whether to run `installer.cmd` or `run.cmd`**: files from a downloaded ZIP carry a "from the internet"
   mark. Choose **More info > Run anyway**, or right-click the ZIP, open **Properties**, tick **Unblock** and unpack it again.
 - **winget is missing on Windows**: install **App Installer** from the Microsoft Store, or install Node.js from

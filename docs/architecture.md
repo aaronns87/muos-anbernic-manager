@@ -115,6 +115,14 @@ function that also drops its in-memory copy. Logins, settings and the big downlo
 `POST /api/play/reset` (`time` writes `{}` to the tracker, `history` deletes `MUOS/info/history/*.cfg`)
 changes the handheld, and View preferences only removes this browser's `manager.*` localStorage keys.
 
+Factory reset (`POST /api/settings/factory-reset`, body `{confirm: "RESET", folders}`) trashes the chosen
+workspace folders (never a drive root, the home folder, the manager or cache folder; on macOS a folder on
+another device than `~/.Trash` is kept), then renames `.cache/` to `manager-cache-<time>` and trashes it.
+It keeps the `instance-*.json` files so the restarted process reuses the port and token, saves fresh
+settings with the wizard pending, recreates the default workspace and restarts through the exit-75 loop
+(or stops when not started by `run.sh` / `run.ps1`). The page clears its `manager.*` and `library.*`
+localStorage keys and reloads once `/api/manager` reports a new start time.
+
 ## Self-update (`src/manager-update.ts`, `public/js/manager-update.js`)
 
 `VERSION` is compared with `https://raw.githubusercontent.com/<repo>/main/VERSION` (repo from

@@ -64,7 +64,7 @@ function render() {
   }
   const d = s.data;
   $("settings-sub").textContent = d.settings.roms ? `Roms folder: ${d.roms}` : "Where the manager finds your games, and how it behaves";
-  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}</div>`;
+  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}${resetPanel()}</div>`;
 }
 
 const KINDS = {
@@ -276,6 +276,83 @@ function historyPanel(d) {
     </div></div>`);
 }
 
+function resetPanel() {
+  const working = s.working === "reset";
+  return panel("full set-danger", `${icon("alert")} Factory reset`, `<div class="set-row"><span><b>Start over from scratch</b>
+      <small>Moves your games and every other workspace folder (Roms, apps, OS images, BIOS, backups), plus all of the manager's settings,
+        Wi-Fi and SSH logins, downloads and history, to the Trash. The manager then creates empty workspace folders and restarts with the setup wizard, as on its first run.
+        Nothing on the handheld or its cards is changed.</small></span>
+    <button class="btn danger-solid" data-set="reset"${s.working || busy() ? " disabled" : ""}>${working ? `<span class="spinner"></span>` : icon("trash")}<span>${working ? "Resetting&hellip;" : "Factory reset&hellip;"}</span></button></div>`);
+}
+
+const RESET_FOLDERS = [["roms", "Roms", "your game library"], ["apps", "apps", "app packages"], ["os", "os", "MustardOS images"], ["bios", "bios", "BIOS files"], ["backups", "backups", "save backups from the handheld"]];
+
+async function factoryReset() {
+  const folders = RESET_FOLDERS.filter(([k]) => s.data.folders[k]?.available);
+  const rows = folders.map(([k, name, what]) => {
+    const f = s.data.folders[k], count = k === "roms" ? plural(app.all.length, "game") : plural(f.count, "file");
+    return `<label class="set-reset-row"><input type="checkbox" data-reset-folder="${k}" checked>
+      <span><b>${esc(name)}</b> &middot; ${esc(what)} &middot; ${count}<code><bdi>${esc(f.path)}</bdi></code></span></label>`;
+  }).join("");
+  const answer = confirmBox({
+    title: "Factory reset the manager?",
+    html: `<div class="notice err">${icon("alert")} <span>This removes your game library and everything else ticked below from this computer, and signs the manager
+        out of the handheld. It all goes to the Trash, so you can get it back until you empty the Trash.</span></div>
+      ${rows ? `<p><b>Folders to move to the Trash</b></p><div class="set-reset-list">${rows}</div>` : ""}
+      <p>Always moved to the Trash: the manager's settings, Wi-Fi and SSH logins, downloaded game data and catalogues, ROM check results and the
+        activity log. This browser forgets its view preferences too. Nothing on the handheld or its cards is changed.</p>
+      <p>Type <b>RESET</b> to confirm.</p>
+      <input class="control fx-input" id="reset-word" aria-label="Type RESET to confirm" autocomplete="off" spellcheck="false" placeholder="RESET">`,
+    ok: "Factory reset",
+    danger: true,
+  });
+  const ok = $("c-ok"), input = $("reset-word");
+  ok.disabled = true;
+  input.oninput = () => { ok.disabled = input.value.trim() !== "RESET"; };
+  input.onkeydown = (e) => { if (e.key === "Enter" && !ok.disabled) { e.preventDefault(); ok.click(); } };
+  input.focus();
+  const confirmed = await answer;
+  ok.disabled = false;
+  if (!confirmed || input.value.trim() !== "RESET") return;
+  const chosen = [...document.querySelectorAll("[data-reset-folder]:checked")].map((i) => i.dataset.resetFolder);
+
+  s.working = "reset";
+  render();
+  let res;
+  try {
+    res = await api("settings/factory-reset", { confirm: "RESET", folders: chosen });
+  } catch (error) {
+    s.working = "";
+    render();
+    toast(error.message, 6000);
+    return;
+  }
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (/^(manager|library)\./.test(k || "")) localStorage.removeItem(k);
+    }
+  } catch {}
+  if (res.kept.length) toast(`Left on their own drive: ${res.kept.join(", ")}`, 8000);
+  if (!res.restart) {
+    $("settings").innerHTML = `<div class="notice ok">${icon("check")} <span>Factory reset done and the manager stopped. Start it again from the app shortcut,
+      <code>run.sh</code> or <code>run.cmd</code>; it opens the setup wizard.</span></div>`;
+    return;
+  }
+  toast("Factory reset done. Restarting the manager\u2026", 6000);
+  const until = Date.now() + 3 * 60 * 1000;
+  await new Promise((r) => setTimeout(r, 1500));
+  while (Date.now() < until) {
+    try {
+      const d = await api("manager");
+      if (d.started !== res.started) { location.reload(); return; }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  s.working = "";
+  toast("The manager did not come back. Start it again with the app shortcut or run.sh.", 8000);
+}
+
 // ---------------------------------------------------------------- actions
 
 async function browse(path, which = s.browse?.which || "roms") {
@@ -470,6 +547,7 @@ function bind() {
     else if (action === "cancel") { s.browse = null; render(); }
     else if (action === "wizard") openWizard();
     else if (action === "shortcut") makeShortcut();
+    else if (action === "reset") factoryReset();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));

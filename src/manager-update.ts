@@ -42,6 +42,15 @@ export function onRestart(fn: () => void): void {
 
 const canRestart = () => process.env.MANAGER_RESTART === "1";
 
+/** Restarts through run.sh shortly after the reply is sent; false when the manager was not started by it. */
+export function restartManager(): boolean {
+  if (!canRestart()) return false;
+  setTimeout(() => restartHook(), 400);
+  return true;
+}
+
+export const startedAt = () => STARTED;
+
 const diskVersion = async () => (await fsp.readFile(path.join(ctx.managerDir, "VERSION"), "utf8").catch(() => "")).trim();
 
 /** The version this process started with (main.ts reads it first); VERSION on disk changes when an update brings a new one. */
