@@ -3,6 +3,7 @@
 
 import { $, api, esc, formatDate, human, icon, ICONS, plural, store, toast, TOKEN, model } from "./core.js";
 import { appsForMarket, reloadApps, sendFromMarket } from "./apps.js";
+import { managerInfo } from "./manager-update.js";
 
 const M = { data: null, loading: false, error: "", model: "", q: "", cat: "all", sort: "popular", fit: store.get("marketFit", true), view: "", img: 0, getting: "", bound: false };
 const SORTS = [["popular", "Most stars"], ["updated", "Recently released"], ["title", "Title A-Z"]];
@@ -86,6 +87,20 @@ function mainButton(a, small = true) {
   return `<button class="btn${sz} primary" data-am="get" data-repo="${esc(a.repo)}" data-asset="${esc(a.pick)}"${M.getting || a.fit === "no" ? " disabled" : ""} title="Download ${esc(a.pick)} into the apps folder">${icon("download")}<span>Get</span></button>`;
 }
 
+const SELF = { title: "muOS Anbernic Manager", repo: "aaronns87/muos-anbernic-manager", desc: "You are using it. Games, artwork, apps, themes and saves for your handheld, all from this computer." };
+
+function selfCard() {
+  const q = M.q.trim().toLowerCase();
+  if (M.cat !== "all" || (q && !`${SELF.title} ${SELF.desc} ${SELF.repo}`.toLowerCase().includes(q))) return "";
+  const info = managerInfo(), home = info?.home || `https://github.com/${SELF.repo}`;
+  return `<article class="th-card pm-card am-self">
+    <a class="th-shot" href="${esc(home)}" target="_blank" rel="noopener" title="${SELF.title} on GitHub"><img src="/assets/favicon.svg" alt=""></a>
+    <div class="th-meta"><b>${SELF.title}</b><small class="am-desc">${esc(SELF.desc)}</small>
+      <span><span class="th-badge ok">Installed</span>${info?.version ? `<span class="th-badge">v${esc(info.version)}</span>` : ""}<span class="th-badge">Tools</span></span></div>
+    <div class="th-acts"><a class="btn small primary" href="${esc(home)}" target="_blank" rel="noopener" title="A star helps other handheld owners find it">${icon("star")}<span>Star on GitHub</span></a></div>
+  </article>`;
+}
+
 function listed() {
   const q = M.q.trim().toLowerCase();
   const list = apps().filter((a) => (!M.fit || a.fit !== "no") && (M.cat === "all" || a.category === M.cat)
@@ -117,7 +132,7 @@ export function renderMarket() {
       <label class="switch" title="Hide apps that cannot run on the ${esc(M.data.model.name)}"><input type="checkbox" data-am-fit role="switch"${M.fit ? " checked" : ""}><span class="switch-track"></span>Runs on the ${esc(M.data.model.name)}</label>
       <span class="muted-note">${list.length === apps().length ? plural(list.length, "app") : `${list.length} of ${apps().length}`}</span>
     </div>
-    ${list.length ? `<div class="th-grid pm-grid">${list.map((a) => `<article class="th-card pm-card${installed(a) ? " have" : ""}">
+    ${list.length ? `<div class="th-grid pm-grid">${selfCard()}${list.map((a) => `<article class="th-card pm-card${installed(a) ? " have" : ""}">
         <button class="th-shot" data-am="view" data-repo="${esc(a.repo)}" title="About ${esc(a.title)}">${shot(a)}</button>
         <div class="th-meta"><b title="${esc(a.title)}">${esc(a.title)}</b><small class="am-desc">${esc(a.desc)}</small><span>${badges(a, true)}</span></div>
         <div class="th-acts">${mainButton(a)}<button class="btn small ghost" data-am="view" data-repo="${esc(a.repo)}">About</button></div>

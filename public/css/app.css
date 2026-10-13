@@ -2321,6 +2321,9 @@ dialog.thv { height: fit-content; }
 .pm-body .empty-note .btn, .system .empty-note .btn { margin-left: 6px; vertical-align: middle; }
 .pm-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .pm-card.have { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.am-self, .am-self:hover { border-color: var(--mustard); box-shadow: 0 0 0 1px color-mix(in srgb, var(--mustard) 45%, transparent) inset; }
+.am-self .th-shot { cursor: pointer; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--mustard) 22%, var(--panel-2)), var(--panel-2) 70%); }
+.am-self .th-shot img { width: 42%; height: auto; object-fit: contain; }
 .pm-card .th-none .i, .pmv-stage .th-none .i { width: 40px; height: 40px; stroke-width: 1.5; }
 .pm-notes { margin: 0; }
 .pm-task { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }

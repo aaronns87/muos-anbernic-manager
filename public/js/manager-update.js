@@ -7,6 +7,8 @@ import { renderStatusbar } from "./device.js";
 const POLL = 30 * 60 * 1000;
 const M = { data: null, working: false, restarting: "", error: "" };
 
+export const managerInfo = () => M.data;
+
 /** The status bar entry: the version, or what to do about a newer one. */
 export function versionItem() {
   const d = M.data;
