@@ -5,7 +5,7 @@ import { confirmBox } from "./art-images.js";
 
 const T = {
   data: null, error: "", loading: false, wifi: undefined, bound: false,
-  sys: store.get("tuneSystem", ""), q: "", pick: null,
+  sys: store.get("tuneSystem", ""), sysOpen: false, sysQ: "", sysHi: 0, q: "", pick: null,
   game: null, gameError: "", gameLoading: false, draft: null, gov: "", typedId: "", saving: false,
 };
 const LIMIT = 200;
@@ -154,15 +154,76 @@ function render() {
 
 function picker() {
   if (!app.data) return `<div class="planning"><span class="spinner"></span> Loading the library&hellip;</div>`;
-  const opt = (s) => {
-    const f = folderOf(s.code), p = profileOf(f?.profile);
-    return `<option value="${esc(s.code)}"${T.sys === s.code ? " selected" : ""}>${esc(s.name)}${p ? ` \u00b7 ${esc(p.name)}` : T.data.reachable ? " \u00b7 governor only" : ""}</option>`;
-  };
   return `<div class="tune-filter">
-      <select class="control" data-tune-sys aria-label="System"><option value="">${T.data.reachable ? "Systems with tuning" : "All systems"}</option>${systems().map(opt).join("")}</select>
+      ${systemPicker()}
       <label class="search small">${icon("search")}<input type="search" data-tune-q placeholder="Search games" value="${esc(T.q)}" aria-label="Search games"></label>
     </div>
     <div class="tune-results">${results()}</div>`;
+}
+
+/** The system choices: everything with tuning first, then each system with what it can change. */
+function systemEntries() {
+  const all = { code: "", name: T.data.reachable ? "Systems with tuning" : "All systems", sub: T.data.reachable ? "Every system with emulator settings" : "", group: "" };
+  const list = systems().map((s) => {
+    const p = profileOf(folderOf(s.code)?.profile);
+    return { code: s.code, name: s.name, sub: p ? p.name : T.data.reachable ? "CPU governor only" : "", group: p || !T.data.reachable ? "Emulator settings" : "CPU governor only" };
+  });
+  const q = T.sysQ.trim().toLowerCase();
+  return [all, ...list].filter((e) => !q || `${e.name} ${e.code} ${e.sub}`.toLowerCase().includes(q));
+}
+
+function systemOptions() {
+  const entries = systemEntries();
+  if (!entries.length) return `<p class="muted-note tune-sys-none">No system matches.</p>`;
+  let group = null;
+  return entries.map((e, i) => {
+    const head = e.group && e.group !== group && T.data.reachable ? `<div class="mp-group">${esc(e.group)}</div>` : "";
+    group = e.group;
+    const on = e.code === T.sys;
+    return `${head}<button type="button" class="tune-sys-opt${on ? " on" : ""}${i === T.sysHi ? " hi" : ""}" role="option" id="tune-sys-${i}" aria-selected="${on}" data-tune="sys" data-code="${esc(e.code)}">
+      <span><b>${esc(e.name)}</b>${e.sub ? `<small>${esc(e.sub)}</small>` : ""}</span>${on ? icon("check") : ""}</button>`;
+  }).join("");
+}
+
+function systemPicker() {
+  const cur = [{ code: "", name: T.data.reachable ? "Systems with tuning" : "All systems" }, ...systems()].find((s) => s.code === T.sys);
+  const p = T.sys ? profileOf(folderOf(T.sys)?.profile) : null;
+  const sub = T.sys ? (p ? p.name : T.data.reachable ? "CPU governor only" : "") : "";
+  return `<div class="tune-sys${T.sysOpen ? " open" : ""}">
+    <button type="button" class="control tune-sys-btn" data-tune="sys-toggle" aria-haspopup="listbox" aria-expanded="${T.sysOpen}" aria-label="System">
+      <span><b>${esc(cur?.name || T.sys)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${icon("down")}</button>
+    ${T.sysOpen ? `<div class="tune-sys-menu">
+      <label class="search small">${icon("search")}<input type="search" data-tune-sysq placeholder="Type to filter systems" value="${esc(T.sysQ)}"
+        role="combobox" aria-expanded="true" aria-controls="tune-sys-list" aria-autocomplete="list" aria-activedescendant="tune-sys-${T.sysHi}" aria-label="Filter systems"></label>
+      <div class="tune-sys-list" id="tune-sys-list" role="listbox" aria-label="Systems">${systemOptions()}</div>
+    </div>` : ""}
+  </div>`;
+}
+
+function openSystems(open) {
+  T.sysOpen = open;
+  T.sysQ = "";
+  T.sysHi = Math.max(0, systemEntries().findIndex((e) => e.code === T.sys));
+  render();
+  const view = $("view-tuning");
+  if (open) {
+    view.querySelector("[data-tune-sysq]")?.focus();
+    view.querySelector(".tune-sys-opt.hi")?.scrollIntoView({ block: "nearest" });
+  } else view.querySelector(".tune-sys-btn")?.focus();
+}
+
+function pickSystem(code) {
+  T.sys = code;
+  store.set("tuneSystem", code);
+  openSystems(false);
+}
+
+function refreshSystemList() {
+  const view = $("view-tuning"), list = view.querySelector(".tune-sys-list"), input = view.querySelector("[data-tune-sysq]");
+  if (!list) return;
+  list.innerHTML = systemOptions();
+  input?.setAttribute("aria-activedescendant", `tune-sys-${T.sysHi}`);
+  list.querySelector(".tune-sys-opt.hi")?.scrollIntoView({ block: "nearest" });
 }
 
 function results() {
@@ -375,11 +436,34 @@ async function reset() {
 function bind() {
   T.bound = true;
   const view = $("view-tuning");
+  view.addEventListener("keydown", (e) => {
+    if (!T.sysOpen) return;
+    if (e.key === "Escape") { e.preventDefault(); openSystems(false); return; }
+    if (e.target.dataset?.tuneSysq === undefined) return;
+    const n = systemEntries().length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (n) T.sysHi = (T.sysHi + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+      refreshSystemList();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = systemEntries()[T.sysHi];
+      if (pick) pickSystem(pick.code);
+    } else if (e.key === "Tab") {
+      T.sysOpen = false;
+      render();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (T.sysOpen && !e.target.closest(".tune-sys")) { T.sysOpen = false; render(); }
+  });
   view.addEventListener("click", (e) => {
     const el = e.target.closest("[data-tune]");
     if (!el || el.disabled) return;
     const what = el.dataset.tune;
     if (what === "refresh") load();
+    else if (what === "sys-toggle") openSystems(!T.sysOpen);
+    else if (what === "sys") pickSystem(el.dataset.code);
     else if (what === "game") openGame(el.dataset.code, el.dataset.file);
     else if (what === "preset") applyPreset(el.dataset.preset);
     else if (what === "rec") { const r = recommendation(); if (r) applyPreset(r.preset, r.gov); }
@@ -389,13 +473,16 @@ function bind() {
   });
   view.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.dataset.tuneSys !== undefined) { T.sys = t.value; store.set("tuneSystem", T.sys); render(); }
-    else if (t.dataset.tuneKey) { T.draft[t.dataset.tuneKey] = t.value; render(); }
+    if (t.dataset.tuneKey) { T.draft[t.dataset.tuneKey] = t.value; render(); }
     else if (t.dataset.tuneGov !== undefined) { T.gov = t.value; render(); }
   });
   view.addEventListener("input", (e) => {
     const t = e.target;
-    if (t.dataset.tuneQ !== undefined) {
+    if (t.dataset.tuneSysq !== undefined) {
+      T.sysQ = t.value;
+      T.sysHi = 0;
+      refreshSystemList();
+    } else if (t.dataset.tuneQ !== undefined) {
       T.q = t.value;
       const box = view.querySelector(".tune-results");
       if (box) box.innerHTML = results();

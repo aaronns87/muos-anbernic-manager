@@ -296,8 +296,9 @@ const ARTICLES = [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
       Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own settings without changing any other game.
       It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.</p>`],
-    ["Pick a game", `<p>The list on the left shows your library. Choose a system or search by name; <i>Tuned</i> marks games that already have their own
-      settings. The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
+    ["Pick a game", `<p>The list on the left shows your library. Open the system list and type a few letters to narrow it (arrow keys and Enter work
+      too); systems with emulator settings come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
+      The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
       <ul>
         <li><b>PSP</b>: PPSSPP, standalone or the RetroArch core. Standalone PPSSPP keeps settings under the disc ID (like <code>ULUS10391</code>),
           read from the ISO, CSO or PBP file. For CHD files, type the ID; PPSSPP shows it under Game settings &rsaquo; Game info.</li>

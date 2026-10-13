@@ -20,7 +20,8 @@ next version number.
 ### Added
 
 - **Game Tuning** (Handheld group): per-game emulator settings for speed and looks, saved on the handheld over SSH.
-  - Search the library, and see which emulator starts the game (its own core or its folder's) and what it can change.
+  - Pick a system from a list you filter by typing, search its games, and see which emulator starts the game (its own
+    core or its folder's) and what it can change.
   - Standalone PPSSPP (a `<disc ID>_ppsspp.ini`, with the disc ID read from ISO, CSO and PBP files, or typed for CHD),
     and the PPSSPP, Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation and Flycast RetroArch cores (a
     `<game>.opt`). Settings missing from the handheld's core version are hidden.
