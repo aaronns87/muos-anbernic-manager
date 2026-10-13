@@ -242,4 +242,4 @@ Copyright (C) 2026 aaronns87
 
 Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). You may use, study, change
 and share the manager freely. If you distribute a modified version, or let others use one over a network,
-you must publish its source code under the same license. Versions up to 1.0.0 were released under MIT.
+you must publish its source code under the same license.
