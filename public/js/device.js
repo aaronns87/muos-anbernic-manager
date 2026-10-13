@@ -111,7 +111,8 @@ export function connection() {
       steps: [
         "On the handheld open Configuration \u203a Advanced Settings \u203a USB Function and set it to MTP.",
         "Connect it to this computer with a USB-C data cable.",
-        "Then press Check again."
+        "Then press Check again.",
+        "Still not found? Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while starting, its USB port can come up in the wrong mode."
       ] };
   }
   const usb = c.mode === "usb", wifi = c.mode === "wifi", handheld = usb || wifi;

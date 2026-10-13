@@ -332,6 +332,15 @@ const ARTICLES = [
     </dl>`],
   ]],
   ["help", "info", "Troubleshooting", "", "Common problems and what to try.", [
+    ["The handheld isn't found over USB", `<ul>
+      <li>On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>.</li>
+      <li>Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while the handheld (or the
+        computer) starts, its USB port can come up in the wrong mode, and the computer then sees no device at all.</li>
+      <li>On a Mac, unlock it before plugging in and click <b>Allow</b> on the accessory prompt. Without a prompt, check System Settings
+        &rsaquo; Privacy &amp; Security &rsaquo; Allow accessories to connect.</li>
+      <li>Try another USB-C cable or port: charge-only cables look the same but carry no data.</li>
+      <li>Quit apps that grab MTP devices (Android File Transfer, OpenMTP, Image Capture), or use <b>Use Wi-Fi</b> in the meantime.</li>
+    </ul>`],
     ["The handheld can't be reached over Wi-Fi", `<ul>
       <li>Check both are on the same Wi-Fi network and the handheld is awake; it drops Wi-Fi while asleep.</li>
       <li>On the handheld turn on ${SFTP_ON} and, for SSH features, ${SSH_ON}.</li>

@@ -240,6 +240,10 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
 - **"Node.js is too old"**: install Node.js 23.6 or newer from [nodejs.org](https://nodejs.org/) or with `brew install node`.
 - **USB shows nothing on a Mac**: install `libmtp` (`brew install libmtp`), set the handheld's USB Function to MTP, and quit
   apps that grab MTP devices (Android File Transfer, OpenMTP).
+- **The handheld is not found over USB, often after a restart**: unplug the cable, wait until the handheld has finished
+  starting, and plug it in again; plugged in during start-up, its USB port can come up in the wrong mode. On a Mac, unlock
+  it and click **Allow** on the accessory prompt (or check **System Settings > Privacy & Security > Allow accessories to
+  connect**), and try another cable if it still shows nothing: charge-only cables carry no data.
 - **Wi-Fi does not connect**: check that SFTP + Filebrowser is on and the address under Wi-Fi settings is right; features
   that change the handheld also need Secure Shell.
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
