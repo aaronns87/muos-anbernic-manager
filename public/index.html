@@ -424,6 +424,25 @@
   <input type="file" id="pm-files" multiple hidden>
   <input type="file" id="pm-folder" webkitdirectory hidden>
 </dialog>
+<dialog id="appmarket" class="ag pm" aria-labelledby="am-title">
+  <div class="ag-shell">
+    <header class="ag-head">
+      <span class="ag-head-ico"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+      <div><h2 id="am-title">App market</h2><p>Popular MustardOS apps from GitHub: get them into the apps folder, then send and install them.</p></div>
+      <button class="icon-btn ag-x" id="am-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <div class="ag-main pm-main" id="am-main"></div>
+    <footer class="ag-foot" id="am-foot"></footer>
+  </div>
+</dialog>
+<dialog id="appview" class="fv thv pmv" aria-labelledby="amv-title">
+  <header class="help-head">
+    <div><h2 id="amv-title">App</h2><p id="amv-sub"></p></div>
+    <button class="icon-btn help-x" id="amv-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body thv-body pmv-body" id="amv-body"></div>
+  <footer class="fv-foot" id="amv-foot"></footer>
+</dialog>
 <dialog id="svmfree" class="fv svf" aria-labelledby="svf-title">
   <header class="help-head">
     <div><h2 id="svf-title">Free ScummVM games</h2><p>Classic adventures their makers released for free, ready for the handheld's ScummVM.</p></div>

@@ -6,6 +6,7 @@ import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
+import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
 import { retroarchJson, saveRetroarch } from "./retroarch.ts";
@@ -95,6 +96,9 @@ const routes: Record<string, Handler> = {
   "GET /api/ports": (q) => portsJson(q),
   "GET /api/ports/task": () => portTask(),
   "GET /api/ports/shot": (q) => portShot(q),
+  "GET /api/market": (q) => marketJson(q),
+  "GET /api/market/image": (q) => marketImage(q),
+  "POST /api/market/download": (_, body) => marketDownload(body),
   "POST /api/ports/install": (_, body) => installPort(body),
   "POST /api/ports/uninstall": (_, body) => uninstallPort(body),
   "PUT /api/ports/upload": (query, _, req) => uploadPortFile(req, query),
@@ -333,7 +337,7 @@ function tokenOk(given: string): boolean {
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const route = `${req.method} ${url.pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });

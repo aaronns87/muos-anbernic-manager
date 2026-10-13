@@ -187,7 +187,7 @@ async function osImages(): Promise<{ file: string; size: number }[]> {
   return out;
 }
 
-async function deviceVersion(): Promise<{ version: string; build: string }> {
+export async function deviceVersion(): Promise<{ version: string; build: string }> {
   const s = await sshStatus();
   if (!s.configured || !s.reachable) return { version: "", build: "" };
   const { out } = await runCommand(`printf '%s\\n' "$(cat /opt/muos/config/system/version 2>/dev/null)" "$(cat /opt/muos/config/system/build 2>/dev/null)"`, 10_000);
@@ -272,14 +272,22 @@ export async function downloadUpdate(body: Record<string, unknown>) {
   const r = remote?.apps[repo];
   const asset = r && "assets" in r ? r.assets.find((a) => a.name === name) : undefined;
   if (!asset) throw new UserError("Check for updates again; that download is not in the latest release.");
+  return downloadToApps(asset);
+}
+
+/** Downloads a GitHub release asset into the apps folder; refuses to replace a package that is already there. */
+export async function downloadToApps(asset: { name: string; size: number; url: string }) {
   if (/[/\\]/.test(asset.name) || asset.name.startsWith(".")) throw new UserError(`${asset.name} is not a usable file name.`);
+  if (!/^https:\/\/github\.com\//.test(asset.url)) throw new UserError(`${asset.name} does not come from GitHub.`);
   await fsp.mkdir(ctx.apps, { recursive: true });
   const target = path.join(ctx.apps, asset.name), partial = path.join(ctx.apps, `.${asset.name}.partial`);
   if (fs.existsSync(target)) throw new UserError(`${asset.name} is already in the apps folder.`);
   try {
-    const res = await fetch(asset.url, { headers: { "User-Agent": "muos-anbernic-manager" }, redirect: "follow", signal: AbortSignal.timeout(15 * 60_000) });
+    const res = await fetch(asset.url, { headers: { "User-Agent": "muos-anbernic-manager" }, redirect: "follow", signal: AbortSignal.timeout(15 * 60_000) })
+      .catch((error: Error) => { throw new UserError(`GitHub could not be reached: ${error.message}`); });
     if (!res.ok || !res.body) throw new UserError(`The download failed (${res.status}).`);
-    await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), fs.createWriteStream(partial));
+    await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), fs.createWriteStream(partial))
+      .catch((error: Error) => { throw error instanceof UserError ? error : new UserError(`The download of ${asset.name} stopped: ${error.message}`); });
     const size = (await fsp.stat(partial)).size;
     if (asset.size && size !== asset.size) throw new UserError(`The download of ${asset.name} is incomplete.`);
     await fsp.rename(partial, target);

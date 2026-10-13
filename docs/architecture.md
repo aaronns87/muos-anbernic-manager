@@ -52,7 +52,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Artwork | `artwork.ts` (Roms/Imgs <-> device catalogue), `artwork-tools.ts`, `scrape.ts` (thumbnails.libretro.com) |
 | Device access | `device/target.ts` (which device; `withTarget`), `device/fs.ts` (`DeviceFs`, `CardFs`), `device/mtp.ts` (libmtp via koffi), `device/sftp.ts` (`SftpFs`, Wi-Fi), `device/ssh.ts` (`runCommand`, terminal, stats, power), `device/model.ts`, `device/content.ts`, `device/muos-settings.ts`, `catalogue.ts` (MustardOS layout constants) |
 | Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts` |
-| Checks and updates | `checks.ts` (No-Intro verify, duplicates), `updates.ts` (MustardOS releases, app releases), `manager-update.ts` (the manager's own version and self-update) |
+| Checks and updates | `checks.ts` (No-Intro verify, duplicates), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld), `manager-update.ts` (the manager's own version and self-update) |
 | System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/flash-helper.ts` (runs as root to write a card) |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
 | Helpers | `util.ts` (`inside`, `safePart`, `exists`, `listDir`, ...), `tar.ts`, `errors.ts` |

@@ -1215,7 +1215,7 @@ export function bindGames() {
   });
   document.addEventListener("error", (e) => {
     const img = e.target;
-    if (img.tagName !== "IMG" || !img.parentElement || img.closest("#themes, #themeview, .pm-sec, #portmaster, #portview")) return;
+    if (img.tagName !== "IMG" || !img.parentElement || img.closest("#themes, #themeview, .pm-sec, #portmaster, #portview, #appmarket, #appview")) return;
     const holder = img.parentElement;
     if (holder.classList.contains("d-img")) { holder.textContent = "Could not load"; return; }
     const el = holder.closest(".game");

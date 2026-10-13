@@ -157,6 +157,7 @@ test("index.html has the elements the Emulation and Apps views render into", () 
     "view-play", "play-tabs", "play-body", "play-sub", "play-actions", "view-themes", "th-tabs", "themes", "th-sub", "th-actions", "themeview", "thv-title", "thv-body", "thv-foot", "view-files", "files", "fileview", "fv-title", "fv-where", "fv-body", "fv-note", "fv-save",
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
+    "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
     "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }

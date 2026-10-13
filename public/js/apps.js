@@ -5,6 +5,7 @@ import { $, app, api, esc, human, plural, toast, icon, busy, TOKEN } from "./cor
 import { confirmBox } from "./art-images.js";
 import { jobStarted } from "./copy.js";
 import { showUpdates } from "./updates.js";
+import { openAppMarket, renderMarket } from "./app-market.js";
 
 const A = {
   data: null, error: "", dev: null, devError: "", devLoading: false,
@@ -69,6 +70,22 @@ const installedMark = (p) => !!A.dev?.installed.some((n) => sameName(n, p.name))
 const sourceOf = (app) => A.data?.packages.find((p) => p.apps.some((a) => sameName(a, app))) || null;
 const appsPresent = (p) => (A.dev ? p.apps.filter((t) => A.dev.apps.some((a) => sameName(a, t))) : []);
 
+/** What the app market shows and allows: the apps folder, the handheld's installed apps, sending and installing. */
+export function appsForMarket() {
+  return {
+    packages: A.data?.packages || [],
+    deviceApps: A.dev?.reachable ? A.dev.apps : null,
+    canSend: canSend(),
+    canInstall: sshReady() && !!target() && target().mode !== "card" && !A.install?.running,
+    target: targetText(),
+  };
+}
+
+export const reloadApps = () => load();
+
+/** Sends a package from the apps folder, optionally installing it afterwards; true once the copy started. */
+export const sendFromMarket = (name, thenInstall) => send([name], thenInstall);
+
 function targetText() {
   const t = target();
   if (!t) return "Connect the handheld (USB or Wi-Fi) or put the TF2 card in a card reader to send packages.";
@@ -108,7 +125,9 @@ function render() {
   $("apps-actions").innerHTML = `
     <button class="btn" data-ap="refresh" title="Read the apps folder and the handheld again">${icon("refresh")}<span>Refresh</span></button>
     ${A.data?.available ? `<button class="btn" data-ap="reveal">${icon("external")}<span>Show folder</span></button>` : ""}
+    <button class="btn" data-ap="market" title="Browse popular MustardOS apps and get them from GitHub">${icon("grid")}<span>App market</span></button>
     <button class="btn primary" data-ap="add">${icon("plus")}<span>Add packages&hellip;</span></button>`;
+  if ($("appmarket")?.open) renderMarket();
   if (!A.data) {
     root.innerHTML = A.error ? `<div class="notice err">${esc(A.error)}</div>` : `<div class="planning"><span class="spinner"></span> Reading the apps folder&hellip;</div>`;
     return;
@@ -129,9 +148,10 @@ function packagesPanel() {
     </div>`).join("");
   if (!d.packages.length && !A.uploads.length) {
     return `<section class="panel apps-main"><h2>${icon("package")}Packages</h2>
-      <div class="empty-state apps-empty">${icon("package")}<p><b>No packages yet.</b> Drop .muxapp, .muxupd or .muxzip files here, or add them with the button.
-        They are copied into <code>${esc(d.folder)}</code>.</p>
-        <button class="btn primary" data-ap="add">${icon("plus")}<span>Add packages&hellip;</span></button></div></section>`;
+      <div class="empty-state apps-empty">${icon("package")}<p><b>No packages yet.</b> Get apps from the app market, drop .muxapp, .muxupd or .muxzip files here,
+        or add them with the button. They are kept in <code>${esc(d.folder)}</code>.</p>
+        <div class="panel-actions"><button class="btn primary" data-ap="market">${icon("grid")}<span>App market</span></button>
+        <button class="btn" data-ap="add">${icon("plus")}<span>Add packages&hellip;</span></button></div></div></section>`;
   }
   const all = d.packages.length && d.packages.every((p) => A.picked.has(p.name));
   const rows = d.packages.map((p) => {
@@ -219,16 +239,18 @@ function installPanel() {
 // ---------------------------------------------------------------- actions
 
 async function send(names, thenInstall) {
-  if (busy()) { toast("Wait for the current transfer to finish"); return; }
-  if (!target()) { toast(targetText(), 3000); return; }
-  if (thenInstall && !(await confirmInstall(names))) return;
+  if (busy()) { toast("Wait for the current transfer to finish"); return false; }
+  if (!target()) { toast(targetText(), 3000); return false; }
+  if (thenInstall && !(await confirmInstall(names))) return false;
   try {
     const { job } = await api("apps/send", { volume: target().id, names });
     A.then = thenInstall ? names : null;
     jobStarted(job);
     render();
+    return true;
   } catch (error) {
     toast(error.message, 3500);
+    return false;
   }
 }
 
@@ -415,6 +437,7 @@ function bind() {
     if (!el || el.disabled) return;
     const { ap, name, path } = el.dataset;
     if (ap === "add") $("apps-files").click();
+    else if (ap === "market") openAppMarket();
     else if (ap === "refresh") { load(); loadDevice(); }
     else if (ap === "reveal") api("settings/reveal", { which: "apps" }).catch((error) => toast(error.message, 3000));
     else if (ap === "send") send([name], false);

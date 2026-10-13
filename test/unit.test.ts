@@ -18,6 +18,7 @@ import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../publi
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import { githubRepo } from "../src/manager-update.ts";
+import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
 import { norm } from "../src/games/systems.ts";
@@ -344,4 +345,48 @@ test("VERSION is the version in package.json and its lock file, and the update c
   assert.equal(githubRepo("git@github.com:someone/fork-name.git"), "someone/fork-name");
   assert.equal(githubRepo("https://github.com/a/b/"), "a/b");
   assert.equal(githubRepo("https://example.com/a/b"), "");
+});
+
+test("app market: release feed and asset page parsing", () => {
+  const atom = `<feed><entry><id>x</id><updated>2026-10-12T02:26:06Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/a/b/releases/tag/v1.2%2Bx"/><title>Big &amp; small</title>
+    <content type="html">&lt;p&gt;Fixes:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;One&lt;/li&gt;&lt;li&gt;Two&lt;/li&gt;&lt;/ul&gt;</content></entry>
+    <entry><updated>2026-01-01T00:00:00Z</updated><link href="https://github.com/a/b/releases/tag/v1.1"/><title>v1.1</title><content type="html"></content></entry></feed>`;
+  const feed = parseAtom(atom);
+  assert.deepEqual(feed.map((r) => r.tag), ["v1.2%2Bx", "v1.1"]);
+  assert.equal(feed[0].name, "Big & small");
+  assert.equal(feed[0].notes, "Fixes:\n\n- One\n- Two");
+  assert.equal(notesText("a<br>b &lt;c&gt;"), "a\nb <c>");
+  const page = `<ul><li class="Box-row"><a href="/a/b/releases/download/v1.2/App%20One.muxapp" rel="nofollow"><span>App One.muxapp</span></a>
+    <span>24.7 MB</span></li><li><a href="/a/b/releases/download/v1.2/App-PortMaster.zip">x</a><span>3 MB</span></li>
+    <li><a href="/a/b/releases/download/v1.2/Theme.muxupd">t</a><span>512 KB</span></li><li><a href="/a/b/archive/refs/tags/v1.2.zip">Source</a></li></ul>`;
+  assert.deepEqual(parseAssets(page), [
+    { name: "App One.muxapp", size: Math.round(24.7 * 1024 ** 2), url: "https://github.com/a/b/releases/download/v1.2/App%20One.muxapp" },
+    { name: "Theme.muxupd", size: 512 * 1024, url: "https://github.com/a/b/releases/download/v1.2/Theme.muxupd" },
+  ]);
+});
+
+test("app market: packages are ranked for the handheld's maker and MustardOS release", () => {
+  const bt = [{ name: "Bluetooth-GOOSE-JACARANDA-TRIMUI.muxupd", size: 1 }, { name: "Bluetooth-PIXIE-GOOSE-JACARANDA-ANBERNIC.muxupd", size: 2 }];
+  const anbernic = rankAssets(bt, "Anbernic", "JACARANDA");
+  assert.deepEqual(anbernic.map((a) => [a.name.split("-").pop(), a.fit]), [["ANBERNIC.muxupd", "best"], ["TRIMUI.muxupd", "other"]]);
+  assert.equal(anbernic[1].why, "For TrimUI handhelds");
+  const hotspot = rankAssets([{ name: "WifiHotspot_GOOSE.muxupd", size: 1 }, { name: "WifiHotspot_Pixie.muxupd", size: 1 }], "Anbernic", "JACARANDA");
+  assert.ok(hotspot.every((a) => a.fit === "other"));
+  assert.equal(hotspot[0].why, "For MustardOS Goose");
+  const unknown = rankAssets([{ name: "X_PIXIE.muxupd", size: 1 }, { name: "X_GOOSE.muxupd", size: 1 }], "Anbernic", "");
+  assert.equal(unknown[0].name, "X_GOOSE.muxupd");
+  assert.equal(unknown[0].fit, "best");
+  const scrappy = rankAssets([{ name: "Scrappy_v2.2.1.muxzip", size: 1 }, { name: "Scrappy_v2.2.1_update.muxapp", size: 1 }], "Anbernic", "JACARANDA");
+  assert.deepEqual(scrappy.map((a) => a.fit), ["best", "other"]);
+  assert.equal(new Set(KNOWN.map((k) => k.repo.toLowerCase())).size, KNOWN.length);
+});
+
+test("app market: README screenshots skip badges and resolve relative paths", () => {
+  const md = `![build](https://img.shields.io/badge/x.svg) ![shot](docs/shot1.png)
+    <img src="https://github.com/a/b/blob/main/img/s2.jpg?raw=true" width="300"> ![logo](logo.png) ![again](./docs/shot1.png)`;
+  assert.deepEqual(readmeImages("a/b", md), [
+    "https://raw.githubusercontent.com/a/b/HEAD/docs/shot1.png",
+    "https://raw.githubusercontent.com/a/b/main/img/s2.jpg",
+  ]);
 });

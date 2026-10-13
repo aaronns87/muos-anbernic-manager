@@ -231,7 +231,7 @@ function cachePanel(d) {
   return panel("half", "Cache",
     row("Scraper file lists", "What the libretro thumbnail project has, kept for 14 days", d.cache.thumbnails, "thumbnails")
     + row("Device artwork previews", "Pictures already read from the handheld", d.cache.deviceArt, "deviceArt")
-    + row("Online catalogues", "PortMaster, theme and MustardOS update lists with their previews; downloaded again when needed", d.cache.catalogues, "catalogues")
+    + row("Online catalogues", "PortMaster, app market, theme and MustardOS update lists with their previews; downloaded again when needed", d.cache.catalogues, "catalogues")
     + row("ROM check results", "Verify results, ROM checksums and No-Intro lists", d.cache.checks, "checks")
     + `<p class="muted-note set-cache-path">Kept in <code>${esc(d.cache.folder)}</code></p>`);
 }

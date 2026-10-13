@@ -6,6 +6,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { activityCount, clearActivity } from "./activity.ts";
+import { clearMarketCache } from "./app-market.ts";
 import { checksCacheFiles, clearChecks } from "./checks.ts";
 import { ctx } from "./context.ts";
 import { UserError } from "./errors.ts";
@@ -151,7 +152,7 @@ async function cacheUsage() {
   return { folder: ctx.cacheDir, descriptions, names, thumbnails, deviceArt, catalogues, checks, activity: activityCount() };
 }
 
-const CATALOGUES = ["ports", "themes", "updates.json"];
+const CATALOGUES = ["ports", "themes", "updates.json", "app-market.json", "app-market"];
 
 /** Files directly in a folder whose lowercase name matches. */
 async function filesIn(folder: string, match: RegExp): Promise<number> {
@@ -319,6 +320,7 @@ export async function clearCache(body: Record<string, unknown>) {
     await clearPortCache();
     await clearThemeCache();
     await clearUpdateCache();
+    await clearMarketCache();
   } else if (what === "checks") {
     await clearChecks();
   } else if (what === "activity") {
@@ -330,7 +332,7 @@ export async function clearCache(body: Record<string, unknown>) {
   }
   const LABELS: Record<string, string> = {
     thumbnails: "Scraper thumbnail lists.", deviceArt: "Device artwork previews.",
-    catalogues: "PortMaster, theme and update lists with their previews.", checks: "ROM check results and checksums.",
+    catalogues: "PortMaster, app market, theme and update lists with their previews.", checks: "ROM check results and checksums.",
   };
   say("cyan", "CLEARED", LABELS[what]);
   return settingsJson();
