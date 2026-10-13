@@ -79,6 +79,7 @@ const shot = (a, cls = "") => a.images
 function mainButton(a, small = true) {
   const sz = small ? " small" : "";
   if (M.getting && a.release?.assets.some((x) => x.name === M.getting)) return `<button class="btn${sz}" disabled>${ICONS.spin}<span>Downloading&hellip;</span></button>`;
+  if (installed(a)) return "";
   const have = local(a), st = appsForMarket();
   if (have) return `<button class="btn${sz} primary" data-am="send" data-repo="${esc(a.repo)}"${st.canSend ? "" : ` disabled title="${esc(st.target)}"`}>${icon("upload")}<span>Send</span></button>`;
   if (!a.pick) return `<button class="btn${sz}" data-am="view" data-repo="${esc(a.repo)}" title="${esc(a.why.join(". "))}">Choose&hellip;</button>`;
@@ -178,10 +179,10 @@ function renderView() {
       </div></div>
     ${r?.notes ? `<section class="am-notes"><b>What's new in ${esc(r.tag)}</b><pre>${esc(r.notes)}</pre></section>` : ""}
     ${assets ? `<section class="am-assets"><b>Packages in this release</b>${assets}</section>` : ""}`;
-  const status = on ? "Installed on the handheld." : have ? "In the apps folder. Send it to the handheld to install it."
+  const status = on ? (have && st.canInstall ? "Installed on the handheld. Reinstall replaces it with the package in the apps folder." : "Installed on the handheld.") : have ? "In the apps folder. Send it to the handheld to install it."
     : a.fit === "no" ? esc(a.why[0] || "") : "Get downloads the package into the apps folder.";
   $("amv-foot").innerHTML = `<span class="muted-note pmv-status">${status}</span><span class="grow"></span>
-    ${have && st.canInstall ? `<button class="btn small" data-am="send-install" data-repo="${esc(a.repo)}"${st.canSend ? "" : " disabled"} title="Send it, then install it on the handheld">${icon("bolt")}<span>Send and install</span></button>` : ""}
+    ${have && st.canInstall ? `<button class="btn small" data-am="send-install" data-repo="${esc(a.repo)}"${st.canSend ? "" : " disabled"} title="${on ? "Send it, then install it over the app on the handheld" : "Send it, then install it on the handheld"}">${icon("bolt")}<span>${on ? "Reinstall" : "Send and install"}</span></button>` : ""}
     ${mainButton(a)}
     <button class="btn" data-am="close-view">Close</button>`;
 }
