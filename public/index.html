@@ -50,6 +50,9 @@
       <a class="section-link" href="#files" data-section="files" title="Files (9)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <span class="nav-label">Files</span></a>
+      <a class="section-link" href="#tuning" data-section="tuning" title="Game Tuning">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+        <span class="nav-label">Game Tuning</span></a>
       <div class="nav-group">Tools</div>
       <a class="section-link" href="#system" data-section="system" title="System Tools">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 7v3M12 7v3M15 9v1"/></svg>
@@ -187,6 +190,13 @@
       <nav class="tabs" id="emu-tabs" role="tablist" aria-label="Emulation tools"></nav>
       <div id="emu-body"></div>
       <input type="file" id="bios-files" multiple hidden>
+    </section>
+    <section class="view" id="view-tuning" hidden>
+      <header class="page-head">
+        <div><p>Per-game emulator settings: faster for heavy games, sharper for light ones, saved on the handheld</p></div>
+        <div class="page-actions" id="tune-actions"></div>
+      </header>
+      <div id="tune-body"></div>
     </section>
     <section class="view" id="view-play" hidden>
       <header class="page-head">

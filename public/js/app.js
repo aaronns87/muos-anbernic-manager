@@ -21,6 +21,7 @@ import { showApps, countApps } from "./apps.js";
 import { showEmulation } from "./emulation.js";
 import { openHelp, showWiki } from "./wiki.js";
 import { showFiles } from "./files.js";
+import { showTuning } from "./tuning.js";
 import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { openActivity } from "./activity.js";
@@ -28,7 +29,7 @@ import { renderOverview } from "./overview.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
-  handheld: ["Device Settings", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "save"], files: ["Files", "folder"], system: ["System Tools", "sd"],
+  handheld: ["Device Settings", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "save"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
   ssh: ["SSH", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
 };
 
@@ -50,6 +51,7 @@ function showSection() {
   if (s === "apps") showApps();
   if (s === "play") showPlay();
   if (s === "files") showFiles();
+  if (s === "tuning") showTuning();
   if (s === "themes") showThemes();
   if (s === "system") showSystem();
   if (s === "ssh") showSsh();

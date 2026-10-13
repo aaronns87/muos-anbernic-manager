@@ -12,13 +12,24 @@ next version number.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
+| [Unreleased](#unreleased) | | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
 
 ### Added
 
+- **Game Tuning** (Handheld group): per-game emulator settings for speed and looks, saved on the handheld over SSH.
+  - Search the library, and see which emulator starts the game (its own core or its folder's) and what it can change.
+  - Standalone PPSSPP (a `<disc ID>_ppsspp.ini`, with the disc ID read from ISO, CSO and PBP files, or typed for CHD),
+    and the PPSSPP, Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation and Flycast RetroArch cores (a
+    `<game>.opt`). Settings missing from the handheld's core version are hidden.
+  - Every game can get its own CPU governor, the same `<game>.gov` the handheld's per-game option writes.
+  - Fastest, Balanced and Best looking presets, plus recommendations for known heavy and light games, with what each
+    setting costs or gains.
+  - The game's file starts from what it used before (PPSSPP's button mapping included), so only changed settings
+    differ. **Back to folder settings** removes it again.
+  - New API routes `GET /api/tuning`, `GET /api/tuning/game`, `POST /api/tuning/save` and `POST /api/tuning/reset`.
 - **Game viewer**: the big game view is redesigned around status cards and tabs.
   - Tags for the library check (Verified, Bad dump, Modified), a missing BIOS, other versions in the library and MAME
     clones, next to the year, genres, players and rating.

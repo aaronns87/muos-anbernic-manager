@@ -49,6 +49,16 @@ test("one game's details list its other versions; unknown games are refused", as
   assert.equal((await api("game/reveal", { code: "GB", file: "../../etc/passwd" })).status, 400);
 });
 
+test("Game Tuning lists its profiles without a handheld and refuses to read or save", async () => {
+  const { status, json } = await api("tuning");
+  assert.equal(status, 200);
+  assert.equal(json.reachable, false);
+  assert.ok(json.profiles.some((p: { id: string }) => p.id === "ppsspp"));
+  assert.equal((await api(`tuning/game?folder=GB&file=${encodeURIComponent("Tetris (World).gb")}`)).status, 400);
+  assert.equal((await api("tuning/save", { folder: "GB", file: "Tetris (World).gb", values: {}, gov: "performance" })).status, 400);
+  assert.equal((await api("tuning/reset", { folder: "GB", file: "../x" })).status, 400);
+});
+
 test("duplicates: one group for Tetris, keeping the preferred region", async () => {
   const usa = (await api("checks?prefer=usa")).json;
   assert.equal(usa.run.running, false);
@@ -165,7 +175,7 @@ test("every front-end module parses", () => {
 test("index.html has the elements the Emulation and Apps views render into", () => {
   const html = fs.readFileSync(path.join(manager, "public", "index.html"), "utf8");
   for (const id of ["view-emulation", "view-wiki", "wiki", "help", "help-wiki", "help-close", "help-full", "emu-tabs", "emu-body", "emu-actions", "emu-sub", "bios-files", "apps-updates", "confirm", "c-ok", "c-cancel",
-    "view-play", "play-tabs", "play-body", "play-sub", "play-actions", "view-themes", "th-tabs", "themes", "th-sub", "th-actions", "themeview", "thv-title", "thv-body", "thv-foot", "view-files", "files", "fileview", "fv-title", "fv-where", "fv-body", "fv-note", "fv-save",
+    "view-play", "play-tabs", "play-body", "play-sub", "play-actions", "view-themes", "th-tabs", "themes", "th-sub", "th-actions", "themeview", "thv-title", "thv-body", "thv-foot", "view-files", "files", "view-tuning", "tune-body", "tune-actions", "fileview", "fv-title", "fv-where", "fv-body", "fv-note", "fv-save",
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",

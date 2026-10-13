@@ -56,7 +56,7 @@ const ARTICLES = [
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
-      <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS, set up or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
     </table>`],
@@ -291,6 +291,31 @@ const ARTICLES = [
     </ul>`],
     ["Preview and edit", `<p>Click a file name to open it. Pictures are shown; text and config files (<code>.cfg</code>, <code>.ini</code>, <code>.json</code>,
       <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.</p>`],
+  ]],
+  ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings: faster for heavy games, sharper for light ones.", [
+    ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
+      Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own settings without changing any other game.
+      It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.</p>`],
+    ["Pick a game", `<p>The list on the left shows your library. Choose a system or search by name; <i>Tuned</i> marks games that already have their own
+      settings. The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
+      <ul>
+        <li><b>PSP</b>: PPSSPP, standalone or the RetroArch core. Standalone PPSSPP keeps settings under the disc ID (like <code>ULUS10391</code>),
+          read from the ISO, CSO or PBP file. For CHD files, type the ID; PPSSPP shows it under Game settings &rsaquo; Game info.</li>
+        <li><b>N64</b>: Mupen64Plus-Next. <b>PlayStation</b>: PCSX-ReARMed, SwanStation, DuckStation. <b>Dreamcast, NAOMI, Atomiswave</b>: Flycast.</li>
+        <li><b>Every game</b>: its own CPU governor. For emulators with no per-game settings (for example the standalone N64 and Dreamcast emulators)
+          this is the only option; switch the game to one of the cores above in Emulation &rsaquo; Cores for more.</li>
+      </ul>
+      <p>A game does not have to be on the handheld yet: settings saved now apply once you copy it.</p>`],
+    ["Presets and recommendations", `<p><b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you. Known heavy games get a
+      recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting point for your handheld's
+      chip: play a few minutes, then adjust. Every setting says whether it buys <i>Speed</i>, <i>Looks</i> or both, and what it costs.</p>
+      <p><i>Default</i> means the value the game uses today, from its folder's or core's options, or from PPSSPP's own settings.</p>`],
+    ["Save and undo", `<p><b>Save to handheld</b> writes the game's own settings file. It starts as a copy of what the game used before, so only the
+      settings you changed differ; PPSSPP's buttons are kept too. <b>Back to folder settings</b> removes the game's own file and governor again. For
+      standalone PPSSPP that also removes settings made for the game in PPSSPP's own menu.</p>
+      <p>Files on the handheld: <code>info/config/&lt;core&gt;/&lt;game&gt;.opt</code> for RetroArch cores,
+      <code>emulator/ppsspp/.config/ppsspp/PSP/SYSTEM/&lt;disc ID&gt;_ppsspp.ini</code> for PPSSPP, and <code>info/content/&lt;folder&gt;/&lt;game&gt;.gov</code>
+      for the governor, the same file the handheld's own per-game governor option writes.</p>`],
   ]],
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
     ["Before you start", `<p>Put the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.

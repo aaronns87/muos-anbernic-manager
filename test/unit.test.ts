@@ -23,6 +23,10 @@ import { companions, isRunner, scummFolder, scummFolders } from "../src/games/en
 import { splitTitle } from "../src/games/library.ts";
 import { createShortcut, shortcutInfo } from "../src/shortcut.ts";
 import { norm } from "../src/games/systems.ts";
+import { discId, sfoValue } from "../src/tuning/disc-id.ts";
+import { controlMapping, newGameIni, parseIni as parsePpssppIni, parseOpt, setIni, setOpt } from "../src/tuning/tuning.ts";
+import { PROFILES, RECOMMENDATIONS } from "../src/tuning/profiles.ts";
+import zlib from "node:zlib";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
 import { inside, safePart, splitName } from "../src/util.ts";
@@ -420,4 +424,122 @@ test("app shortcut: starts run.sh from a temporary home", { skip: process.platfo
     for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------- Game Tuning
+
+function sfo(values: Record<string, string>): Buffer {
+  const keys = Object.keys(values), keyTable = 20 + keys.length * 16;
+  const keyBytes = Buffer.from(keys.map((k) => k + "\0").join(""), "latin1");
+  const dataTable = keyTable + Math.ceil(keyBytes.length / 4) * 4;
+  const out = Buffer.alloc(dataTable + keys.length * 16);
+  out.write("\0PSF", 0, "latin1");
+  out.writeUInt32LE(keyTable, 8); out.writeUInt32LE(dataTable, 12); out.writeUInt32LE(keys.length, 16);
+  let keyAt = 0;
+  keys.forEach((k, i) => {
+    const e = 20 + i * 16, v = values[k] + "\0";
+    out.writeUInt16LE(keyAt, e); out.writeUInt16LE(0x0204, e + 2); out.writeUInt32LE(v.length, e + 4); out.writeUInt32LE(16, e + 8); out.writeUInt32LE(i * 16, e + 12);
+    out.write(v, dataTable + i * 16, "utf8");
+    keyAt += k.length + 1;
+  });
+  keyBytes.copy(out, keyTable);
+  return out;
+}
+
+function record(name: string, lba: number, size: number, dir = false): Buffer {
+  const n = Buffer.from(name, "latin1"), len = 33 + n.length + (n.length % 2 ? 0 : 1);
+  const r = Buffer.alloc(len);
+  r[0] = len; r.writeUInt32LE(lba, 2); r.writeUInt32LE(size, 10); r[25] = dir ? 2 : 0; r[32] = n.length; n.copy(r, 33);
+  return r;
+}
+
+/** A tiny PSP-like ISO: PSP_GAME/PARAM.SFO and UMD_DATA.BIN, each optional. */
+function pspIso({ sfoId = "", umdId = "" }): Buffer {
+  const iso = Buffer.alloc(24 * 2048), S = (n: number) => n * 2048;
+  iso[S(16)] = 1; iso.write("CD001", S(16) + 1, "latin1");
+  iso.writeUInt32LE(18, S(16) + 158); iso.writeUInt32LE(2048, S(16) + 166);
+  const root = [record("\0", 18, 2048, true), record("\x01", 18, 2048, true)];
+  if (sfoId) {
+    root.push(record("PSP_GAME", 19, 2048, true));
+    const param = sfo({ CATEGORY: "UG", DISC_ID: sfoId, TITLE: "Test" });
+    Buffer.concat([record("PARAM.SFO;1", 20, param.length)]).copy(iso, S(19));
+    param.copy(iso, S(20));
+  }
+  if (umdId) { root.push(record("UMD_DATA.BIN;1", 21, 32)); iso.write(`${umdId}|0001|G`, S(21), "latin1"); }
+  Buffer.concat(root).copy(iso, S(18));
+  return iso;
+}
+
+function cso(iso: Buffer): Buffer {
+  const blocks = iso.length / 2048, head = Buffer.alloc(24 + (blocks + 1) * 4);
+  head.write("CISO", 0, "latin1"); head.writeUInt32LE(24, 4); head.writeBigUInt64LE(BigInt(iso.length), 8); head.writeUInt32LE(2048, 16); head[20] = 1;
+  const parts: Buffer[] = [];
+  let at = head.length;
+  for (let b = 0; b < blocks; b++) {
+    const raw = iso.subarray(b * 2048, (b + 1) * 2048), z = zlib.deflateRawSync(raw);
+    const plain = z.length >= 2048;
+    head.writeUInt32LE((at | (plain ? 0x80000000 : 0)) >>> 0, 24 + b * 4);
+    parts.push(plain ? raw : z);
+    at += plain ? 2048 : z.length;
+  }
+  head.writeUInt32LE(at, 24 + blocks * 4);
+  return Buffer.concat([head, ...parts]);
+}
+
+const readerOf = (buf: Buffer) => async (pos: number, len: number) => buf.subarray(pos, pos + len);
+
+test("PSP disc IDs come from PARAM.SFO, UMD_DATA.BIN, CSO and PBP files", async () => {
+  assert.equal(sfoValue(sfo({ DISC_ID: "UCES00842", TITLE: "God of War" }), "TITLE"), "God of War");
+  assert.equal(await discId(readerOf(pspIso({ sfoId: "UCES00842", umdId: "UCES-00842" })), "God of War.iso"), "UCES00842");
+  assert.equal(await discId(readerOf(pspIso({ umdId: "ULUS-10391" })), "x.iso"), "ULUS10391");
+  assert.equal(await discId(readerOf(cso(pspIso({ sfoId: "UCAS40015" }))), "Ridge Racer.cso"), "UCAS40015");
+  const param = sfo({ DISC_ID: "NPEZ00045" }), pbp = Buffer.alloc(40 + param.length);
+  pbp.write("\0PBP", 0, "latin1"); pbp.writeUInt32LE(40, 8); pbp.writeUInt32LE(40 + param.length, 12); param.copy(pbp, 40);
+  assert.equal(await discId(readerOf(pbp), "EBOOT.PBP"), "NPEZ00045");
+  assert.equal(await discId(readerOf(Buffer.alloc(40 * 2048)), "game.chd"), "");
+});
+
+test("RetroArch .opt files: keys with dashes and dots are replaced in place or added", () => {
+  const text = 'mupen64plus-43screensize = "640x480"\nduckstation_GPU.Renderer = "Auto"\nother = "x"\n';
+  assert.equal(parseOpt(text).get("duckstation_GPU.Renderer"), "Auto");
+  const out = setOpt(text, { "mupen64plus-43screensize": "320x240", "mupen64plus-FXAA": "1" });
+  assert.equal(out, 'mupen64plus-43screensize = "320x240"\nduckstation_GPU.Renderer = "Auto"\nother = "x"\nmupen64plus-FXAA = "1"\n');
+});
+
+test("PPSSPP game ini: copies the global settings and buttons, then changes only tuned keys", () => {
+  const global = "[General]\nLanguage = en_US\n[Graphics]\nGraphicsBackend = 0 (OPENGL)\nInternalResolution = 2\nFrameSkip = 0\n\n[Sound]\nEnable = True\n";
+  const controls = "[ControlMapping]\nUp = 10-19\nCross = 10-96\n";
+  let ini = newGameIni(global, controls, "UCES00842", "God of War");
+  assert.match(ini, /^; Game config for UCES00842 - God of War\n/);
+  assert.doesNotMatch(ini, /GraphicsBackend/);
+  ini = setIni(ini, "Graphics", "InternalResolution", "1");
+  ini = setIni(ini, "Graphics", "SkipBufferEffects", "True");
+  ini = setIni(ini, "CPU", "CPUSpeed", "0");
+  const parsed = parsePpssppIni(ini);
+  assert.equal(parsed.get("Graphics")?.get("InternalResolution"), "1");
+  assert.equal(parsed.get("Graphics")?.get("SkipBufferEffects"), "True");
+  assert.equal(parsed.get("Graphics")?.get("FrameSkip"), "0");
+  assert.equal(parsed.get("Sound")?.get("Enable"), "True");
+  assert.equal(parsed.get("CPU")?.get("CPUSpeed"), "0");
+  assert.equal(parsed.get("ControlMapping")?.get("Cross"), "10-96");
+  assert.equal(controlMapping("[Other]\na = 1\n"), "");
+});
+
+test("Game Tuning presets and recommendations only use offered settings and values", () => {
+  for (const p of PROFILES) {
+    for (const [preset, values] of Object.entries(p.presets)) {
+      for (const [k, v] of Object.entries(values)) {
+        const s = p.settings.find((x) => x.key === k);
+        assert.ok(s, `${p.id} ${preset}: ${k} is not a setting`);
+        assert.ok(s.options.some(([o]) => o === v), `${p.id} ${preset}: ${k} = ${v} is not a choice`);
+      }
+    }
+    for (const s of p.settings) {
+      assert.ok(s.options.some(([o]) => o === s.def) || p.kind === "retroarch", `${p.id}: default ${s.key} = ${s.def} is not a choice`);
+      if (p.kind === "ppsspp") assert.ok(s.section, `${p.id}: ${s.key} needs an ini section`);
+    }
+  }
+  for (const r of RECOMMENDATIONS) for (const id of r.profiles) assert.ok(PROFILES.some((p) => p.id === id), `${id} is not a profile`);
+  const psp = RECOMMENDATIONS.find((r) => r.profiles.includes("ppsspp") && r.match && new RegExp(r.match, "i").test("God of War - Chains of Olympus"));
+  assert.equal(psp?.preset, "speed");
 });

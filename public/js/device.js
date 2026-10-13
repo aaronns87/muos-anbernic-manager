@@ -12,6 +12,7 @@ import { renderApps } from "./apps.js";
 import { renderEmulation } from "./emulation.js";
 import { renderFiles } from "./files.js";
 import { renderPlay } from "./play.js";
+import { renderTuning } from "./tuning.js";
 import { settingsDeviceChanged } from "./settings.js";
 import { openArtSync, openKeepOnCard } from "./artwork.js";
 import { viewerDeviceChanged } from "./game-view.js";
@@ -311,6 +312,7 @@ export function renderDevice() {
   if (section() === "emulation") renderEmulation();
   if (section() === "files") renderFiles();
   if (section() === "play") renderPlay();
+  if (section() === "tuning") renderTuning(!!app.device.wifi?.reachable);
   settingsDeviceChanged();
   renderWizard();
   viewerDeviceChanged();
