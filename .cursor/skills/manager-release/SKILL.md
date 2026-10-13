@@ -37,7 +37,7 @@ empty, ask what the release contains before releasing.
 V=1.3.0
 npm version "$V" --no-git-tag-version      # package.json + package-lock.json
 printf '%s\n' "$V" > VERSION
-node --test test/unit.test.ts --test-name-pattern "VERSION"
+node --test --test-name-pattern=VERSION test/unit.test.ts
 npm run check && npm test
 git add VERSION package.json package-lock.json CHANGELOG.md
 git commit -m "Version $V"
