@@ -1,6 +1,6 @@
 ---
-description: Conventions for run.sh, installer.sh and scripts/
-globs: "{*.sh,scripts/**}"
+description: Conventions for run.sh, installer.sh, their Windows twins (run.ps1, installer.ps1, *.cmd) and scripts/
+globs: "{*.sh,*.ps1,*.cmd,scripts/**}"
 alwaysApply: false
 ---
 
@@ -10,11 +10,19 @@ alwaysApply: false
   associative arrays).
 - Shared helpers (colours, `die`, `note`, `ask`, `ensure_node`, `ensure_packages`) live in `scripts/common.sh`;
   scripts set `MANAGER_DIR` and `source` it.
-- `run.sh` loops on exit code 75 (the manager restarting after an update) and exports `MANAGER_RESTART=1`;
-  keep that loop when editing it.
+- Windows has the same scripts in PowerShell: `run.ps1`, `installer.ps1` and `scripts/common.ps1`, started through
+  `run.cmd` and `installer.cmd` (which bypass the execution policy and work by double-click). They take the same options
+  as the bash scripts. Keep both sides in step when changing what a script does.
+- PowerShell must run in Windows PowerShell 5.1: no `??`, `?:`, `&&`, `||` or `-Parallel`. Native commands run at the
+  script level, not inside functions whose result is used, or their output is swallowed. `Get-Item` needs `-Force` for
+  dot files.
+- `run.sh` and `run.ps1` loop on exit code 75 (the manager restarting after an update) and set `MANAGER_RESTART=1`;
+  keep that loop when editing them.
 - Packages install with `npm ci` when `package-lock.json` exists, so a git clone stays clean for updates.
 - Prompts must have a default and work without a TTY (`--yes`, piped input).
-- Never touch anything outside the manager folder and the workspace the user chose; never `sudo`.
-- Check syntax after editing: `bash -n run.sh installer.sh scripts/common.sh`.
-- Test `installer.sh` only on a copy under `/tmp` (`rsync` the repo without `.cache`, `.git`), never in a real
-  install.
+- Never touch anything outside the manager folder and the workspace the user chose; never `sudo`. The one exception is
+  the app shortcut (`node src/main.ts --shortcut`, `src/shortcut.ts`), which the installers only add when asked.
+- Check syntax after editing: `bash -n run.sh installer.sh scripts/common.sh`; for PowerShell, parse the files with
+  `[System.Management.Automation.Language.Parser]::ParseFile` in `pwsh` (a portable build in `/tmp` works).
+- Test the installers only on a copy under `/tmp` (`rsync` the repo without `.cache`, `.git`), never in a real
+  install, and with `HOME` pointed at a temp folder so a shortcut never lands in the real Applications folder.

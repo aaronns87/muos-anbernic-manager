@@ -20,7 +20,7 @@ npm test                    # all tests (node --test test/*.test.ts)
 npm run check               # TypeScript type check (tsc --noEmit)
 node --test test/unit.test.ts --test-name-pattern "VERSION"   # one file / matching tests
 node --check public/js/<file>.js                              # syntax of a front-end module
-bash -n run.sh installer.sh scripts/common.sh                 # shell syntax
+bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Windows twins: *.ps1, see shell-scripts rule)
 ./run.sh                    # start the manager (port 8765)
 ```
 

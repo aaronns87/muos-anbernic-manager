@@ -18,6 +18,7 @@ import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { clearPortCache } from "./ports.ts";
 import { clearScrapeCache } from "./scrape.ts";
+import { shortcutInfo } from "./shortcut.ts";
 import { clearThemeCache } from "./themes.ts";
 import { clearUpdateCache } from "./updates.ts";
 import { isDir, listDir } from "./util.ts";
@@ -182,6 +183,7 @@ export async function settingsJson() {
     pickFolder: !!platform.pickFolder,
     root: ctx.root,
     wizard: current.wizard === "pending",
+    shortcut: await shortcutInfo(),
     fileManager: platform.name === "macOS" ? "Finder" : platform.name === "Windows" ? "Explorer" : "the file manager",
   };
 }

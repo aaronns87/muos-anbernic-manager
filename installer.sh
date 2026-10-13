@@ -2,7 +2,8 @@
 # muOS Anbernic Manager installer: checks Node.js and the manager's packages, creates the workspace folders
 # (Roms with a folder per MustardOS system, apps, os, bios, backups) and can start from a clean cache, so the
 # next start opens the setup wizard in the browser. Nothing on the handheld or its cards is touched.
-# Usage: installer.sh [--workspace DIR] [--clean-cache | --keep-cache] [--yes] [--start | --no-start] [-h]
+# Usage: installer.sh [--workspace DIR] [--clean-cache | --keep-cache] [--shortcut | --no-shortcut] [--yes]
+#                     [--start | --no-start] [-h]
 
 set -euo pipefail
 
@@ -17,11 +18,14 @@ Sets up the muOS Anbernic Manager on this computer:
   1. checks for Node.js $NODE_MIN_MAJOR.$NODE_MIN_MINOR or newer (offers to install it with Homebrew) and installs the npm packages,
   2. creates the workspace: Roms/ with a folder per MustardOS system, apps/, os/, bios/ and backups/,
   3. optionally starts from a clean cache; the old one is kept as .cache-backup-<date>,
-  4. optionally starts the manager, which opens the setup wizard on a clean cache.
+  4. offers an app shortcut with the manager's icon (Applications on macOS, the app menu on Linux),
+  5. optionally starts the manager, which opens the setup wizard on a clean cache.
 
   --workspace DIR   where the workspace folders go (default: the folder holding muos-anbernic-manager)
   --clean-cache     start from a clean cache without asking
   --keep-cache      keep the current cache
+  --shortcut        add the app shortcut without asking
+  --no-shortcut     do not add the app shortcut
   --yes             accept the defaults without asking
   --start           start the manager at the end without asking
   --no-start        do not start the manager
@@ -29,7 +33,7 @@ Sets up the muOS Anbernic Manager on this computer:
 EOF
 }
 
-WORKSPACE="" CACHE_CHOICE="" ASSUME_YES=0 START_CHOICE=""
+WORKSPACE="" CACHE_CHOICE="" ASSUME_YES=0 START_CHOICE="" SHORTCUT_CHOICE=""
 while (( $# )); do
   case "$1" in
     --workspace) [[ $# -ge 2 ]] || die "--workspace needs a folder."; WORKSPACE="$2"; shift ;;
@@ -38,6 +42,8 @@ while (( $# )); do
     --yes|-y) ASSUME_YES=1 ;;
     --start) START_CHOICE=start ;;
     --no-start) START_CHOICE=skip ;;
+    --shortcut) SHORTCUT_CHOICE=make ;;
+    --no-shortcut) SHORTCUT_CHOICE=skip ;;
     -h|--help) usage; exit 0 ;;
     *) usage; die "Unknown option: $1" ;;
   esac
@@ -107,6 +113,17 @@ INIT_ARGS=(--init)
 (cd "$MANAGER_DIR" && node src/main.ts "${INIT_ARGS[@]}") || die "Could not create the workspace folders."
 
 chmod +x "$MANAGER_DIR/run.sh" "$MANAGER_DIR/installer.sh" 2>/dev/null || true
+
+step "4. App shortcut"
+if [[ "$(uname -s)" == Darwin ]]; then PLACE="Applications"; else PLACE="the app menu"; fi
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" && "$SHORTCUT_CHOICE" != make ]]; then
+  note "No desktop session; skipping. Run  node $MANAGER_DIR/src/main.ts --shortcut  later to add it."
+elif [[ "$SHORTCUT_CHOICE" == make ]] || { [[ -z "$SHORTCUT_CHOICE" ]] && { (( ASSUME_YES )) || [[ -t 0 ]]; } \
+    && { note "Starts the manager from $PLACE with its icon, in a terminal window; closing the window stops it."; ask_default "Add muOS Anbernic Manager to $PLACE?" Y; }; }; then
+  (cd "$MANAGER_DIR" && node src/main.ts --shortcut) || note "Could not add the shortcut; Settings in the manager can try again."
+else
+  note "Skipped. Settings in the manager can add it later."
+fi
 
 step "Ready"
 note "Start the manager any time with:  $MANAGER_DIR/run.sh"

@@ -20,14 +20,15 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 ## Startup (`src/main.ts`)
 
 1. Parse flags (`--root`, `--cache-dir`, `--tf2-dir`, `--port`, `--no-open`, `--skip-descriptions`,
-   `--init`, `--workspace`, ...). `--init` creates the workspace folders and exits (used by `installer.sh`).
+   `--init`, `--workspace`, `--shortcut`, ...). `--init` creates the workspace folders and exits, and `--shortcut`
+   adds the app shortcut and exits (both used by `installer.sh` and `installer.ps1`).
 2. `loadSettings()` (`src/settings.ts`): reads `.cache/settings.json`, or `settings-<hash>.json` when
    `--root` differs from the default. A clean cache marks the setup wizard pending.
 3. Stop a previous manager for the same workspace (`instance-<hash>.json` + `POST /api/shutdown`) and take
    over its port and token, so an open tab keeps working.
 4. Download arcade names and LaunchBox descriptions if missing (`src/games/metadata.ts`), scan `Roms/`
    (`src/games/library.ts`), then `listen()` and open the browser with `?token=...`.
-5. Exit code 75 means "restart me" (after a self-update); `run.sh` loops on it.
+5. Exit code 75 means "restart me" (after a self-update); `run.sh` and `run.ps1` (Windows, through `run.cmd`) loop on it.
 
 ## Request flow (`src/server.ts`)
 
@@ -43,7 +44,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 
 | Area | Files |
 | --- | --- |
-| Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep) |
+| Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep), `shortcut.ts` (the app shortcut in Applications, the Start menu or the app menu) |
 | HTTP | `server.ts`, `ws.ts` (WebSocket for the SSH terminal) |
 | Logging | `log.ts` (`say(badge, LABEL, message)` prints and records to the activity log), `activity.ts` |
 | Jobs and locks | `jobs.ts`: one background job at a time (`startJob`, `requireIdle`, `locks.system`); copy plans |

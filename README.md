@@ -29,7 +29,7 @@ per-session token. Nothing is uploaded anywhere.
 - [Screenshots](#screenshots)
 - [Supported handhelds](#supported-handhelds)
 - [Requirements](#requirements)
-- [Installation](#installation)
+- [Installation](#installation): [macOS and Linux](#macos-and-linux), [Windows](#windows), [App shortcut](#app-shortcut)
 - [Connecting the handheld](#connecting-the-handheld)
 - [Usage](#usage)
 - [Safety](#safety)
@@ -93,14 +93,17 @@ for a card in a card reader the manager asks once and remembers the answer.
 ## Requirements
 
 - **Node.js 23.6 or newer** (the manager runs its TypeScript directly; there is no build step). The installer offers to
-  install it with Homebrew on macOS.
-- **macOS or Linux** for `installer.sh` and `run.sh`. **Windows** works with `npm install` and `node src/main.ts`
-  (see [Installation](#installation)); the scripts run in Git Bash or WSL.
-- For **USB**: `libmtp` (`brew install libmtp` on macOS, `sudo apt install libmtp9` or similar on Linux). The installer offers it.
+  install it with Homebrew on macOS and with winget on Windows.
+- **macOS, Linux or Windows 10/11.** macOS and Linux use `installer.sh` and `run.sh`; Windows uses `installer.cmd` and
+  `run.cmd` (PowerShell scripts that come with Windows).
+- For **USB**: `libmtp` (`brew install libmtp` on macOS, `sudo apt install libmtp9` or similar on Linux, `libmtp-9.dll`
+  on the `PATH` on Windows). The macOS installer offers it. The card reader and Wi-Fi work without it.
 - For **Wi-Fi**: the handheld and computer on the same network.
 - A modern browser (Chrome, Edge, Firefox or Safari).
 
 ## Installation
+
+### macOS and Linux
 
 1. Pick a folder for your handheld files and clone the repository into it. The manager puts its workspace (`Roms/`,
    `apps/`, `os/`, `bios/`, `backups/`) next to its own folder, so a dedicated folder keeps things together:
@@ -120,20 +123,57 @@ for a card in a card reader the manager asks once and remembers the answer.
    ```
 
    It checks Node.js and installs the npm packages, offers `libmtp` for USB, creates the workspace folders (with one folder
-   per MustardOS system in `Roms/`), and can start from a clean cache. Existing folders and files are never touched.
-   Options: `--workspace DIR` to put the workspace somewhere else, `--yes` to accept the defaults, `--help` for the rest.
+   per MustardOS system in `Roms/`), can start from a clean cache, and offers an [app shortcut](#app-shortcut). Existing
+   folders and files are never touched. Options: `--workspace DIR` to put the workspace somewhere else, `--yes` to accept
+   the defaults, `--help` for the rest.
 
 3. The installer starts the manager and your browser opens the **setup wizard**: pick your handheld, check the folders,
    choose how to connect, and optionally download the game descriptions (about 110 MB). Skip anything; it is all in
    **Settings** later, and **Settings > Game data > Run setup** opens the wizard again.
 
-4. Next time, start the manager with:
+4. Next time, open **muOS Anbernic Manager** from Applications or the app menu, or run:
 
    ```bash
    ./muos-anbernic-manager/run.sh
    ```
 
-   Keep the terminal window open while you use it; `Ctrl-C` stops it.
+   Keep the terminal window open while you use it; closing it or pressing `Ctrl-C` stops the manager.
+
+### Windows
+
+1. Pick a folder for your handheld files, for example `C:\Users\<you>\Handheld`, and clone the repository into it from
+   PowerShell or Command Prompt:
+
+   ```powershell
+   mkdir $HOME\Handheld; cd $HOME\Handheld
+   git clone https://github.com/aaronns87/muos-anbernic-manager.git
+   ```
+
+   No git? Download the ZIP from the green **Code** button, unpack it into that folder and rename the result to
+   `muos-anbernic-manager` (GitHub names it `muos-anbernic-manager-main`).
+
+2. Double-click `installer.cmd` in the `muos-anbernic-manager` folder, or run it from a terminal:
+
+   ```powershell
+   .\muos-anbernic-manager\installer.cmd
+   ```
+
+   It does the same as the macOS and Linux installer: offers to install Node.js with winget if it is missing, installs the
+   npm packages, creates the workspace folders, can start from a clean cache and offers a Start menu shortcut. It takes
+   the same options (`--workspace DIR`, `--yes`, `--help`, ...).
+
+3. The installer starts the manager and your browser opens the **setup wizard**, as above.
+
+4. Next time, open **muOS Anbernic Manager** from the Start menu, or double-click `run.cmd`. Keep its window open while you
+   use the manager; closing it stops the manager.
+
+### App shortcut
+
+The installers ask whether to add **muOS Anbernic Manager** with its icon to Applications (macOS, in `~/Applications`),
+the Start menu (Windows) or the app menu (Linux). The setup wizard and **Settings > Transfers, startup and updates >
+App shortcut** offer it too, and can create it again after you move the manager's folder. The shortcut opens a terminal
+window that runs the manager and opens it in your browser, the same as `run.sh` or `run.cmd`; closing that window stops
+the manager. From a terminal: `node muos-anbernic-manager/src/main.ts --shortcut`.
 
 ### Updates
 
@@ -146,14 +186,12 @@ bar shows **Update** next to the clock (otherwise it shows the version you have)
   files. The replaced files are kept in `muos-anbernic-manager/.update-old/` until the next update, and put back
   automatically if anything goes wrong.
 
-Either way it installs new packages if needed and restarts in the same browser tab (when started with `run.sh`).
+Either way it installs new packages if needed and restarts in the same browser tab (when started with `run.sh`, `run.cmd`
+or the app shortcut).
 Your `Roms/`, workspace folders, settings and logins (`.cache/`) are never touched. From a terminal, a clone updates
 with `git -C muos-anbernic-manager pull`, then `run.sh`.
 
 The check only reads the version number from GitHub; turn it off under **Settings > Check for manager updates**.
-
-**Windows without bash:** in the `muos-anbernic-manager` folder run `npm install`, `node src/main.ts --init` once to create
-the workspace, then `node src/main.ts` to start.
 
 ## Connecting the handheld
 
@@ -183,7 +221,8 @@ Every page has a **?** button that opens its Wiki article.
 ./muos-anbernic-manager/run.sh [--no-open] [--port N] [--root DIR] [--skip-descriptions] [--refresh-descriptions]
 ```
 
-`--root DIR` uses another workspace; `--port N` picks another port (default 8765); `node src/main.ts --help` lists the rest.
+On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspace; `--port N` picks another port
+(default 8765); `node src/main.ts --help` lists the rest.
 
 ## Safety
 
@@ -203,8 +242,14 @@ Every page has a **?** button that opens its Wiki article.
   that change the handheld also need Secure Shell.
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
   under the logo so the manager knows.
-- **Start over**: `./muos-anbernic-manager/installer.sh --clean-cache` moves the cache aside (Wi-Fi logins, downloads and
-  settings) and shows the setup wizard on the next start.
+- **Start over**: `./muos-anbernic-manager/installer.sh --clean-cache` (or `installer.cmd --clean-cache` on Windows)
+  moves the cache aside (Wi-Fi logins, downloads and settings) and shows the setup wizard on the next start.
+- **Windows asks whether to run `installer.cmd` or `run.cmd`**: files from a downloaded ZIP carry a "from the internet"
+  mark. Choose **More info > Run anyway**, or right-click the ZIP, open **Properties**, tick **Unblock** and unpack it again.
+- **winget is missing on Windows**: install **App Installer** from the Microsoft Store, or install Node.js from
+  [nodejs.org](https://nodejs.org/), then run `installer.cmd` again.
+- **The app shortcut does nothing after moving the manager**: create it again under **Settings > Transfers, startup and
+  updates > App shortcut**, or run the installer again.
 
 The Wiki inside the manager has a longer Troubleshooting page.
 

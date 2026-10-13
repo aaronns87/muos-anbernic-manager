@@ -16,13 +16,17 @@ const ARTICLES = [
       <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device Settings, Themes,
       Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
       (Settings, Wiki) is about the manager itself.</p>`],
-    ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> gets a computer ready: it checks Node.js and the
-      manager's packages (and offers <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per
-      system), <code>apps/</code>, <code>os/</code>, <code>bios/</code> and <code>backups/</code> next to the manager or in a folder you name, and
-      can start from a clean cache. Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
-      <p>The first start with a clean cache opens the <b>setup wizard</b>: your handheld model, the folders, how to connect, and the optional game
-      description download. <b>Skip setup</b> closes it; ${path("Settings", "Game data", "Run setup")} opens it again. After that,
-      <code>./muos-anbernic-manager/run.sh</code> starts the manager.</p>
+    ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
+      on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
+      <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
+      <code>os/</code>, <code>bios/</code> and <code>backups/</code> next to the manager or in a folder you name, and can start from a clean cache.
+      Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
+      <p>It also offers an <b>app shortcut</b> with the manager's icon: in Applications on a Mac, the Start menu on Windows, or the app menu on
+      Linux. The shortcut opens a terminal window that runs the manager and opens this page; closing the window stops the manager.
+      ${path("Settings", "Transfers, startup and updates", "App shortcut")} adds it later, or again after moving the manager's folder.</p>
+      <p>The first start with a clean cache opens the <b>setup wizard</b>: your handheld model, the folders, how to connect, and extras such as the
+      game description download and the app shortcut. <b>Skip setup</b> closes it; ${path("Settings", "Game data", "Run setup")} opens it again.
+      After that, the shortcut, <code>./muos-anbernic-manager/run.sh</code> or <code>run.cmd</code> on Windows starts the manager.</p>
       <p><b>Updates.</b> The version next to the clock turns into <b>Update</b> when GitHub has a newer one. <b>Update now</b> runs
       <code>git pull</code> in a copy installed with <code>git clone</code>, or downloads and swaps in the new files in a copy
       downloaded as a ZIP (the old files stay in <code>.update-old</code>), then restarts in the same tab.
@@ -276,7 +280,7 @@ const ARTICLES = [
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
       images, BIOS files and save backups are kept.</p>`],
-    ["Behaviour and looks", `<p><b>Transfers and startup</b> controls how copying and starting up behave. <b>Appearance, clock and images</b> sets the theme,
+    ["Behaviour and looks", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],
     ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and

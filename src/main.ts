@@ -19,6 +19,7 @@ import { platform } from "./platform/index.ts";
 import { onRestart, RESTART_CODE, runningVersion } from "./manager-update.ts";
 import { listen, onShutdown } from "./server.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "./settings.ts";
+import { createShortcut } from "./shortcut.ts";
 import { isDir } from "./util.ts";
 
 const USAGE = `Usage: run.sh [options]
@@ -44,7 +45,8 @@ Keep it running while you use it and press Ctrl-C to stop.
   --root DIR              workspace holding Roms/ (default: the folder above muos-anbernic-manager/)
   --cache-dir DIR         keep downloads, settings and logins there instead of muos-anbernic-manager/.cache (testing)
   --init                  create the missing workspace folders (Roms with its system folders, apps, os, bios, backups) and exit
-  --workspace DIR         with --init: create them in DIR and use them from now on (installer.sh)`;
+  --workspace DIR         with --init: create them in DIR and use them from now on (installer.sh)
+  --shortcut              add the manager to Applications, the Start menu or the app menu, and exit`;
 
 /** `restart` is when the manager stopped to start again after an update; the next one takes over its tab. */
 interface Instance { pid: number; port: number; token: string; restart?: number }
@@ -109,7 +111,7 @@ async function main(): Promise<void> {
         "no-open": { type: "boolean" }, port: { type: "string" }, "refresh-names": { type: "boolean" },
         "refresh-descriptions": { type: "boolean" }, "skip-descriptions": { type: "boolean" },
         "tf2-dir": { type: "string" }, root: { type: "string" }, "cache-dir": { type: "string" }, help: { type: "boolean", short: "h" },
-        init: { type: "boolean" }, workspace: { type: "string" },
+        init: { type: "boolean" }, workspace: { type: "string" }, shortcut: { type: "boolean" },
       },
     }).values;
   } catch (error) {
@@ -119,6 +121,12 @@ async function main(): Promise<void> {
   }
   if (args.help) {
     console.log(USAGE);
+    return;
+  }
+  if (args.shortcut) {
+    const made = await createShortcut();
+    say("green", "READY", `Added muOS Anbernic Manager to ${made.place}.`);
+    dim(made.path);
     return;
   }
   if (args.root) setRoot(args.root);

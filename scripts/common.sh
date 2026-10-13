@@ -60,7 +60,7 @@ manual_install() {
   note "Install Node.js $NODE_MIN_MAJOR.$NODE_MIN_MINOR or newer, then run this script again:"
   note "  macOS:    brew install node   (Homebrew: https://brew.sh)"
   note "  Linux:    https://nodejs.org/en/download (or nvm: nvm install node)"
-  note "  Windows:  https://nodejs.org/en/download, then run: node muos-anbernic-manager/src/main.ts"
+  note "  Windows:  use installer.cmd instead of this script"
   die "Node.js $NODE_MIN_MAJOR.$NODE_MIN_MINOR or newer is required."
 }
 

@@ -21,6 +21,7 @@ import { githubRepo } from "../src/manager-update.ts";
 import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
+import { createShortcut, shortcutInfo } from "../src/shortcut.ts";
 import { norm } from "../src/games/systems.ts";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
@@ -389,4 +390,34 @@ test("app market: README screenshots skip badges and resolve relative paths", ()
     "https://raw.githubusercontent.com/a/b/HEAD/docs/shot1.png",
     "https://raw.githubusercontent.com/a/b/main/img/s2.jpg",
   ]);
+});
+
+test("app shortcut: starts run.sh from a temporary home", { skip: process.platform === "win32" }, async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "mgr-shortcut-"));
+  const saved = { HOME: process.env.HOME, XDG_DATA_HOME: process.env.XDG_DATA_HOME };
+  process.env.HOME = home;
+  process.env.XDG_DATA_HOME = path.join(home, "share");
+  try {
+    assert.equal((await shortcutInfo()).exists, false);
+    const { path: file } = await createShortcut();
+    assert.ok(file.startsWith(home));
+    const runSh = path.join(ctx.managerDir, "run.sh");
+    if (process.platform === "darwin") {
+      assert.match(fs.readFileSync(path.join(file, "Contents", "MacOS", "launcher"), "utf8"), /open -a Terminal '.*run\.sh'/);
+      assert.ok(fs.existsSync(path.join(file, "Contents", "Resources", "app-icon.icns")));
+    } else {
+      const entry = fs.readFileSync(file, "utf8");
+      assert.ok(entry.includes(`Exec="${runSh.replaceAll("\\", "\\\\\\\\")}"`));
+      assert.match(entry, /^Terminal=true$/m);
+    }
+    assert.equal((await shortcutInfo()).exists, true);
+    await createShortcut();
+    if (process.platform === "darwin") {
+      fs.writeFileSync(path.join(file, "Contents", "Info.plist"), "<plist>com.example.other</plist>");
+      await assert.rejects(createShortcut(), /belongs to another app/);
+    }
+  } finally {
+    for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    fs.rmSync(home, { recursive: true, force: true });
+  }
 });

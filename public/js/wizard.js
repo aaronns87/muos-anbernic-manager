@@ -6,10 +6,10 @@ import { screenText } from "./devices.js";
 import { connection, isLive, setMode, wifiForm } from "./device.js";
 import { modelGrid } from "./model-pick.js";
 import { loadLibrary } from "./games.js";
-import { forgetSettings } from "./settings.js";
+import { forgetSettings, shortcutRow } from "./settings.js";
 import { openAddGames } from "./add-games.js";
 
-const STEPS = [["handheld", "Handheld"], ["folders", "Folders"], ["connect", "Connection"], ["data", "Game info"], ["done", "Done"]];
+const STEPS = [["handheld", "Handheld"], ["folders", "Folders"], ["connect", "Connection"], ["data", "Extras"], ["done", "Done"]];
 const W = { step: 0, data: null, working: "", model: "" };
 
 const FOLDERS = [
@@ -112,11 +112,12 @@ function stepData() {
   const d = W.data, has = d.cache.descriptions > 0;
   const toggle = (key, label, note) => `<label class="set-row set-toggle"><span><b>${label}</b><small>${note}</small></span>
     <span class="switch"><input type="checkbox" role="switch" data-wiz-toggle="${key}"${d.settings[key] ? " checked" : ""}><span class="switch-track"></span></span></label>`;
-  return `<p class="wiz-lead">Optional extras. Both can wait; Settings &rsaquo; Game data has them too.</p>
+  return `<p class="wiz-lead">Optional extras. They can all wait; Settings has them too.</p>
     <div class="set-row"><span><b>Game descriptions</b><small>Text, genres, ratings and years for your games from the LaunchBox Games Database${has ? ` &middot; downloaded (${human(d.cache.descriptions)})` : " &middot; about 110 MB, a minute or two"}</small></span>
       <button class="btn${has ? "" : " primary"}" data-wiz="descriptions"${W.working ? " disabled" : ""}>${W.working === "descriptions" ? `${ICONS.spin}<span>Downloading&hellip;</span>` : `${icon("download")}<span>${has ? "Download again" : "Download now"}</span>`}</button></div>
     ${toggle("copyArt", "Send artwork with games", "Copying a game also sends its box art when the handheld has none.")}
-    ${toggle("openBrowser", "Open the browser at start", "run.sh opens this page by itself.")}`;
+    ${toggle("openBrowser", "Open the browser at start", "run.sh opens this page by itself.")}
+    ${d.shortcut ? shortcutRow(d.shortcut, "wiz", W.working === "shortcut", !!W.working) : ""}`;
 }
 
 function stepDone() {
@@ -198,6 +199,13 @@ $("wizard")?.addEventListener("click", async (e) => {
       forgetSettings();
       await loadLibrary();
       toast("Game descriptions downloaded", 2400);
+    });
+  }
+  if (what === "shortcut") {
+    return run("shortcut", async () => {
+      W.data = await api("settings/shortcut", {});
+      forgetSettings();
+      toast(`Added to ${W.data.shortcut.place}`, 2600);
     });
   }
   if (what === "add") return finish("add");

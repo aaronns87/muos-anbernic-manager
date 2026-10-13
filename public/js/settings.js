@@ -182,8 +182,14 @@ function copyPanel(d) {
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
     + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
-      "Every few hours the manager reads the version number on GitHub and shows Update in the top bar when there is a newer one. Nothing else is sent."));
+      "Every few hours the manager reads the version number on GitHub and shows Update in the top bar when there is a newer one. Nothing else is sent.")
+    + shortcutRow(d.shortcut, "set", s.working === "shortcut", !!s.working));
 }
+
+/** Shared with the setup wizard. */
+export const shortcutRow = (sc, attr, working, busy) => `<div class="set-row"><span><b>App shortcut</b>
+    <small>${sc.exists ? `In ${esc(sc.place)}` : `Adds the manager to ${esc(sc.place)} with its icon`}. It opens a terminal window that runs the manager and this page; closing the window stops it.</small></span>
+  <button class="btn" data-${attr}="shortcut"${busy ? " disabled" : ""} title="${esc(sc.path)}">${working ? `<span class="spinner"></span>` : icon(sc.exists ? "refresh" : "plus")}<span>${sc.exists ? "Create again" : "Add"}</span></button></div>`;
 
 function appearancePanel() {
   const theme = app.ui.theme;
@@ -408,6 +414,19 @@ async function resetPlay(what) {
   render();
 }
 
+async function makeShortcut() {
+  s.working = "shortcut";
+  render();
+  try {
+    s.data = await api("settings/shortcut", {});
+    toast(`Added to ${s.data.shortcut.place}`, 2600);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
 async function resetPrefs() {
   const ok = await confirmBox({
     title: "Reset view preferences?",
@@ -450,6 +469,7 @@ function bind() {
     if (action === "browse") browse(s.data.folders[which].path, which);
     else if (action === "cancel") { s.browse = null; render(); }
     else if (action === "wizard") openWizard();
+    else if (action === "shortcut") makeShortcut();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));
