@@ -18,7 +18,7 @@ MustardOS paths the code relies on. Each source file opens with a comment saying
 npm install                 # once; run.sh does it too
 npm test                    # all tests (node --test test/*.test.ts)
 npm run check               # TypeScript type check (tsc --noEmit)
-node --test test/unit.test.ts --test-name-pattern "VERSION"   # one file / matching tests
+node --test --test-name-pattern=VERSION test/unit.test.ts     # one file / matching tests
 node --check public/js/<file>.js                              # syntax of a front-end module
 bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Windows twins: *.ps1, see shell-scripts rule)
 ./run.sh                    # start the manager (port 8765)
