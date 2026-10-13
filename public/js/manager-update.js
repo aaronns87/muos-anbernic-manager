@@ -118,7 +118,7 @@ function render() {
     ${M.error ? `<p class="mgr-err">${icon("alert")}<span>${esc(M.error)}</span></p>` : ""}
     <ul class="mgr-facts">${facts}</ul>`;
   const busy = M.working || !!M.restarting;
-  foot.innerHTML = `${d.home ? `<a class="btn ghost" href="${esc(d.home)}/commits/main" target="_blank" rel="noopener">${icon("external")}<span>What's new</span></a>` : ""}
+  foot.innerHTML = `${d.home ? `<a class="btn ghost" href="${esc(d.home)}/blob/main/CHANGELOG.md" target="_blank" rel="noopener">${icon("external")}<span>What's new</span></a>` : ""}
     <span class="grow"></span>
     <button class="btn" data-mgr-act="check"${busy ? " disabled" : ""}>${M.working ? ICONS.spin : icon("refresh")}<span>Check now</span></button>
     ${d.newer && canUpdate ? `<button class="btn primary" data-mgr-act="update"${busy ? " disabled" : ""}>${icon("download")}<span>Update now</span></button>` : `<button class="btn" data-mgr-act="close">Close</button>`}`;

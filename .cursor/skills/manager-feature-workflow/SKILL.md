@@ -12,7 +12,7 @@ Copy this checklist and tick it off:
 - [ ] 2. Server logic + route
 - [ ] 3. Browser module / dialog
 - [ ] 4. Styles
-- [ ] 5. Wiki (and README if users notice)
+- [ ] 5. Wiki, CHANGELOG (and README if users notice)
 - [ ] 6. Tests
 - [ ] 7. Verify
 ```
@@ -51,6 +51,7 @@ Check the layout at 390 px wide as well as desktop.
 - Wiki: add or update the article in `ARTICLES` in `public/js/wiki.js`
   (`[id, icon, title, section, summary, [[heading, html], ...]]`), written for non-technical users.
 - README: features list or a section if users will look for it.
+- `CHANGELOG.md`: a line under **Unreleased** (Added, Changed, Fixed or Removed) for anything users notice.
 
 ## 6. Tests
 

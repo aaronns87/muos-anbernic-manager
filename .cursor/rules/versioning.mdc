@@ -35,4 +35,10 @@ printf '1.3.0\n' > VERSION
 node --test test/unit.test.ts --test-name-pattern "VERSION"
 ```
 
-Then commit as `Version 1.3.0` (see the `manager-release` skill).
+Then move `CHANGELOG.md` **Unreleased** to the new version and commit as `Version 1.3.0` (see the
+`manager-release` skill).
+
+## Changelog
+
+Every user-visible change gets a line under **Unreleased** in `CHANGELOG.md` (Added, Changed, Fixed, Removed),
+in the same commit as the change, written for users. Internal refactors and test-only changes are left out.

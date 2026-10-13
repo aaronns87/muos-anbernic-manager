@@ -23,9 +23,15 @@ Prefer minor over major. The new number must be higher than the current `VERSION
 ```
 - [ ] 1. Working tree clean, on main, up to date (git status, git pull --ff-only)
 - [ ] 2. Set the version
-- [ ] 3. npm run check && npm test
-- [ ] 4. Commit "Version X.Y.Z" and push
+- [ ] 3. Move CHANGELOG.md "Unreleased" to the new version
+- [ ] 4. npm run check && npm test
+- [ ] 5. Commit "Version X.Y.Z" and push
 ```
+
+In `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]`
+above it, add a row to the version history table, and update the links at the bottom (`[Unreleased]` compares the
+release commit with `main`; `[X.Y.Z]` points at the release commit, or at the tag if one is made). If Unreleased is
+empty, ask what the release contains before releasing.
 
 ```bash
 V=1.3.0
@@ -33,12 +39,12 @@ npm version "$V" --no-git-tag-version      # package.json + package-lock.json
 printf '%s\n' "$V" > VERSION
 node --test test/unit.test.ts --test-name-pattern "VERSION"
 npm run check && npm test
-git add VERSION package.json package-lock.json
+git add VERSION package.json package-lock.json CHANGELOG.md
 git commit -m "Version $V"
 git push origin main
 ```
 
-Release commits contain only the version change (features are committed before). Tags and GitHub releases are
+Release commits contain only the version change and the changelog (features are committed before). Tags and GitHub releases are
 optional; the update check reads `VERSION` on `main`, not tags.
 
 ## How users get it

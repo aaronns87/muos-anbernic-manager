@@ -35,6 +35,7 @@ per-session token. Nothing is uploaded anywhere.
 - [Safety](#safety)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
+- [Changelog](CHANGELOG.md)
 - [Credits](#credits)
 - [License](#license)
 
@@ -43,6 +44,10 @@ per-session token. Nothing is uploaded anywhere.
 **Library**
 - **Games**: browse the whole `Roms/` library by system, with search, filters (artwork, genre, rating, year) and grid or list views.
   Add games by drag and drop, copy them to the handheld, see what is on the device and what is missing, and remove games.
+- **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
+  with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves. Related
+  games (other versions, series, developer, genre) are one click away, and you can write your own description or drop
+  in new artwork.
 - **Artwork**: fetch box art, screenshots and descriptions for every game (libretro thumbnails, LaunchBox Games Database),
   in the size your handheld's screen needs, and sync them to the device.
 - **Play**: play time, recently played games and collections from the handheld.
@@ -55,7 +60,8 @@ per-session token. Nothing is uploaded anywhere.
 - **Device Settings**: change MustardOS settings (display, audio, network, interface and more) from the computer.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
 - **Emulation**: back up and restore saves and save states, check BIOS files, choose emulator cores per system or game,
-  edit RetroArch options, and run a health check of your library.
+  edit RetroArch options, and run a health check of your library. **Systems** lists every system with what the
+  handheld can run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
 
 **Tools**
@@ -63,12 +69,13 @@ per-session token. Nothing is uploaded anywhere.
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
-  cloned the repository or downloaded the ZIP.
+  cloned the repository or downloaded the ZIP. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+- **Settings**: folders, connections, caches, history resets and a factory reset that starts over from the setup wizard.
 
 ## Screenshots
 
 <p align="center"><img src="docs/screenshots/game.jpg" width="100%" alt="Game details"></p>
-<p align="center"><em>Every game with its box art, description, genre, rating and one-click transfer to the handheld.</em></p>
+<p align="center"><em>The game view: box art, description, rating and library check, the game's state on the handheld (core, play time, saves), and tabs for details, handheld data and related games.</em></p>
 
 <p align="center"><img src="docs/screenshots/artwork.jpg" width="100%" alt="Artwork coverage"></p>
 <p align="center"><em>Artwork: coverage per system, scraping what is missing, and syncing box art with the handheld.</em></p>
@@ -192,6 +199,8 @@ Your `Roms/`, workspace folders, settings and logins (`.cache/`) are never touch
 with `git -C muos-anbernic-manager pull`, then `run.sh`.
 
 The check only reads the version number from GitHub; turn it off under **Settings > Check for manager updates**.
+**What's new** in the update dialog opens [CHANGELOG.md](CHANGELOG.md), which lists the changes in every version and
+those already on `main` but not yet released.
 
 ## Connecting the handheld
 
@@ -274,6 +283,7 @@ interface is plain ES modules in `public/` with no framework or bundler. Issues 
 the tests and type check first, and keep changes that write to the handheld behind an explicit user action.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup, tests, pull requests and how versions are released.
+- [CHANGELOG.md](CHANGELOG.md): release notes and version history; add user-visible changes under **Unreleased**.
 - [docs/architecture.md](docs/architecture.md): module map, request flow, device access and the MustardOS paths used.
 - [AGENTS.md](AGENTS.md): short guide for coding agents; Cursor also picks up the rules in `.cursor/rules/` and the
   task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing).

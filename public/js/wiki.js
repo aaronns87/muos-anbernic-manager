@@ -30,7 +30,9 @@ const ARTICLES = [
       <p><b>Updates.</b> The version next to the clock turns into <b>Update</b> when GitHub has a newer one. <b>Update now</b> runs
       <code>git pull</code> in a copy installed with <code>git clone</code>, or downloads and swaps in the new files in a copy
       downloaded as a ZIP (the old files stay in <code>.update-old</code>), then restarts in the same tab.
-      ${path("Settings", "Check for manager updates")} turns the check off.</p>`],
+      ${path("Settings", "Check for manager updates")} turns the check off.</p>
+      <p><b>What's new.</b> Every version's changes are listed in <code>CHANGELOG.md</code> in the manager's folder; <b>What's new</b> in the
+      update dialog opens it on GitHub. Changes listed under <b>Unreleased</b> are already on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>

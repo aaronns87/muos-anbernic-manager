@@ -45,6 +45,10 @@ Versions follow `MAJOR.MINOR.PATCH` and are only changed by the maintainer, by h
 `VERSION`, `package.json` and `package-lock.json` must match (a test checks this). Minor releases are the
 norm; major releases are kept for big or breaking changes. Pull requests should not bump the version.
 
+Add a line for every change users will notice under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) (Added, Changed,
+Fixed or Removed), written for users rather than developers. When releasing, the maintainer renames **Unreleased** to
+the new version and date and adds it to the version history table.
+
 ## License
 
 By contributing you agree that your contributions are licensed under the
