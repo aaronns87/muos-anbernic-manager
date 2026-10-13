@@ -11,9 +11,7 @@
 [![MustardOS](https://img.shields.io/badge/for-MustardOS-e3b341)](https://muos.dev/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-<img src="docs/screenshots/games.jpg" width="32%" alt="Game library with box art">
-<img src="docs/screenshots/themes.jpg" width="32%" alt="Theme browser">
-<img src="docs/screenshots/wizard.jpg" width="32%" alt="First-run setup wizard">
+<img src="docs/screenshots/games.jpg" width="100%" alt="The game library: every system in Roms/ with box art, filters and one-click transfer to the handheld">
 
 </div>
 
@@ -28,6 +26,7 @@ per-session token. Nothing is uploaded anywhere.
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Supported handhelds](#supported-handhelds)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -62,6 +61,22 @@ per-session token. Nothing is uploaded anywhere.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
+- **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
+  cloned the repository or downloaded the ZIP.
+
+## Screenshots
+
+<p align="center"><img src="docs/screenshots/game.jpg" width="100%" alt="Game details"></p>
+<p align="center"><em>Every game with its box art, description, genre, rating and one-click transfer to the handheld.</em></p>
+
+<p align="center"><img src="docs/screenshots/artwork.jpg" width="100%" alt="Artwork coverage"></p>
+<p align="center"><em>Artwork: coverage per system, scraping what is missing, and syncing box art with the handheld.</em></p>
+
+<p align="center"><img src="docs/screenshots/themes.jpg" width="100%" alt="Theme browser"></p>
+<p align="center"><em>Themes: the MustardOS community themes that fit your screen, ready to preview, install and apply.</em></p>
+
+<p align="center"><img src="docs/screenshots/wizard.jpg" width="100%" alt="Setup wizard"></p>
+<p align="center"><em>Setup wizard: the first start asks for your handheld, folders and connection.</em></p>
 
 ## Supported handhelds
 
@@ -86,15 +101,16 @@ for a card in a card reader the manager asks once and remembers the answer.
 
 ## Installation
 
-1. Pick a folder for your handheld files. The manager puts its workspace (`Roms/`, `apps/`, `os/`, `bios/`, `backups/`)
-   next to its own folder, so a dedicated folder keeps things together:
+1. Pick a folder for your handheld files and clone the repository into it. The manager puts its workspace (`Roms/`,
+   `apps/`, `os/`, `bios/`, `backups/`) next to its own folder, so a dedicated folder keeps things together:
 
    ```bash
    mkdir -p ~/Handheld && cd ~/Handheld
    git clone https://github.com/aaronns87/muos-anbernic-manager.git
    ```
 
-   No git? Download the ZIP from the green **Code** button and unpack it into that folder.
+   No git? Download the ZIP from the green **Code** button and unpack it into that folder as `muos-anbernic-manager`.
+   Both update themselves from inside the manager (see [Updates](#updates)); a clone also lets you update with `git pull`.
 
 2. Run the installer:
 
@@ -118,7 +134,22 @@ for a card in a card reader the manager asks once and remembers the answer.
 
    Keep the terminal window open while you use it; `Ctrl-C` stops it.
 
-**Updating:** `git pull` in `muos-anbernic-manager/`, then `run.sh` (it installs new packages when needed).
+### Updates
+
+The manager compares its `VERSION` file with the one on GitHub every few hours. When there is a newer version, the top
+bar shows **Update** next to the clock (otherwise it shows the version you have). Click it, then **Update now**:
+
+- **Cloned with git**: the manager runs `git pull` on the `main` branch. If you changed files in the manager folder or
+  switched branches, it tells you what to do instead of pulling.
+- **Downloaded as ZIP**: the manager downloads the ZIP of `main` from GitHub, checks it, and swaps in the new program
+  files. The replaced files are kept in `muos-anbernic-manager/.update-old/` until the next update, and put back
+  automatically if anything goes wrong.
+
+Either way it installs new packages if needed and restarts in the same browser tab (when started with `run.sh`).
+Your `Roms/`, workspace folders, settings and logins (`.cache/`) are never touched. From a terminal, a clone updates
+with `git -C muos-anbernic-manager pull`, then `run.sh`.
+
+The check only reads the version number from GitHub; turn it off under **Settings > Check for manager updates**.
 
 **Windows without bash:** in the `muos-anbernic-manager` folder run `npm install`, `node src/main.ts --init` once to create
 the workspace, then `node src/main.ts` to start.

@@ -16,4 +16,11 @@ source "$MANAGER_DIR/scripts/common.sh"
 ensure_node
 ensure_packages
 cd "$MANAGER_DIR"
-exec node src/main.ts "$@"
+# Exit code 75 is the manager restarting itself after an update; new packages are installed first.
+export MANAGER_RESTART=1
+while :; do
+  code=0
+  node src/main.ts "$@" || code=$?
+  (( code == 75 )) || exit "$code"
+  ensure_packages
+done

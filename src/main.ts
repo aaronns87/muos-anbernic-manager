@@ -16,6 +16,7 @@ import { ensureArcadeNames, ensureDescriptions } from "./games/metadata.ts";
 import { cancelJob, jobRunning, waitForJob } from "./jobs.ts";
 import { C, dim, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
+import { onRestart, RESTART_CODE, runningVersion } from "./manager-update.ts";
 import { listen, onShutdown } from "./server.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "./settings.ts";
 import { isDir } from "./util.ts";
@@ -45,7 +46,8 @@ Keep it running while you use it and press Ctrl-C to stop.
   --init                  create the missing workspace folders (Roms with its system folders, apps, os, bios, backups) and exit
   --workspace DIR         with --init: create them in DIR and use them from now on (installer.sh)`;
 
-interface Instance { pid: number; port: number; token: string }
+/** `restart` is when the manager stopped to start again after an update; the next one takes over its tab. */
+interface Instance { pid: number; port: number; token: string; restart?: number }
 
 /** One file per workspace, so a test run with --root never stops the manager for the real Roms/. */
 const instanceFile = () =>
@@ -69,7 +71,8 @@ async function stopPrevious(): Promise<Instance | null> {
   } catch {
     return null;
   }
-  if (!prev.pid || prev.pid === process.pid || !alive(prev.pid)) return null;
+  if (!prev.pid || prev.pid === process.pid) return null;
+  if (!alive(prev.pid)) return prev.restart && Date.now() - prev.restart < 120_000 ? prev : null;
   let res: Response;
   try {
     res = await fetch(`http://127.0.0.1:${prev.port}/api/shutdown`, {
@@ -143,7 +146,7 @@ async function main(): Promise<void> {
   }
 
   console.log();
-  console.log(`  ${C.cyan}${C.bold} muOS Anbernic Manager ${C.reset}`);
+  console.log(`  ${C.cyan}${C.bold} muOS Anbernic Manager ${C.reset} ${C.dim}${await runningVersion()}${C.reset}`);
   dim("Device status, games and artwork for the handheld.");
   console.log();
   dim(`Using ${ctx.managerDir} (Node ${process.versions.node}, ${platform.name})`);
@@ -183,7 +186,7 @@ async function main(): Promise<void> {
   else platform.openUrl(url);
 
   let stopping = false;
-  const stop = async () => {
+  const stop = async (code = 0) => {
     if (stopping) process.exit(1);
     stopping = true;
     console.log();
@@ -197,18 +200,20 @@ async function main(): Promise<void> {
     await Promise.race([Promise.all([disconnect(), closeSftp(), closeSsh()]), new Promise((resolve) => setTimeout(resolve, 5000))]);
     try {
       const mine = JSON.parse(await fsp.readFile(instanceFile(), "utf8")) as Instance;
-      if (mine.pid === process.pid) await fsp.rm(instanceFile(), { force: true });
+      if (mine.pid === process.pid && code === RESTART_CODE) await fsp.writeFile(instanceFile(), JSON.stringify({ ...mine, restart: Date.now() }), { mode: 0o600 });
+      else if (mine.pid === process.pid) await fsp.rm(instanceFile(), { force: true });
     } catch {}
-    say("cyan", "CLOSED", "Manager stopped.");
+    say("cyan", "CLOSED", code === RESTART_CODE ? "Starting the new version..." : "Manager stopped.");
     console.log();
-    process.exit(0);
+    process.exit(code);
   };
   // Closing the Terminal window (SIGHUP) or a kill (SIGTERM) must also let go of the USB session.
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(signal, stop);
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(signal, () => void stop());
   onShutdown(() => {
     say("yellow", "RESTART", "A new manager was started for this workspace; stopping this one.");
     void stop();
   });
+  onRestart(() => void stop(RESTART_CODE));
 }
 
 main().catch((error) => {

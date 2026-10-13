@@ -4,6 +4,7 @@ import { $, app, esc, icon, section, sectionForKey, store, toast, TOKEN, SECTION
 import { deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatusbar, watchDevices } from "./device.js";
 import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
+import { startManagerChecks } from "./manager-update.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, loadLibrary, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch
@@ -175,6 +176,7 @@ if (!TOKEN) {
   });
   refreshDevice();
   checkWizard();
+  startManagerChecks();
   if (section() !== "apps") countApps();
   poll();
   watchSystemJob();

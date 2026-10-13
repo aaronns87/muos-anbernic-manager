@@ -22,7 +22,11 @@ const ARTICLES = [
       can start from a clean cache. Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
       <p>The first start with a clean cache opens the <b>setup wizard</b>: your handheld model, the folders, how to connect, and the optional game
       description download. <b>Skip setup</b> closes it; ${path("Settings", "Game data", "Run setup")} opens it again. After that,
-      <code>./muos-anbernic-manager/run.sh</code> starts the manager.</p>`],
+      <code>./muos-anbernic-manager/run.sh</code> starts the manager.</p>
+      <p><b>Updates.</b> The version next to the clock turns into <b>Update</b> when GitHub has a newer one. <b>Update now</b> runs
+      <code>git pull</code> in a copy installed with <code>git clone</code>, or downloads and swaps in the new files in a copy
+      downloaded as a ZIP (the old files stay in <code>.update-old</code>), then restarts in the same tab.
+      ${path("Settings", "Check for manager updates")} turns the check off.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>

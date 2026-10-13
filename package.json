@@ -1,8 +1,13 @@
 {
   "name": "muos-anbernic-manager",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Local manager for Anbernic and TrimUI handhelds running MustardOS: games, artwork, apps, themes, ports and settings over a card reader, USB or Wi-Fi.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aaronns87/muos-anbernic-manager.git"
+  },
+  "homepage": "https://github.com/aaronns87/muos-anbernic-manager",
   "private": true,
   "type": "module",
   "engines": {

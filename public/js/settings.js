@@ -8,6 +8,7 @@ import { artMax, confirmBox, maxSides } from "./art-images.js";
 import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
 import { openWizard } from "./wizard.js";
+import { checkManager } from "./manager-update.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -173,11 +174,13 @@ function browser(d) {
 }
 
 function copyPanel(d) {
-  return panel("half", "Transfers and startup",
+  return panel("half", "Transfers, startup and updates",
     toggle("copyArt", d.settings.copyArt, "Send box art with games",
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
-      "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way."));
+      "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
+    + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
+      "Every few hours the manager reads the version number on GitHub and shows Update in the top bar when there is a newer one. Nothing else is sent."));
 }
 
 function appearancePanel() {
@@ -290,6 +293,7 @@ async function saveToggle(key, value) {
   try {
     s.data = await api("settings", { [key]: value });
     toast("Saved");
+    if (key === "checkUpdates") checkManager(value);
   } catch (error) {
     toast(error.message, 3000);
   }

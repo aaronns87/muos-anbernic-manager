@@ -4,6 +4,7 @@ import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED,
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
 import { renderWizard } from "./wizard.js";
+import { versionItem } from "./manager-update.js";
 import { render, setWhere, loadDevice, resetListing, syncGamesControls } from "./games.js";
 import { renderOverview, resetOverview, loadInfo } from "./overview.js";
 import { renderArtwork } from "./artwork-view.js";
@@ -271,6 +272,7 @@ export function renderStatusbar() {
   if (live && typeof battery === "number" && battery > 0) {
     parts.push(`<span class="sb-item sb-batt${battery <= 15 ? " low" : ""}" title="Battery ${battery}%"><span class="batt"><i style="width:${battery}%"></i></span>${battery}%</span>`);
   }
+  parts.push(versionItem());
   const now = new Date();
   const date = formatDate(now);
   parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);

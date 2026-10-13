@@ -44,6 +44,7 @@ import { biosJson, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
+import { managerStatus, updateManager } from "./manager-update.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
@@ -145,6 +146,8 @@ const routes: Record<string, Handler> = {
     return { ok: true };
   },
   "GET /api/settings": () => settingsJson(),
+  "GET /api/manager": (q) => managerStatus(q.get("refresh") === "1"),
+  "POST /api/manager/update": () => updateManager(),
   "POST /api/settings": (_, body) => saveSettings(body),
   "GET /api/settings/folders": (q) => browseFolders(q),
   "POST /api/settings/pick-folder": (_, body) => pickFolder(body),

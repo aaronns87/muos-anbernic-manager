@@ -32,3 +32,6 @@ desktop.ini
 *.swp
 *~
 .cache-backup-*/
+.update-new/
+.update-old/
+.update.zip

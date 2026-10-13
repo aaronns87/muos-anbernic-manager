@@ -33,6 +33,8 @@ export interface Settings {
   copyArt: boolean;
   /** Open the manager in the browser when it starts. */
   openBrowser: boolean;
+  /** Look for a newer manager version on GitHub every few hours. */
+  checkUpdates: boolean;
   /** "pending" from a first start with a clean cache until the setup wizard is finished. */
   wizard: "pending" | "done";
 }
@@ -42,7 +44,7 @@ const FOLDERS: Folder[] = ["roms", "apps", "os", "bios", "backups"];
 const WORKSPACE_NAMES: Record<Folder, string> = { roms: "Roms", apps: "apps", os: "os", bios: "bios", backups: "backups" };
 const FOLDER_NAMES: Record<Folder, string> = { roms: "Roms folder", apps: "apps folder", os: "OS images folder", bios: "BIOS folder", backups: "backups folder" };
 
-const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", copyArt: true, openBrowser: true, wizard: "done" };
+const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", copyArt: true, openBrowser: true, checkUpdates: true, wizard: "done" };
 let current: Settings = { ...DEFAULTS };
 const defaults: Record<Folder, string> = { roms: "", apps: "", os: "", bios: "", backups: "" };
 
@@ -70,6 +72,7 @@ export async function loadSettings(): Promise<void> {
       backups: text(saved.backups),
       copyArt: saved.copyArt !== false,
       openBrowser: saved.openBrowser !== false,
+      checkUpdates: saved.checkUpdates !== false,
       wizard: saved.wizard === "pending" ? "pending" : "done",
     };
   } catch {
@@ -197,6 +200,7 @@ export async function saveSettings(body: Record<string, unknown>) {
   }
   if (typeof body.copyArt === "boolean") current.copyArt = body.copyArt;
   if (typeof body.openBrowser === "boolean") current.openBrowser = body.openBrowser;
+  if (typeof body.checkUpdates === "boolean") current.checkUpdates = body.checkUpdates;
   if (body.wizard === "pending" || body.wizard === "done") current.wizard = body.wizard;
   await save();
   if (rescan) {

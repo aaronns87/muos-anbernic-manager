@@ -101,6 +101,10 @@ ensure_packages() {
     return 0
   fi
   command -v npm >/dev/null 2>&1 || die "npm is missing. Reinstall Node.js, which includes it."
-  note "Installing the manager's packages (first run only)..."
+  note "Installing the manager's packages..."
+  # npm ci installs exactly what package-lock.json lists and leaves it unchanged, so a git clone stays clean for updates.
+  if [[ -f "$MANAGER_DIR/package-lock.json" ]] && (cd "$MANAGER_DIR" && npm ci --no-audit --no-fund --loglevel=error); then
+    return 0
+  fi
   (cd "$MANAGER_DIR" && npm install --no-audit --no-fund --loglevel=error) || die "npm install failed."
 }

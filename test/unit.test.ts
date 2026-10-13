@@ -17,6 +17,7 @@ import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort
 import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
+import { githubRepo } from "../src/manager-update.ts";
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
 import { norm } from "../src/games/systems.ts";
@@ -330,4 +331,17 @@ test("a clean cache starts the setup wizard, and the workspace gets its folders 
   fs.writeFileSync(path.join(ctx.cacheDir, "wifi.json"), "{}");
   await loadSettings();
   assert.equal(firstRun(), false, "a cache with other files is not a first run");
+});
+
+test("VERSION is the version in package.json and its lock file, and the update check finds the GitHub repository", () => {
+  const dir = path.join(import.meta.dirname, "..");
+  const version = fs.readFileSync(path.join(dir, "VERSION"), "utf8").trim();
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+  assert.match(version, /^\d+\.\d+\.\d+$/);
+  assert.equal(pkg.version, version);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "package-lock.json"), "utf8")).version, version, "npm install --package-lock-only");
+  assert.equal(githubRepo(pkg.repository.url), "aaronns87/muos-anbernic-manager");
+  assert.equal(githubRepo("git@github.com:someone/fork-name.git"), "someone/fork-name");
+  assert.equal(githubRepo("https://github.com/a/b/"), "a/b");
+  assert.equal(githubRepo("https://example.com/a/b"), "");
 });
