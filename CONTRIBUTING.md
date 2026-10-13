@@ -47,4 +47,5 @@ norm; major releases are kept for big or breaking changes. Pull requests should 
 
 ## License
 
-By contributing you agree that your contributions are licensed under the [MIT License](LICENSE).
+By contributing you agree that your contributions are licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE).

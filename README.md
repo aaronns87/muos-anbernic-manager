@@ -9,7 +9,7 @@
 [![Node.js 23.6+](https://img.shields.io/badge/node-23.6%2B-3c873a?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-555)](#requirements)
 [![MustardOS](https://img.shields.io/badge/for-MustardOS-e3b341)](https://muos.dev/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 <img src="docs/screenshots/games.jpg" width="100%" alt="The game library: every system in Roms/ with box art, filters and one-click transfer to the handheld">
 
@@ -238,4 +238,8 @@ This project is not affiliated with MustardOS, Anbernic or TrimUI.
 
 ## License
 
-[MIT](LICENSE)
+Copyright (C) 2026 aaronns87
+
+Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). You may use, study, change
+and share the manager freely. If you distribute a modified version, or let others use one over a network,
+you must publish its source code under the same license. Versions up to 1.0.0 were released under MIT.
