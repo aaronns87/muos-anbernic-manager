@@ -18,6 +18,9 @@ export function skipName(name: string): boolean {
   return name.startsWith(".") || lower === "imgs" || lower === "text";
 }
 
+/** Single-quotes a value for a POSIX shell command line. */
+export const shq = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
+
 export function safePart(part: unknown): part is string {
   return typeof part === "string" && part !== "" && !part.includes("/") && !part.includes("\\") && !part.startsWith(".");
 }
@@ -38,7 +41,7 @@ function realPath(p: string): string {
 
 export function inside(parent: string, child: string): boolean {
   const rel = path.relative(realPath(parent), realPath(child));
-  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
 export async function exists(p: string): Promise<boolean> {

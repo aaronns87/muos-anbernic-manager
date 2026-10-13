@@ -33,11 +33,12 @@ export async function deviceFiles(fs: DeviceFs, systems: string[], recursive = t
     const stack = name ? [[name]] : [];
     while (stack.length) {
       const parts = stack.pop()!;
-      for (const entry of (await fs.list([ROMS_DIR, ...parts])) ?? []) {
+      const scummLevel = parts.length === 1 && parts[0].toUpperCase() === SCUMMVM;
+      for (const entry of (await fs.list([ROMS_DIR, ...parts], scummLevel)) ?? []) {
         if (entry.folder) {
-          const scummData = parts.length === 1 && parts[0].toUpperCase() === SCUMMVM && entry.name.startsWith(".");
+          const scummData = scummLevel && entry.name.startsWith(".");
           if (recursive && (!skipName(entry.name) || scummData)) stack.push([...parts, entry.name]);
-        } else {
+        } else if (!entry.name.startsWith(".")) {
           const rel = [...parts, entry.name].join("/");
           found.set(rel.toLowerCase(), [rel, entry]);
         }

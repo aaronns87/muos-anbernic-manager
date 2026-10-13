@@ -1,6 +1,6 @@
 // Files: this computer and the handheld side by side. Browse, copy between them, rename, delete, preview and edit.
 
-import { $, api, app, esc, formatDate, human, icon, plural, toast, TOKEN } from "./core.js";
+import { $, api, app, esc, formatDate, human, icon, plural, setKeepingScroll, toast, TOKEN } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { jobStarted } from "./copy.js";
 
@@ -9,8 +9,8 @@ const TEXT = new Set(["txt", "ini", "cfg", "conf", "json", "log", "xml", "opt", 
   "dat", "m3u", "cue", "glslp", "slangp", "info", "nfo"]);
 const SIDES = { local: "This computer", device: "Handheld" };
 
-const pane = () => ({ root: "", path: [], entries: null, loading: false, error: "", sel: new Set() });
-const F = { roots: null, volume: "", local: pane(), device: pane(), busy: false, bound: false, view: null };
+const pane = () => ({ root: "", path: [], entries: null, loading: false, error: "", sel: new Set(), seq: 0 });
+const F = { roots: null, rootsError: "", volume: "", local: pane(), device: pane(), busy: false, bound: false, view: null };
 
 const ext = (n) => (n.includes(".") ? n.split(".").pop().toLowerCase() : "");
 const kindOf = (e) => (e.folder ? "folder" : IMAGE.has(ext(e.name)) ? "image" : TEXT.has(ext(e.name)) || !ext(e.name) ? "text" : "");
@@ -39,11 +39,18 @@ export function renderFiles() {
 async function loadRoots() {
   F.volume = volume();
   F.device = pane();
+  F.roots = null;
+  F.rootsError = "";
   render();
+  const asked = F.volume;
   try {
-    F.roots = await api(`files/roots?volume=${encodeURIComponent(F.volume)}`);
+    const roots = await api(`files/roots?volume=${encodeURIComponent(asked)}`);
+    if (F.volume !== asked) return;
+    F.roots = roots;
   } catch (error) {
-    toast(error.message, 4000);
+    if (F.volume !== asked) return;
+    F.rootsError = error.message;
+    render();
     return;
   }
   if (!F.roots.local.some((r) => r.id === F.local.root)) { F.local = pane(); F.local.root = F.roots.local[0]?.id || ""; }
@@ -57,13 +64,17 @@ async function load(side) {
   const p = F[side];
   if (!p.root) return;
   p.loading = true;
+  const seq = ++p.seq;
   render();
   try {
-    p.entries = (await api(`files/list?${query(side)}`)).entries;
+    const entries = (await api(`files/list?${query(side)}`)).entries;
+    if (seq !== p.seq || p !== F[side]) return;
+    p.entries = entries;
     p.error = "";
     const names = new Set(p.entries.map((e) => e.name));
     for (const n of [...p.sel]) if (!names.has(n)) p.sel.delete(n);
   } catch (error) {
+    if (seq !== p.seq || p !== F[side]) return;
     p.entries = null;
     p.error = error.message;
   }
@@ -83,8 +94,13 @@ function go(side, path) {
 function render() {
   const root = $("files");
   if (!root || $("view-files").hidden) return;
-  if (!F.roots) { root.innerHTML = `<div class="planning"><span class="spinner"></span> Reading folders&hellip;</div>`; return; }
-  root.innerHTML = `<div class="fx">${paneHtml("local")}${paneHtml("device")}</div>`;
+  if (!F.roots) {
+    root.innerHTML = F.rootsError
+      ? `<div class="notice err">${esc(F.rootsError)}</div><button class="btn" data-fx="roots">${icon("refresh")}<span>Try again</span></button>`
+      : `<div class="planning"><span class="spinner"></span> Reading folders&hellip;</div>`;
+    return;
+  }
+  setKeepingScroll(root, `<div class="fx">${paneHtml("local")}${paneHtml("device")}</div>`, ".fx-list");
 }
 
 function paneHtml(side) {
@@ -144,7 +160,7 @@ function row(side, e) {
 // ---------------------------------------------------------------- actions
 
 async function askName(title, value, ok) {
-  const answer = confirmBox({ title, html: `<input class="control fx-input" id="fx-name" value="${esc(value)}" spellcheck="false" autocomplete="off">`, ok });
+  const answer = confirmBox({ title, html: `<input class="control fx-input" id="fx-name" aria-label="Name" value="${esc(value)}" spellcheck="false" autocomplete="off">`, ok });
   const input = $("fx-name");
   input.focus();
   const dot = value.lastIndexOf(".");
@@ -218,16 +234,16 @@ async function copy(side) {
   render();
   if (!plan) return;
   const short = plan.free && plan.bytes > plan.free;
+  if (short) return toast(`There is not enough free space: ${human(plan.bytes)} needed, ${human(plan.free)} free on ${where(to)}.`, 6000);
   const ok = await confirmBox({
     title: side === "local" ? "Copy to the handheld?" : "Copy to this computer?",
     html: `<p>${plural(plan.files, "file")} (${human(plan.bytes)}) from <b>${esc(where(side))}</b> to <b>${esc(where(to))}</b>.</p>
       ${plan.free ? `<p class="muted-note">${human(plan.free)} free there.</p>` : ""}
-      ${short ? `<div class="notice err">There is not enough free space.</div>` : ""}
       ${plan.existing.length ? `<div class="notice">${plural(plan.existing.length, "item")} already ${plan.existing.length === 1 ? "exists" : "exist"} there: ${esc(plan.existing.slice(0, 6).join(", "))}${plan.existing.length > 6 ? ", &hellip;" : ""}</div>
         <label class="chk-bulk"><input type="checkbox" id="fx-replace"> Replace ${plan.existing.length === 1 ? "it" : "them"}; otherwise ${plan.existing.length === 1 ? "it is" : "they are"} skipped</label>` : ""}`,
     ok: "Copy",
   });
-  if (!ok || short) return;
+  if (!ok) return;
   const replace = !!$("fx-replace")?.checked;
   try {
     const r = await api("files/copy", { ...req, replace });
@@ -245,7 +261,7 @@ const V = { side: "", path: [], text: "", dirty: false, saving: false };
 
 async function preview(side, name) {
   const dialog = $("fileview"), parts = [...F[side].path, name], kind = kindOf({ name });
-  Object.assign(V, { side, path: parts, text: "", dirty: false, saving: false, editable: false });
+  Object.assign(V, { side, path: parts, text: "", dirty: false, saving: false, editable: false, token: null });
   $("fv-title").textContent = name;
   $("fv-where").textContent = `${SIDES[side]} \u00b7 ${where(side)}`;
   $("fv-save").hidden = true;
@@ -259,8 +275,10 @@ async function preview(side, name) {
   }
   box.innerHTML = `<div class="planning"><span class="spinner"></span> Reading&hellip;</div>`;
   dialog.showModal();
+  const token = V.token = {};
   try {
     const r = await api(`files/read?${query(side, { path: parts.join("/") })}`);
+    if (V.token !== token || !dialog.open) return;
     V.text = r.text;
     V.editable = r.editable;
     box.innerHTML = `${system(side) ? `<div class="notice">This is a MustardOS file. A mistake here can stop the handheld from starting.</div>` : ""}
@@ -270,7 +288,7 @@ async function preview(side, name) {
     $("fv-save").hidden = !r.editable;
     $("fv-save").disabled = true;
   } catch (error) {
-    box.innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
+    if (V.token === token) box.innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
   }
 }
 
@@ -313,6 +331,7 @@ function bind() {
       return render();
     }
     if (!el || el.disabled) return;
+    if (el.dataset.fx === "roots") return void loadRoots();
     const side = el.dataset.side || rowEl?.dataset.side, act = el.dataset.fx;
     if (act === "pick") {
       const p = F[side], n = rowEl.dataset.name;

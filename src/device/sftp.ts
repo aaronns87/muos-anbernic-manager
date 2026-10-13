@@ -112,6 +112,8 @@ export interface SftpSession {
   sftp: SFTPWrapper;
   storages: SftpStorage[];
   close(): void;
+  /** When free space was last read; reads closer than 5 s apart reuse it. */
+  spaceAt?: number;
 }
 
 let shared: Promise<SftpSession> | null = null;
@@ -151,6 +153,8 @@ async function findStorages(sftp: SFTPWrapper): Promise<SftpStorage[]> {
 }
 
 async function updateSpace(session: SftpSession): Promise<void> {
+  if (Date.now() - (session.spaceAt ?? 0) < 5000) return;
+  session.spaceAt = Date.now();
   for (const storage of session.storages) {
     try {
       const st = await call<Record<string, number>>((cb) => session.sftp.ext_openssh_statvfs(storage.root, cb as never));
@@ -161,7 +165,7 @@ async function updateSpace(session: SftpSession): Promise<void> {
 }
 
 function connect(s: WifiSettings): Promise<SftpSession> {
-  return new Promise((resolve, reject) => {
+  const mine: Promise<SftpSession> = new Promise((resolve, reject) => {
     const client = new ssh2.Client();
     let settled = false;
     const fail = (error: Error) => {
@@ -170,8 +174,15 @@ function connect(s: WifiSettings): Promise<SftpSession> {
       client.end();
       reject(new UserError(friendly(error, s)));
     };
-    client.on("error", (error) => (settled ? closeSftp() : fail(error)));
-    client.on("close", () => { if (settled) shared = null; else fail(new Error("The connection closed.")); });
+    client.on("error", (error) => {
+      if (!settled) return fail(error);
+      if (shared === mine) shared = null;
+      client.end();
+    });
+    client.on("close", () => {
+      if (!settled) return fail(new Error("The connection closed."));
+      if (shared === mine) shared = null;
+    });
     client.on("ready", () => {
       client.sftp(async (err, sftp) => {
         if (err) return fail(err);
@@ -187,6 +198,7 @@ function connect(s: WifiSettings): Promise<SftpSession> {
     });
     client.connect({ host: s.host, port: s.port, username: s.user, password: s.password, readyTimeout: 10_000, keepaliveInterval: 15_000 });
   });
+  return mine;
 }
 
 /** Runs fn with the shared SFTP session, opened on first use and closed after 90 seconds of idle time. */
@@ -265,7 +277,7 @@ export class SftpFs implements DeviceFs {
     });
   }
 
-  async list(parts: string[]): Promise<Entry[] | null> {
+  async list(parts: string[], hidden = false): Promise<Entry[] | null> {
     let entries: { filename: string; attrs: Stats }[];
     try {
       entries = await call((cb) => this.sftp.readdir(this.full(parts), cb));
@@ -273,7 +285,7 @@ export class SftpFs implements DeviceFs {
       if (missing(error)) return null;
       throw error;
     }
-    return entries.filter((e) => !e.filename.startsWith(".")).map((e) => ({
+    return entries.filter((e) => hidden ? e.filename !== "." && e.filename !== ".." : !e.filename.startsWith(".")).map((e) => ({
       name: e.filename, folder: e.attrs.isDirectory(), size: e.attrs.size, mtime: e.attrs.mtime, id: null,
     }));
   }
@@ -351,8 +363,10 @@ export class SftpFs implements DeviceFs {
       handle = null;
       const st = await call<Stats>((cb) => this.sftp.stat(partial, cb));
       if (st.size !== size) throw new UserError(`${name} arrived incomplete (${st.size} of ${size} bytes).`);
-      if (await this.entry(parts)) await run((cb) => this.sftp.unlink(dest, cb));
-      await run((cb) => this.sftp.rename(partial, dest, cb));
+      await run((cb) => this.sftp.ext_openssh_rename(partial, dest, cb)).catch(async () => {
+        if (await this.entry(parts)) await run((cb) => this.sftp.unlink(dest, cb));
+        await run((cb) => this.sftp.rename(partial, dest, cb));
+      });
       await run((cb) => this.sftp.utimes(dest, atime, mtime, cb)).catch(() => {});
     } catch (error) {
       if (handle) await run((cb) => this.sftp.close(handle!, cb)).catch(() => {});

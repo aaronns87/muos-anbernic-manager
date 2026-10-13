@@ -15,7 +15,7 @@ import { UserError } from "./errors.ts";
 import { Job, requireIdle, startJob, type Work } from "./jobs.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
-import { isDir, listDir, removeQuietly, safePart, splitName } from "./util.ts";
+import { isDir, listDir, removeQuietly, safePart, shq as quote, splitName } from "./util.ts";
 import { APP_FILE } from "./workspace.ts";
 
 /** What each package type is, and whether extract.sh installs it. */
@@ -33,8 +33,6 @@ const KINDS: Record<string, { label: string; installs: boolean }> = {
 /** ARCHIVE on each storage: the label used in the page, and its path on the handheld. */
 const ARCHIVES: [string, string][] = [["TF2", "/mnt/sdcard/ARCHIVE"], ["SD1", "/mnt/mmc/ARCHIVE"]];
 const LOG = "/tmp/muos-manager-install.log";
-
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 // ---------------------------------------------------------------- reading packages
 
@@ -55,7 +53,7 @@ async function peek(file: string, size: number, ext: string): Promise<Peek> {
     for (let i = tailSize - 22; i >= 0; i--) if (tail.readUInt32LE(i) === 0x06054b50) { end = i; break; }
     if (end < 0) return { ...out, error: "Not a zip archive, or it is damaged." };
     const count = tail.readUInt16LE(end + 10), dirSize = tail.readUInt32LE(end + 12), dirStart = tail.readUInt32LE(end + 16);
-    if (dirStart === 0xffffffff || dirSize === 0xffffffff) return { ...out, error: "" };
+    if (dirStart === 0xffffffff || dirSize === 0xffffffff) return { ...out, error: "This archive is too large to check (ZIP64); unpack it and zip it again without ZIP64." };
     const dir = Buffer.alloc(dirSize);
     await handle.read(dir, 0, dirSize, dirStart);
     const top = new Set<string>(), apps = new Set<string>();

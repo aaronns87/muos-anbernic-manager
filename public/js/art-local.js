@@ -182,7 +182,7 @@ function detailPanel() {
   const max = artMax.get();
   return panel("al-detail", title, `<div class="art-tools">
       <div class="segmented" id="al-filter">${FILTERS.map(([id, label]) => `<button data-al-filter="${id}" class="${state.filter === id ? "on" : ""}">${label} <small>${n[id].toLocaleString()}</small></button>`).join("")}</div>
-      <div class="search small">${icon("search")}<input id="al-q" type="search" placeholder="Search names" value="${esc(state.q)}" autocomplete="off" spellcheck="false"></div>
+      <div class="search small">${icon("search")}<input id="al-q" type="search" placeholder="Search names" aria-label="Search images by name" value="${esc(state.q)}" autocomplete="off" spellcheck="false"></div>
     </div>
     <div class="muted-note">Drop an image on a game, or use Add / Replace. Saved as Roms/${esc(state.code)}/Imgs/&lt;game&gt;.png${max ? `, at most ${max} px` : ""}; the old image goes to the Trash.</div>
     <div class="al-bulk" id="al-bulk"></div>

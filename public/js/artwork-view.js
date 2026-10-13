@@ -122,7 +122,7 @@ function renderDeviceList() {
   const dot = (on, label) => `<span class="chip${on ? " on" : ""}" title="${esc(label)}${on ? "" : " missing"}">${on ? icon("check") : ""}${esc(label)}</span>`;
   box.innerHTML = shown.length ? `<div class="art-table"><table>
     <thead><tr><th>Game</th><th>On ${esc(devName())}</th><th>In Roms/</th><th></th></tr></thead>
-    <tbody>${shown.slice(0, LIST_LIMIT).map(([sys, g, i]) => `<tr class="pick" data-row="${i}" style="--accent:${sys.accent}">
+    <tbody>${shown.slice(0, LIST_LIMIT).map(([sys, g, i]) => `<tr class="pick" data-row="${i}" tabindex="0" aria-label="${esc(g.t)}: open its artwork" style="--accent:${sys.accent}">
       <td><b>${esc(g.t)}</b> <span class="code">${esc(sys.folder)}</span><br><small>${esc(g.f)}</small></td>
       <td>${ART_KINDS.map(([k, label]) => dot(!!g.art[k], label)).join("")}</td>
       <td>${g.lib ? dot(!!g.lib.i, "Artwork") : `<small>Not in Roms/</small>`}</td>
@@ -152,7 +152,7 @@ function devicePanel(live) {
   ];
   return panel("full", title, `<div class="art-tools">
       <div class="segmented" id="art-filter">${filters.map(([id, label, n]) => `<button data-filter="${id}" class="${filter === id ? "on" : ""}">${label} <small>${n.toLocaleString()}</small></button>`).join("")}</div>
-      <div class="search small">${icon("search")}<input id="art-q" type="search" placeholder="Search games" value="${esc(query)}" autocomplete="off" spellcheck="false"></div>
+      <div class="search small">${icon("search")}<input id="art-q" type="search" placeholder="Search games" aria-label="Search games" value="${esc(query)}" autocomplete="off" spellcheck="false"></div>
     </div>
     <div class="muted-note">Pick a game to get, send, upload, replace or delete its images.</div>
     <div id="art-dev-list"></div>`, "", "handheld");
@@ -233,6 +233,12 @@ export function bindArtworkView() {
     if (row) {
       const [sys, g] = rows[+row.dataset.row] || [];
       if (g) openDeviceGame(sys, g, true);
+    }
+  });
+  root.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr.pick")) {
+      e.preventDefault();
+      e.target.click();
     }
   });
   let timer;

@@ -394,12 +394,17 @@ export async function deviceImage(query: URLSearchParams): Promise<{ data: Buffe
     return { data: await fsp.readFile(file).catch(() => { throw new UserError("Not on the card."); }), name };
   }
   const cache = path.join(ctx.cacheDir, "device-art");
-  const key = crypto.createHash("sha1").update(`${parts.join("/")}|${query.get("size") ?? ""}`).digest("hex");
+  const key = crypto.createHash("sha1").update(`${volume}|${parts.join("/")}|${query.get("size") ?? ""}`).digest("hex");
   const file = path.join(cache, `${key}.${splitName(name)[1]}`);
   if (!(await fsp.access(file).then(() => true, () => false))) {
     await fsp.mkdir(cache, { recursive: true });
-    await withTarget(volume, (t) => requireArt(t).get(parts, `${file}.partial`));
-    await fsp.rename(`${file}.partial`, file);
+    const partial = `${file}.${crypto.randomUUID()}.partial`;
+    try {
+      await withTarget(volume, (t) => requireArt(t).get(parts, partial));
+      await fsp.rename(partial, file);
+    } finally {
+      await removeQuietly(partial);
+    }
   }
   return { data: await fsp.readFile(file), name };
 }

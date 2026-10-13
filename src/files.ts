@@ -12,7 +12,7 @@ import { UserError } from "./errors.ts";
 import { Job, requireIdle, startJob, type Work } from "./jobs.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
-import { inside, removeQuietly } from "./util.ts";
+import { exists, inside, removeQuietly } from "./util.ts";
 
 type Side = "local" | "device";
 
@@ -142,7 +142,8 @@ export async function filesRename(body: Record<string, unknown>) {
   if (from.at(-1) === to) return { ok: true };
   if (s === "local") {
     const src = localPath(root, from), dest = localPath(root, [...dir, to]);
-    if (fs.existsSync(dest) && src.toLowerCase() !== dest.toLowerCase()) throw new UserError(`${to} already exists there.`);
+    if (!(await exists(src))) throw new UserError(`${from.at(-1)} is no longer there.`);
+    if ((await exists(dest)) && src.toLowerCase() !== dest.toLowerCase()) throw new UserError(`${to} already exists there.`);
     await fsp.rename(src, dest);
   } else {
     await withTarget(String(body.volume ?? ""), async (t) => {
@@ -310,7 +311,8 @@ class FilesJob extends Job<FileWork> {
 }
 
 async function walkLocal(file: string, device: string[], out: FileWork[], rel: string): Promise<void> {
-  const st = await fsp.stat(file);
+  const st = await fsp.lstat(file);
+  if (st.isSymbolicLink()) return;
   if (!st.isDirectory()) {
     out.push({ rel, size: st.size, local: file, device, folder: false });
     return;

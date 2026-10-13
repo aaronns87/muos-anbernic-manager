@@ -72,7 +72,8 @@ async function checkRemote(name: string): Promise<void> {
     if (!/^\d+(\.\d+)*$/.test(version)) throw new Error("GitHub's VERSION file holds no version number");
     remote = { version, checked: Date.now(), next: Date.now() + CHECK_EVERY, error: "" };
   } catch (error) {
-    const message = (error as Error).name === "TimeoutError" ? "GitHub did not answer" : (error as Error).message;
+    const e = error as Error;
+    const message = e.name === "TimeoutError" ? "GitHub did not answer" : e instanceof TypeError ? "GitHub could not be reached" : e.message;
     remote = { ...remote, next: Date.now() + RETRY_AFTER, error: message };
   }
 }
@@ -157,18 +158,22 @@ function unzip(file: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
     yauzl.open(file, { lazyEntries: true }, (error, zip) => {
       if (error || !zip) return reject(error ?? new Error("Could not open the download."));
-      zip.on("error", reject);
+      const fail = (e: unknown) => {
+        zip.close();
+        reject(e);
+      };
+      zip.on("error", fail);
       zip.on("end", () => resolve());
       zip.on("entry", (entry: yauzl.Entry) => {
         const name = entry.fileName.replaceAll("\\", "/");
         if (name.endsWith("/")) return zip.readEntry();
         const out = path.join(dest, ...name.split("/"));
-        if (!out.startsWith(dest + path.sep)) return reject(new UserError("The download holds an unsafe path."));
+        if (!out.startsWith(dest + path.sep)) return fail(new UserError("The download holds an unsafe path."));
         const mode = (entry.externalFileAttributes >>> 16) & 0o777;
         fsp.mkdir(path.dirname(out), { recursive: true }).then(() => zip.openReadStream(entry, (err, stream) => {
-          if (err || !stream) return reject(err ?? new Error("Could not read the download."));
-          pipeline(stream, fs.createWriteStream(out, mode ? { mode } : {})).then(() => zip.readEntry(), reject);
-        }), reject);
+          if (err || !stream) return fail(err ?? new Error("Could not read the download."));
+          pipeline(stream, fs.createWriteStream(out, mode ? { mode } : {})).then(() => zip.readEntry(), fail);
+        }), fail);
       });
       zip.readEntry();
     });
@@ -181,7 +186,11 @@ async function replaceFromZip(name: string): Promise<boolean> {
   const dir = ctx.managerDir, stage = path.join(dir, STAGE), old = path.join(dir, PREVIOUS), file = path.join(dir, ".update.zip");
   await fsp.rm(stage, { recursive: true, force: true });
   try {
-    const res = await fetch(`https://codeload.github.com/${name}/zip/refs/heads/main`, { signal: AbortSignal.timeout(120_000) });
+    const res = await fetch(`https://codeload.github.com/${name}/zip/refs/heads/main`, { signal: AbortSignal.timeout(120_000) })
+      .catch((error: Error) => {
+        throw new UserError(error.name === "TimeoutError" ? "The download from GitHub took too long. Try again later."
+          : "Could not reach GitHub. Check the internet connection and try again.");
+      });
     if (!res.ok) throw new UserError(`GitHub answered ${res.status} for the download.`);
     await fsp.writeFile(file, Buffer.from(await res.arrayBuffer()));
     await unzip(file, stage);

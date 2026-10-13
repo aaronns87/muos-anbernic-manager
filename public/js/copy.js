@@ -12,7 +12,7 @@ export async function startPlan(targets, label, { onStart = null } = {}) {
   if (!app.device.target) { toast("Insert TF2 or connect the handheld first"); return; }
   if (busy()) { toast("A job is already running"); return; }
   if ($("viewer").open) $("viewer").close();
-  pending = { targets, label, plan: null, onStart };
+  const mine = pending = { targets, label, plan: null, onStart };
   $("t-title").textContent = `Transfer to ${devName()}`;
   $("t-scope").textContent = label;
   $("t-plan").innerHTML = `<div class="planning"><span class="spinner"></span> Comparing with what is already on ${esc(devName())}&hellip;${slowHint()}</div>`;
@@ -20,9 +20,12 @@ export async function startPlan(targets, label, { onStart = null } = {}) {
   $("t-cancel").textContent = "Cancel";
   if (!$("transfer").open) $("transfer").showModal();
   try {
-    pending.plan = await api("games/plan", { volume: app.device.target.id, targets });
+    const plan = await api("games/plan", { volume: app.device.target.id, targets });
+    if (pending !== mine) return;
+    mine.plan = plan;
     renderPlan();
   } catch (error) {
+    if (pending !== mine) return;
     $("t-plan").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
     $("t-cancel").textContent = "Close";
   }

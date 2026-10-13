@@ -114,7 +114,7 @@ function renderCard() {
           ${fact("sd", "Capacity", nominal(c.size), `${(c.size / 1e9).toFixed(1)} GB usable`)}
           ${fact("layers", "Partition map", c.scheme || "None", c.scheme === "MBR" ? "DOS style" : c.scheme === "GPT" ? "GUID table" : "Not partitioned")}
           ${fact("grid", "Partitions", String(parts.length), parts.filter((p) => p.mount).length ? `${parts.filter((p) => p.mount).length} mounted` : "None mounted")}
-          ${fact("usb", "Connection", c.protocol || "—", "Card reader")}
+          ${fact("cable", "Connection", c.protocol || "\u2014", "Card reader")}
         </div>
       </div>
       <div class="sc-actions">
@@ -403,15 +403,17 @@ async function useImage(path, draw = true) {
   S.hashError = "";
   if (!path) { renderBody(); return; }
   S.inspecting = true;
+  const seq = S.inspectSeq = (S.inspectSeq || 0) + 1;
   if (draw) renderBody();
   try {
     const info = await api("system/inspect", { path });
-    if (S.path !== path) return;
+    if (seq !== S.inspectSeq) return;
     S.image = info;
     if (info.hash) { S.hash = info.hash.value; S.hashSource = info.hash.source; }
     else if (S.hashSource) { S.hash = ""; S.hashSource = ""; }
   } catch (error) {
-    if (S.path === path) S.imageError = error.message;
+    if (seq !== S.inspectSeq) return;
+    S.imageError = error.message;
   }
   S.inspecting = false;
   renderBody();
@@ -478,7 +480,7 @@ async function start() {
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
   const ok = await confirmBox({
     title: `${op.button}?`,
-    html: `<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
+    html: `${S.tab === "install" ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b>.</p>` : ""}<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
     ok: op.button, danger: true,
   });
   if (!ok) return;
@@ -550,7 +552,15 @@ export function bindSystem() {
   view.addEventListener("input", (e) => {
     const id = e.target.id;
     if (id === "sys-confirm") S.confirm = e.target.value;
-    else if (id === "sys-path") S.path = e.target.value;
+    else if (id === "sys-path") {
+      S.path = e.target.value;
+      if (S.image && S.path.trim() !== S.image.path) {
+        S.image = null;
+        S.inspecting = false;
+        S.inspectSeq = (S.inspectSeq || 0) + 1;
+        refreshGo();
+      }
+    }
     else if (id === "sys-hash") {
       S.hash = e.target.value;
       S.hashSource = "";

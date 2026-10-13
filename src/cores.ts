@@ -7,12 +7,12 @@ import { parseIni } from "./bios.ts";
 import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { say } from "./log.ts";
+import { shq as quote } from "./util.ts";
 
 const CONTENT = "/opt/muos/share/info/content";
 const ASSIGN = "/opt/muos/share/info/assign";
 const ROMS = "/mnt/union/ROMS";
 
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 const stripExt = (f: string) => (f.lastIndexOf(".") > 0 ? f.slice(0, f.lastIndexOf(".")) : f);
 
 const SCRIPT = `

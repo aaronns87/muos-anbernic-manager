@@ -14,6 +14,7 @@ import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { say } from "./log.ts";
 import { byId, DEFAULT_DEVICE, deviceFor, portCaps } from "../public/js/devices.js";
+import { shq as quote } from "./util.ts";
 
 const DATA_URL = "https://github.com/PortsMaster/PortMaster-New/releases/latest/download/ports.json";
 const SHOT_URL = "https://raw.githubusercontent.com/PortsMaster/PortMaster-New/main/ports/";
@@ -29,7 +30,6 @@ const GLIBC = 2038;
 const capsOf = (id: unknown) => new Set(portCaps(deviceFor(id) ?? byId(DEFAULT_DEVICE)!));
 const DEFAULT_CAPS = capsOf(DEFAULT_DEVICE);
 
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 export const safePort = (n: unknown): n is string => typeof n === "string" && /^[a-z0-9][a-z0-9._+-]{0,80}\.zip$/i.test(n);
 const safeDir = (n: unknown): n is string => typeof n === "string" && n.length > 0 && n.length <= 120 && !n.startsWith(".") && !/[/\\\0\r\n\t]/.test(n);
 

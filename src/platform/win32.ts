@@ -18,8 +18,13 @@ export const win32: Platform = {
       "Get-Volume | Where-Object { $_.DriveType -eq 'Removable' -and $_.DriveLetter } | "
       + "Select-Object DriveLetter,FileSystem,FileSystemLabel | ConvertTo-Json -Compress");
     if (result.code !== 0 || !result.stdout.trim()) return { volumes: [], rejects: [] };
-    const parsed = JSON.parse(result.stdout) as { DriveLetter: string; FileSystem: string; FileSystemLabel: string }
-      | { DriveLetter: string; FileSystem: string; FileSystemLabel: string }[];
+    type Row = { DriveLetter: string; FileSystem: string; FileSystemLabel: string };
+    let parsed: Row | Row[];
+    try {
+      parsed = JSON.parse(result.stdout);
+    } catch {
+      return { volumes: [], rejects: [] };
+    }
     const volumes: Volume[] = [], rejects: string[] = [];
     for (const v of Array.isArray(parsed) ? parsed : [parsed]) {
       const fs = (v.FileSystem || "").toUpperCase();
@@ -55,7 +60,12 @@ export const win32: Platform = {
       "Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match '^USB\\\\VID_1D6B&PID_' } | "
       + "Select-Object -First 1 InstanceId,FriendlyName | ConvertTo-Json -Compress");
     if (result.code !== 0 || !result.stdout.trim()) return null;
-    const device = JSON.parse(result.stdout) as { InstanceId: string; FriendlyName: string };
+    let device: { InstanceId: string; FriendlyName: string };
+    try {
+      device = JSON.parse(result.stdout);
+    } catch {
+      return null;
+    }
     const match = /PID_([0-9A-F]{4})(?:\\(.+))?/i.exec(device.InstanceId);
     const productId = match ? parseInt(match[1], 16) : 0;
     return {
@@ -67,6 +77,7 @@ export const win32: Platform = {
   async releaseMtp() {},
 
   openUrl(url) {
-    detached("cmd.exe", ["/c", "start", "", url]);
+    if (/^https?:\/\//i.test(url)) detached("rundll32.exe", ["url.dll,FileProtocolHandler", url]);
+    else detached("explorer.exe", [url]);
   },
 };

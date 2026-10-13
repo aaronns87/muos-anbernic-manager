@@ -31,23 +31,27 @@ async function load() {
   P.error = P.colError = "";
   if (!P.volume) return render();
   P.loading = true;
+  const seq = P.seq = (P.seq || 0) + 1;
   render();
   const v = encodeURIComponent(P.volume);
   await Promise.all([
-    api(`play?volume=${v}`).then((r) => { P.play = r; }, (e) => { P.error = e.message; }),
-    loadCollections(),
+    api(`play?volume=${v}`).then((r) => { if (seq === P.seq) P.play = r; }, (e) => { if (seq === P.seq) P.error = e.message; }),
+    loadCollections(seq),
   ]);
+  if (seq !== P.seq) return;
   P.loading = false;
   render();
 }
 
-async function loadCollections() {
+async function loadCollections(seq = P.seq) {
   try {
-    P.cols = await api(`collections?volume=${encodeURIComponent(P.volume)}`);
+    const cols = await api(`collections?volume=${encodeURIComponent(P.volume)}`);
+    if (seq !== P.seq) return;
+    P.cols = cols;
     P.colError = "";
     if (P.open !== null && !P.cols.collections.some((c) => c.path === P.open)) P.open = null;
   } catch (error) {
-    P.colError = error.message;
+    if (seq === P.seq) P.colError = error.message;
   }
 }
 

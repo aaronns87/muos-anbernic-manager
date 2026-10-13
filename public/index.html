@@ -274,7 +274,7 @@
           </button>
           <div class="v-row">
             <div class="v-group">
-              <button class="btn" id="v-copy" title="Copy the ROM's full path on this Mac">
+              <button class="btn" id="v-copy" title="Copy the ROM's full path on this computer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
                 Copy path
               </button>
@@ -297,7 +297,7 @@
     <button class="icon-btn next" id="v-next" title="Next">&#8250;</button>
   </div>
 </dialog>
-<dialog id="transfer">
+<dialog id="transfer" aria-labelledby="t-title">
   <div class="t-body">
     <h2 id="t-title">Transfer to TF2</h2>
     <div class="t-scope" id="t-scope"></div>
@@ -308,12 +308,12 @@
     </div>
   </div>
 </dialog>
-<dialog id="remove">
+<dialog id="remove" aria-labelledby="r-heading">
   <div class="t-body">
-    <h2>Delete game</h2>
+    <h2 id="r-heading">Delete game</h2>
     <div class="t-scope" id="r-title"></div>
     <label class="check"><input type="checkbox" id="r-library" checked>
-      <span>Move the ROM to the Trash on this Mac<br><small style="color:var(--muted)" id="r-path"></small></span></label>
+      <span>Move the ROM to the Trash on this computer<br><small style="color:var(--muted)" id="r-path"></small></span></label>
     <label class="check" id="r-art-row"><input type="checkbox" id="r-art" checked>
       <span>Also move its artwork to the Trash</span></label>
     <label class="check" id="r-device-row"><input type="checkbox" id="r-device">
@@ -325,7 +325,7 @@
     </div>
   </div>
 </dialog>
-<dialog id="artsync">
+<dialog id="artsync" aria-labelledby="a-title">
   <div class="t-body">
     <h2 id="a-title">Sync artwork</h2>
     <div class="t-scope" id="a-scope"></div>
@@ -336,7 +336,7 @@
     </div>
   </div>
 </dialog>
-<dialog id="devgame">
+<dialog id="devgame" aria-labelledby="d-title">
   <div class="t-body">
     <h2 id="d-title"></h2>
     <div class="t-scope" id="d-scope"></div>
@@ -364,7 +364,7 @@
   <input type="file" id="ag-folder" webkitdirectory hidden>
 </dialog>
 
-<dialog id="confirm">
+<dialog id="confirm" aria-labelledby="c-title">
   <div class="t-body">
     <h2 id="c-title"></h2>
     <div id="c-body"></div>
@@ -473,6 +473,6 @@
 <div class="bulk" id="bulk" hidden></div>
 <div class="dock" id="dock" hidden></div>
 <button class="top" id="top" title="Back to top">&#8593;</button>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 </html>

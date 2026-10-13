@@ -14,8 +14,11 @@ const KEEP = 2000;
 
 let file = "";
 let pending: Activity[] = [];
+let log: Activity[] = [];
 
 function append(entry: Activity): void {
+  log.push(entry);
+  if (log.length > KEEP * 1.5) log = log.slice(-KEEP);
   try { fs.appendFileSync(file, JSON.stringify(entry) + "\n"); } catch {}
 }
 
@@ -43,19 +46,20 @@ export async function startActivityLog(): Promise<void> {
   file = path.join(ctx.cacheDir, "activity.jsonl");
   await fsp.mkdir(ctx.cacheDir, { recursive: true });
   const all = await read();
-  if (all.length > KEEP * 1.5) await fsp.writeFile(file, all.slice(-KEEP).map((e) => JSON.stringify(e) + "\n").join(""));
+  log = all.slice(-KEEP);
+  if (all.length > KEEP * 1.5) await fsp.writeFile(file, log.map((e) => JSON.stringify(e) + "\n").join(""));
   for (const entry of pending) append(entry);
   pending = [];
 }
 
 const LEVELS: Record<string, string> = { green: "done", cyan: "info", yellow: "warn", red: "error" };
 
-export async function activityJson(query: URLSearchParams) {
+export function activityJson(query: URLSearchParams) {
   const q = (query.get("q") ?? "").trim().toLowerCase();
   const only = query.get("level") ?? "";
   const limit = Math.min(Math.max(Number(query.get("limit")) || 100, 1), 500);
   const offset = Math.max(Number(query.get("offset")) || 0, 0);
-  const all = (await read()).reverse().map((e) => ({ ...e, level: LEVELS[e.level] ?? e.level }));
+  const all = log.toReversed().map((e) => ({ ...e, level: LEVELS[e.level] ?? e.level }));
   const hits = all.filter((e) => (!only || e.level === only) && (!q || `${e.tag} ${e.text}`.toLowerCase().includes(q)));
   return { entries: hits.slice(offset, offset + limit), total: hits.length, all: all.length };
 }

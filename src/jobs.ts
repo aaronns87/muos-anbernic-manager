@@ -9,7 +9,7 @@ import { Cancelled, UserError } from "./errors.ts";
 import { files, human, say } from "./log.ts";
 import { settings } from "./settings.ts";
 import { sameFile, splitName } from "./util.ts";
-import { collect, libraryImage } from "./workspace.ts";
+import { collect, libraryImages } from "./workspace.ts";
 
 /** One unit of work: the label shown while it runs, its size, and whatever the job needs to do it. */
 export interface Work {
@@ -156,6 +156,7 @@ class CopyJob extends Job<RomWork> {
   readonly kind = "transfer";
   private catalogues: Map<string, string> | null = null;
   private readonly artDone = new Set<string>();
+  private readonly images = new Map<string, Map<string, string>>();
   private artSent = 0;
 
   async copyOne(t: Target, job: RomWork, progress: Progress): Promise<void> {
@@ -173,7 +174,8 @@ class CopyJob extends Job<RomWork> {
     if (!fs || this.artDone.has(key)) return;
     this.artDone.add(key);
     try {
-      const src = await libraryImage(system, stem);
+      if (!this.images.has(system)) this.images.set(system, await libraryImages(system));
+      const src = this.images.get(system)!.get(stem.toLowerCase());
       if (!src) return;
       this.catalogues ??= await deviceCatalogues(t);
       const catalogue = catalogueFor(system, this.catalogues);

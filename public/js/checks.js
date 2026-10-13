@@ -1,6 +1,6 @@
 // Library check tab: ROM dumps verified against No-Intro, and duplicate games with a suggested one to keep.
 
-import { $, api, esc, formatDate, human, icon, plural, store, toast } from "./core.js";
+import { $, api, esc, formatDate, human, icon, plural, setKeepingScroll, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
 const C = { data: null, error: "", loading: false, starting: false, trashing: false, timer: 0, pick: new Set(), seen: new Set(), open: new Set(), art: true, gone: new Set() };
@@ -13,6 +13,8 @@ const STATES = {
 };
 const ORDER = ["bad", "unknown", "unchecked", "modified", "ok"];
 const view = () => store.get("checkView", "verify");
+
+const checksTabOpen = () => !!$("emu-tabs").querySelector('[data-tab="checks"].on');
 
 export function showChecks() {
   load();
@@ -42,7 +44,7 @@ async function load() {
   C.loading = false;
   render();
   clearTimeout(C.timer);
-  if (C.data?.run.running) C.timer = setTimeout(() => { if (!$("view-emulation").hidden) load(); }, 900);
+  if (C.data?.run.running) C.timer = setTimeout(() => { if (!$("view-emulation").hidden && checksTabOpen()) load(); }, 900);
 }
 
 // ---------------------------------------------------------------- verify
@@ -159,7 +161,7 @@ function dupesPanel(d) {
 
 function render() {
   const root = $("emu-body");
-  if (!root || $("view-emulation").hidden || !$("emu-tabs").querySelector('[data-tab="checks"].on')) return;
+  if (!root || $("view-emulation").hidden || !checksTabOpen()) return;
   $("emu-actions").innerHTML = `<button class="btn" data-ck="refresh" title="Read the library again"${C.loading ? " disabled" : ""}>${icon("refresh")}<span>Refresh</span></button>`;
   const d = C.data;
   if (!d) {
@@ -168,12 +170,12 @@ function render() {
   }
   const v = view();
   const issues = (d.verify?.systems || []).reduce((n, s) => n + s.counts.bad, 0);
-  root.innerHTML = `<div class="segmented chk-switch" role="group" aria-label="Check">
+  setKeepingScroll(root, `<div class="segmented chk-switch" role="group" aria-label="Check">
       <button data-ck="view" data-view="verify" class="${v === "verify" ? "on" : ""}">${icon("hash")}<span>Verify dumps</span>${issues ? `<small>${issues}</small>` : ""}</button>
       <button data-ck="view" data-view="dupes" class="${v === "dupes" ? "on" : ""}">${icon("copy")}<span>Duplicates</span>${d.dupes.groups.length ? `<small>${d.dupes.groups.length}</small>` : ""}</button>
     </div>
     ${C.error ? `<div class="notice err">${esc(C.error)}</div>` : ""}
-    ${v === "dupes" ? dupesPanel(d) : verifyPanel(d)}`;
+    ${v === "dupes" ? dupesPanel(d) : verifyPanel(d)}`, ".chk-games");
 }
 
 async function startVerify() {

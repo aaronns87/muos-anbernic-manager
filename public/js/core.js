@@ -284,12 +284,20 @@ export function section() {
   return SECTIONS.includes(hash) ? hash : "overview";
 }
 
+/** Replaces root's content, keeping the scroll position of the lists that match selector. */
+export function setKeepingScroll(root, html, selector) {
+  const tops = [...root.querySelectorAll(selector)].map((el) => el.scrollTop);
+  root.innerHTML = html;
+  root.querySelectorAll(selector).forEach((el, i) => { el.scrollTop = tops[i] ?? 0; });
+}
+
+/** Shows a short message; long ones stay up long enough to read. */
 export function toast(message, ms = 1600) {
   const t = $("toast");
   t.textContent = message;
   t.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove("show"), ms);
+  toast.timer = setTimeout(() => t.classList.remove("show"), Math.max(ms, Math.min(8000, String(message).length * 55)));
 }
 
 export async function copyText(text) {

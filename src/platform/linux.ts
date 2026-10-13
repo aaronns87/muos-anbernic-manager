@@ -82,8 +82,15 @@ export const linux: Platform = {
     }
     await fsp.writeFile(path.join(folder, "info", `${name}.trashinfo`),
       `[Trash Info]\nPath=${encodeURI(file)}\nDeletionDate=${new Date().toISOString().slice(0, 19)}\n`);
-    await fsp.rename(file, path.join(folder, "files", name));
-    return path.join(folder, "files", name);
+    const target = path.join(folder, "files", name);
+    try {
+      await fsp.rename(file, target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+      await fsp.cp(file, target, { recursive: true, preserveTimestamps: true });
+      await fsp.rm(file, { recursive: true });
+    }
+    return target;
   },
 
   async findHandheld() {

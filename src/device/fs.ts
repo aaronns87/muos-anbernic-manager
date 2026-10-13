@@ -21,7 +21,8 @@ export type Progress = (sent: number) => boolean;
 export interface DeviceFs {
   /** Over a cable or the network: no local path, and files are compared by size only. */
   readonly remote: boolean;
-  list(parts: string[]): Promise<Entry[] | null>;
+  /** Names starting with "." are left out unless hidden is set. */
+  list(parts: string[], hidden?: boolean): Promise<Entry[] | null>;
   hasDir(parts: string[]): Promise<boolean>;
   entry(parts: string[]): Promise<Entry | null>;
   get(parts: string[], dest: string): Promise<void>;
@@ -49,24 +50,18 @@ export class CardFs implements DeviceFs {
     return path.join(this.root, ...parts);
   }
 
-  async list(parts: string[]): Promise<Entry[] | null> {
+  async list(parts: string[], hidden = false): Promise<Entry[] | null> {
     let entries: fs.Dirent[];
     try {
       entries = await fsp.readdir(this.localPath(parts), { withFileTypes: true });
     } catch {
       return null;
     }
-    const found: Entry[] = [];
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      try {
-        const st = await fsp.stat(path.join(this.localPath(parts), entry.name));
-        found.push({ name: entry.name, folder: st.isDirectory(), size: st.size, mtime: st.mtimeMs / 1000, id: null });
-      } catch {
-        continue;
-      }
-    }
-    return found;
+    const found = await Promise.all(entries.filter((e) => hidden || !e.name.startsWith(".")).map(async (entry): Promise<Entry | null> => {
+      const st = await fsp.stat(path.join(this.localPath(parts), entry.name)).catch(() => null);
+      return st && { name: entry.name, folder: st.isDirectory(), size: st.size, mtime: st.mtimeMs / 1000, id: null };
+    }));
+    return found.filter((e) => e !== null);
   }
 
   async hasDir(parts: string[]): Promise<boolean> {
@@ -117,7 +112,10 @@ export class CardFs implements DeviceFs {
     const partial = path.join(path.dirname(dest), `.${parts[parts.length - 1]}.partial`);
     try {
       const input = await fsp.open(src, "r");
-      const output = await fsp.open(partial, "w");
+      const output = await fsp.open(partial, "w").catch(async (error) => {
+        await input.close();
+        throw error;
+      });
       try {
         const buffer = Buffer.allocUnsafe(CHUNK);
         let sent = 0;

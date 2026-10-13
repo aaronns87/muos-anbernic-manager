@@ -140,11 +140,16 @@ async function connect(): Promise<{ client: Client; host: string; fingerprint: s
       if (settled) return;
       settled = true;
       const trustedNow = !s.known[where];
-      if (trustedNow) {
-        const fresh = await sshSettings();
-        await writeSettings({ ...fresh, known: { ...fresh.known, [where]: seen } });
+      try {
+        if (trustedNow) {
+          const fresh = await sshSettings();
+          await writeSettings({ ...fresh, known: { ...fresh.known, [where]: seen } });
+        }
+        resolve({ client, host, fingerprint: seen, trustedNow });
+      } catch (error) {
+        client.end();
+        reject(error);
       }
-      resolve({ client, host, fingerprint: seen, trustedNow });
     });
     client.on("keyboard-interactive", (_name, _instructions, _lang, prompts, finish) => finish(prompts.map(() => s.password)));
     client.on("error", fail);
@@ -224,27 +229,39 @@ export async function streamCommand(
 ): Promise<{ err: string; code: number | null }> {
   controlActive++;
   try {
-    const client = await (control ??= openControl());
-    return await new Promise((resolve, reject) => {
-      client.exec(command, (err, stream) => {
-        if (err) return reject(err);
+    for (let attempt = 0; ; attempt++) {
+      const client = await (control ??= openControl());
+      const stream = await new Promise<ClientChannel>((resolve, reject) => {
+        client.exec(command, (err, channel) => (err ? reject(err) : resolve(channel)));
+      }).catch(async (error) => {
+        if (attempt > 0) throw error;
+        await closeControl();
+        return null;
+      });
+      if (!stream) continue;
+      return await new Promise((resolve, reject) => {
         let errText = "";
         const timer = setTimeout(() => { stream.close(); reject(new UserError("The handheld took too long to answer.")); }, timeoutMs);
         const written = io.stdout ? new Promise<void>((done, fail) => {
           io.stdout!.on("finish", done);
           io.stdout!.on("error", fail);
         }) : Promise.resolve();
+        written.catch(() => stream.close());
         if (io.stdout) stream.pipe(io.stdout);
         else stream.resume();
         stream.stderr.on("data", (d: Buffer) => { errText += d.toString("utf8"); });
-        if (io.stdin) io.stdin.pipe(stream);
-        else stream.end();
+        if (io.stdin) {
+          const input = io.stdin as NodeJS.ReadableStream & { readableEnded?: boolean };
+          input.once("error", () => stream.close());
+          input.once("close", () => { if (!input.readableEnded) stream.close(); });
+          input.pipe(stream);
+        } else stream.end();
         stream.on("close", (code: number | null) => {
           clearTimeout(timer);
           written.then(() => resolve({ err: errText, code }), reject);
         });
       });
-    });
+    }
   } finally {
     controlActive--;
     controlUsed = Date.now();

@@ -185,12 +185,22 @@ export async function withSession<T>(fn: (session: Session) => Promise<T>, waitM
       throw error;
     }
   } finally {
+    if (dropAfterUse) {
+      dropAfterUse = false;
+      shared?.close();
+      shared = null;
+    }
     release();
   }
 }
 
+let dropAfterUse = false;
+
 export async function disconnect(): Promise<void> {
-  await acquire(60_000).catch(() => {});
+  if (!(await acquire(60_000).then(() => true, () => false))) {
+    dropAfterUse = true;
+    return;
+  }
   try {
     shared?.close();
     shared = null;
@@ -527,12 +537,12 @@ export class MtpFs implements DeviceFs {
     return this.ids.get(key)!;
   }
 
-  async list(parts: string[]): Promise<Entry[] | null> {
+  async list(parts: string[], hidden = false): Promise<Entry[] | null> {
     const folder = await this.folder(parts);
     if (folder === null) return null;
     const entries = await this.session.listdir(this.storage.id, folder);
     this.remember(keyOf(parts), entries);
-    return entries.filter((e) => !e.name.startsWith("."));
+    return hidden ? entries : entries.filter((e) => !e.name.startsWith("."));
   }
 
   async hasDir(parts: string[]): Promise<boolean> {

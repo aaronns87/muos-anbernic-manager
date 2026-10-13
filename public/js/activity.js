@@ -44,13 +44,15 @@ async function loadRecent() {
 
 async function search(more = false) {
   const params = new URLSearchParams({ q: A.q, level: A.level, limit: "100", offset: String(more ? A.list.length : 0) });
+  const seq = A.seq = (A.seq || 0) + 1;
   try {
     const r = await api(`activity?${params}`);
+    if (seq !== A.seq) return;
     A.list = more ? [...A.list, ...r.entries] : r.entries;
     A.total = r.total;
     A.all = r.all;
   } catch (error) {
-    $("act-list").innerHTML = `<li class="notice err">${esc(error.message)}</li>`;
+    if (seq === A.seq) $("act-list").innerHTML = `<li class="notice err">${esc(error.message)}</li>`;
     return;
   }
   renderDialog();

@@ -24,15 +24,13 @@ function* usbNodes(nodes: PlistValue[]): Generator<Record<string, PlistValue>> {
 }
 
 async function uniqueIn(folder: string, name: string): Promise<string> {
-  const target = path.join(folder, name);
-  try {
-    await fsp.access(target);
-  } catch {
-    return target;
-  }
+  const taken = (p: string) => fsp.access(p).then(() => true, () => false);
   const dot = name.lastIndexOf(".");
   const stamp = new Date().toTimeString().slice(0, 8).replaceAll(":", ".");
-  return path.join(folder, dot > 0 ? `${name.slice(0, dot)} ${stamp}${name.slice(dot)}` : `${name} ${stamp}`);
+  const named = (suffix: string) => path.join(folder, dot > 0 ? `${name.slice(0, dot)}${suffix}${name.slice(dot)}` : `${name}${suffix}`);
+  let target = path.join(folder, name);
+  for (let n = 1; await taken(target); n++) target = named(n === 1 ? ` ${stamp}` : ` ${stamp} ${n}`);
+  return target;
 }
 
 export const darwin: Platform = {

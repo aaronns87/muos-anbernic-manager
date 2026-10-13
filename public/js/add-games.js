@@ -753,12 +753,27 @@ async function act(el) {
   if (what === "art-mode") {
     it.art.mode = el.dataset.v;
     if (it.art.mode === "find" && !it.art.picks && it.code && it.art.status !== "busy") { findArt(it); return; }
-    if (it.art.mode === "own" && !it.art.own) { draw(it); setOwnArt(it, await pickImage()); return; }
+    if (it.art.mode === "own" && !it.art.own) {
+      draw(it);
+      const file = await pickImage();
+      if (file) setOwnArt(it, file);
+      return;
+    }
     draw(it);
     return;
   }
   if (what === "art-find") { findArt(it); return; }
-  if (what === "art-style") { it.art.style = el.dataset.v; await renderPreview(it); draw(it); return; }
+  if (what === "art-style") {
+    it.art.style = el.dataset.v;
+    try {
+      await renderPreview(it);
+    } catch (error) {
+      it.art.status = "error";
+      it.art.error = error.message;
+    }
+    draw(it);
+    return;
+  }
   if (what === "art-pick") { const file = await pickImage(); if (file) setOwnArt(it, file); }
 }
 

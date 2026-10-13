@@ -144,6 +144,12 @@ async function deleteSelected() {
   } catch (error) {
     toast(error.message, 5000);
   }
+  if (failed) {
+    state.deleting = null;
+    state.selected = new Set();
+    toast(`Deleted ${plural(deleted, "image")} from ${devName()}; ${failed} could not be deleted`, 6000);
+    return runAudit();
+  }
   const gone = new Set(files.slice(0, state.deleting.done).map(keyOf));
   for (const f of d.leftovers.filter((x) => gone.has(keyOf(x)))) {
     const t = d.totals, row = d.catalogues.find((x) => x.name === f.catalogue);
@@ -154,7 +160,7 @@ async function deleteSelected() {
   d.leftovers = d.leftovers.filter((f) => !gone.has(keyOf(f)));
   state.selected = new Set([...state.selected].filter((k) => !gone.has(k)));
   state.deleting = null;
-  toast(`Deleted ${plural(deleted, "image")} from ${devName()}${failed ? `; ${failed} could not be deleted (check again)` : ""}`, failed ? 6000 : 3000);
+  toast(`Deleted ${plural(deleted, "image")} from ${devName()}`, 3000);
   redraw();
 }
 

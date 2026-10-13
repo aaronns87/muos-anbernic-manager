@@ -10,6 +10,7 @@ import { UserError } from "../errors.ts";
 import { say } from "../log.ts";
 import { runningVersion } from "../updates.ts";
 import { runCommand, sshStatus } from "./ssh.ts";
+import { shq as quote } from "../util.ts";
 
 const CONFIG = "/opt/muos/config";
 
@@ -214,8 +215,6 @@ export const GROUPS: Group[] = [
 const BY_KEY = new Map(GROUPS.flatMap((g) => g.items.map((s) => [s.key, s] as const)));
 
 // ---------------------------------------------------------------- reading
-
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 interface Facts {
   bright: number; audioMax: number; governors: string[]; languages: string[]; version: string; host: string;

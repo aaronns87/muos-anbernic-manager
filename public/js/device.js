@@ -386,9 +386,9 @@ export async function setMode(mode) {
 export function modePicker() {
   const m = app.ui.mode, dis = busy() ? " disabled" : "";
   return `<div class="segmented mode-pick" role="group" aria-label="Connect with">
-    <button data-device="mode" data-mode="usb" class="${m === "usb" ? "on" : ""}"${dis}>${icon("cable")} USB cable</button>
-    <button data-device="mode" data-mode="wifi" class="${m === "wifi" ? "on" : ""}"${dis}>${icon("wifi")} Wi-Fi</button>
-    <button data-device="mode" data-mode="card" class="${m === "card" ? "on" : ""}"${dis}>${icon("sd")} Card reader</button>
+    <button data-device="mode" data-mode="usb" class="${m === "usb" ? "on" : ""}" aria-pressed="${m === "usb"}"${dis}>${icon("cable")} USB cable</button>
+    <button data-device="mode" data-mode="wifi" class="${m === "wifi" ? "on" : ""}" aria-pressed="${m === "wifi"}"${dis}>${icon("wifi")} Wi-Fi</button>
+    <button data-device="mode" data-mode="card" class="${m === "card" ? "on" : ""}" aria-pressed="${m === "card"}"${dis}>${icon("sd")} Card reader</button>
   </div>`;
 }
 
@@ -407,7 +407,7 @@ export function wifiForm() {
     <label>SFTP port<input class="control" id="wifi-port" inputmode="numeric" value="${esc(String(w.port || 2022))}"></label>
     <div class="wifi-actions">
       <button class="btn${w.reachable ? "" : " primary"}" data-device="wifi-save"${dis}>${icon("plug")}<span>Save and connect</span></button>
-      <button class="btn" data-device="wifi-find"${dis} title="Look for SFTPGo on this computer's local networks">${wifiFound.busy ? `${ICONS.spin}<span>Looking</span>` : `${icon("search")}<span>Find on network</span>`}</button>
+      <button class="btn" data-device="wifi-find"${dis || (wifiFound.busy ? " disabled" : "")} title="Look for SFTPGo on this computer's local networks">${wifiFound.busy ? `${ICONS.spin}<span>Looking</span>` : `${icon("search")}<span>Find on network</span>`}</button>
     </div>
     ${found}
   </div>`;
@@ -437,16 +437,18 @@ async function saveWifi(el, host) {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || !e.target.closest || !e.target.closest(".wifi-form") || busy()) return;
   e.preventDefault();
-  saveWifi(document.querySelector('[data-device="wifi-save"]'));
+  const button = document.querySelector('[data-device="wifi-save"]');
+  if (button && !button.disabled) saveWifi(button);
 });
 
 async function findWifi() {
+  if (wifiFound.busy) return;
   wifiFound.busy = true;
   renderDevice();
   try {
     wifiFound.list = (await api("device/wifi/find", {})).found;
   } catch (error) {
-    toast(error.message);
+    toast(error.message, 4000);
   }
   wifiFound.busy = false;
   if (wifiFound.list && wifiFound.list.length === 1 && !(app.device.wifi && app.device.wifi.reachable)) return saveWifi(null, wifiFound.list[0].host);
@@ -547,10 +549,10 @@ const deviceKey = (status) => JSON.stringify(app.ui.mode === "card"
 export async function watchDevices() {
   const d = app.device;
   const quiet = document.visibilityState === "visible" && !busy() && !document.querySelector("dialog[open]");
-  if (quiet && (d.status === "ready" || d.status === "offline")) {
+  if (quiet && ["ready", "offline", "error"].includes(d.status)) {
     try {
       const status = await api("status");
-      if (d.status === "offline" || deviceKey(status) !== deviceKey({ cards: d.targets, handheld: d.handheld, wifi: d.wifi, models: d.models })) await refreshDevice();
+      if (d.status !== "ready" || deviceKey(status) !== deviceKey({ cards: d.targets, handheld: d.handheld, wifi: d.wifi, models: d.models })) await refreshDevice();
     } catch {}
   }
   setTimeout(watchDevices, 5000);

@@ -1,6 +1,6 @@
 // Saves tab: back up the handheld's saves and save states over SSH, and put them back from a backup.
 
-import { $, api, esc, formatDate, formatTime, human, icon, plural, toast } from "./core.js";
+import { $, api, esc, formatDate, formatTime, human, icon, plural, setKeepingScroll, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
 const S = { data: null, error: "", loading: false, work: "", open: "", contents: {}, picked: new Set(), wifi: undefined };
@@ -88,7 +88,7 @@ function render() {
     return;
   }
   $("emu-sub").innerHTML = `${plural(d.backups.length, "save backup")} in <code title="${esc(d.folder)}">${esc(d.folder)}</code> &middot; change it in Settings`;
-  root.innerHTML = `<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`;
+  setKeepingScroll(root, `<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
 }
 
 function backupHint() {

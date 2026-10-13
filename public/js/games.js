@@ -34,10 +34,22 @@ export async function loadLibrary() {
     applyView();
   }
   app.data = data;
+  app.libraryError = "";
   fillMetaFilters();
   resetListing();
   renderStats();
   renderCurrent();
+}
+
+/** Loads the library at startup or from Try again, keeping the error on screen if it fails. */
+export function startLibraryLoad() {
+  app.libraryError = "";
+  if (section() === "games") render();
+  loadLibrary().catch((error) => {
+    app.libraryError = error.message;
+    if (section() === "games") render();
+    toast(error.message, 4000);
+  });
 }
 
 export function libraryTotals() {
@@ -229,7 +241,9 @@ const sysPick = (code) => `<button class="sys-pick" data-pick-sys="${esc(code)}"
 
 export function render() {
   if (!app.data) {
-    $("games-list").innerHTML = `<div class="dev-note"><span class="spinner"></span> Loading the library&hellip;</div>`;
+    $("games-list").innerHTML = app.libraryError
+      ? `<div class="dev-note"><div class="notice err">${esc(app.libraryError)}</div><button class="btn" data-lib="retry">${icon("refresh")}<span>Try again</span></button></div>`
+      : `<div class="dev-note"><span class="spinner"></span> Loading the library&hellip;</div>`;
     return;
   }
   if (app.ui.where === "device" && app.device.target) return renderDeviceView();
@@ -260,7 +274,7 @@ export function render() {
     const copyable = canCopy(sys);
     const onCount = copyable ? sys.games.filter((g) => isOnCard(sys, g)).length : 0;
     out.push(`<section class="system${collapsed ? " collapsed" : ""}" id="sys-${esc(sys.code)}" data-code="${esc(sys.code)}" style="--accent:${sys.accent}">
-      <header class="system-head">
+      <header class="system-head" tabindex="0" role="button" aria-expanded="${!collapsed}">
         ${games.length ? sysPick(sys.code) : ""}
         <div class="sys-ico">${consoleIcon(sys.code)}</div>
         <div class="system-title"><h2>${esc(sys.name)} <span class="code">${esc(sys.code)}</span></h2><p>${meta}</p></div>
@@ -450,7 +464,7 @@ function observeSections() {
 function aboutHtml(m) {
   if (!m) return `<div class="no-desc">No description found for this game.</div>`;
   const facts = [
-    m.y ? `<span>${m.y}</span>` : "",
+    m.y ? `<span>${esc(m.y)}</span>` : "",
     ...String(m.g || "").split(/,\s*/).filter(Boolean).slice(0, 3).map((x) => `<span>${esc(x)}</span>`),
     m.pl ? `<span>${esc(m.pl)} player${m.pl === "1" ? "" : "s"}</span>` : "",
     m.r ? `<span class="stars" title="LaunchBox community rating from ${m.rc} votes">&#9733; ${m.r.toFixed(1)} / 5 (${m.rc.toLocaleString()})</span>` : ""
@@ -581,7 +595,11 @@ export function syncGamesControls() {
   $("dev-filter").hidden = !c || ui.where !== "device";
   $("where").hidden = !c || err;
   $("where-device").textContent = handheldMode() ? "On device" : `On ${cardWord()}`;
-  document.querySelectorAll("#where button").forEach((b) => b.classList.toggle("on", b.dataset.where === (c ? ui.where : "library")));
+  document.querySelectorAll("#where button").forEach((b) => {
+    const on = b.dataset.where === (c ? ui.where : "library");
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
   const filter = $("copied-filter").options;
   filter[0].text = `On ${devWord()} or not`; filter[1].text = `Not on ${devWord()} yet`; filter[2].text = `Already on ${devWord()}`;
   if (section() === "games") renderBulk();
@@ -696,7 +714,7 @@ function renderDeviceView() {
     const art = sys.games.filter((g) => g.art.box).length;
     const only = sys.games.filter((g) => g.st === "device").length;
     out.push(`<section class="system${collapsed ? " collapsed" : ""}" id="sys-${esc(sys.code)}" data-code="${esc(sys.code)}" style="--accent:${sys.accent}">
-      <header class="system-head">
+      <header class="system-head" tabindex="0" role="button" aria-expanded="${!collapsed}">
         ${sysPick(sys.code)}
         <div class="sys-ico">${consoleIcon(sys.lib ? sys.lib.code : sys.code)}</div>
         <div class="system-title"><h2>${esc(sys.name)} <span class="code">${esc(sys.folder)}</span></h2><p>ROMS/${esc(sys.folder)} on ${name}${only ? ` &middot; ${only} not in Roms/` : ""}</p></div>
@@ -872,8 +890,9 @@ async function bulkAction(action) {
       ok: "Move to Trash", danger: true
     });
     if (!ok) return;
-    const result = await runBulk("Moving to the Trash", picked, ([sys, g]) => api("games/delete", { path: keyOf(sys, g), library: true, art: !!g.i, device: false, volume }));
-    const gone = new Set(picked.map(([sys, g]) => keyOf(sys, g)));
+    const gone = new Set();
+    const result = await runBulk("Moving to the Trash", picked, ([sys, g]) => api("games/delete", { path: keyOf(sys, g), library: true, art: !!g.i, device: false, volume })
+      .then(() => gone.add(keyOf(sys, g))));
     for (const sys of app.data.systems) sys.games = sys.games.filter((g) => !gone.has(keyOf(sys, g)));
     app.sel.clear();
     renderStats();
@@ -956,7 +975,7 @@ export function openDeviceGame(sys, g, manage) {
 function renderDevGame() {
   const { sys, g } = devOpen;
   const c = app.device.target;
-  const working = busy();
+  const working = busy() || devOpen.working;
   const where = { same: "Same file as in Roms/", check: "In Roms/ (date differs)", changed: "Different from the copy in Roms/", device: "Not in Roms/" }[g.st];
   $("d-title").textContent = g.t;
   $("d-scope").innerHTML = `<span class="code" style="--accent:${sys.accent}">${esc(sys.folder)}</span> ${esc(g.f)} &middot; ${human(g.s)} &middot; ${where}`;
@@ -992,9 +1011,11 @@ function renderDevGame() {
 }
 
 async function devAction(action, kind, file = null) {
-  if (!devOpen) return;
-  const { sys, g } = devOpen;
+  if (!devOpen || devOpen.working) return;
+  const open = devOpen, { sys, g } = open;
   if (action === "upload" && !file) return;
+  if (action !== "send" && action !== "upload" && !g.art[kind]) return;
+  open.working = true;
   const body = { volume: app.listing.volume, path: `${sys.folder}/${g.f}`, kind };
   if (action !== "send" && action !== "upload") Object.assign(body, { catalogue: g.art[kind][0], name: g.art[kind][1] });
   if (action === "get") body.path = `${sys.code}/${g.f}`;
@@ -1016,11 +1037,16 @@ async function devAction(action, kind, file = null) {
       delete g.art[kind];
       toast(`Deleted from ${devName()}`);
     }
-    $("d-msg").innerHTML = "";
-    renderDevGame();
+    open.working = false;
     renderCurrent();
+    if (devOpen === open) {
+      $("d-msg").innerHTML = "";
+      renderDevGame();
+    }
   } catch (error) {
-    $("d-msg").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
+    open.working = false;
+    if (devOpen === open) $("d-msg").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
+    else toast(error.message, 4000);
   }
 }
 
@@ -1035,7 +1061,10 @@ function askDeleteDevGame() {
 }
 
 async function deleteDevGame() {
+  if (!devOpen || devOpen.working) return;
   const { sys, g } = devOpen;
+  devOpen.working = true;
+  $("d-msg").querySelectorAll("button").forEach((b) => { b.disabled = true; });
   try {
     const result = await api("games/delete", { path: `${sys.folder}/${g.f}`, device: true, device_art: $("d-art-too")?.checked || false, volume: app.listing.volume });
     sys.games = sys.games.filter((x) => x !== g);
@@ -1045,7 +1074,10 @@ async function deleteDevGame() {
     renderDevice();
     renderCurrent();
   } catch (error) {
-    $("d-msg").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
+    if (devOpen) {
+      devOpen.working = false;
+      $("d-msg").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
+    } else toast(error.message, 4000);
   }
 }
 
@@ -1154,12 +1186,14 @@ export function bindGames() {
       return;
     }
     if (e.target.closest("[data-svm='free']")) { openFreeScummvm(); return; }
+    if (e.target.closest("[data-lib='retry']")) { startLibraryLoad(); return; }
     const head = e.target.closest(".system-head");
     if (head) {
       const sec = head.parentElement;
       const code = sec.dataset.code;
       sec.classList.toggle("collapsed");
       sec.classList.contains("collapsed") ? ui.collapsed.add(code) : ui.collapsed.delete(code);
+      head.setAttribute("aria-expanded", String(!sec.classList.contains("collapsed")));
       applyView();
       return;
     }
@@ -1168,8 +1202,14 @@ export function bindGames() {
     if (game) openGame(game);
   });
   $("games-list").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.target.classList.contains("system-head")) {
+      e.preventDefault();
+      e.target.click();
+      return;
+    }
     const game = e.target.closest(".game");
-    if (!game || (e.key !== "Enter" && e.key !== " ")) return;
+    if (!game || e.target !== game) return;
     e.preventDefault();
     if (app.selecting || e.key === " ") togglePick(game, e.shiftKey); else openGame(game);
   });

@@ -234,14 +234,19 @@ async function browse(path, which = s.browse?.which || "roms") {
   const b = s.browse || (s.browse = { path: "", dirs: [], places: [], which });
   b.loading = true;
   b.input = undefined;
+  const seq = b.seq = (b.seq || 0) + 1;
   render();
   try {
-    Object.assign(b, await api(`settings/folders?path=${encodeURIComponent(path || "")}`));
+    const found = await api(`settings/folders?path=${encodeURIComponent(path || "")}`);
+    if (s.browse !== b || b.seq !== seq) return;
+    Object.assign(b, found);
   } catch (error) {
-    toast(error.message, 3000);
+    if (s.browse !== b || b.seq !== seq) return;
+    toast(error.message, 4000);
+    if (!b.path) s.browse = null;
   }
   b.loading = false;
-  if (s.browse) render();
+  render();
 }
 
 async function useOtherFolder(which, target) {

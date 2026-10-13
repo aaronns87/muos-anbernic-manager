@@ -88,7 +88,7 @@ export function portsSection({ accent, collapsed, chevron, q = "", localFiles = 
   ].filter(Boolean);
   const size = (dev?.installed || []).reduce((a, p) => a + p.kb * 1024, 0);
   return `<section class="system pm-sec${collapsed ? " collapsed" : ""}" id="sys-PORTS" data-code="PORTS" style="--accent:${accent}">
-    <header class="system-head">
+    <header class="system-head" tabindex="0" role="button" aria-expanded="${!collapsed}">
       <div class="sys-ico">${consoleIcon("PORTS")}</div>
       <div class="system-title"><h2>Ports <span class="code">PortMaster</span></h2><p>Native PC game ports &middot; installed on the handheld by PortMaster over Wi-Fi</p></div>
       <div class="system-stats">
@@ -202,9 +202,9 @@ function renderView() {
   $("pmv-title").textContent = title;
   $("pmv-sub").innerHTML = p ? [p.porter.length ? `Ported by ${esc(p.porter.join(", "))}` : "", p.genres.map(esc).join(", ")].filter(Boolean).join(" &middot; ") : "Not in the PortMaster list";
   const facts = p ? [
-    ["Download", p.size ? human(p.size) : ""], ["Runtime", p.runtime.map((r) => r.replace(/\.squashfs$/, "")).join(", ")],
+    ["Download", p.size ? human(p.size) : ""], ["Runtime", esc(p.runtime.map((r) => r.replace(/\.squashfs$/, "")).join(", "))],
     ["Game", p.avail === "paid" ? "Bought separately" : p.avail === "free" ? "Free game files" : p.avail === "full" ? "Included" : p.avail === "demo" ? "Demo included" : p.rtr ? "Included" : ""],
-    ["Added", p.added], ["Updated", p.updated !== p.added ? p.updated : ""],
+    ["Added", esc(p.added || "")], ["Updated", p.updated !== p.added ? esc(p.updated || "") : ""],
     ["On the handheld", have ? `${esc(have.dir)}, ${human(have.kb * 1024)}` : ""],
   ].filter(([, v]) => v) : have ? [["On the handheld", `${esc(have.dir)}, ${human(have.kb * 1024)}`]] : [];
   const keep = $("pmv-body").querySelector("[data-pm-sub]")?.value;
@@ -216,7 +216,7 @@ function renderView() {
         ${p ? `<span class="pmv-badges">${badges(p)}</span>` : ""}
         ${p?.desc ? `<p>${esc(p.desc)}</p>` : ""}
         <dl class="pmv-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
-        ${p?.store.length ? `<p class="pmv-store">${p.store.map((s) => `<a class="btn small" href="${esc(s.url)}" target="_blank" rel="noopener">${icon("web")}<span>${esc(s.name)}</span></a>`).join("")}</p>` : ""}
+        ${p?.store.some((s) => /^https?:\/\//i.test(s.url)) ? `<p class="pmv-store">${p.store.filter((s) => /^https?:\/\//i.test(s.url)).map((s) => `<a class="btn small" href="${esc(s.url)}" target="_blank" rel="noopener">${icon("web")}<span>${esc(s.name)}</span></a>`).join("")}</p>` : ""}
       </div></div>
     ${p?.inst ? `<div class="notice pmv-inst"><b>${p.rtr ? "Notes" : "Game files"}</b><span>${esc(p.inst)}</span></div>` : ""}
     ${have && p && !p.rtr ? `<section class="panel pm-files">
@@ -226,7 +226,7 @@ function renderView() {
       <div class="pm-files-row">
         <button class="btn small primary" data-pm="pick-files"${up || running() ? " disabled" : ""}>${icon("upload")}<span>Choose files&hellip;</span></button>
         <button class="btn small" data-pm="pick-folder"${up || running() ? " disabled" : ""}>${icon("folder")}<span>Choose a folder&hellip;</span></button>
-        ${up ? `<span class="pm-up">${ICONS.spin} ${up.done} of ${plural(up.total, "file")} &middot; ${human(up.bytes)} of ${human(up.size)}${up.stop ? "" : ` <button class="btn small ghost" data-pm="stop-upload">Stop</button>`}</span>` : ""}
+        ${up ? `<span class="pm-up">${ICONS.spin} <span class="pm-up-text">${esc(uploadText(up))}</span>${up.stop ? "" : ` <button class="btn small ghost" data-pm="stop-upload">Stop</button>`}</span>` : ""}
       </div></section>` : ""}`;
   const t = task();
   const status = t?.state === "running" && t.name === p?.name ? `${ICONS.spin} ${esc(t.line || "Installing")}`
@@ -342,9 +342,19 @@ async function sendFiles(files) {
 }
 
 let uploadFrame = 0;
+const uploadText = (up) => `${up.done} of ${plural(up.total, "file")} \u00b7 ${human(up.bytes)} of ${human(up.size)}`;
+
+/** Progress only rewrites its own text, so the Stop button stays clickable. */
 function updateUpload() {
   if (uploadFrame) return;
-  uploadFrame = requestAnimationFrame(() => { uploadFrame = 0; if ($("portview").open && P.upload) renderView(); });
+  uploadFrame = requestAnimationFrame(() => {
+    uploadFrame = 0;
+    if (!$("portview").open || !P.upload) return;
+    const text = $("pmv-body").querySelector(".pm-up-text");
+    const stopShown = !!$("pmv-body").querySelector('[data-pm="stop-upload"]');
+    if (text && stopShown === !P.upload.stop) text.textContent = uploadText(P.upload);
+    else renderView();
+  });
 }
 
 // ---------------------------------------------------------------- events

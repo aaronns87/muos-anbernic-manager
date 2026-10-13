@@ -6,8 +6,8 @@ import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
 import {
-  applyView, autoRescan, bindGames, clearFilters, loadLibrary, openViewer, render, rescan, scrollToSystem, selectAllShown,
-  setSelecting, setWhere, showMissing, showNotOnDevice, showSearch
+  applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
+  setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
 } from "./games.js";
 import { bindArtworkView, showArtTab } from "./artwork-view.js";
 import { bindCopy, poll } from "./copy.js";
@@ -24,6 +24,7 @@ import { showFiles } from "./files.js";
 import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { openActivity } from "./activity.js";
+import { renderOverview } from "./overview.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
@@ -78,6 +79,10 @@ function go(el) {
   if (to === "search") return showSearch(el.dataset.q || "");
   if (to === "art-scrape") return showArtTab("scrape");
   if (to === "activity") return openActivity();
+  if (to === "workspace-retry") {
+    app.overview.workspace = null;
+    return renderOverview();
+  }
   if (to === "system") {
     clearFilters(false);
     setWhere("library", false);
@@ -114,7 +119,7 @@ function bindShared() {
     if (e.target.dataset?.device === "pick") deviceAction("pick", e.target);
   });
   document.addEventListener("keydown", (e) => {
-    if ($("transfer").open || $("remove").open || $("artsync").open || $("devgame").open || $("confirm").open || $("addgames").open || $("help").open || $("fileview").open || $("activity").open || $("themeview").open) return;
+    if (document.querySelector("dialog[open]:not(#viewer)")) return;
     if ($("viewer").open) {
       if (e.key === "ArrowLeft") openViewer(app.current - 1);
       if (e.key === "ArrowRight") openViewer(app.current + 1);
@@ -170,10 +175,7 @@ if (!TOKEN) {
   renderDevice();
   $("games-list").innerHTML = `<div class="dev-note"><div class="notice err">${esc(app.device.error)}</div></div>`;
 } else {
-  loadLibrary().catch((error) => {
-    $("games-list").innerHTML = `<div class="dev-note"><div class="notice err">${esc(error.message)}</div></div>`;
-    toast(error.message, 4000);
-  });
+  startLibraryLoad();
   refreshDevice();
   checkWizard();
   startManagerChecks();

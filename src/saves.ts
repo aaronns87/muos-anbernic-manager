@@ -10,13 +10,11 @@ import { UserError } from "./errors.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { safeEntries, tarGzEntries, type TarEntry } from "./tar.ts";
-import { isDir, listDir, removeQuietly } from "./util.ts";
+import { isDir, listDir, removeQuietly, shq as quote } from "./util.ts";
 
 const STORAGE = "/run/muos/storage";
 const ROOT = "save";
 const BACKUP = /^saves-[\w.-]+\.tar\.gz$/;
-
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 const LIST_SCRIPT = `
 cd ${STORAGE} || exit 1
@@ -107,7 +105,7 @@ async function takeBackup(label = ""): Promise<string> {
   await fsp.mkdir(ctx.backups, { recursive: true });
   const file = path.join(ctx.backups, name), partial = `${file}.partial`;
   try {
-    const { code, err } = await streamCommand(`cd ${STORAGE} && tar -cf - ${ROOT} | gzip -c`, { stdout: fs.createWriteStream(partial) });
+    const { code, err } = await streamCommand(`set -o pipefail; cd ${STORAGE} && tar -cf - ${ROOT} | gzip -c`, { stdout: fs.createWriteStream(partial) });
     if (code !== 0) throw new UserError(`The handheld could not pack its saves${err ? `: ${err.trim()}` : ""}.`);
     const entries = await tarGzEntries(partial);
     if (!safeEntries(entries, ROOT)) throw new UserError("The backup from the handheld looks wrong; it was not kept.");

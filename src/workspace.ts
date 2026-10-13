@@ -95,12 +95,17 @@ export async function workspaceGames(): Promise<{ games: Map<string, Map<string,
 
 /** Path of the PNG in Roms/<system>/Imgs for a ROM stem, or "". */
 export async function libraryImage(system: string, stem: string): Promise<string> {
-  const imgs = path.join(ctx.roms, system, "Imgs");
+  return (await libraryImages(system)).get(stem.toLowerCase()) ?? "";
+}
+
+/** The PNGs in Roms/<system>/Imgs by lowercase stem. */
+export async function libraryImages(system: string): Promise<Map<string, string>> {
+  const imgs = path.join(ctx.roms, system, "Imgs"), found = new Map<string, string>();
   for (const entry of await listDir(imgs)) {
     const [s, ext] = splitName(entry.name);
-    if (ext === "png" && s.toLowerCase() === stem.toLowerCase()) return path.join(imgs, entry.name);
+    if (ext === "png" && !found.has(s.toLowerCase())) found.set(s.toLowerCase(), path.join(imgs, entry.name));
   }
-  return "";
+  return found;
 }
 
 /** Every ROM file under the given Roms/-relative paths ("" is everything): rel path to absolute path. */

@@ -13,6 +13,7 @@ import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { requireIdle } from "./jobs.ts";
 import { say } from "./log.ts";
+import { shq as quote } from "./util.ts";
 
 const DATA_URL = "https://raw.githubusercontent.com/MustardOS/theme/refs/heads/main/docs/theme_data.json";
 const PREVIEW_URL = "https://raw.githubusercontent.com/MustardOS/theme/refs/heads/main/current/";
@@ -21,8 +22,6 @@ const ACTIVE = "/opt/muos/config/theme/active";
 export const RESOLUTIONS = ["640x480", "720x480", "720x720", "1024x768", "1280x720"];
 const FRESH_MS = 12 * 3600_000;
 const AGENT = { "User-Agent": "muos-anbernic-manager" };
-
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 export interface Theme { name: string; url: string; res: string[]; grid: boolean; hdmi: boolean; language: boolean }
 

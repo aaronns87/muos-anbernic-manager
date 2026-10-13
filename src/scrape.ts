@@ -6,7 +6,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { ctx } from "./context.ts";
 import { UserError } from "./errors.ts";
-import { libraryJson, type Library } from "./games/library.ts";
+import { getLibrary } from "./games/library.ts";
 import { loadArcadeNames } from "./games/metadata.ts";
 import { ARCADE } from "./games/systems.ts";
 
@@ -146,7 +146,7 @@ function find(index: KindIndex, names: string[]): Pick | null {
 export async function scrapePlan(body: Record<string, unknown>) {
   const only = body.only === "all" ? "all" : "missing";
   const wanted = Array.isArray(body.systems) ? new Set(body.systems.map(String)) : null;
-  const library = JSON.parse(await libraryJson()) as Library;
+  const library = await getLibrary();
   const systems = library.systems.filter((s) => s.games.length && (!wanted || !wanted.size || wanted.has(s.code)));
   const unsupported = systems.filter((s) => !SOURCES[s.code]).map((s) => ({ code: s.code, games: s.games.length }));
   const usable = systems.filter((s) => SOURCES[s.code]);

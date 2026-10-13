@@ -48,9 +48,9 @@ function render() {
   $("th-sub").textContent = sub;
   $("th-actions").innerHTML = `<button class="btn" data-th="refresh" title="Load the theme list and the handheld again"${T.loading || T.busy ? " disabled" : ""}>${T.loading ? ICONS.spin : icon("refresh")}<span>Refresh</span></button>`;
   const root = $("themes");
-  if (T.error) return void (root.innerHTML = `<div class="notice err">${esc(T.error)}</div>`);
+  if (T.error && !T.data) return void (root.innerHTML = `<div class="notice err">${esc(T.error)}</div>`);
   if (!T.data) return void (root.innerHTML = `<div class="planning"><span class="spinner"></span> Loading the theme list&hellip;</div>`);
-  root.innerHTML = `${statusBar()}${id === "device" ? deviceTab() : browseTab()}`;
+  root.innerHTML = `${T.error ? `<div class="notice err">${esc(T.error)}</div>` : ""}${statusBar()}${id === "device" ? deviceTab() : browseTab()}`;
 }
 
 function statusBar() {

@@ -98,6 +98,8 @@ function status(p) {
 
 // ---------------------------------------------------------------- rendering
 
+const uploadText = (u) => `Adding\u2026 ${Math.floor((u.sent / u.size) * 100)}% of ${human(u.size)}`;
+
 function render() {
   const root = $("apps");
   if (!root) return;
@@ -119,9 +121,9 @@ function render() {
 
 function packagesPanel() {
   const d = A.data;
-  const uploads = A.uploads.map((u) => `<div class="app-row up">
+  const uploads = A.uploads.map((u, i) => `<div class="app-row up" data-up="${i}">
       <span class="app-ico">${u.error ? icon("alert") : `<span class="spinner sm"></span>`}</span>
-      <div class="app-main"><b>${esc(u.name)}</b><small>${u.error ? `<span class="app-bad">${esc(u.error)}</span>` : `Adding&hellip; ${Math.floor((u.sent / u.size) * 100)}% of ${human(u.size)}`}</small>
+      <div class="app-main"><b>${esc(u.name)}</b><small>${u.error ? `<span class="app-bad">${esc(u.error)}</span>` : uploadText(u)}</small>
         ${u.error ? "" : `<div class="meter"><i style="width:${Math.floor((u.sent / u.size) * 100)}%"></i></div>`}</div>
       ${u.error ? `<button class="btn icon small ghost" data-ap="dismiss" data-name="${esc(u.name)}" title="Dismiss" aria-label="Dismiss">${icon("x")}</button>` : ""}
     </div>`).join("");
@@ -361,7 +363,15 @@ function upload(file, replace) {
     xhr.setRequestHeader("X-Manager-Token", TOKEN);
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     let drawn = 0;
-    xhr.upload.onprogress = (e) => { entry.sent = e.loaded; if (Date.now() - drawn > 150) { drawn = Date.now(); render(); } };
+    xhr.upload.onprogress = (e) => {
+      entry.sent = e.loaded;
+      if (Date.now() - drawn < 150) return;
+      drawn = Date.now();
+      const row = $("apps")?.querySelector(`[data-up="${A.uploads.indexOf(entry)}"]`);
+      if (!row) return render();
+      row.querySelector("small").textContent = uploadText(entry);
+      row.querySelector(".meter i")?.style.setProperty("width", `${Math.floor((entry.sent / entry.size) * 100)}%`);
+    };
     const fail = (message) => { entry.error = message; render(); reject(new Error(message)); };
     xhr.onload = () => {
       let body = {};

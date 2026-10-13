@@ -13,7 +13,7 @@ import { runCommand, sshStatus, streamCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
-import { isDir, listDir, removeQuietly } from "./util.ts";
+import { inside, isDir, listDir, removeQuietly, shq as quote } from "./util.ts";
 
 const DEVICE_BIOS = "/run/muos/storage/bios";
 const ASSIGN = "/opt/muos/share/info/assign";
@@ -21,7 +21,7 @@ const INFO = "/opt/muos/share/emulator/retroarch/info";
 const MAX_HASH = 128 * 1024 * 1024;
 const CATALOG_AGE = 24 * 3600_000;
 
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
+const safeBiosPath = (p: string) => !!p && !p.startsWith("/") && !p.split("/").includes("..");
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const EXTRA_ALIASES: Record<string, string[]> = { Arcade: ["mame", "hbmame", "fbneo", "fba", "cps1", "cps2", "cps3", "pgm", "pgm2", "varcade"] };
 
@@ -314,7 +314,7 @@ export async function sendBios(body: Record<string, unknown>) {
     const here = local.find((x) => x.rel.toLowerCase() === key && (!f.md5s.length || f.md5s.includes(x.md5)))
       || local.find((x) => f.md5s.includes(x.md5));
     if (!here) throw new UserError(`The bios folder has no good copy of ${f.path}.`);
-    if (f.path.startsWith("/") || f.path.split("/").includes("..")) throw new UserError(`${f.path} is not a safe path.`);
+    if (!safeBiosPath(f.path)) throw new UserError(`${f.path} is not a safe path.`);
     plan.push({ target: f.path, source: path.join(ctx.bios, here.rel), md5: await md5File(path.join(ctx.bios, here.rel)) });
   }
   for (const p of plan) {
@@ -347,9 +347,10 @@ export async function uploadBios(req: http.IncomingMessage, query: URLSearchPara
     const md5 = size <= MAX_HASH ? await md5File(partial) : "";
     const catalog = lastReport.catalog || (await cachedCatalog());
     const match = md5 ? Object.values(catalog?.files || {}).find((f) => f.md5s.includes(md5)) : undefined;
-    const rel = match ? match.path : name;
+    const rel = match && safeBiosPath(match.path) ? match.path : name;
     const target = path.join(ctx.bios, ...rel.split("/"));
-    if (fs.existsSync(target)) {
+    if (!inside(ctx.bios, target)) throw new UserError(`${rel} is not a safe path.`);
+    if ((await fsp.stat(target).catch(() => null))?.isFile()) {
       if ((await md5File(target)) === md5) return { name, placed: rel, known: !!match, already: true };
       await platform.trash(target);
     }

@@ -135,7 +135,8 @@ export async function scanLibrary(): Promise<Library> {
     for (const fileName of fileNames) {
       const [stem, ext] = splitName(fileName);
       if (NOT_ROMS.has(ext) || hidden.has(fileName.toLowerCase())) continue;
-      const st = await fsp.stat(path.join(folder, fileName));
+      const st = await fsp.stat(path.join(folder, fileName)).catch(() => null);
+      if (!st) continue;
       const extra = await companions(code, fileName);
       let size = st.size;
       for (const [, full] of extra) size += (await fsp.stat(full).catch(() => null))?.size ?? 0;
@@ -171,10 +172,18 @@ export async function scanLibrary(): Promise<Library> {
 let current: Library | null = null;
 let json = "";
 let scanning: Promise<Library> | null = null;
+let queued: Promise<Library> | null = null;
 
-/** Rescans Roms/; concurrent calls share one scan. */
+/** Rescans Roms/. A call during a scan waits for one more scan after it, so it sees its own changes; those calls share it. */
 export function rescanLibrary(): Promise<Library> {
-  scanning ??= scanLibrary().then((library) => {
+  if (scanning) {
+    queued ??= scanning.catch(() => {}).then(() => {
+      queued = null;
+      return rescanLibrary();
+    });
+    return queued;
+  }
+  scanning = scanLibrary().then((library) => {
     const own = Object.entries(library.meta).filter(([key]) => key.startsWith("u:"));
     library.sig = createHash("sha1").update(library.roms).update(JSON.stringify(library.systems)).update(JSON.stringify(own)).digest("hex").slice(0, 16);
     const changed = library.sig !== current?.sig;

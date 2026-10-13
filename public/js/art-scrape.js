@@ -32,7 +32,7 @@ export const scrapeLook = () => ({ style: state.style, size: dims() });
 const keyOf = (item) => `${item.code}/${item.stem}`;
 const sysName = (code) => app.data?.systems.find((s) => s.code === code)?.name || code;
 const dims = () => state.size.split("x").map(Number);
-const blocked = () => busy() || !!state.task;
+const blocked = () => busy() || !!state.task || state.status === "loading";
 const dis = () => (blocked() ? " disabled" : "");
 const panel = (cls, title, body, actions = "") =>
   `<section class="panel ${cls}"><h2>${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
@@ -273,15 +273,21 @@ async function find() {
   if (blocked()) return;
   state.status = "loading";
   state.saved = 0;
+  const want = `${state.system}|${state.only}`;
   redraw();
   try {
-    state.plan = await api("scrape/plan", { systems: state.system ? [state.system] : [], only: state.only });
+    const plan = await api("scrape/plan", { systems: state.system ? [state.system] : [], only: state.only });
+    if (want !== `${state.system}|${state.only}`) {
+      state.status = "idle";
+      return redraw();
+    }
+    state.plan = plan;
     state.status = "ready";
     state.skip = new Set();
     state.shown = PAGE;
     state.filter = state.plan.items.some((i) => usable(i)) ? "found" : "none";
   } catch (error) {
-    state.status = "error";
+    state.status = want === `${state.system}|${state.only}` ? "error" : "idle";
     state.error = error.message;
   }
   redraw();

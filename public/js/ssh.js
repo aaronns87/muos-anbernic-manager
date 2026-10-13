@@ -129,6 +129,16 @@ function build() {
 
   $("view-ssh").addEventListener("click", onClick);
   $("view-ssh").addEventListener("submit", onSubmit);
+  $("term-tabs").addEventListener("keydown", (e) => {
+    const tabEl = e.target.closest("[data-tab]");
+    if (!tabEl || e.target !== tabEl) return;
+    const i = ssh.tabs.findIndex((x) => x.id === +tabEl.dataset.tab);
+    const to = e.key === "Enter" || e.key === " " ? i : e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : -1;
+    if (to < 0 || to >= ssh.tabs.length) return;
+    e.preventDefault();
+    activate(ssh.tabs[to]);
+    $("term-tabs").querySelector(`[data-tab="${ssh.tabs[to].id}"]`)?.focus();
+  });
   $("find-q").addEventListener("input", () => runFind(true));
   $("find-q").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); runFind(!e.shiftKey, true); }
@@ -373,7 +383,7 @@ function renderTabs() {
   if (!$("term-tabs")) return;
   $("term-tabs").innerHTML = ssh.tabs.map((t, i) => {
     const label = t.title || (t.info ? `${t.info.user}@${t.info.host}` : "Terminal");
-    return `<div class="term-tab${t.id === ssh.active ? " on" : ""} ${t.state}" role="tab" aria-selected="${t.id === ssh.active}" data-tab="${t.id}" title="${esc(label)} \u00b7 ${STATE_TEXT[t.state]}">
+    return `<div class="term-tab${t.id === ssh.active ? " on" : ""} ${t.state}" role="tab" tabindex="${t.id === ssh.active ? 0 : -1}" aria-selected="${t.id === ssh.active}" data-tab="${t.id}" title="${esc(label)} \u00b7 ${STATE_TEXT[t.state]}">
       <i class="dot"></i><b class="tn">${i + 1}</b><span class="tt">${esc(label)}</span><button class="tx" data-close="${t.id}" title="Close tab (Ctrl+Shift+W)" aria-label="Close tab">&times;</button></div>`;
   }).join("");
   $("term-font-size").textContent = ssh.font;
@@ -417,7 +427,9 @@ function renderAlert() {
 function renderEmpty() {
   const s = ssh.status;
   let body;
-  if (!s) body = `<p><span class="spinner"></span> Checking the handheld&hellip;</p>`;
+  if (!s && ssh.statusError) body = `<div class="notice err">${esc(ssh.statusError)}</div>
+    <div class="empty-actions"><button class="btn" data-term="status">Try again</button></div>`;
+  else if (!s) body = `<p><span class="spinner"></span> Checking the handheld&hellip;</p>`;
   else if (!s.configured) body = `<h3>Where is the handheld?</h3><p>Enter its address in the connection settings, or set up Wi-Fi in Overview.</p>
     <div class="empty-actions"><button class="btn primary" data-term="settings">Connection settings</button><a class="btn" href="#overview">Overview</a></div>`;
   else if (!s.reachable) body = `<h3>Nothing answers on ${esc(`${s.host}:${s.port}`)}</h3>
@@ -520,7 +532,12 @@ function renderConn() {
   const box = $("ssh-conn");
   if (!box) return;
   const s = ssh.status;
-  if (!s) { box.innerHTML = `<section class="panel ssh-panel"><h2>Connection</h2><div class="muted-note"><span class="spinner"></span> Checking&hellip;</div></section>`; return; }
+  if (!s) {
+    box.innerHTML = `<section class="panel ssh-panel"><h2>Connection</h2>${ssh.statusError
+      ? `<div class="notice err">${esc(ssh.statusError)}</div><button class="btn sm" data-term="status">Try again</button>`
+      : `<div class="muted-note"><span class="spinner"></span> Checking&hellip;</div>`}</section>`;
+    return;
+  }
   const form = box.querySelector(".ssh-form");
   const typed = form ? Object.fromEntries([...form.elements].filter((el) => el.name).map((el) => [el.name, el.value])) : null;
   const open = !!box.querySelector(".ssh-settings[open]") || (!s.configured && !form);
@@ -678,6 +695,7 @@ async function onClick(e) {
       else await $("term-pane").requestFullscreen().catch(() => toast("Full screen is not available here"));
       return refocus();
     case "stats": return loadStats();
+    case "status": ssh.statusError = ""; renderConn(); if (!ssh.tabs.length) renderEmpty(); return loadStatus();
     case "reboot": case "poweroff": return power(act);
     case "settings": {
       const d = $("ssh-conn").querySelector(".ssh-settings");
@@ -685,6 +703,11 @@ async function onClick(e) {
       return;
     }
     case "forget": case "trust": {
+      if (act === "forget" && !(await confirmBox({
+        title: "Forget the host key?",
+        html: "<p>The next connection trusts whatever key answers on that address. Only do this after reinstalling MustardOS.</p>",
+        ok: "Forget", danger: true,
+      }))) return;
       try {
         ssh.status = await api("ssh/forget-key", {});
         renderConn();

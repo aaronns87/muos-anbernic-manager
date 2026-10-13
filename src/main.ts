@@ -13,7 +13,7 @@ import { closeSftp } from "./device/sftp.ts";
 import { closeSsh } from "./device/ssh.ts";
 import { rescanLibrary } from "./games/library.ts";
 import { ensureArcadeNames, ensureDescriptions } from "./games/metadata.ts";
-import { cancelJob, jobRunning, waitForJob } from "./jobs.ts";
+import { cancelJob, jobRunning, locks, waitForJob } from "./jobs.ts";
 import { C, dim, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { onRestart, RESTART_CODE, runningVersion } from "./manager-update.ts";
@@ -185,9 +185,14 @@ async function main(): Promise<void> {
   if (args["no-open"] || reuseTab || !settings().openBrowser) dim(`${reuseTab ? "Reload the open manager tab, or open" : "Open"}: ${url}\n`);
   else platform.openUrl(url);
 
-  let stopping = false;
+  let stopping = false, warned = false;
   const stop = async (code = 0) => {
     if (stopping) process.exit(1);
+    if (locks.system && !warned) {
+      warned = true;
+      say("yellow", "STOPPING", `${locks.system.replace(/ Wait for it to finish\.$/, "")} Stopping now can leave the card unusable; press Ctrl-C again to stop anyway.`);
+      return;
+    }
     stopping = true;
     console.log();
     if (jobRunning()) {

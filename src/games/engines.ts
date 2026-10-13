@@ -50,7 +50,7 @@ export async function companions(system: string, name: string): Promise<[string,
 
 /** Deletes a folder and everything in it on the device. */
 export async function deleteDeviceTree(fs: DeviceFs, parts: string[]): Promise<void> {
-  for (const entry of (await fs.list(parts)) ?? []) {
+  for (const entry of (await fs.list(parts, true)) ?? []) {
     if (entry.folder) await deleteDeviceTree(fs, [...parts, entry.name]);
     else await fs.delete([...parts, entry.name]);
   }
@@ -60,7 +60,7 @@ export async function deleteDeviceTree(fs: DeviceFs, parts: string[]): Promise<v
 /** The data folder of a game on the device, as path parts, or null. */
 export async function deviceFolder(fs: DeviceFs, base: string[], system: string, name: string): Promise<string[] | null> {
   if (!isRunner(system, name)) return null;
-  const dirs = ((await fs.list(base)) ?? []).filter((e) => e.folder).map((e) => e.name);
+  const dirs = ((await fs.list(base, true)) ?? []).filter((e) => e.folder).map((e) => e.name);
   for (const want of scummFolders(splitName(name)[0])) {
     const hit = findName(dirs, want);
     if (hit) return [...base, hit];

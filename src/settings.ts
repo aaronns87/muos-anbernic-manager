@@ -75,7 +75,8 @@ export async function loadSettings(): Promise<void> {
       checkUpdates: saved.checkUpdates !== false,
       wizard: saved.wizard === "pending" ? "pending" : "done",
     };
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") say("yellow", "SETTINGS", `${settingsFile()} could not be read, so the defaults are used.`);
     current = { ...DEFAULTS, wizard: fresh ? "pending" : "done" };
     if (fresh) await save();
   }
@@ -114,7 +115,9 @@ export async function createWorkspace(base = ""): Promise<string[]> {
 
 async function save(): Promise<void> {
   await fsp.mkdir(ctx.cacheDir, { recursive: true });
-  await fsp.writeFile(settingsFile(), JSON.stringify(current, null, 2), { mode: 0o600 });
+  const file = settingsFile();
+  await fsp.writeFile(`${file}.partial`, JSON.stringify(current, null, 2), { mode: 0o600 });
+  await fsp.rename(`${file}.partial`, file);
 }
 
 const KNOWN = new Set(SYSTEMS.map(([code]) => code.toLowerCase()));
@@ -134,13 +137,10 @@ async function cacheUsage() {
     return total;
   };
   const at = (name: string) => path.join(ctx.cacheDir, name);
-  return {
-    folder: ctx.cacheDir,
-    descriptions: await sizeOf(at("metadata-index.json")),
-    names: await sizeOf(at("mamenames.xml")),
-    thumbnails: await sizeOf(at("thumbnails")),
-    deviceArt: await sizeOf(at("device-art")),
-  };
+  const [descriptions, names, thumbnails, deviceArt] = await Promise.all(
+    ["metadata-index.json", "mamenames.xml", "thumbnails", "device-art"].map((name) => sizeOf(at(name))),
+  );
+  return { folder: ctx.cacheDir, descriptions, names, thumbnails, deviceArt };
 }
 
 /** Files directly in a folder whose lowercase name matches. */
@@ -177,25 +177,26 @@ export async function settingsJson() {
 
 export async function saveSettings(body: Record<string, unknown>) {
   let rescan = false;
+  const changes: [Folder, string, string][] = [];
   for (const f of FOLDERS) {
     if (body[f] === undefined) continue;
     if (f === "roms") requireIdle("Wait for the copy to finish before changing the Roms folder.");
     const value = body[f];
     const wanted = typeof value === "string" ? value.trim() : "";
     if (!wanted && f !== "roms") {
-      current[f] = "";
-      ctx[f] = defaults[f];
-      say("cyan", "SETTINGS", `The ${FOLDER_NAMES[f]} is now ${ctx[f]}.`);
+      changes.push([f, "", defaults[f]]);
       continue;
     }
     const target = wanted ? path.resolve(wanted.replace(/^~(?=$|\/)/, os.homedir())) : defaults[f];
     if (!(await isDir(target))) throw new UserError(`${target} is not a folder.`);
     const real = await fsp.realpath(target);
     const isDefault = real === (await fsp.realpath(defaults[f]).catch(() => defaults[f]));
-    const next = isDefault ? defaults[f] : real;
+    changes.push([f, isDefault ? "" : real, isDefault ? defaults[f] : real]);
+  }
+  for (const [f, stored, next] of changes) {
     if (f === "roms") rescan = ctx.roms !== next;
     else if (ctx[f] !== next) say("cyan", "SETTINGS", `The ${FOLDER_NAMES[f]} is now ${next}.`);
-    current[f] = isDefault ? "" : real;
+    current[f] = stored;
     ctx[f] = next;
   }
   if (typeof body.copyArt === "boolean") current.copyArt = body.copyArt;

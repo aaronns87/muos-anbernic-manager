@@ -286,7 +286,9 @@ const MIME: Record<string, string> = {
 };
 
 function send(res: http.ServerResponse, status: number, body: string | Buffer, type: string): void {
-  res.writeHead(status, { "Content-Type": type, "Content-Length": Buffer.byteLength(body), "Cache-Control": "no-store" });
+  res.writeHead(status, {
+    "Content-Type": type, "Content-Length": Buffer.byteLength(body), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+  });
   res.end(body);
 }
 
@@ -350,7 +352,10 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
   } catch (error) {
     if (error instanceof SshError) sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
     else if (error instanceof UserError || error instanceof MtpError) sendJson(res, 400, { error: error.message });
-    else sendJson(res, 500, { error: `Server error: ${(error as Error).message}` });
+    else {
+      console.error(`${route} failed:`, error);
+      sendJson(res, 500, { error: `Server error: ${error instanceof Error ? error.message : String(error)}` });
+    }
   }
 }
 
@@ -360,10 +365,11 @@ const localHost = (host: string) => host === `127.0.0.1:${ctx.port}` || host ===
 function upgrade(req: http.IncomingMessage, socket: Duplex, head: Buffer): void {
   socket.on("error", () => socket.destroy());
   const host = req.headers.host ?? "";
-  const url = new URL(req.url ?? "/", `http://${host || "x"}`);
   const origin = String(req.headers.origin ?? "");
   const refuse = (status: string) => void socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`);
   if (!localHost(host) || !localHost(origin.replace(/^http:\/\//, ""))) return refuse("403 Forbidden");
+  const url = URL.parse(req.url ?? "/", `http://${host}`);
+  if (!url) return refuse("400 Bad Request");
   if (!tokenOk(url.searchParams.get("token") ?? "")) return refuse("403 Forbidden");
   if (url.pathname !== "/api/ssh/socket") return refuse("404 Not Found");
   const ws = acceptWebSocket(req, socket, head);
@@ -373,7 +379,8 @@ function upgrade(req: http.IncomingMessage, socket: Duplex, head: Buffer): void 
 function handle(req: http.IncomingMessage, res: http.ServerResponse): void {
   const host = req.headers.host ?? "";
   if (!localHost(host)) return send(res, 403, "Forbidden", "text/plain");
-  const url = new URL(req.url ?? "/", `http://${host}`);
+  const url = URL.parse(req.url ?? "/", `http://${host}`);
+  if (!url) return send(res, 400, "Bad request", "text/plain");
   let pathname: string;
   try {
     pathname = decodeURIComponent(url.pathname);
@@ -386,7 +393,11 @@ function handle(req: http.IncomingMessage, res: http.ServerResponse): void {
   }
   if (req.method !== "GET") return send(res, 405, "Method not allowed", "text/plain");
   if (pathname === "/" || pathname === "/index.html") return void serveFile(res, ctx.publicDir, "index.html");
-  if (pathname.startsWith("/Roms/")) return void serveFile(res, ctx.roms, pathname.slice("/Roms/".length));
+  if (pathname.startsWith("/Roms/")) {
+    const rel = pathname.slice("/Roms/".length);
+    if (!/^[^/]+\/Imgs\/[^/]+\.(png|jpe?g|gif|webp|bmp)$/i.test(rel)) return send(res, 404, "Not found", "text/plain");
+    return void serveFile(res, ctx.roms, rel);
+  }
   if (pathname.startsWith("/vendor/xterm/")) return void serveFile(res, path.join(ctx.managerDir, "node_modules", "@xterm"), pathname.slice("/vendor/xterm/".length));
   void serveFile(res, ctx.publicDir, pathname);
 }
@@ -408,9 +419,12 @@ export async function listen(first: number): Promise<http.Server> {
       server.listen(port, "127.0.0.1", () => resolve(true));
     });
     if (ok) {
+      server.removeAllListeners("error");
+      server.on("error", (error) => console.error("Server error:", error));
       ctx.port = port;
       return server;
     }
+    server.close();
   }
   throw new UserError(`No free port between ${first} and ${first + 19}.`);
 }

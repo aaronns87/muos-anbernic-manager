@@ -17,7 +17,7 @@ export function resetOverview() {
 async function loadWorkspace() {
   if (app.overview.workspace || app.overview.loadingWorkspace) return;
   app.overview.loadingWorkspace = true;
-  try { app.overview.workspace = await api("workspace"); } catch { app.overview.workspace = { error: true, os: [], apps: [] }; }
+  try { app.overview.workspace = await api("workspace"); } catch (error) { app.overview.workspace = { error: error.message, os: [], apps: [] }; }
   app.overview.loadingWorkspace = false;
   renderOverview();
 }
@@ -213,6 +213,7 @@ function artworkPanel() {
 function workspacePanel() {
   const w = app.overview.workspace;
   if (!w) return panel("half", "Workspace", `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "box");
+  if (w.error) return panel("half", "Workspace", `<div class="notice err">${esc(w.error)}</div>`, `<button class="btn" data-go="workspace-retry">${icon("refresh")}<span>Try again</span></button>`, "box");
   const list = (items, empty) => items.length
     ? `<ul class="files-list">${items.map((f) => `<li><code title="${esc(f.name)}">${esc(f.name)}</code><span>${human(f.size)}</span></li>`).join("")}</ul>`
     : `<div class="muted-note">${empty}</div>`;

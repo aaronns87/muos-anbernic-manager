@@ -6,13 +6,12 @@ import { coresJson } from "./cores.ts";
 import { runCommand } from "./device/ssh.ts";
 import { UserError } from "./errors.ts";
 import { say } from "./log.ts";
+import { shq as quote } from "./util.ts";
 
 const CFG = "/opt/muos/share/info/config";
 const INFO = "/opt/muos/share/emulator/retroarch/info";
 const SHADERS = "/opt/muos/share/emulator/retroarch/shaders";
 const OVERLAYS = "/opt/muos/share/emulator/retroarch/overlays";
-
-const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
 /** The overrides this page manages; any other line in an override file is left alone. */
 export const KEYS = ["aspect_ratio_index", "video_scale_integer", "video_smooth", "input_overlay", "input_overlay_enable", "input_overlay_opacity", "rewind_enable", "fps_show"];

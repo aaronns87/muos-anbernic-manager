@@ -69,7 +69,7 @@ function render() {
   box.innerHTML = `${resultHtml()}
     <div class="hh">
       <nav class="hh-nav" aria-label="Setting groups">
-        <label class="hh-search">${icon("search")}<input id="hh-q" type="search" placeholder="Find a setting" value="${esc(H.q)}" autocomplete="off" spellcheck="false"></label>
+        <label class="hh-search">${icon("search")}<input id="hh-q" type="search" placeholder="Find a setting" aria-label="Find a setting" value="${esc(H.q)}" autocomplete="off" spellcheck="false"></label>
         ${nav}
         <p class="hh-nav-note">Same options as Configuration &rsaquo; General Settings, Power, Interface and Customisation on the handheld.</p>
       </nav>
