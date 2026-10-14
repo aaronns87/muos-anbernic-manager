@@ -18,6 +18,7 @@ const FOLDERS = [
   ["os", "os", "MustardOS card images (.img.gz) for System Tools."],
   ["bios", "bios", "BIOS files the emulators need."],
   ["backups", "backups", "Backups of the handheld's saves."],
+  ["themes", "themes", "Themes you make in the Theme Designer."],
 ];
 const MODES = [
   ["usb", "cable", "USB cable", "Plug the handheld in with Configuration \u203a Advanced Settings \u203a USB Function set to MTP."],

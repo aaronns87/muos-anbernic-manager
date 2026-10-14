@@ -19,7 +19,7 @@ const ARTICLES = [
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
       on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
       <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
-      <code>os/</code>, <code>bios/</code> and <code>backups/</code> next to the manager or in a folder you name, and can start from a clean cache.
+      <code>os/</code>, <code>bios/</code>, <code>backups/</code> and <code>themes/</code> next to the manager or in a folder you name, and can start from a clean cache.
       Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
       <p>It also offers an <b>app shortcut</b> with the manager's icon: in Applications on a Mac, the Start menu on Windows, or the app menu on
       Linux. The shortcut opens a terminal window that runs the manager and opens this page; closing the window stops the manager.
@@ -201,7 +201,7 @@ const ARTICLES = [
     ["Undo", `<p><b>Undo last save</b> puts back the values from before your last save.</p>`],
     ["Finding an option", `<p>Use the search box. <b>Advanced</b> shows options most people never need.</p>`],
   ]],
-  ["themes", "palette", "Themes", "themes", "Browse MustardOS themes, preview them, and install and apply them on the handheld.", [
+  ["themes", "palette", "Themes", "themes", "Browse MustardOS themes, design your own, and install and apply them on the handheld.", [
     ["Browse", `<p>Lists the themes from the MustardOS theme library (<a href="https://theme.muos.dev" target="_blank" rel="noopener">theme.muos.dev</a>),
       the same list as ${path("Configuration", "Customisation", "Theme Picker", "Theme Download")} on the handheld. By default only themes made for your
       handheld's screen size are shown; pick <b>Every screen size</b> to see the rest. Click a preview to look closer; some themes have an animated one.</p>`],
@@ -211,8 +211,30 @@ const ARTICLES = [
       it will not interrupt a game.</p>`],
     ["On the handheld", `<p>Shows every installed theme with its own preview screens, the theme MustardOS version it was made for and its size.
       <b>Apply</b> switches to it; the bin button deletes it from the handheld. The active theme cannot be deleted, and deleting is permanent.</p>`],
-    ["What it needs", `<p>Browsing and previews need only an internet connection. Installing, applying and deleting need the handheld over Wi-Fi with
-      ${SSH_ON}, and MustardOS 2601.0 or newer, which keeps themes as folders.</p>`],
+    ["Designer", `<p>Makes your own themes on this computer, kept in the <b>themes</b> folder (one folder per theme, the same layout as
+      <code>MUOS/theme</code>; move it in Settings). Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
+      one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.</p>
+      <p>The preview on the right draws the main menu, Explore, Configuration, a settings list, pop-ups, the keyboard, the passcode wheel, the charging
+      screen and the boot logo from the theme's settings and pictures, at each screen size and colour variant. Click any part to open its settings.</p>
+      <p><b>Quick style</b> sets many colours at once from a palette or six colour roles, plus roundness, items per page, bar heights and a list or grid
+      main menu. The groups below it hold every scheme setting MustardOS reads, with colours and opacity side by side.</p>`],
+    ["Where changes go", `<p>MustardOS reads a theme's settings in layers: <code>scheme/global.ini</code>, then <code>default.ini</code>, then the screen's
+      own file (each from the screen size folder when there, otherwise the theme root), then the colour variant. <b>Changes go to</b> picks the file:
+      the whole theme, one screen size, one screen, or a colour variant. Rows set in the chosen file have a mustard mark and a reset button; the others
+      say which file their value comes from, and a value hidden by a more specific file says so.</p>`],
+    ["Pictures, icons, fonts and sounds", `<p><b>Pictures</b> holds the wallpaper, boot logo, charging, overlay and other screens, wallpapers per screen
+      and per main menu item, and the preview pictures the theme picker shows (drawn for you on export or install when missing). <b>Icons</b> fills the
+      glyph folders (main menu, button hints, status icons and more) and the grid pictures; drop a set of PNGs named like the slots on a folder.
+      Each can be for every screen size or only one.</p>
+      <p><b>Fonts</b> keeps TTF, OTF or WOFF fonts with the theme and converts them into MustardOS fonts for the whole theme, list items, the header or the
+      footer, at the size and character set you pick (with LVGL's <code>lv_font_conv</code>, fetched by npx the first time); the preview then uses the
+      font too. <b>Sounds</b> takes WAV files for navigation, confirm, back and the rest.</p>`],
+    ["Export, install and apply", `<p><b>Export</b> saves the theme as a <code>.muxthm</code> file to share or copy to <code>MUOS/theme</code> yourself.
+      <b>Install</b> copies it to the handheld over Wi-Fi, replacing a copy with the same name; <b>Install and apply</b> also makes it the active theme.
+      <b>Details and sizes</b> sets the display name, credits, the MustardOS version it is made for and its screen sizes; <b>Colour variants</b> adds the
+      alternate colour sets people pick in the theme picker. Removing a file, a size or a theme moves it to the Trash on this computer.</p>`],
+    ["What it needs", `<p>Browsing and previews need only an internet connection, and the Designer works offline. Installing, applying and deleting need
+      the handheld over Wi-Fi with ${SSH_ON}, and MustardOS 2601.0 or newer, which keeps themes as folders.</p>`],
   ]],
   ["emulation", "save", "Emulation", "emulation", "Saves, BIOS files, emulator cores and a health check of your library.", [
     ["Saves", `<p>Backs up every save game and save state from the handheld into your <code>backups</code> folder, one compressed file per backup.</p>
@@ -348,7 +370,7 @@ const ARTICLES = [
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
-      images, BIOS files and save backups are kept.</p>`],
+      images, BIOS files, save backups and the themes you design are kept.</p>`],
     ["Behaviour and looks", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],
     ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
@@ -364,7 +386,7 @@ const ARTICLES = [
       </ul>`],
     ["Factory reset", `<p>The red panel at the bottom starts the manager over as if it had just been installed. It moves to the Trash:</p>
       <ul>
-        <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios and backups;</li>
+        <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups and themes;</li>
         <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, downloaded game data and
           catalogues, ROM check results and the activity log;</li>
         <li>this browser's view preferences.</li>

@@ -13,6 +13,10 @@ import { retroarchJson, saveRetroarch } from "./retroarch.ts";
 import { cheatFile, cheatsGame, removeCheats, saveCheats } from "./tuning/cheats.ts";
 import { gameTuning, resetTuning, saveTuning, tuningJson } from "./tuning/tuning.ts";
 import { applyTheme, deleteTheme, deviceThemePreview, installTheme, themePreview, themesJson } from "./themes.ts";
+import {
+  convertFont, createTheme, designerFile, designerJson, designerTheme, duplicateTheme, importTheme, installDesigned, packageTheme,
+  removeAsset, renameTheme, revealTheme, saveMeta, saveScheme, setResolution, trashDesignedTheme, uploadAsset, variantAction,
+} from "./theme-designer.ts";
 import { installPort, portShot, portTask, portsJson, uninstallPort, uploadPortFile } from "./ports.ts";
 import { deleteGameArt, deviceImage, getGameArt, getPlan, keepArtOnCard, sendGameArt, sendPlan, startArtJob } from "./artwork.ts";
 import { deleteDeviceArt, deleteLocalArt, deviceArtAudit, localArtwork, localArtworkSystem, putLocalArt } from "./artwork-tools.ts";
@@ -53,7 +57,7 @@ import { managerStatus, restartManager, startedAt, updateManager } from "./manag
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
-type Reply = unknown | { raw: string } | { image: Buffer; name: string };
+type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -105,6 +109,24 @@ const routes: Record<string, Handler> = {
   "POST /api/themes/install": (_, body) => installTheme(body),
   "POST /api/themes/apply": (_, body) => applyTheme(body),
   "POST /api/themes/delete": (_, body) => deleteTheme(body),
+  "GET /api/designer": () => designerJson(),
+  "GET /api/designer/theme": (q) => designerTheme(q),
+  "GET /api/designer/file": (q) => designerFile(q),
+  "GET /api/designer/package": (q) => packageTheme(q),
+  "POST /api/designer/create": (_, body) => createTheme(body),
+  "PUT /api/designer/import": (query, _, req) => importTheme(req, query),
+  "POST /api/designer/scheme": (_, body) => saveScheme(body),
+  "POST /api/designer/meta": (_, body) => saveMeta(body),
+  "POST /api/designer/resolution": (_, body) => setResolution(body),
+  "POST /api/designer/variant": (_, body) => variantAction(body),
+  "PUT /api/designer/upload": (query, _, req) => uploadAsset(req, query),
+  "POST /api/designer/remove-file": (_, body) => removeAsset(body),
+  "POST /api/designer/font": (_, body) => convertFont(body),
+  "POST /api/designer/rename": (_, body) => renameTheme(body),
+  "POST /api/designer/duplicate": (_, body) => duplicateTheme(body),
+  "POST /api/designer/delete": (_, body) => trashDesignedTheme(body),
+  "POST /api/designer/reveal": (_, body) => revealTheme(body),
+  "POST /api/designer/install": (_, body) => installDesigned(body),
   "GET /api/ports": (q) => portsJson(q),
   "GET /api/ports/task": () => portTask(),
   "GET /api/ports/shot": (q) => portShot(q),
@@ -313,6 +335,7 @@ const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json", ".mjs": "text/javascript; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
   ".webp": "image/webp", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".bmp": "image/bmp",
+  ".wav": "audio/wav", ".mp4": "video/mp4", ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2",
 };
 
 function send(res: http.ServerResponse, status: number, body: string | Buffer, type: string): void {
@@ -362,7 +385,7 @@ function tokenOk(given: string): boolean {
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const route = `${req.method} ${url.pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });
@@ -377,6 +400,11 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
     if (result && typeof result === "object" && "image" in result && Buffer.isBuffer(result.image)) {
       const { image, name } = result as { image: Buffer; name: string };
       return send(res, 200, image, MIME[path.extname(name).toLowerCase()] ?? "image/png");
+    }
+    if (result && typeof result === "object" && "download" in result && Buffer.isBuffer(result.download)) {
+      const { download, name } = result as { download: Buffer; name: string };
+      res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+      return send(res, 200, download, "application/zip");
     }
     sendJson(res, 200, result);
   } catch (error) {

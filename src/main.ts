@@ -44,7 +44,7 @@ Keep it running while you use it and press Ctrl-C to stop.
   --tf2-dir DIR           use a folder holding ROMS/ and ARCHIVE/ as the TF2 card (testing)
   --root DIR              workspace holding Roms/ (default: the folder above muos-anbernic-manager/)
   --cache-dir DIR         keep downloads, settings and logins there instead of muos-anbernic-manager/.cache (testing)
-  --init                  create the missing workspace folders (Roms with its system folders, apps, os, bios, backups) and exit
+  --init                  create the missing workspace folders (Roms with its system folders, apps, os, bios, backups, themes) and exit
   --workspace DIR         with --init: create them in DIR and use them from now on (installer.sh)
   --shortcut              add the manager to Applications, the Start menu or the app menu, and exit`;
 
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
   if (args.init) {
     const created = await createWorkspace(args.workspace ?? "");
     say("green", "READY", created.length ? `Created ${created.length} folders.` : "Every workspace folder is there already.");
-    for (const f of ["roms", "apps", "os", "bios", "backups"] as const) dim(`${f.padEnd(8)} ${ctx[f]}`);
+    for (const f of ["roms", "apps", "os", "bios", "backups", "themes"] as const) dim(`${f.padEnd(8)} ${ctx[f]}`);
     return;
   }
   if (!(await isDir(ctx.roms))) {

@@ -59,6 +59,9 @@ per-session token. Nothing is uploaded anywhere.
   handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
 - **Device Settings**: change MustardOS settings (display, audio, network, interface and more) from the computer.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
+  The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
+  grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
+  variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
 - **Emulation**: back up and restore saves and save states, check BIOS files, choose emulator cores per system or game,
   edit RetroArch options, and run a health check of your library. **Systems** lists every system with what the
   handheld can run, and why a system is missing when it cannot.
@@ -117,7 +120,7 @@ for a card in a card reader the manager asks once and remembers the answer.
 ### macOS and Linux
 
 1. Pick a folder for your handheld files and clone the repository into it. The manager puts its workspace (`Roms/`,
-   `apps/`, `os/`, `bios/`, `backups/`) next to its own folder, so a dedicated folder keeps things together:
+   `apps/`, `os/`, `bios/`, `backups/`, `themes/`) next to its own folder, so a dedicated folder keeps things together:
 
    ```bash
    mkdir -p ~/Handheld && cd ~/Handheld

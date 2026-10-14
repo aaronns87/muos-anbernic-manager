@@ -1,6 +1,6 @@
 #!/bin/bash
 # muOS Anbernic Manager installer: checks Node.js and the manager's packages, creates the workspace folders
-# (Roms with a folder per MustardOS system, apps, os, bios, backups) and can start from a clean cache, so the
+# (Roms with a folder per MustardOS system, apps, os, bios, backups, themes) and can start from a clean cache, so the
 # next start opens the setup wizard in the browser. Nothing on the handheld or its cards is touched.
 # Usage: installer.sh [--workspace DIR] [--clean-cache | --keep-cache] [--shortcut | --no-shortcut] [--yes]
 #                     [--start | --no-start] [-h]
@@ -16,7 +16,7 @@ Usage: installer.sh [options]
 
 Sets up the muOS Anbernic Manager on this computer:
   1. checks for Node.js $NODE_MIN_MAJOR.$NODE_MIN_MINOR or newer (offers to install it with Homebrew) and installs the npm packages,
-  2. creates the workspace: Roms/ with a folder per MustardOS system, apps/, os/, bios/ and backups/,
+  2. creates the workspace: Roms/ with a folder per MustardOS system, apps/, os/, bios/, backups/ and themes/,
   3. optionally starts from a clean cache; the old one is kept as .cache-backup-<date>,
   4. offers an app shortcut with the manager's icon (Applications on macOS, the app menu on Linux),
   5. optionally starts the manager, which opens the setup wizard on a clean cache.
@@ -83,7 +83,7 @@ fi
 step "2. Workspace folders"
 DEFAULT_WORKSPACE="$(cd "$MANAGER_DIR/.." && pwd)"
 if [[ -z "$WORKSPACE" ]] && (( ! ASSUME_YES )) && [[ -t 0 ]]; then
-  note "Roms/, apps/, os/, bios/ and backups/ go into one folder. Existing folders and files are left as they are."
+  note "Roms/, apps/, os/, bios/, backups/ and themes/ go into one folder. Existing folders and files are left as they are."
   printf "  %sWorkspace folder%s [%s] " "$BOLD" "$RESET" "$DEFAULT_WORKSPACE"
   read -r WORKSPACE || WORKSPACE=""
 fi

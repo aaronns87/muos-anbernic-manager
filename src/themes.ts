@@ -173,60 +173,98 @@ const inMenu = (d: DeviceThemes) => d.foreground === "" || d.foreground === "mux
 const startApply = (name: string) =>
   runCommand(`printf '%s\\n' ${quote(name)} > ${ACTIVE} && setsid -f /opt/muos/script/package/theme.sh bootlogo launcher </dev/null >/dev/null 2>&1; echo @ok`);
 
+/** Downloads a catalogue theme's .muxthm into the cache; the caller deletes the returned file. */
+export async function downloadCatalogueTheme(name: unknown): Promise<string> {
+  const theme = (await loadCatalogue(false)).themes.find((t) => t.name === name);
+  if (!theme) throw new UserError("That theme is not in the theme list.");
+  await fsp.mkdir(cacheDir(), { recursive: true });
+  const file = path.join(cacheDir(), `.download-${process.pid}-${Date.now()}.muxthm`);
+  try {
+    const res = await fetch(theme.url, { headers: AGENT, redirect: "follow", signal: AbortSignal.timeout(10 * 60_000) });
+    if (!res.ok || !res.body) throw new UserError(`Downloading ${theme.name} failed: GitHub answered ${res.status}.`);
+    await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), fs.createWriteStream(file));
+    const head = Buffer.alloc(4);
+    const fd = await fsp.open(file, "r");
+    try { await fd.read(head, 0, 4, 0); } finally { await fd.close(); }
+    if (head.readUInt32LE(0) !== 0x04034b50) throw new UserError(`${theme.name} did not download as a theme archive.`);
+    return file;
+  } catch (error) {
+    await fsp.rm(file, { force: true });
+    throw error;
+  }
+}
+
+/** Unpacks a theme archive into MUOS/theme/<name> on the handheld, replacing any copy, and applies it if asked or active. */
+async function sendArchive(file: string, name: string, wantApply: boolean): Promise<boolean> {
+  await connected();
+  const before = await readDevice();
+  const apply = wantApply || before.active === name;
+  if (apply && !inMenu(before)) throw new UserError("Something is running on the handheld. Go back to its main menu, then try again.");
+  const { size } = await fsp.stat(file);
+  if (before.freeKb && size * 3 > before.freeKb * 1024) throw new UserError(`SD1 has too little free space for ${name}.`);
+  const md5 = crypto.createHash("md5").update(await fsp.readFile(file)).digest("hex");
+
+  const id = crypto.randomBytes(4).toString("hex");
+  const tmp = quote(`${THEMES}/.manager-${id}.muxthm`), stage = quote(`${THEMES}/.manager-${id}`), dest = quote(`${THEMES}/${name}`);
+  const script = [
+    `cd ${THEMES} || exit 1`,
+    `cat > ${tmp} || { rm -f ${tmp}; exit 1; }`,
+    `[ "$(md5sum < ${tmp} | cut -d' ' -f1)" = ${md5} ] || { rm -f ${tmp}; echo "@corrupt"; exit 1; }`,
+    `if unzip -Z1 ${tmp} | grep -qE '^/|(^|/)\\.\\.(/|$)'; then rm -f ${tmp}; echo "@unsafe"; exit 1; fi`,
+    `mkdir ${stage} && unzip -q -o ${tmp} -d ${stage} || { rm -rf ${tmp} ${stage}; echo "@unzip"; exit 1; }`,
+    `rm -f ${tmp}`,
+    `[ -f ${stage}/version.txt ] || { rm -rf ${stage}; echo "@notheme"; exit 1; }`,
+    `[ -f ${stage}/name.txt ] || printf '%s\\n' ${quote(name)} > ${stage}/name.txt`,
+    `rm -rf ${dest} && mv ${stage} ${dest} && sync && echo "@ok"`,
+  ].join("\n");
+  const chunks: Buffer[] = [];
+  const sink = new Writable({ write(c, _e, cb) { chunks.push(c); cb(); } });
+  const { code, err } = await streamCommand(script, { stdin: fs.createReadStream(file), stdout: sink }, 10 * 60_000);
+  const out = Buffer.concat(chunks).toString("utf8");
+  if (code !== 0 || !out.includes("@ok")) {
+    const why = out.includes("@corrupt") ? "the copy on the handheld did not match" : out.includes("@unsafe") ? "the archive has unsafe paths"
+      : out.includes("@notheme") ? "it is not a MustardOS theme" : out.includes("@unzip") ? "unpacking failed" : err.trim() || "the handheld stopped answering";
+    throw new UserError(`Installing ${name} failed: ${why}.`);
+  }
+  for (const key of [...previews.keys()]) if (key.startsWith(`${name}|`)) previews.delete(key);
+  if (apply) await startApply(name);
+  return apply;
+}
+
 /** Downloads a catalogue theme, unpacks it into MUOS/theme on the handheld and, if asked, makes it the active theme. */
 export async function installTheme(body: Record<string, unknown>) {
-  const theme = (await loadCatalogue(false)).themes.find((t) => t.name === body.name);
-  if (!theme) throw new UserError("That theme is not in the theme list.");
-  return exclusive(`installing ${theme.name}`, async () => {
+  const name = body.name;
+  if (!(await loadCatalogue(false)).themes.some((t) => t.name === name) || !safeName(name)) throw new UserError("That theme is not in the theme list.");
+  return exclusive(`installing ${name}`, async () => {
     await connected();
-    const before = await readDevice();
-    const apply = body.apply === true || before.active === theme.name;
-    if (apply && !inMenu(before)) throw new UserError("Something is running on the handheld. Go back to its main menu, then try again.");
-
-    await fsp.mkdir(cacheDir(), { recursive: true });
-    const file = path.join(cacheDir(), `.download-${process.pid}-${Date.now()}.muxthm`);
+    const file = await downloadCatalogueTheme(name);
+    let applied: boolean;
     try {
-      const res = await fetch(theme.url, { headers: AGENT, redirect: "follow", signal: AbortSignal.timeout(10 * 60_000) });
-      if (!res.ok || !res.body) throw new UserError(`Downloading ${theme.name} failed: GitHub answered ${res.status}.`);
-      await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), fs.createWriteStream(file));
-      const head = Buffer.alloc(4);
-      const fd = await fsp.open(file, "r");
-      try { await fd.read(head, 0, 4, 0); } finally { await fd.close(); }
-      if (head.readUInt32LE(0) !== 0x04034b50) throw new UserError(`${theme.name} did not download as a theme archive.`);
-      const { size } = await fsp.stat(file);
-      if (before.freeKb && size * 3 > before.freeKb * 1024) throw new UserError(`SD1 has too little free space for ${theme.name}.`);
-      const md5 = crypto.createHash("md5").update(await fsp.readFile(file)).digest("hex");
-
-      const id = crypto.randomBytes(4).toString("hex");
-      const tmp = quote(`${THEMES}/.manager-${id}.muxthm`), stage = quote(`${THEMES}/.manager-${id}`), dest = quote(`${THEMES}/${theme.name}`);
-      const script = [
-        `cd ${THEMES} || exit 1`,
-        `cat > ${tmp} || { rm -f ${tmp}; exit 1; }`,
-        `[ "$(md5sum < ${tmp} | cut -d' ' -f1)" = ${md5} ] || { rm -f ${tmp}; echo "@corrupt"; exit 1; }`,
-        `if unzip -Z1 ${tmp} | grep -qE '^/|(^|/)\\.\\.(/|$)'; then rm -f ${tmp}; echo "@unsafe"; exit 1; fi`,
-        `mkdir ${stage} && unzip -q -o ${tmp} -d ${stage} || { rm -rf ${tmp} ${stage}; echo "@unzip"; exit 1; }`,
-        `rm -f ${tmp}`,
-        `[ -f ${stage}/version.txt ] || { rm -rf ${stage}; echo "@notheme"; exit 1; }`,
-        `[ -f ${stage}/name.txt ] || printf '%s\\n' ${quote(theme.name)} > ${stage}/name.txt`,
-        `rm -rf ${dest} && mv ${stage} ${dest} && sync && echo "@ok"`,
-      ].join("\n");
-      const chunks: Buffer[] = [];
-      const sink = new Writable({ write(c, _e, cb) { chunks.push(c); cb(); } });
-      const { code, err } = await streamCommand(script, { stdin: fs.createReadStream(file), stdout: sink }, 10 * 60_000);
-      const out = Buffer.concat(chunks).toString("utf8");
-      if (code !== 0 || !out.includes("@ok")) {
-        const why = out.includes("@corrupt") ? "the copy on the handheld did not match" : out.includes("@unsafe") ? "the archive has unsafe paths"
-          : out.includes("@notheme") ? "it is not a MustardOS theme" : out.includes("@unzip") ? "unpacking failed" : err.trim() || "the handheld stopped answering";
-        throw new UserError(`Installing ${theme.name} failed: ${why}.`);
-      }
+      applied = await sendArchive(file, name, body.apply === true);
     } finally {
       await fsp.rm(file, { force: true });
     }
-    for (const key of [...previews.keys()]) if (key.startsWith(`${theme.name}|`)) previews.delete(key);
-    if (apply) await startApply(theme.name);
-    say("green", "THEME", `${apply ? "Installed and applied" : "Installed"} ${theme.name} on the handheld.`);
-    return { applied: apply, ...(await themesJson()) };
+    say("green", "THEME", `${applied ? "Installed and applied" : "Installed"} ${name} on the handheld.`);
+    return { applied, ...(await themesJson()) };
   });
+}
+
+/** Installs a theme archive made on this computer, the same way as a catalogue theme. */
+export async function installThemeArchive(file: string, name: string, apply: boolean) {
+  if (!safeName(name)) throw new UserError("Pick a theme.");
+  return exclusive(`installing ${name}`, async () => {
+    const applied = await sendArchive(file, name, apply);
+    say("green", "THEME", `${applied ? "Installed and applied" : "Installed"} ${name} on the handheld.`);
+    return { applied, ...(await themesJson()) };
+  });
+}
+
+/** Zips a theme folder on the handheld into a local file, for the Theme Designer to start from. */
+export async function fetchDeviceTheme(name: unknown, file: string): Promise<void> {
+  if (!safeName(name)) throw new UserError("Pick a theme on the handheld.");
+  await connected();
+  const { code, err } = await streamCommand(`cd ${quote(`${THEMES}/${name}`)} && zip -qr - .`, { stdout: fs.createWriteStream(file) }, 10 * 60_000);
+  if (code !== 0) throw new UserError(`Copying ${name} from the handheld failed${err.trim() ? `: ${err.trim()}` : ""}.`);
 }
 
 /** Makes an installed theme the active one; the handheld's menu restarts with it. */

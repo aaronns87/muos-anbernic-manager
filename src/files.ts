@@ -21,7 +21,7 @@ const IMAGE = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"]);
 const TEXT = new Set([".txt", ".ini", ".cfg", ".conf", ".json", ".log", ".xml", ".opt", ".rac", ".gov", ".con", ".md", ".yml", ".yaml",
   ".sh", ".lua", ".csv", ".dat", ".m3u", ".cue", ".glslp", ".slangp", ".info", ".nfo", ".srm.txt"]);
 
-const LOCAL_FOLDERS = [["roms", "Roms folder"], ["apps", "Apps folder"], ["os", "OS images"], ["bios", "BIOS folder"], ["backups", "Save backups"]] as const;
+const LOCAL_FOLDERS = [["roms", "Roms folder"], ["apps", "Apps folder"], ["os", "OS images"], ["bios", "BIOS folder"], ["backups", "Save backups"], ["themes", "Themes folder"]] as const;
 
 /** The places on this computer the explorer may show: the workspace, plus folders from Settings that live elsewhere. */
 export function localRoots(): { id: string; label: string; dir: string }[] {

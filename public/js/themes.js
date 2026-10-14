@@ -2,10 +2,12 @@
 
 import { $, api, esc, human, icon, ICONS, model, plural, store, toast, TOKEN } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { designerCount, flushDesigner, reloadDesigner, showDesigner } from "./theme-designer.js";
 
 const TABS = [
   ["browse", "web", "Browse", "MustardOS themes from the community theme library, ready for the handheld"],
   ["device", "handheld", "On the handheld", "The themes installed on the handheld; apply one or remove the ones you do not use"],
+  ["designer", "wand", "Designer", "Make your own themes with a live preview, then export them or install and apply them on the handheld"],
 ];
 const KINDS = [["all", "Any kind"], ["grid", "Grid menus"], ["language", "Language packs"], ["hdmi", "HDMI ready"]];
 const T = { data: null, loading: false, error: "", q: "", fit: store.get("themeFit", true), kind: "all", sort: "name", busy: "", limit: 60, bound: false };
@@ -18,10 +20,14 @@ const qs = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v
 const previewUrl = (name, kind = "png") => `/api/themes/preview?${qs({ name, res: res(), kind, token: TOKEN })}`;
 const devicePreviewUrl = (name, n = "") => `/api/themes/device-preview?${qs({ name, res: res(), n, token: TOKEN })}`;
 
+const host = { data: () => T.data, refresh: () => load(true), counts: () => renderTabs() };
+
 export function showThemes() {
+  const first = !T.bound;
   if (!T.bound) bind();
   if (!T.data && !T.loading) load();
   else render();
+  if (!first && tab()[0] === "designer") showDesigner($("themes"), host, true);
 }
 
 async function load(refresh = false) {
@@ -39,15 +45,21 @@ async function load(refresh = false) {
 
 // ---------------------------------------------------------------- rendering
 
+function renderTabs() {
+  const id = tab()[0], d = device(), mine = designerCount();
+  const counts = { device: d ? d.installed.length : null, designer: mine };
+  $("th-tabs").innerHTML = TABS.map(([t, ico, label]) => `<button role="tab" data-th-tab="${t}" class="${t === id ? "on" : ""}" aria-selected="${t === id}">
+    ${icon(ico)}<span>${label}</span>${counts[t] != null ? `<em class="tab-count">${counts[t]}</em>` : ""}</button>`).join("");
+}
+
 function render() {
   if ($("view-themes").hidden) return;
   const [id, , , sub] = tab();
-  const d = device();
-  $("th-tabs").innerHTML = TABS.map(([t, ico, label]) => `<button role="tab" data-th-tab="${t}" class="${t === id ? "on" : ""}" aria-selected="${t === id}">
-    ${icon(ico)}<span>${label}</span>${t === "device" && d ? `<em class="tab-count">${d.installed.length}</em>` : ""}</button>`).join("");
+  renderTabs();
   $("th-sub").textContent = sub;
-  $("th-actions").innerHTML = `<button class="btn" data-th="refresh" title="Load the theme list and the handheld again"${T.loading || T.busy ? " disabled" : ""}>${T.loading ? ICONS.spin : icon("refresh")}<span>Refresh</span></button>`;
+  $("th-actions").innerHTML = `<button class="btn" data-th="refresh" title="${id === "designer" ? "Read the themes folder and the handheld again" : "Load the theme list and the handheld again"}"${T.loading || T.busy ? " disabled" : ""}>${T.loading ? ICONS.spin : icon("refresh")}<span>Refresh</span></button>`;
   const root = $("themes");
+  if (id === "designer") return showDesigner(root, host);
   if (T.error && !T.data) return void (root.innerHTML = `<div class="notice err">${esc(T.error)}</div>`);
   if (!T.data) return void (root.innerHTML = `<div class="planning"><span class="spinner"></span> Loading the theme list&hellip;</div>`);
   root.innerHTML = `${T.error ? `<div class="notice err">${esc(T.error)}</div>` : ""}${statusBar()}${id === "device" ? deviceTab() : browseTab()}`;
@@ -221,11 +233,15 @@ function bind() {
   const view = $("view-themes"), dialog = $("themeview");
   const click = (e) => {
     const t = e.target.closest("[data-th-tab]");
-    if (t) { store.set("themesTab", t.dataset.thTab); return render(); }
+    if (t) {
+      if (tab()[0] === "designer" && t.dataset.thTab !== "designer") flushDesigner();
+      store.set("themesTab", t.dataset.thTab);
+      return render();
+    }
     const el = e.target.closest("[data-th]");
     if (!el || el.disabled) return;
     const { th, name } = el.dataset;
-    if (th === "refresh") load(true);
+    if (th === "refresh") { load(true); if (tab()[0] === "designer") reloadDesigner(); }
     else if (th === "more") { T.limit += 60; render(); }
     else if (th === "view") openView(name, el.dataset.where);
     else if (th === "install") install(name, el.dataset.apply === "1", el.dataset.reinstall === "1");

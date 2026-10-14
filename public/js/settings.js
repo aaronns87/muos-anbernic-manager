@@ -73,6 +73,7 @@ const KINDS = {
   os: { name: "OS images folder", workspace: "os", unit: "image" },
   bios: { name: "BIOS folder", workspace: "bios", unit: "file" },
   backups: { name: "backups folder", workspace: "backups", unit: "backup" },
+  themes: { name: "themes folder", workspace: "themes", unit: "theme" },
 };
 KINDS.apps.unit = "package";
 
@@ -115,7 +116,8 @@ function otherFoldersPanel(d) {
     block("apps", "Apps", "MustardOS apps and updates (.muxapp, .muxupd, .muxzip) waiting to go to the handheld. By default the apps folder next to Roms.")
     + block("os", "OS images", "MustardOS card images (.img, .img.gz) for System Tools. Images one folder down are found too. By default the os folder next to Roms.")
     + block("bios", "BIOS", "BIOS files the emulators need (PlayStation, Sega CD, Neo Geo&hellip;), ready to send to the handheld. By default the bios folder next to Roms.")
-    + block("backups", "Save backups", "Backups of the handheld's saves and save states. By default the backups folder next to Roms."));
+    + block("backups", "Save backups", "Backups of the handheld's saves and save states. By default the backups folder next to Roms.")
+    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. By default the themes folder next to Roms."));
 }
 
 function crumbs(b) {
@@ -140,8 +142,8 @@ function browser(d) {
   const rows = b.dirs.length
     ? b.dirs.map((x) => `<button class="dir${x.system ? " sys" : ""}" data-browse="${esc(x.path)}">${FOLDER}<span>${esc(x.name)}</span>${x.system ? `<em>system</em>` : ""}</button>`).join("")
     : `<div class="muted-note dir-empty">No folders in here.</div>`;
-  const verdict = b.which === "bios" || b.which === "backups"
-    ? `<span class="set-chip">Any folder</span> ${b.which === "bios" ? "Put BIOS files directly in it, or in subfolders like dc/ as on the handheld." : "Each backup is one .tar.gz file."}`
+  const verdict = b.which === "bios" || b.which === "backups" || b.which === "themes"
+    ? `<span class="set-chip">Any folder</span> ${b.which === "bios" ? "Put BIOS files directly in it, or in subfolders like dc/ as on the handheld." : b.which === "themes" ? "Each theme is a folder in it, the same layout as MUOS/theme on the handheld." : "Each backup is one .tar.gz file."}`
     : b.which === "apps"
     ? b.apps
       ? `<span class="set-chip ok">${plural(b.apps, "app")}</span> Has MustardOS apps or updates.`
@@ -279,13 +281,13 @@ function historyPanel(d) {
 function resetPanel() {
   const working = s.working === "reset";
   return panel("full set-danger", `${icon("alert")} Factory reset`, `<div class="set-row"><span><b>Start over from scratch</b>
-      <small>Moves your games and every other workspace folder (Roms, apps, OS images, BIOS, backups), plus all of the manager's settings,
+      <small>Moves your games and every other workspace folder (Roms, apps, OS images, BIOS, backups, themes), plus all of the manager's settings,
         Wi-Fi and SSH logins, downloads and history, to the Trash. The manager then creates empty workspace folders and restarts with the setup wizard, as on its first run.
         Nothing on the handheld or its cards is changed.</small></span>
     <button class="btn danger-solid" data-set="reset"${s.working || busy() ? " disabled" : ""}>${working ? `<span class="spinner"></span>` : icon("trash")}<span>${working ? "Resetting&hellip;" : "Factory reset&hellip;"}</span></button></div>`);
 }
 
-const RESET_FOLDERS = [["roms", "Roms", "your game library"], ["apps", "apps", "app packages"], ["os", "os", "MustardOS images"], ["bios", "bios", "BIOS files"], ["backups", "backups", "save backups from the handheld"]];
+const RESET_FOLDERS = [["roms", "Roms", "your game library"], ["apps", "apps", "app packages"], ["os", "os", "MustardOS images"], ["bios", "bios", "BIOS files"], ["backups", "backups", "save backups from the handheld"], ["themes", "themes", "themes you designed"]];
 
 async function factoryReset() {
   const folders = RESET_FOLDERS.filter(([k]) => s.data.folders[k]?.available);

@@ -19,6 +19,8 @@ export const ctx = {
   bios: path.resolve(managerDir, "..", "bios"),
   /** Save backups taken from the handheld. */
   backups: path.resolve(managerDir, "..", "backups"),
+  /** MustardOS themes made in the Theme Designer, one open theme folder each. */
+  themes: path.resolve(managerDir, "..", "themes"),
   token: "",
   port: 0,
   /** A folder holding ROMS/ and ARCHIVE/ used as the TF2 card, for testing without one. */
@@ -32,4 +34,5 @@ export function setRoot(root: string): void {
   ctx.os = path.join(ctx.root, "os");
   ctx.bios = path.join(ctx.root, "bios");
   ctx.backups = path.join(ctx.root, "backups");
+  ctx.themes = path.join(ctx.root, "themes");
 }

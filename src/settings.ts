@@ -36,6 +36,8 @@ export interface Settings {
   bios: string;
   /** Absolute path of the save backups folder; "" means backups/ in the workspace. */
   backups: string;
+  /** Absolute path of the Theme Designer's folder; "" means themes/ in the workspace. */
+  themes: string;
   /** Copying games also sends their Roms/ image as box art when the device has none. */
   copyArt: boolean;
   /** Open the manager in the browser when it starts. */
@@ -46,14 +48,14 @@ export interface Settings {
   wizard: "pending" | "done";
 }
 
-type Folder = "roms" | "apps" | "os" | "bios" | "backups";
-const FOLDERS: Folder[] = ["roms", "apps", "os", "bios", "backups"];
-const WORKSPACE_NAMES: Record<Folder, string> = { roms: "Roms", apps: "apps", os: "os", bios: "bios", backups: "backups" };
-const FOLDER_NAMES: Record<Folder, string> = { roms: "Roms folder", apps: "apps folder", os: "OS images folder", bios: "BIOS folder", backups: "backups folder" };
+type Folder = "roms" | "apps" | "os" | "bios" | "backups" | "themes";
+const FOLDERS: Folder[] = ["roms", "apps", "os", "bios", "backups", "themes"];
+const WORKSPACE_NAMES: Record<Folder, string> = { roms: "Roms", apps: "apps", os: "os", bios: "bios", backups: "backups", themes: "themes" };
+const FOLDER_NAMES: Record<Folder, string> = { roms: "Roms folder", apps: "apps folder", os: "OS images folder", bios: "BIOS folder", backups: "backups folder", themes: "themes folder" };
 
-const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", copyArt: true, openBrowser: true, checkUpdates: true, wizard: "done" };
+const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", themes: "", copyArt: true, openBrowser: true, checkUpdates: true, wizard: "done" };
 let current: Settings = { ...DEFAULTS };
-const defaults: Record<Folder, string> = { roms: "", apps: "", os: "", bios: "", backups: "" };
+const defaults: Record<Folder, string> = { roms: "", apps: "", os: "", bios: "", backups: "", themes: "" };
 
 const folderOf = (value: unknown): Folder => (FOLDERS.includes(value as Folder) ? (value as Folder) : "roms");
 
@@ -64,7 +66,7 @@ const settingsFile = () => path.join(ctx.cacheDir, path.resolve(ctx.managerDir, 
 
 export const settings = (): Readonly<Settings> => current;
 
-/** Reads the settings and points ctx.roms, ctx.apps, ctx.os, ctx.bios and ctx.backups at the chosen folders. Call after --root is applied. */
+/** Reads the settings and points ctx.roms, ctx.apps, ctx.os, ctx.bios, ctx.backups and ctx.themes at the chosen folders. Call after --root is applied. */
 export async function loadSettings(): Promise<void> {
   for (const f of FOLDERS) defaults[f] = ctx[f];
   const fresh = !(await listDir(ctx.cacheDir)).some((e) => !e.name.startsWith("."));
@@ -77,6 +79,7 @@ export async function loadSettings(): Promise<void> {
       os: text(saved.os),
       bios: text(saved.bios),
       backups: text(saved.backups),
+      themes: text(saved.themes),
       copyArt: saved.copyArt !== false,
       openBrowser: saved.openBrowser !== false,
       checkUpdates: saved.checkUpdates !== false,
@@ -94,7 +97,7 @@ export const firstRun = () => current.wizard === "pending";
 
 /**
  * Creates the workspace folders that are missing: Roms (with a folder per MustardOS system when it has none yet),
- * apps, os, bios and backups. With base, the folders go there and become the chosen folders. Never touches files.
+ * apps, os, bios, backups and themes. With base, the folders go there and become the chosen folders. Never touches files.
  */
 export async function createWorkspace(base = ""): Promise<string[]> {
   const created: string[] = [];
@@ -167,7 +170,9 @@ async function folderInfo(f: Folder) {
     default: defaults[f],
     custom: !!current[f],
     available: await isDir(dir),
-    count: f === "roms" ? await systemFolders(dir) : await filesIn(dir, f === "apps" ? APP_FILE : f === "os" ? OS_FILE : f === "backups" ? /\.tar\.gz$/ : /./),
+    count: f === "roms" ? await systemFolders(dir)
+      : f === "themes" ? (await listDir(dir)).filter((e) => e.isDirectory() && !e.name.startsWith(".")).length
+      : await filesIn(dir, f === "apps" ? APP_FILE : f === "os" ? OS_FILE : f === "backups" ? /\.tar\.gz$/ : /./),
   };
 }
 

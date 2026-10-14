@@ -12,7 +12,7 @@ next version number.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Cheats per game in Game Tuning |
+| [Unreleased](#unreleased) | | Cheats per game in Game Tuning, Theme Designer |
 | [1.1.0](#110---2026-10-13) | 2026-10-13 | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
@@ -27,6 +27,22 @@ next version number.
     switches cheats on and off in them; for games without one, the libretro database's file is matched by disc ID.
   - When RetroArch's **Apply cheats after game load** or PPSSPP's cheats are off on the handheld, saving can turn them on.
   - New API routes `GET /api/cheats/game`, `GET /api/cheats/file`, `POST /api/cheats/save` and `POST /api/cheats/remove`.
+- **Theme Designer**, the third tab in Themes: make MustardOS themes on this computer with a live preview.
+  - A canvas preview of the main menu (list or grid), Explore, Configuration, a settings list, pop-ups, the keyboard,
+    the passcode wheel, the charging screen and the boot logo, drawn from the theme's settings, pictures and fonts at
+    each screen size and colour variant. Clicking a part opens its settings.
+  - Quick style: eight palettes, six colour roles, roundness, items per page, bar heights and a list or grid main menu.
+  - Every scheme setting MustardOS reads, in groups with readable names, colour and opacity side by side, search,
+    undo and redo, and autosave. Changes go to the whole theme, one screen size, one screen or a colour variant,
+    following MustardOS's scheme layers, with notes where a more specific file wins.
+  - Pictures (wallpapers per screen and per main menu item, boot and charging logos, overlay, preview pictures),
+    icon folders and grid pictures, fonts converted from TTF/OTF/WOFF with `lv_font_conv`, sounds, display name,
+    credits, MustardOS version, screen sizes and colour variants.
+  - New themes start fresh with a palette, or from a library theme, a theme on the handheld, a local theme or a
+    `.muxthm` file. Export as `.muxthm`, or install and apply over Wi-Fi; missing preview pictures are drawn first.
+  - A new **themes** workspace folder, shown in Settings, the setup wizard, the installer and the factory reset.
+  - New API routes `GET /api/designer` (the list) and under `/api/designer/`: theme, file, create, import, scheme,
+    meta, resolution, variant, upload, remove-file, font, rename, duplicate, delete, reveal, package and install.
 
 ## [1.1.0] - 2026-10-13
 

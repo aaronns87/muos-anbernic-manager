@@ -18,6 +18,8 @@ import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../publi
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import { githubRepo } from "../src/manager-update.ts";
+import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
+import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
 import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
@@ -595,4 +597,47 @@ test("cheats: RetroArch's file name and database matching", () => {
   assert.equal(cheatCandidates(files, "PSP", "God of War - Chains of Olympus (USA).iso", "UCES00842")[0].name, "God Of War - Chains Of Olympus [EU] [UCES-00842]");
   assert.equal(cheatCandidates(files, "A800", "Boulder Dash (USA).atr").length, 1);
   assert.equal(cheatCandidates(files, "GB", "Super Mario World (USA).gb").length, 0);
+});
+
+test("theme designer: scheme files round trip and only theme places take uploads", () => {
+  const scheme = parseScheme("; comment\n[Header]\nheader_height = 42 \n[counter]\nCOUNTER_TEXT_SEPARATOR= / \nstray=1\n");
+  assert.deepEqual(scheme, { header: { HEADER_HEIGHT: "42" }, counter: { COUNTER_TEXT_SEPARATOR: " / ", STRAY: "1" } });
+  assert.deepEqual(parseScheme(writeScheme(scheme)), scheme);
+  assert.equal(writeScheme({ empty: {}, list: { LIST_DEFAULT_RADIUS: "8" } }), "[list]\nLIST_DEFAULT_RADIUS=8\n");
+  assert.equal(assetKind("640x480/image/wall/default.png"), "png");
+  assert.equal(assetKind("image/bootlogo.bmp"), "bmp");
+  assert.equal(assetKind("glyph/footer/a.png"), "png");
+  assert.equal(assetKind("640x480/font/panel/default.bin"), "bin");
+  assert.equal(assetKind("sound/navigate.wav"), "wav");
+  assert.equal(assetKind(".designer/fonts/Inter.ttf"), "font");
+  assert.equal(assetKind("640x480/preview.png"), "png");
+  for (const bad of ["preview.png", "scheme/global.ini", "version.txt", "sound/x.mp3", "image/a/b/c/d/e.png", ".designer/x.ttf"]) {
+    assert.throws(() => assetKind(bad), /not a file a theme can hold/, bad);
+  }
+});
+
+test("zip: a folder packs and unpacks with empty folders, and unsafe entries are refused", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "manager-zip-"));
+  try {
+    const src = path.join(tmp, "src");
+    fs.mkdirSync(path.join(src, "640x480"), { recursive: true });
+    fs.mkdirSync(path.join(src, "scheme"));
+    fs.mkdirSync(path.join(src, ".designer"));
+    fs.writeFileSync(path.join(src, "version.txt"), "2601.0\n");
+    fs.writeFileSync(path.join(src, "scheme", "global.ini"), "[header]\nHEADER_HEIGHT=42\n".repeat(50));
+    fs.writeFileSync(path.join(src, ".designer", "fonts.json"), "{}");
+    const zip = path.join(tmp, "t.muxthm");
+    await writeZip(zip, await folderItems(src, (rel) => rel.split("/").some((p) => p.startsWith("."))));
+    assert.deepEqual((await zipNames(zip)).sort(), ["640x480/", "scheme/", "scheme/global.ini", "version.txt"]);
+    const out = path.join(tmp, "out");
+    await unzipTo(zip, out);
+    assert.ok(fs.statSync(path.join(out, "640x480")).isDirectory());
+    assert.equal(fs.readFileSync(path.join(out, "scheme", "global.ini"), "utf8"), "[header]\nHEADER_HEIGHT=42\n".repeat(50));
+    const evil = path.join(tmp, "evil.zip");
+    await writeZip(evil, [{ name: "../escape.txt", data: Buffer.from("x") }]);
+    await assert.rejects(unzipTo(evil, path.join(tmp, "out2")));
+    assert.equal(fs.existsSync(path.join(tmp, "escape.txt")), false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 });

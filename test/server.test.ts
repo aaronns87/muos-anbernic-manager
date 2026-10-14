@@ -160,6 +160,40 @@ test("BIOS sends and app downloads are validated before any network access", asy
   assert.equal((await api("updates/download", { repo: "someone/else", asset: "x.muxapp" })).status, 400);
 });
 
+test("theme designer: create, edit, package and remove a theme in the workspace themes folder", async () => {
+  const list = (await api("designer")).json;
+  assert.equal(list.folder, path.join(root, "themes"));
+  assert.equal((await api("designer/theme?name=Nope")).status, 400);
+  assert.equal((await api("designer/create", { name: "../x", from: "blank" })).status, 400);
+  const made = await api("designer/create", { name: "Test Theme", from: "blank", res: ["640x480"], scheme: { header: { HEADER_HEIGHT: "40" } } });
+  assert.equal(made.status, 200, JSON.stringify(made.json));
+  assert.equal(made.json.created, "Test Theme");
+  const dir = path.join(root, "themes", "Test Theme");
+  assert.equal(fs.readFileSync(path.join(dir, "version.txt"), "utf8"), "2601.0\n");
+  assert.ok(fs.statSync(path.join(dir, "640x480")).isDirectory());
+  assert.equal((await api("designer/scheme", { name: "Test Theme", file: "640x480/scheme/muxlaunch.ini", scheme: { grid: { COLUMN_COUNT: 4 } } })).status, 200);
+  assert.equal(fs.readFileSync(path.join(dir, "640x480", "scheme", "muxlaunch.ini"), "utf8"), "[grid]\nCOLUMN_COUNT=4\n");
+  assert.equal((await api("designer/scheme", { name: "Test Theme", file: "../escape.ini", scheme: {} })).status, 400);
+  assert.equal((await api("designer/scheme", { name: "Test Theme", file: "scheme/global.ini", scheme: { header: { HEADER_HEIGHT: "1\n[x]" } } })).status, 400);
+  const theme = (await api("designer/theme?name=Test%20Theme")).json;
+  assert.deepEqual(theme.schemes["scheme/global.ini"], { header: { HEADER_HEIGHT: "40" } });
+  assert.deepEqual(theme.res, ["640x480"]);
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+  const up = await fetch(`${base}/api/designer/upload?name=Test%20Theme&path=${encodeURIComponent("image/wall/default.png")}`, { method: "PUT", headers: { "X-Manager-Token": token }, body: png });
+  assert.equal(up.status, 200);
+  const notPng = await fetch(`${base}/api/designer/upload?name=Test%20Theme&path=${encodeURIComponent("image/bootlogo.png")}`, { method: "PUT", headers: { "X-Manager-Token": token }, body: Buffer.from("hello") });
+  assert.equal(notPng.status, 400);
+  assert.equal((await api("designer/variant", { name: "Test Theme", action: "add", variant: "Dark" })).json.active, "Dark");
+  const pkg = await fetch(`${base}/api/designer/package?name=Test%20Theme&token=${token}`);
+  assert.equal(pkg.status, 200);
+  assert.match(pkg.headers.get("content-disposition") ?? "", /attachment/);
+  assert.equal(Buffer.from(await pkg.arrayBuffer()).readUInt32LE(0), 0x04034b50);
+  assert.equal((await api("designer/install", { name: "Test Theme" })).status, 400);
+  const copy = await api("designer/duplicate", { name: "Test Theme", to: "Test Copy" });
+  assert.deepEqual(copy.json.themes.map((t: { name: string }) => t.name), ["Test Copy", "Test Theme"]);
+  fs.rmSync(path.join(root, "themes"), { recursive: true, force: true });
+});
+
 test("static files are served, hidden paths are not", async () => {
   const js = await fetch(`${base}/js/checks.js`);
   assert.equal(js.status, 200);
