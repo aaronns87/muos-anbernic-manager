@@ -2,6 +2,7 @@
 
 import { $, api, app, esc, icon, model, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { bindCheats, cheatsPanel, loadCheats } from "./tuning-cheats.js";
 
 const T = {
   data: null, error: "", loading: false, wifi: undefined, bound: false,
@@ -30,7 +31,7 @@ async function load() {
   try {
     T.data = await api("tuning");
     T.error = "";
-    if (T.pick && T.data.reachable) openGame(T.pick.code, T.pick.file);
+    if (T.pick && T.data.reachable) openGame(T.pick.code, T.pick.file, "", true);
   } catch (error) {
     T.error = error.message;
   }
@@ -43,6 +44,8 @@ async function load() {
 const profileOf = (id) => T.data?.profiles.find((p) => p.id === id) || null;
 const folderOf = (code) => T.data?.folders?.find((f) => f.name === code) || null;
 const optionLabel = (s, v) => s.options.find(([o]) => o === v)?.[1] ?? v;
+const otherSub = (f) => (f?.so?.endsWith(".so") ? `Cheats and CPU governor${f.core ? ` \u00b7 ${f.core}` : ""}` : "CPU governor only");
+const emuName = (g) => profileOf(g.profile)?.name || g.core || g.so.replace(/^ext-/, "") || "Unknown";
 
 /** Games with their own settings file on the handheld, as "FOLDER/stem". */
 function tunedSet() {
@@ -165,8 +168,8 @@ function picker() {
 function systemEntries() {
   const all = { code: "", name: T.data.reachable ? "Systems with tuning" : "All systems", sub: T.data.reachable ? "Every system with emulator settings" : "", group: "" };
   const list = systems().map((s) => {
-    const p = profileOf(folderOf(s.code)?.profile);
-    return { code: s.code, name: s.name, sub: p ? p.name : T.data.reachable ? "CPU governor only" : "", group: p || !T.data.reachable ? "Emulator settings" : "CPU governor only" };
+    const f = folderOf(s.code), p = profileOf(f?.profile);
+    return { code: s.code, name: s.name, sub: p ? p.name : T.data.reachable ? otherSub(f) : "", group: p || !T.data.reachable ? "Emulator settings" : "Cheats and CPU governor" };
   });
   const q = T.sysQ.trim().toLowerCase();
   return [all, ...list].filter((e) => !q || `${e.name} ${e.code} ${e.sub}`.toLowerCase().includes(q));
@@ -188,7 +191,7 @@ function systemOptions() {
 function systemPicker() {
   const cur = [{ code: "", name: T.data.reachable ? "Systems with tuning" : "All systems" }, ...systems()].find((s) => s.code === T.sys);
   const p = T.sys ? profileOf(folderOf(T.sys)?.profile) : null;
-  const sub = T.sys ? (p ? p.name : T.data.reachable ? "CPU governor only" : "") : "";
+  const sub = T.sys ? (p ? p.name : T.data.reachable ? otherSub(folderOf(T.sys)) : "") : "";
   return `<div class="tune-sys${T.sysOpen ? " open" : ""}">
     <button type="button" class="control tune-sys-btn" data-tune="sys-toggle" aria-haspopup="listbox" aria-expanded="${T.sysOpen}" aria-label="System">
       <span><b>${esc(cur?.name || T.sys)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${icon("down")}</button>
@@ -244,12 +247,13 @@ function results() {
 function intro() {
   return `<section class="panel tune-intro">
     <h2>${icon("bolt")}Game Tuning</h2>
-    <p>Pick a game to give it its own emulator settings: faster for heavy games, sharper for light ones. They are saved on the handheld and apply the next time the game starts.</p>
+    <p>Pick a game to give it its own emulator settings: faster for heavy games, sharper for light ones, plus cheats. They are saved on the handheld and apply the next time the game starts.</p>
     <ul class="tune-points">
       <li><b>PSP</b> PPSSPP, standalone and RetroArch</li>
       <li><b>N64</b> Mupen64Plus-Next</li>
       <li><b>PlayStation</b> PCSX-ReARMed, SwanStation, DuckStation</li>
       <li><b>Dreamcast</b> Flycast</li>
+      <li><b>Cheats</b> RetroArch cores and PPSSPP, from the libretro cheat database</li>
       <li><b>Every game</b> its own CPU governor</li>
     </ul>
   </section>`;
@@ -267,7 +271,7 @@ function editor() {
   if (!T.game) return intro();
   const g = T.game, p = profileOf(g.profile), cur = currentGame();
   const title = cur?.[1].t || g.stem;
-  const emu = p ? p.name : g.core || g.so.replace(/^ext-/, "") || "Unknown";
+  const emu = emuName(g);
   const head = `<section class="panel tune-head">
     ${cur?.[1].i ? `<img src="${esc(cur[1].i)}" alt="">` : ""}
     <div class="tune-title">
@@ -287,10 +291,10 @@ function editor() {
   if (!p) {
     notes.push(g.so.startsWith("ext-")
       ? `<div class="notice">${esc(emu)} is a standalone emulator without per-game settings, so only the CPU governor is offered. For more, give the game a RetroArch core in <a href="#emulation">Emulation &rsaquo; Cores</a>.</div>`
-      : `<div class="muted-note">Game Tuning has no emulator settings for ${esc(emu)}; only the CPU governor is offered.</div>`);
+      : `<div class="muted-note">Game Tuning has no emulator settings for ${esc(emu)}; its CPU governor and cheats are offered.</div>`);
   }
   const body = p && (g.profile !== "ppsspp" || g.discId) ? settingsPanels(p) : "";
-  return `${head}${notes.join("")}${body}${governorPanel()}${actions()}`;
+  return `${head}${notes.join("")}${body}${governorPanel()}${actions()}${cheatsPanel()}`;
 }
 
 function discIdBox() {
@@ -371,7 +375,7 @@ function actions() {
 
 // ---------------------------------------------------------------- actions
 
-async function openGame(code, file, discId = "") {
+async function openGame(code, file, discId = "", fresh = false) {
   T.pick = { code, file };
   T.gameLoading = true;
   T.gameError = "";
@@ -383,6 +387,7 @@ async function openGame(code, file, discId = "") {
     T.game = g;
     T.draft = draftFrom(g.own);
     T.gov = g.gov.own || "";
+    loadCheats(g, emuName(g), fresh);
   } catch (error) {
     if (T.pick?.code === code && T.pick?.file === file) T.gameError = error.message;
   }
@@ -436,6 +441,7 @@ async function reset() {
 function bind() {
   T.bound = true;
   const view = $("view-tuning");
+  bindCheats(view, render);
   view.addEventListener("keydown", (e) => {
     if (!T.sysOpen) return;
     if (e.key === "Escape") { e.preventDefault(); openSystems(false); return; }

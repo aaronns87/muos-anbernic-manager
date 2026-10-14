@@ -12,11 +12,21 @@ next version number.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | Cheats per game in Game Tuning |
 | [1.1.0](#110---2026-10-13) | 2026-10-13 | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **Cheats** in Game Tuning: pick cheats for a game and save them on the handheld, switched on when the game starts.
+  - RetroArch cores get cheats from the libretro cheat database, matched by the game's name (several cheat devices to
+    choose from where the database has them), saved as `cheats/<core>/<game>.cht`.
+  - Standalone PPSSPP shows the cheat files MustardOS ships (`PSP/Cheats/<disc ID>.ini`, such as 60 FPS patches) and
+    switches cheats on and off in them; for games without one, the libretro database's file is matched by disc ID.
+  - When RetroArch's **Apply cheats after game load** or PPSSPP's cheats are off on the handheld, saving can turn them on.
+  - New API routes `GET /api/cheats/game`, `GET /api/cheats/file`, `POST /api/cheats/save` and `POST /api/cheats/remove`.
 
 ## [1.1.0] - 2026-10-13
 

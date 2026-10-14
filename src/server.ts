@@ -10,6 +10,7 @@ import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
 import { retroarchJson, saveRetroarch } from "./retroarch.ts";
+import { cheatFile, cheatsGame, removeCheats, saveCheats } from "./tuning/cheats.ts";
 import { gameTuning, resetTuning, saveTuning, tuningJson } from "./tuning/tuning.ts";
 import { applyTheme, deleteTheme, deviceThemePreview, installTheme, themePreview, themesJson } from "./themes.ts";
 import { installPort, portShot, portTask, portsJson, uninstallPort, uploadPortFile } from "./ports.ts";
@@ -94,6 +95,10 @@ const routes: Record<string, Handler> = {
   "GET /api/tuning/game": (q) => gameTuning(q),
   "POST /api/tuning/save": (_, body) => saveTuning(body),
   "POST /api/tuning/reset": (_, body) => resetTuning(body),
+  "GET /api/cheats/game": (q) => cheatsGame(q),
+  "GET /api/cheats/file": (q) => cheatFile(q),
+  "POST /api/cheats/save": (_, body) => saveCheats(body),
+  "POST /api/cheats/remove": (_, body) => removeCheats(body),
   "GET /api/themes": (q) => themesJson(q),
   "GET /api/themes/preview": (q) => themePreview(q),
   "GET /api/themes/device-preview": (q) => deviceThemePreview(q),

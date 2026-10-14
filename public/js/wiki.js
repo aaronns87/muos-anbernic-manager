@@ -292,7 +292,7 @@ const ARTICLES = [
     ["Preview and edit", `<p>Click a file name to open it. Pictures are shown; text and config files (<code>.cfg</code>, <code>.ini</code>, <code>.json</code>,
       <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.</p>`],
   ]],
-  ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings: faster for heavy games, sharper for light ones.", [
+  ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings, cheats and CPU governor.", [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
       Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own settings without changing any other game.
       It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.</p>`],
@@ -317,6 +317,21 @@ const ARTICLES = [
       <p>Files on the handheld: <code>info/config/&lt;core&gt;/&lt;game&gt;.opt</code> for RetroArch cores,
       <code>emulator/ppsspp/.config/ppsspp/PSP/SYSTEM/&lt;disc ID&gt;_ppsspp.ini</code> for PPSSPP, and <code>info/content/&lt;folder&gt;/&lt;game&gt;.gov</code>
       for the governor, the same file the handheld's own per-game governor option writes.</p>`],
+    ["Cheats", `<p>The <b>Cheats</b> panel below a game's settings lists cheats you can tick, and <b>Save cheats</b> puts them on the handheld so
+      they switch on the next time the game starts.</p>
+      <ul>
+        <li><b>RetroArch cores</b> (most systems): cheats come from the libretro cheat database, matched by the game's file name, so No-Intro and
+          Redump names (like <code>Super Mario World (USA)</code>) find the most. Some games have one file per cheat device (Action Replay,
+          Game Genie, GameShark); pick one under <i>Cheats from</i>. They are saved as <code>cheats/&lt;core&gt;/&lt;game&gt;.cht</code>, the file
+          RetroArch loads by itself.</li>
+        <li><b>Standalone PPSSPP</b>: MustardOS ships cheat files for several hundred PSP games, some with fixes like 60 FPS patches. The panel shows
+          that file and switches its cheats on and off; for other games it finds the libretro database's file by disc ID.</li>
+        <li>Standalone emulators other than PPSSPP do not load cheat files; give the game a RetroArch core in Emulation &rsaquo; Cores to use them.</li>
+      </ul>
+      <p>RetroArch only switches saved cheats on at start-up when <b>Apply cheats after game load</b> is on, and MustardOS ships it off. When it is
+        off, the panel offers to turn it on (games without cheats are not affected); PPSSPP's own cheat setting is handled the same way.
+        <b>Remove cheats</b> deletes a RetroArch game's cheat file. Cheats can upset saves and game logic, so switch them off again if a game misbehaves,
+        and close the game on the handheld before saving.</p>`],
   ]],
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
     ["Before you start", `<p>Put the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.

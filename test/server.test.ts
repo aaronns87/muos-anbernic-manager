@@ -57,6 +57,9 @@ test("Game Tuning lists its profiles without a handheld and refuses to read or s
   assert.equal((await api(`tuning/game?folder=GB&file=${encodeURIComponent("Tetris (World).gb")}`)).status, 400);
   assert.equal((await api("tuning/save", { folder: "GB", file: "Tetris (World).gb", values: {}, gov: "performance" })).status, 400);
   assert.equal((await api("tuning/reset", { folder: "GB", file: "../x" })).status, 400);
+  assert.equal((await api(`cheats/game?folder=GB&file=${encodeURIComponent("Tetris (World).gb")}`)).status, 400);
+  assert.equal((await api("cheats/save", { folder: "GB", file: "Tetris (World).gb", source: "handheld", on: [0] })).status, 400);
+  assert.equal((await api("cheats/remove", { folder: "GB", file: "../x" })).status, 400);
 });
 
 test("duplicates: one group for Tetris, keeping the preferred region", async () => {

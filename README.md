@@ -65,7 +65,8 @@ per-session token. Nothing is uploaded anywhere.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
 - **Game Tuning**: per-game emulator settings for heavy or light games (PPSSPP, Mupen64Plus-Next, PCSX-ReARMed,
   SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest, Balanced and Best looking presets and
-  recommendations for known heavy games. Pick the system from a list you filter by typing.
+  recommendations for known heavy games. **Cheats** per game from the libretro cheat database (RetroArch cores) or the
+  cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
 
 **Tools**
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.

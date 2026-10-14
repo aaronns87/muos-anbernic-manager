@@ -52,7 +52,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |
 | Artwork | `artwork.ts` (Roms/Imgs <-> device catalogue), `artwork-tools.ts`, `scrape.ts` (thumbnails.libretro.com) |
 | Device access | `device/target.ts` (which device; `withTarget`), `device/fs.ts` (`DeviceFs`, `CardFs`), `device/mtp.ts` (libmtp via koffi), `device/sftp.ts` (`SftpFs`, Wi-Fi), `device/ssh.ts` (`runCommand`, terminal, stats, power), `device/model.ts`, `device/content.ts`, `device/muos-settings.ts`, `catalogue.ts` (MustardOS layout constants) |
-| Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts`, `tuning/` (Game Tuning: `profiles.ts` settings and presets, `disc-id.ts` PSP disc IDs, `tuning.ts` per-game files) |
+| Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts`, `tuning/` (Game Tuning: `profiles.ts` settings and presets, `disc-id.ts` PSP disc IDs, `tuning.ts` per-game files, `cheats.ts` libretro cheat database and per-game cheat files) |
 | Checks and updates | `checks.ts` (No-Intro verify, duplicates), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld), `manager-update.ts` (the manager's own version and self-update) |
 | System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/flash-helper.ts` (runs as root to write a card) |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
@@ -71,7 +71,7 @@ of DOM and Node APIs.
 - `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`).
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
   (+ `updates.js`), `handheld.js`, `themes.js`, `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
-  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js`, `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
+  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
   their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
   `manager-update.js`, `activity.js`. The library game viewer is opened by `games.js` and filled by

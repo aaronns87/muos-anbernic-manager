@@ -26,6 +26,7 @@ import { norm } from "../src/games/systems.ts";
 import { discId, sfoValue } from "../src/tuning/disc-id.ts";
 import { controlMapping, newGameIni, parseIni as parsePpssppIni, parseOpt, setIni, setOpt } from "../src/tuning/tuning.ts";
 import { PROFILES, RECOMMENDATIONS } from "../src/tuning/profiles.ts";
+import { cheatCandidates, parseCht, parsePpssppCheats, ppssppIni, retroarchName, setChtEnabled, setPpssppCheats, writeCht } from "../src/tuning/cheats.ts";
 import zlib from "node:zlib";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
@@ -542,4 +543,56 @@ test("Game Tuning presets and recommendations only use offered settings and valu
   for (const r of RECOMMENDATIONS) for (const id of r.profiles) assert.ok(PROFILES.some((p) => p.id === id), `${id} is not a profile`);
   const psp = RECOMMENDATIONS.find((r) => r.profiles.includes("ppsspp") && r.match && new RegExp(r.match, "i").test("God of War - Chains of Olympus"));
   assert.equal(psp?.preset, "speed");
+});
+
+test("cheats: RetroArch .cht files read, write and switch, keeping keys RetroArch saved", () => {
+  const db = `cheats = "3"\n\ncheat0_desc = "__[>>>General<<<]__"\ncheat0_code =  "_L 0x00000000 0x00000000"\ncheat1_desc = "Use With "Skip Buffer" Setting"\ncheat1_code = "_L 0xE00173BF 0x00019860 _L 0x20019860 0x00000000"\ncheat1_enable = false\ncheat2_desc = "Lives"\ncheat2_code = "7E0DBE:63"\ncheat2_enable = true\n`;
+  const cheats = parseCht(db);
+  assert.equal(cheats.length, 3);
+  assert.equal(cheats[0].note, true);
+  assert.equal(cheats[1].desc, 'Use With "Skip Buffer" Setting');
+  assert.equal(cheats[2].on, true);
+  const out = writeCht(cheats.map((c, i) => ({ ...c, on: i !== 2 })));
+  assert.match(out, /^cheats = 3\n/);
+  assert.match(out, /cheat1_desc = "Use With 'Skip Buffer' Setting"/);
+  assert.match(out, /cheat0_enable = false/);
+  assert.match(out, /cheat1_enable = true/);
+  assert.match(out, /cheat2_enable = false/);
+  const saved = "cheats = 2\ncheat0_desc = \"A\"\ncheat0_code = \"1\"\ncheat0_handler = 1\ncheat0_enable = false\ncheat1_desc = \"B\"\ncheat1_code = \"2\"\n";
+  const switched = setChtEnabled(saved, new Set([0, 1]));
+  assert.match(switched, /cheat0_handler = 1/);
+  assert.match(switched, /cheat0_enable = true/);
+  assert.match(switched, /cheat1_enable = true/);
+  assert.deepEqual(parseCht(switched).map((c) => c.on), [true, true]);
+});
+
+test("cheats: PPSSPP cheat files switch in place and are built from database entries", () => {
+  const ini = "_S UCES-00842\n_G GoW CoO [EUR]\n_C0 60 FPS [Fixed]\n_L 0xE00E003C 0x10003800 // note\n_L 0x2001A388 0x0A200E01\n_C1 30 FPS\n_L 0xE00E001E 0x10003800\n_C0 ---- Notes ----\n";
+  const cheats = parsePpssppCheats(ini);
+  assert.deepEqual(cheats.map((c) => [c.desc, c.on, !!c.note]), [["60 FPS [Fixed]", false, false], ["30 FPS", true, false], ["---- Notes ----", false, true]]);
+  assert.equal(cheats[0].code, "_L 0xE00E003C 0x10003800 _L 0x2001A388 0x0A200E01");
+  const switched = setPpssppCheats(ini, new Set([0]));
+  assert.match(switched, /^_C1 60 FPS \[Fixed\]$/m);
+  assert.match(switched, /^_C0 30 FPS$/m);
+  assert.match(switched, /\/\/ note/);
+  const built = ppssppIni([{ desc: "Header", code: "_L 0x00000000 0x00000000", on: false, note: true }, { desc: "Fix", code: "_L 0xE001 0x0002 _L 0x2001 0x0000", on: true }], "UCUS98653", "God of War");
+  assert.equal(built, "_S UCUS-98653\n_G God of War\n_C1 Fix\n_L 0xE001 0x0002\n_L 0x2001 0x0000\n");
+});
+
+test("cheats: RetroArch's file name and database matching", () => {
+  assert.equal(retroarchName("Super Mario World (USA).sfc"), "Super Mario World (USA)");
+  assert.equal(retroarchName("Super Mario Bros. 3 (USA).nes"), "Super Mario Bros");
+  const files = [
+    "Nintendo - Super Nintendo Entertainment System/Super Mario World (USA)",
+    "Nintendo - Super Nintendo Entertainment System/Super Mario World (Europe) (Action Replay)",
+    "Nintendo - Super Nintendo Entertainment System/Super Mario Kart (USA)",
+    "Nintendo - Game Boy Advance/Super Mario World (USA)",
+    "Sony - PlayStation Portable/God Of War - Chains Of Olympus [EU] [UCES-00842]",
+    "Sony - PlayStation Portable/God Of War - Chains Of Olympus [US] [UCUS-98653]",
+    "Atari - 8-bit Family/Boulder Dash (USA)",
+  ];
+  assert.deepEqual(cheatCandidates(files, "SFC", "Super Mario World (USA).sfc").map((c) => c.name), ["Super Mario World (USA)", "Super Mario World (Europe) (Action Replay)"]);
+  assert.equal(cheatCandidates(files, "PSP", "God of War - Chains of Olympus (USA).iso", "UCES00842")[0].name, "God Of War - Chains Of Olympus [EU] [UCES-00842]");
+  assert.equal(cheatCandidates(files, "A800", "Boulder Dash (USA).atr").length, 1);
+  assert.equal(cheatCandidates(files, "GB", "Super Mario World (USA).gb").length, 0);
 });

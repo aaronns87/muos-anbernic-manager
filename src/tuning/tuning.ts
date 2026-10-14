@@ -18,10 +18,10 @@ const CFG = "/opt/muos/share/info/config";
 const INFO = "/opt/muos/share/emulator/retroarch/info";
 const CONTENT = "/opt/muos/share/info/content";
 const ROMS = "/mnt/union/ROMS";
-const PPSSPP = "/opt/muos/share/emulator/ppsspp/.config/ppsspp/PSP/SYSTEM";
+export const PPSSPP = "/opt/muos/share/emulator/ppsspp/.config/ppsspp/PSP/SYSTEM";
 const GOVS = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
 
-const stem = (f: string) => (f.lastIndexOf(".") > 0 ? f.slice(0, f.lastIndexOf(".")) : f);
+export const stem = (f: string) => (f.lastIndexOf(".") > 0 ? f.slice(0, f.lastIndexOf(".")) : f);
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64");
 
 // ---------------------------------------------------------------- settings files
@@ -147,7 +147,7 @@ echo =E`, 60_000);
   return { host: cores.host, folders, coreOf, governors, defaultGov, tuned };
 }
 
-async function load(fresh = false) {
+export async function load(fresh = false) {
   if (!fresh && cache && Date.now() - cache.at < 30_000) return cache.data;
   const data = await read();
   cache = data ? { at: Date.now(), data } : null;
@@ -155,7 +155,7 @@ async function load(fresh = false) {
 }
 
 /** Which emulator a game starts with: its own core when it has one, else its folder's. */
-function emulatorOf(data: NonNullable<Awaited<ReturnType<typeof read>>>, folderName: string, file: string) {
+export function emulatorOf(data: NonNullable<Awaited<ReturnType<typeof read>>>, folderName: string, file: string) {
   const folder = data.folders.find((f) => f.name === folderName);
   if (!folder) throw new UserError(`${folderName} is not a ROM folder on the handheld.`);
   const own = folder.overrides.find((o) => o.file === file || o.name === stem(file));
@@ -163,7 +163,7 @@ function emulatorOf(data: NonNullable<Awaited<ReturnType<typeof read>>>, folderN
   return { folder, so, core, profile: profileFor(so, core), own: !!own };
 }
 
-function checkFile(file: string) {
+export function checkFile(file: string) {
   if (!file || /[/\n\0]/.test(file) || file.startsWith(".")) throw new UserError(`"${file}" is not a game file name.`);
 }
 
@@ -203,7 +203,7 @@ async function readerFor(folder: string, file: string): Promise<[ReadAt, "librar
 
 const ids = new Map<string, string>();
 
-async function pspDiscId(folder: string, file: string, onDevice: boolean): Promise<{ id: string; from: string }> {
+export async function pspDiscId(folder: string, file: string, onDevice: boolean): Promise<{ id: string; from: string }> {
   const key = `${folder}/${file}`;
   if (ids.has(key)) return { id: ids.get(key)!, from: "cache" };
   const local = await fsp.stat(path.join(ctx.roms, folder, file)).then(() => true, () => false);
@@ -220,7 +220,7 @@ async function pspDiscId(folder: string, file: string, onDevice: boolean): Promi
   }
 }
 
-const DISC_ID = /^[A-Z]{4}[0-9]{5}$/;
+export const DISC_ID = /^[A-Z]{4}[0-9]{5}$/;
 
 /** What one game uses now: its own file's values (if any) and the values it falls back to without one. */
 async function gameState(query: { folder: string; file: string; discId?: string }) {
@@ -301,7 +301,7 @@ function checkValues(p: Profile, values: Record<string, unknown>, own: Record<st
   return out;
 }
 
-const writeFile = (file: string, content: string) =>
+export const writeFile = (file: string, content: string) =>
   `printf '%s' ${quote(b64(content))} | base64 -d > ${quote(file + ".tmp")} && mv ${quote(file + ".tmp")} ${quote(file)} || exit 1`;
 
 export async function saveTuning(body: Record<string, unknown>) {

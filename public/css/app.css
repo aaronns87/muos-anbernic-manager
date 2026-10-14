@@ -2432,11 +2432,25 @@ dialog.act { width: min(820px, 96vw); height: min(760px, 92vh); max-height: 92vh
 .tune-points { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .tune-points li { padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--muted); font-size: 12.5px; }
 .tune-points b { display: block; margin-bottom: 2px; color: var(--text); font-size: 13px; }
+.tune-cheats { gap: 10px; }
+.tune-cheats > .muted-note { margin: 0; }
+.cheat-source { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.cheat-source .control { width: 100%; max-width: none; }
+.search.small.cheat-filter { flex: none; width: 100%; max-width: none; }
+.cheat-list { display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.cheat-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 9px; border-radius: 8px; font-size: 13px; line-height: 1.4; cursor: pointer; overflow-wrap: anywhere; }
+.cheat-row:hover { background: var(--panel-2); }
+.cheat-row.on { background: color-mix(in srgb, var(--mustard) 12%, transparent); }
+.cheat-row input { margin-top: 2px; flex: none; accent-color: var(--mustard); }
+.cheat-note { padding: 9px 9px 3px; color: var(--faint); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.cheat-activate { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--mustard) 10%, transparent); font-size: 13px; line-height: 1.45; }
+.tune-actions.cheat-actions { position: static; padding: 0; border: 0; background: none; backdrop-filter: none; }
 @media (max-width: 900px) {
   .tune { grid-template-columns: minmax(0, 1fr); }
   .tune-pick { position: static; max-height: 420px; }
   .tune-row { grid-template-columns: minmax(0, 1fr); }
   .tune-presets button { padding: 0 6px; }
+  .cheat-source { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }
 .ra-actions { display: flex; align-items: center; gap: 8px; }
 
