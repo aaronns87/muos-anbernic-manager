@@ -26,6 +26,7 @@ import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { openActivity } from "./activity.js";
 import { renderOverview } from "./overview.js";
+import "./combo.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],

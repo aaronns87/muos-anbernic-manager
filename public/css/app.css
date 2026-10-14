@@ -2385,6 +2385,22 @@ dialog.act { width: min(820px, 96vw); height: min(760px, 92vh); max-height: 92vh
 .tune-sys-opt:hover, .tune-sys-opt.hi { background: var(--mustard); color: var(--on-mustard); }
 .tune-sys-opt:hover small, .tune-sys-opt.hi small { color: color-mix(in srgb, var(--on-mustard) 70%, transparent); }
 .tune-sys-none { padding: 8px 10px; }
+.combo-menu {
+  position: fixed; z-index: 1000; display: flex; flex-direction: column; gap: 6px; padding: 6px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: var(--shadow);
+}
+.combo-menu .search.small { flex: none; width: 100%; max-width: none; }
+.combo-list { overflow-y: auto; overscroll-behavior: contain; }
+.combo-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; color: var(--text); cursor: pointer; }
+.combo-opt > span { flex: 1; min-width: 0; }
+.combo-opt b { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-opt small { display: block; color: var(--muted); font-size: 11.5px; }
+.combo-opt .i { width: 16px; height: 16px; flex: none; }
+.combo-opt.on { color: var(--mustard); }
+.combo-opt.hi { background: var(--mustard); color: var(--on-mustard); }
+.combo-opt.hi small { color: color-mix(in srgb, var(--on-mustard) 70%, transparent); }
+.combo-opt.off { opacity: .45; cursor: default; }
+.combo-none { padding: 8px 10px; margin: 0; }
 .tune-results { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
 .tune-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; margin: 0 -4px; padding: 0 4px; }
 .tune-game {
@@ -2760,7 +2776,7 @@ dialog.svf { height: min(820px, 92vh); }
 .dz-variant { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
 .dz-variant .check { align-items: center; }
 
-.dz-new { max-width: 980px; padding: 20px 22px; }
+.dz-new { padding: 20px 22px; }
 .dz-new h3 { margin: 18px 0 10px; font-size: 15px; }
 .dz-hero { display: flex; gap: 16px; align-items: flex-start; padding-bottom: 6px; }
 .dz-hero > .i { width: 44px; height: 44px; flex: none; color: var(--mustard); stroke-width: 1.6; }

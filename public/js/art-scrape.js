@@ -129,7 +129,7 @@ function optionsPanel() {
   const missing = (code) => systems.filter((s) => !code || s.code === code).reduce((n, s) => n + s.games.filter((g) => !g.i).length, 0);
   const games = (code) => systems.filter((s) => !code || s.code === code).reduce((n, s) => n + s.games.length, 0);
   return `<section class="panel sc-options"><h2>${icon("scrape")}Scrape artwork</h2>
-    <label class="field">System<select class="control" data-sc="system">
+    <label class="field">System<select class="control" data-combo data-sc="system">
         <option value="">All systems (${games("").toLocaleString()} games)</option>
         ${systems.map((s) => `<option value="${esc(s.code)}"${s.code === state.system ? " selected" : ""}>${esc(s.name)} (${s.games.length.toLocaleString()})</option>`).join("")}
       </select></label>

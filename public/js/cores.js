@@ -2,6 +2,7 @@
 
 import { $, api, esc, icon, plural, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { comboItems } from "./combo.js";
 import { systemNote, useCore, useSystem } from "./system-notes.js";
 
 const K = { data: null, error: "", loading: false, saving: "", edit: "", draft: null, games: {}, all: false, wifi: undefined };
@@ -101,18 +102,18 @@ function folderRow(f) {
 function editor(f) {
   const d = K.draft;
   const g = K.games[f.name];
+  if (g?.games) comboItems("core-games", g.games);
   const same = f.folder && d.system === f.folder.system && d.core === f.folder.key;
   return `<div class="core-edit">
     <div class="core-edit-row">
-      <label><span>System</span><select class="control" data-co-field="system">${systemOptions(d.system)}</select></label>
+      <label><span>System</span><select class="control" data-combo data-co-field="system">${systemOptions(d.system)}</select></label>
       <label><span>Core for the whole folder</span><select class="control" data-co-field="core">${coreOptions(d.system, d.core)}</select></label>
       <button class="btn primary" data-co="save-folder" data-folder="${esc(f.name)}"${d.system && d.core && !same && !K.saving ? "" : " disabled"}>${K.saving === "folder" ? `<span class="spinner sm"></span><span>Saving&hellip;</span>` : `${icon("check")}<span>Save</span>`}</button>
     </div>
     ${f.overrides.length ? `<label class="core-keep"><input type="checkbox" data-co-field="keep"${d.keep ? " checked" : ""}> Keep the ${plural(f.overrides.length, "game")} with their own core</label>` : ""}
     <div class="core-edit-row core-one">
       <label class="grow"><span>One game only</span>
-        ${g?.games ? `<input class="control" list="core-games-list" data-co-field="file" value="${esc(d.file || "")}" placeholder="${g.games.length ? `Type to search ${plural(g.games.length, "game")}` : "No games in this folder"}"${g.games.length ? "" : " disabled"}>
-          <datalist id="core-games-list">${g.games.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>`
+        ${g?.games ? `<input class="control" data-combo="core-games" data-co-field="file" autocomplete="off" role="combobox" aria-haspopup="listbox" aria-expanded="false" value="${esc(d.file || "")}" placeholder="${g.games.length ? `Type to search ${plural(g.games.length, "game")}` : "No games in this folder"}"${g.games.length ? "" : " disabled"}>`
         : g?.error ? `<span class="app-bad">${esc(g.error)}</span>` : `<span class="muted-note"><span class="spinner sm"></span> Reading the folder&hellip;</span>`}
       </label>
       <label><span>Core</span><select class="control" data-co-field="gameCore">${coreOptions(d.system, d.gameCore)}</select></label>

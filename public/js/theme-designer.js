@@ -3,6 +3,7 @@
 
 import { $, api, esc, human, icon, ICONS, model, plural, store, toast, TOKEN } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { comboItems } from "./combo.js";
 import { drawScreen } from "./theme-preview.js";
 import * as S from "./theme-schema.js";
 import { assetPanel, assetClick, assetChange, assetDrop } from "./theme-assets.js";
@@ -857,13 +858,14 @@ function newThemeView() {
   const disabled = (id) => (id === "device" && !reachable()) || (id === "copy" && !mine.length) || (id === "catalogue" && !cat.length);
   const fit = (t) => t.res.includes(deviceRes());
   const sorted = [...cat].sort((a, b) => fit(b) - fit(a) || a.name.localeCompare(b.name));
+  comboItems("dz-cat", sorted.map((t) => ({ value: t.name, sub: fit(t) || !t.res.length ? "" : `Made for ${t.res.join(", ")}` })));
   let source = "";
   if (f.from === "blank") {
     source = `<div class="dz-field"><span>Colours</span><div class="dz-palettes">${S.PALETTES.map(([name, ...cols], i) => `<button class="dz-palette${i === f.palette ? " on" : ""}" data-form-palette="${i}" aria-pressed="${i === f.palette}">
         <span class="dz-swatches">${cols.map((c) => `<i style="background:#${c}"></i>`).join("")}</span><b>${name}</b></button>`).join("")}</div></div>
       <div class="dz-field"><span>Screen sizes</span><div class="dz-checks">${S.RESOLUTIONS.map((r) => `<label class="check"><input type="checkbox" data-form-res="${r}"${f.res.has(r) ? " checked" : ""}> ${r}${r === deviceRes() ? " <em>your handheld</em>" : ""}</label>`).join("")}</div></div>`;
   } else if (f.from === "catalogue") {
-    source = `<label class="dz-field"><span>Theme</span><input class="control" list="dz-cat" data-form="source" value="${esc(f.source)}" placeholder="Type to search ${cat.length} themes"><datalist id="dz-cat">${sorted.map((t) => `<option value="${esc(t.name)}">${fit(t) ? "" : esc(t.res.join(", "))}</option>`).join("")}</datalist></label>
+    source = `<label class="dz-field"><span>Theme</span><input class="control" data-combo="dz-cat" data-form="source" value="${esc(f.source)}" placeholder="Type to search ${cat.length} themes" autocomplete="off" role="combobox" aria-haspopup="listbox" aria-expanded="false"></label>
       ${cat.some((t) => t.name === f.source) ? `<img class="dz-src-shot" src="/api/themes/preview?${qs({ name: f.source, res: deviceRes(), kind: "png", token: TOKEN })}" alt="">` : ""}`;
   } else if (f.from === "device") {
     source = `<label class="dz-field"><span>Theme on the handheld</span><select class="control" data-form="source"><option value="">Pick one</option>${dev.map((t) => `<option value="${esc(t.name)}"${t.name === f.source ? " selected" : ""}>${esc(t.name)} (${human(t.kb * 1024)})</option>`).join("")}</select></label>`;
@@ -1055,8 +1057,10 @@ function onInput(e) {
     if (t.dataset.form === "name") { D.form.name = t.value; D.form.named = true; }
     else if (t.dataset.form === "source") {
       D.form.source = t.value;
-      if (!D.form.named && t.value) D.form.name = suggest(`${t.value} remix`);
-      if (e.type === "change") renderBody();
+      if (e.type !== "change") return;
+      const known = t.tagName === "SELECT" || (D.host?.data()?.catalogue?.themes || []).some((x) => x.name === t.value);
+      if (!D.form.named && t.value && known) D.form.name = suggest(`${t.value} remix`);
+      renderBody();
     } else if (t.dataset.form === "version") D.form.version = t.value;
     return;
   }

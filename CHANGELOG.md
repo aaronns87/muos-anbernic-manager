@@ -19,6 +19,14 @@ next version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- Long dropdowns filter as you type in one consistent menu that lines up under its field and never gets cut off: the
+  library theme picker in Themes > Designer, the game field and System in Emulation > Cores, System in Artwork >
+  Scrape and the genre filter in Games. Arrow keys, Enter and Escape work as in other menus.
+- The Theme Designer's new theme form uses the full width of the page, and picking a library theme no longer renames
+  the new theme on every keystroke.
+
 ## [1.2.0] - 2026-10-14
 
 ### Added
