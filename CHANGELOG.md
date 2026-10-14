@@ -47,6 +47,12 @@ next version number.
   - New API routes `GET /api/designer` (the list) and under `/api/designer/`: theme, file, create, import, scheme,
     meta, resolution, variant, upload, remove-file, font, rename, duplicate, delete, reveal, package and install.
 
+### Changed
+
+- The Themes tabs show how many themes are on the handheld and how many you have designed.
+- `--init`, the installer and the setup wizard create the `themes/` folder with the other workspace folders, and
+  Settings counts the themes in it and lets you move it like the others.
+
 ## [1.1.0] - 2026-10-13
 
 ### Added
