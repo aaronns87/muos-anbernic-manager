@@ -53,7 +53,7 @@ Running managers only look at `VERSION` on `main`, so tags and releases never ch
 
 Branches: unreleased work collects on `changes/unreleased`, and pull requests from contributors should target it. A
 release renames that branch to `version/X.Y.Z`, adds the version bump and changelog there, and reaches `main` through a
-pull request the maintainer merges. A new `changes/unreleased` then starts from the release.
+pull request the maintainer merges. The next `changes/unreleased` is created from `main` when new work starts.
 
 ## License
 
