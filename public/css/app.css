@@ -958,9 +958,10 @@ body.has-bulk .toast { bottom: 100px; }
 .tx-row time, .tx-facts { flex: none; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tx-row time { color: var(--muted); }
 .tx.past { position: relative; }
-.tx-forget { position: absolute; top: 6px; right: 6px; opacity: 0; background: var(--panel-2); }
+.tx-forget { position: absolute; top: 4px; right: 4px; opacity: 0; }
 .tx.past:hover .tx-forget, .tx-forget:focus-visible { opacity: 1; }
-@media (hover: none) { .tx-forget { opacity: 1; } }
+.tx.past:hover .tx-row time, .tx.past:focus-within .tx-row time { visibility: hidden; }
+@media (hover: none) { .tx-forget { opacity: 1; } .tx-row time { visibility: hidden; } }
 .tx-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tx-bad { color: var(--bad-text); font-style: normal; }
 .tx-file { margin-top: 4px; font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
