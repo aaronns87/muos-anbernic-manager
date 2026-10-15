@@ -81,14 +81,35 @@ per-session token. Nothing is uploaded anywhere.
 
 ## Screenshots
 
+<p align="center"><img src="docs/screenshots/overview.jpg" width="100%" alt="Overview"></p>
+<p align="center"><em>Overview: the connected handheld, its cards and free space, and how much of your library is on the device.</em></p>
+
 <p align="center"><img src="docs/screenshots/game.jpg" width="100%" alt="Game details"></p>
 <p align="center"><em>The game view: box art, description, rating and library check, the game's state on the handheld (core, play time, saves), and tabs for details, handheld data and related games.</em></p>
 
 <p align="center"><img src="docs/screenshots/artwork.jpg" width="100%" alt="Artwork coverage"></p>
 <p align="center"><em>Artwork: coverage per system, scraping what is missing, and syncing box art with the handheld.</em></p>
 
+<p align="center"><img src="docs/screenshots/designer.jpg" width="100%" alt="Theme Designer quick style"></p>
+<p align="center"><em>Theme Designer: start from a catalogue theme or a blank one, pick a palette and see the handheld's screens update live.</em></p>
+
+<p align="center"><img src="docs/screenshots/designer-edit.jpg" width="100%" alt="Theme Designer scheme settings"></p>
+<p align="center"><em>Theme Designer: every scheme setting MustardOS reads, grouped by part of the screen, with the preview following the screen you edit.</em></p>
+
 <p align="center"><img src="docs/screenshots/themes.jpg" width="100%" alt="Theme browser"></p>
 <p align="center"><em>Themes: the MustardOS community themes that fit your screen, ready to preview, install and apply.</em></p>
+
+<p align="center"><img src="docs/screenshots/tuning.jpg" width="100%" alt="Game Tuning"></p>
+<p align="center"><em>Game Tuning: per-game emulator settings and CPU governor, with Fastest, Balanced and Best looking presets and a recommendation for known heavy games.</em></p>
+
+<p align="center"><img src="docs/screenshots/emulation.jpg" width="100%" alt="Emulation systems"></p>
+<p align="center"><em>Emulation: which systems the handheld can run, and how to get the missing ones going. Saves, BIOS, cores, RetroArch and the library check sit in the other tabs.</em></p>
+
+<p align="center"><img src="docs/screenshots/apps.jpg" width="100%" alt="App market"></p>
+<p align="center"><em>Apps: the app market with screenshots and release notes, picking the right package for your handheld.</em></p>
+
+<p align="center"><img src="docs/screenshots/handheld.jpg" width="100%" alt="Device Settings"></p>
+<p align="center"><em>Device Settings: change MustardOS settings on the handheld from the computer.</em></p>
 
 <p align="center"><img src="docs/screenshots/wizard.jpg" width="100%" alt="Setup wizard"></p>
 <p align="center"><em>Setup wizard: the first start asks for your handheld, folders and connection.</em></p>
