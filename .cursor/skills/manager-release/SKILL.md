@@ -32,8 +32,10 @@ Branches follow `.cursor/rules/branching.mdc`: unreleased work is on `changes/un
 - [ ] 6. Commit "Version X.Y.Z" and push version/X.Y.Z
 - [ ] 7. Tag vX.Y.Z and create the GitHub release with the changelog section as notes
 - [ ] 8. Open a pull request version/X.Y.Z -> main (never merge it yourself)
-- [ ] 9. Create a new changes/unreleased from version/X.Y.Z and push it
 ```
+
+Do not create a new `changes/unreleased` afterwards: it is created from `main` when the next change starts, once the
+user has merged the release pull request.
 
 In `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]`
 above it, add a row to the version history table, and update the links at the bottom (`[Unreleased]` compares
@@ -56,13 +58,11 @@ git tag "v$V" && git push origin "v$V"
 awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[|^\[Unreleased\]:/ {f=0} f' CHANGELOG.md > /tmp/notes.md
 gh release create "v$V" --verify-tag --title "$V" --notes-file /tmp/notes.md --latest
 gh pr create --base main --head "version/$V" --title "Version $V" --body-file /tmp/notes.md
-git switch -c changes/unreleased && git push -u origin changes/unreleased
 ```
 
 Release commits contain only the version change and the changelog (features are committed before). The GitHub release
 is only for the repository page: the update check reads `VERSION` on `main` and updates pull `main`, never tags or
-releases, so users get the version once the user merges the pull request (ask for a merge commit, so the tag stays in
-`main`'s history). Release notes must use absolute links, since relative ones break on the releases page.
+releases, so users get the version once the user merges the pull request. Release notes must use absolute links, since relative ones break on the releases page.
 
 ## How users get it
 
