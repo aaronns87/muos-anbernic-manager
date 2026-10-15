@@ -12,13 +12,16 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Transfers panel with a queue and history |
+| [Unreleased](#unreleased) | | |
+| [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
 | [1.2.0](#120---2026-10-14) | 2026-10-14 | Theme Designer, cheats per game in Game Tuning |
 | [1.1.0](#110---2026-10-13) | 2026-10-13 | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.2.2] - 2026-10-15
 
 ### Added
 
@@ -180,7 +183,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.1...main
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.2...changes/unreleased
+[1.2.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.2
 [1.2.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.1
 [1.2.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.0
 [1.1.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.1.0
