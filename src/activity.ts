@@ -9,7 +9,7 @@ import { ctx } from "./context.ts";
 export interface Activity { t: number; tag: string; level: string; text: string }
 
 /** Startup and housekeeping lines that say nothing about a change. */
-const SKIP = new Set(["SERVING", "SCANNED", "TEST", "CLOSED", "RESTART", "STOPPING", "COPYING"]);
+const SKIP = new Set(["SERVING", "SCANNED", "TEST", "CLOSED", "RESTART", "STOPPING", "COPYING", "QUEUED"]);
 const KEEP = 2000;
 
 let file = "";

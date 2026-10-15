@@ -1,6 +1,6 @@
-// Copying games to the device, and the progress dock every job reports to.
+// Copying games to the device, and the Transfers panel every job reports to: running, waiting and finished jobs.
 
-import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy } from "./core.js";
+import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime } from "./core.js";
 import { renderDevice, refreshDevice, renderStatusbar } from "./device.js";
 import { loadLibrary, resetListing } from "./games.js";
 import { resetOverview } from "./overview.js";
@@ -10,7 +10,7 @@ let pollTimer = null;
 
 export async function startPlan(targets, label, { onStart = null } = {}) {
   if (!app.device.target) { toast("Insert TF2 or connect the handheld first"); return; }
-  if (busy()) { toast("A job is already running"); return; }
+  if (!canQueue()) { toast("Over USB the handheld handles one transfer at a time. Wait for the current one to finish."); return; }
   if ($("viewer").open) $("viewer").close();
   const mine = pending = { targets, label, plan: null, onStart };
   $("t-title").textContent = `Transfer to ${devName()}`;
@@ -52,6 +52,9 @@ function renderPlan() {
       ${plan.systems.map((s) => `<tr><td>${esc(names[s.code] || s.code)} <span style="color:var(--muted)">${esc(s.code)}</span></td><td class="num">${s.new}</td><td class="num">${s.different || ""}</td><td class="num">${human(s.bytes + s.diff_bytes)}</td></tr>`).join("")}
     </tbody></table></div>`);
   }
+  if (plan.queued) {
+    parts.push(`<div class="notice">${plan.queued === 1 ? "One of these is" : `${plan.queued.toLocaleString()} of these are`} already waiting in Transfers.</div>`);
+  }
   if (plan.skipped.length) {
     parts.push(`<small style="color:var(--muted)">Skipped ${plan.skipped.map(esc).join(", ")}: stock Anbernic firmware files that MustardOS does not run.</small>`);
   }
@@ -72,7 +75,8 @@ function updatePlanTotals() {
   const fits = bytes <= plan.card.free;
   const start = $("t-start");
   if (!count) {
-    $("t-space").innerHTML = plan.different.count
+    $("t-space").innerHTML = plan.queued && !plan.new.count && !plan.different.count ? ""
+      : plan.different.count
       ? `<div class="notice">Nothing new to transfer. Tick the box above to replace the different copies on ${esc(devName())}.</div>`
       : `<div class="notice ok">Everything here is already on ${esc(devName())}. Nothing to transfer.</div>`;
     start.hidden = true;
@@ -83,7 +87,7 @@ function updatePlanTotals() {
     ${fits ? "" : `<div class="notice err">Not enough space on ${esc(devName())}. Free up ${human(bytes - plan.card.free)} or pick fewer games.</div>`}`;
   start.hidden = false;
   start.disabled = !fits || plan.too_big.length > 0;
-  start.innerHTML = `${icon("transfer")}<span>Transfer ${count.toLocaleString()} file${count === 1 ? "" : "s"}</span>`;
+  start.innerHTML = `${icon("transfer")}<span>${busy() ? "Queue" : "Transfer"} ${count.toLocaleString()} file${count === 1 ? "" : "s"}</span>`;
   $("t-cancel").textContent = "Cancel";
 }
 
@@ -106,9 +110,12 @@ async function startTransfer() {
   }
 }
 
-/** Call with the job a POST returned; the dock follows it from there. */
+/** Call with the job a POST returned; the panel follows it from there. */
 export function jobStarted(job) {
-  app.job = job;
+  T.active = [...T.active.filter((j) => j.id !== job.id), job];
+  if (job.state === "running") app.job = job;
+  else toast("Added to Transfers. It starts when the current one finishes.", 3000);
+  T.shown = true;
   renderDock();
   renderDevice();
   poll();
@@ -116,13 +123,11 @@ export function jobStarted(job) {
 
 async function jobFinished(job) {
   dispatchEvent(new CustomEvent("job-finished", { detail: job }));
+  if (!T.shown || T.min) toast(pastSummary(job), 3500);
   if (job.kind === "apps") { renderDevice(); return; }
   resetOverview();
   if (job.kind === "art") {
-    if (job.copied) {
-      await loadLibrary().catch(() => {});
-      if (job.state === "done" && !job.failed_count) toast(`Copied ${job.copied.toLocaleString()} image${job.copied === 1 ? "" : "s"} into Roms/`, 3000);
-    }
+    if (job.copied) await loadLibrary().catch(() => {});
     renderDevice();
     return;
   }
@@ -130,84 +135,173 @@ async function jobFinished(job) {
   refreshDevice();
 }
 
+function apply(list) {
+  const before = T.active.map((j) => j.id);
+  T.active = list.active;
+  T.history = list.history;
+  app.job = T.active.find((j) => j.state === "running") || null;
+  app.transfers = T;
+  if (!T.ready) {
+    T.ready = true;
+    if (T.active.length) T.shown = true;
+  }
+  renderDock();
+  renderStatusbar();
+  for (const id of before) {
+    if (T.active.some((j) => j.id === id)) continue;
+    const job = T.history.find((j) => j.id === id);
+    if (job) jobFinished(job);
+  }
+}
+
 export async function poll() {
   clearTimeout(pollTimer);
   try {
-    const result = await api("job");
-    const wasRunning = busy();
-    if (!result.job || (result.job.state !== "running" && !wasRunning)) return;
-    app.job = result.job;
-    renderDock();
-    renderStatusbar();
-    if (busy()) pollTimer = setTimeout(poll, 600);
-    else if (wasRunning) jobFinished(app.job);
+    apply(await api("job"));
+    if (T.active.length) pollTimer = setTimeout(poll, 600);
   } catch {
     pollTimer = setTimeout(poll, 2000);
   }
 }
 
-function renderDock() {
-  const dock = $("dock"), job = app.job;
-  if (!job) { dock.hidden = true; return; }
-  dock.hidden = false;
-  const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 100;
-  if (job.kind === "art" || job.kind === "artsend") return renderArtDock(job, pct);
-  if (job.state === "running") {
-    dock.innerHTML = `<div class="dock-head"><span class="spinner"></span><b>Transferring to ${esc(job.target)} &middot; ${esc(job.label)}</b>
-        <button class="btn small" data-dock="stop">${icon("stop")}<span>Stop</span></button></div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="dock-meta"><span>${pct}% &middot; file ${job.index.toLocaleString()} of ${job.count.toLocaleString()} &middot; ${human(job.done_bytes)} of ${human(job.total_bytes)}</span>
-        <span>${job.speed ? `${human(job.speed)}/s &middot; ${clock(job.eta)} left` : "starting"}</span></div>
-      <div class="dock-file">${esc(job.current)}</div>`;
-    return;
-  }
-  const title = {
-    done: job.failed_count ? `${job.copied.toLocaleString()} transferred, ${job.failed_count} failed` : `Transferred ${plural(job.copied, "file")} (${human(job.done_bytes)}) to ${job.target}`,
-    cancelled: `Stopped after ${plural(job.copied, "file")}. The unfinished file was removed.`,
-    failed: `Transfer failed: ${job.error}`
-  }[job.state];
-  const failed = job.failed.length ? `<ul>${job.failed.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>${job.error && job.state === "done" ? `<div class="dock-file">${esc(job.error)}</div>` : ""}` : "";
-  dock.innerHTML = `<div class="dock-head"><b>${esc(title)}</b><button class="btn icon small ghost" data-dock="close" title="Close" aria-label="Close">${icon("x")}</button></div>
-    <div class="bar"><i style="width:${pct}%"></i></div>
-    <div class="dock-meta"><span>${esc(job.label)}</span><span>${clock(job.elapsed)}</span></div>${failed}`;
+// ---------------------------------------------------------------- transfers panel
+
+const T = { active: [], history: [], shown: false, ready: false, min: store.get("dockMin", false), pastSig: "" };
+
+const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
+const unit = (j) => (j.kind === "art" || j.kind === "artsend" ? "image" : "file");
+const pctOf = (j) => (j.total_bytes ? Math.min(100, Math.floor((j.done_bytes / j.total_bytes) * 100)) : 100);
+const where = (j) => ({ art: "into Roms/", apps: `to ARCHIVE on ${j.target}` })[j.kind] || `to ${j.target}`;
+const kindIcon = (j) => `<span class="tx-ico">${icon(KIND_ICON[j.kind] || "transfer")}</span>`;
+const dot = " &middot; ";
+
+const stamp = (t) => {
+  const d = new Date(t);
+  return new Date().toDateString() === d.toDateString() ? formatTime(d) : `${formatDate(d, "short")} ${formatTime(d)}`;
+};
+
+function pastSummary(j) {
+  const u = unit(j);
+  if (j.state === "done") return j.failed_count ? `${j.copied.toLocaleString()} copied, ${j.failed_count} failed` : `${plural(j.copied, u)} ${where(j)}`;
+  if (j.state === "cancelled") return j.started ? `Stopped after ${plural(j.copied, u)}` : "Removed from the queue before it started";
+  return `Failed: ${j.error}`;
 }
 
-function renderArtDock(job, pct) {
-  const dock = $("dock");
-  const images = (n) => plural(n, "image");
-  if (job.state === "running" && job.phase === "rebuild") {
-    dock.innerHTML = `<div class="dock-head"><span class="spinner"></span><b>Rescanning Roms/ with the new artwork&hellip;</b></div>
-      <div class="bar"><i style="width:100%"></i></div>
-      <div class="dock-meta"><span>${images(job.copied)} copied into Roms/</span><span>${clock(job.elapsed)}</span></div>`;
-    return;
+function runningItem(j) {
+  const pct = pctOf(j), u = unit(j);
+  const stop = `<button class="btn icon small ghost" data-dock="stop" data-id="${j.id}" title="Stop" aria-label="Stop ${esc(j.label)}">${icon("stop")}</button>`;
+  const top = `<div class="tx-top">${kindIcon(j)}<div class="tx-name"><b title="${esc(j.label)}">${esc(j.label)}</b><small>${esc(where(j))}</small></div>`;
+  if (j.phase === "rebuild") {
+    return `<li class="tx run">${top}</div><div class="bar"><i style="width:100%"></i></div>
+      <div class="tx-meta"><span>${plural(j.copied, "image")} copied into Roms/</span><span>Rescanning Roms/&hellip;</span></div></li>`;
   }
-  if (job.state === "running") {
-    dock.innerHTML = `<div class="dock-head"><span class="spinner"></span><b>${esc(job.label)}</b>
-        <button class="btn small" data-dock="stop">${icon("stop")}<span>Stop</span></button></div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="dock-meta"><span>${pct}% &middot; image ${job.index.toLocaleString()} of ${job.count.toLocaleString()} &middot; ${human(job.done_bytes)} of ${human(job.total_bytes)}</span>
-        <span>${job.speed ? `${clock(job.eta)} left` : "starting"}</span></div>
-      <div class="dock-file">${esc(job.current)}</div>`;
-    return;
-  }
-  const send = job.kind === "artsend";
-  const title = {
-    done: job.failed_count ? `${images(job.copied)} copied, ${job.failed_count} failed` : send ? `Sent ${images(job.copied)} to ${job.target}` : `Copied ${images(job.copied)} into Roms/`,
-    cancelled: `Stopped after ${images(job.copied)}.`,
-    failed: `Artwork ${send ? "send" : "sync"} failed: ${job.error}`
-  }[job.state];
-  const failed = job.failed.length ? `<ul>${job.failed.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : "";
-  dock.innerHTML = `<div class="dock-head"><b>${esc(title)}</b><button class="btn icon small ghost" data-dock="close" title="Close" aria-label="Close">${icon("x")}</button></div>
+  return `<li class="tx run">${top}${stop}</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
-    <div class="dock-meta"><span>${esc(job.label)}</span><span>${clock(job.elapsed)}</span></div>${failed}`;
+    <div class="tx-meta"><span>${pct}%${dot}${human(j.done_bytes)} of ${human(j.total_bytes)}</span><span>${j.speed ? `${human(j.speed)}/s` : "Starting"}</span></div>
+    <div class="tx-meta"><span>${u === "image" ? "Image" : "File"} ${j.index.toLocaleString()} of ${j.count.toLocaleString()}${j.failed_count ? `${dot}<em class="tx-bad">${j.failed_count} failed</em>` : ""}</span>
+      <span>${j.speed && j.eta ? `${clock(j.eta)} left` : clock(j.elapsed)}</span></div>
+    ${j.current ? `<div class="tx-file" title="${esc(j.current)}">${esc(j.current)}</div>` : ""}</li>`;
+}
+
+function waitingItem(j) {
+  return `<li class="tx wait"><div class="tx-top">${kindIcon(j)}<div class="tx-name"><b title="${esc(j.label)}">${esc(j.label)}</b>
+      <small>${plural(j.count, unit(j))}${dot}${human(j.total_bytes)}${dot}${esc(where(j))}</small></div>
+    <button class="btn icon small ghost" data-dock="cancel" data-id="${j.id}" title="Remove from the queue" aria-label="Remove ${esc(j.label)} from the queue">${icon("x")}</button></div></li>`;
+}
+
+const PAST = { done: ["check", "ok"], cancelled: ["stop", "off"], failed: ["x", "err"] };
+
+function pastItem(j) {
+  const [ic, cls] = j.state === "done" && j.failed_count ? ["alert", "warn"] : PAST[j.state] || PAST.failed;
+  const took = j.started && j.finished ? clock((j.finished - j.started) / 1000) : "";
+  const facts = [j.done_bytes ? human(j.done_bytes) : "", took, j.state === "done" && j.speed && j.done_bytes ? `${human(j.speed)}/s` : ""].filter(Boolean);
+  const failed = j.failed?.length ? `<details class="tx-fail"><summary>${plural(j.failed_count, `failed ${unit(j)}`)}</summary>
+      <ul>${j.failed.map((f) => `<li>${esc(f)}</li>`).join("")}${j.failed_count > j.failed.length ? `<li>&hellip;and ${j.failed_count - j.failed.length} more</li>` : ""}</ul>
+      ${j.error ? `<div class="tx-file">${esc(j.error)}</div>` : ""}</details>` : "";
+  return `<li class="tx past ${cls}"><div class="tx-top"><span class="tx-ico ${cls}">${icon(ic)}</span>
+      <div class="tx-name">
+        <div class="tx-row"><b title="${esc(j.label)}">${esc(j.label)}</b>${j.finished ? `<time title="${esc(new Date(j.finished).toLocaleString())}">${stamp(j.finished)}</time>` : ""}</div>
+        <div class="tx-row"><small title="${esc(pastSummary(j))}">${esc(pastSummary(j))}</small><span class="tx-facts">${facts.join(dot)}</span></div></div>
+      <button class="btn icon small ghost tx-forget" data-dock="forget" data-id="${j.id}" title="Remove from the list" aria-label="Remove ${esc(j.label)} from the list">${icon("x")}</button></div>${failed}</li>`;
+}
+
+function headSummary() {
+  const run = T.active.find((j) => j.state === "running"), waiting = T.active.length - (run ? 1 : 0);
+  if (run) {
+    const left = run.speed && run.eta ? `${dot}${clock(run.eta)} left` : "";
+    return `${pctOf(run)}%${left}${waiting ? `${dot}${waiting} waiting` : ""}`;
+  }
+  if (waiting) return `${waiting} waiting`;
+  const last = T.history[0];
+  if (!last) return "Nothing yet";
+  return last.state === "done" && !last.failed_count ? "All done" : esc(pastSummary(last));
+}
+
+function headIcon() {
+  if (T.active.some((j) => j.state === "running")) return `<span class="spinner sm"></span>`;
+  const last = T.history[0];
+  const [ic, cls] = !last ? ["transfer", ""] : last.state === "done" && last.failed_count ? ["alert", "warn"] : PAST[last.state] || PAST.failed;
+  return `<span class="tx-ico ${cls}">${icon(ic)}</span>`;
+}
+
+function renderDock() {
+  const dock = $("dock");
+  if (!dock.firstChild) {
+    dock.innerHTML = `<div class="dock-head" id="dock-head"></div><div class="bar thin dock-mini" id="dock-mini"><i></i></div>
+      <div class="dock-body" id="dock-body"><div id="dock-active"></div><div id="dock-past"></div></div>`;
+  }
+  dock.hidden = !T.shown;
+  document.body.classList.toggle("has-dock", T.shown);
+  if (!T.shown) { T.pastSig = ""; return; }
+  dock.classList.toggle("min", T.min);
+  const run = T.active.find((j) => j.state === "running");
+  const waiting = T.active.filter((j) => j !== run);
+  $("dock-head").innerHTML = `<button class="dock-toggle" data-dock="min" aria-expanded="${!T.min}" aria-controls="dock-body">${headIcon()}
+      <span class="dock-title"><b>Transfers</b><small>${headSummary()}</small></span></button>
+    <button class="btn icon small ghost dock-chev" data-dock="min" title="${T.min ? "Show the list" : "Minimise"}" aria-label="${T.min ? "Show the list" : "Minimise"}">${icon("down")}</button>
+    <button class="btn icon small ghost" data-dock="close" title="Hide. Transfers keep going; open them again from the top bar." aria-label="Hide transfers">${icon("x")}</button>`;
+  $("dock-mini").hidden = !T.min || !run;
+  if (run) $("dock-mini").firstChild.style.width = `${pctOf(run)}%`;
+  $("dock-active").innerHTML = (run ? `<ul class="tx-list">${runningItem(run)}</ul>` : "") +
+    (waiting.length ? `<h4 class="tx-group">Waiting <small>${waiting.length}</small></h4><ul class="tx-list">${waiting.map(waitingItem).join("")}</ul>` : "");
+  const sig = `${T.history.map((j) => j.id).join(",")}|${new Date().toDateString()}`;
+  if (sig !== T.pastSig) {
+    T.pastSig = sig;
+    $("dock-past").innerHTML = T.history.length
+      ? `<h4 class="tx-group">Finished <small>${T.history.length}</small><button class="btn small ghost" data-dock="clear">Clear</button></h4>
+        <ul class="tx-list">${T.history.map(pastItem).join("")}</ul>`
+      : T.active.length ? "" : `<div class="muted-note tx-none">Transfers you start show up here.</div>`;
+  }
+  document.body.style.setProperty("--dock-h", `${dock.offsetHeight}px`);
+}
+
+/** Opens the panel, or hides it when it is already open. */
+export function toggleDock() {
+  T.shown = !T.shown;
+  if (T.shown) T.min = false;
+  store.set("dockMin", T.min);
+  renderDock();
 }
 
 export function bindCopy() {
   $("t-cancel").addEventListener("click", () => $("transfer").close());
   $("t-start").addEventListener("click", startTransfer);
+  document.addEventListener("click", (e) => { if (e.target.closest("[data-dock-open]")) toggleDock(); });
   $("dock").addEventListener("click", async (e) => {
-    const action = e.target.closest("[data-dock]")?.dataset.dock;
-    if (action === "stop") { await api("job/cancel", {}).catch(() => {}); poll(); }
-    if (action === "close") { app.job = null; renderDock(); renderDevice(); }
+    const el = e.target.closest("[data-dock]");
+    if (!el) return;
+    const action = el.dataset.dock, id = el.dataset.id ? Number(el.dataset.id) : undefined;
+    if (action === "min") { T.min = !T.min; store.set("dockMin", T.min); renderDock(); return; }
+    if (action === "close") { T.shown = false; renderDock(); return; }
+    el.disabled = true;
+    try {
+      if (action === "stop" || action === "cancel") apply(await api("job/cancel", { id }));
+      if (action === "forget") apply(await api("job/forget", { id }));
+      if (action === "clear") apply(await api("job/forget", {}));
+      if (action === "stop") poll();
+    } catch (error) {
+      el.disabled = false;
+      toast(error.message, 4000);
+    }
   });
 }

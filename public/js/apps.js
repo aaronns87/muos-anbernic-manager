@@ -1,7 +1,7 @@
 // Apps: MustardOS packages (.muxapp, .muxupd, ...) in the apps folder. Add them, send them to ARCHIVE on the handheld,
 // and install them there over SSH with the script Archive Manager runs.
 
-import { $, app, api, esc, human, plural, toast, icon, busy, TOKEN } from "./core.js";
+import { $, app, api, esc, human, plural, toast, icon, canQueue, TOKEN } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { jobStarted } from "./copy.js";
 import { showUpdates } from "./updates.js";
@@ -61,7 +61,7 @@ async function loadDevice() {
 // ---------------------------------------------------------------- state helpers
 
 const target = () => app.device.target;
-const canSend = () => !!target() && !busy();
+const canSend = () => !!target() && canQueue();
 const sshReady = () => !!A.dev?.reachable;
 const broken = (p) => !!(p.error || p.unsafe);
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
@@ -239,7 +239,7 @@ function installPanel() {
 // ---------------------------------------------------------------- actions
 
 async function send(names, thenInstall) {
-  if (busy()) { toast("Wait for the current transfer to finish"); return false; }
+  if (!canQueue()) { toast("Over USB, wait for the current transfer to finish"); return false; }
   if (!target()) { toast(targetText(), 3000); return false; }
   if (thenInstall && !(await confirmInstall(names))) return false;
   try {

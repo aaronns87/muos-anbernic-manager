@@ -37,7 +37,7 @@ import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
-import { cancelJob, currentJob, jobRunning, locks, makePlan, planSummary, requireIdle, startCopy } from "./jobs.ts";
+import { cancelJob, forgetJob, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
 import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP } from "./system/ops.ts";
@@ -144,10 +144,14 @@ const routes: Record<string, Handler> = {
     const library = await rescanLibrary();
     return { games: library.totals.games, sig: library.sig };
   },
-  "GET /api/job": () => ({ job: currentJob()?.snapshot() ?? null }),
-  "POST /api/job/cancel": () => {
-    cancelJob();
-    return { ok: true };
+  "GET /api/job": () => jobList(),
+  "POST /api/job/cancel": (_, body) => {
+    cancelJob(body.id === undefined ? undefined : Number(body.id));
+    return jobList();
+  },
+  "POST /api/job/forget": (_, body) => {
+    forgetJob(body.id === undefined ? undefined : Number(body.id));
+    return jobList();
   },
 
   "GET /api/device/index": (q) => withTarget(volumeOf(q), async (t) => ({ card: t.info, files: await deviceIndex(t) })),
@@ -226,7 +230,7 @@ const routes: Record<string, Handler> = {
   },
 
   "POST /api/games/plan": (_, body) => {
-    requireIdle("A copy is already running.");
+    requireQueueable(String(body.volume ?? ""));
     return withTarget(String(body.volume ?? ""), async (t) => planSummary(t.info, await makePlan(t, (body.targets as unknown[]) || [""])));
   },
   "POST /api/games/copy": async (_, body) => ({ job: await startCopy(body) }),

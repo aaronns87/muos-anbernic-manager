@@ -262,9 +262,12 @@ export function renderStatusbar() {
   const conn = connection(), live = isLive(conn), job = app.job;
   const [viaIcon, via] = VIA[app.ui.mode];
   const parts = [];
+  const waiting = (app.transfers?.active.length || 0) - (job && job.state === "running" ? 1 : 0);
   if (job && job.state === "running") {
     const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 0;
-    parts.push(`<span class="sb-item sb-job" title="${esc(job.label || "")}">${ICONS.spin}${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%</span>`);
+    parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. Show or hide Transfers.">${ICONS.spin}${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}</button>`);
+  } else if (app.transfers?.history.length) {
+    parts.push(`<button class="sb-item sb-job idle" data-dock-open title="Show or hide Transfers" aria-label="Transfers">${icon("download")}</button>`);
   }
   const sys = app.sysJob;
   if (sys && sys.state === "running") {

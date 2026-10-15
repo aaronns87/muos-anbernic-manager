@@ -47,7 +47,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep), `shortcut.ts` (the app shortcut in Applications, the Start menu or the app menu) |
 | HTTP | `server.ts`, `ws.ts` (WebSocket for the SSH terminal) |
 | Logging | `log.ts` (`say(badge, LABEL, message)` prints and records to the activity log), `activity.ts` |
-| Jobs and locks | `jobs.ts`: one background job at a time (`startJob`, `requireIdle`, `locks.system`); copy plans |
+| Jobs and locks | `jobs.ts`: background jobs, one running at a time with the rest queued (`startJob`, `cancelJob`, `requireIdle`, `requireQueueable`, `locks.system`), a history of finished jobs in `.cache/transfers.json`; copy plans |
 | Games library | `games/library.ts` (scan, in-memory library), `games/systems.ts` (ROM folders), `games/metadata.ts` (mamenames, LaunchBox index), `games/add.ts`, `games/actions.ts` (delete), `games/engines.ts` (ScummVM folders), `games/free-scummvm.ts` |
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |
 | Artwork | `artwork.ts` (Roms/Imgs <-> device catalogue), `artwork-tools.ts`, `scrape.ts` (thumbnails.libretro.com) |
@@ -110,7 +110,7 @@ MustardOS layout the code relies on:
 
 `settings*.json` (folders, toggles, wizard state), `wifi.json` and `ssh.json` (logins, mode 600),
 `instance-*.json` (running port and token), `mamenames.xml`, `metadata-index.json` (LaunchBox, ~100 MB),
-`activity.jsonl`, `rom-crc.json`, `checks.json`, `dats/`, `thumbnails/`, `themes/`, `ports/`,
+`activity.jsonl`, `transfers.json`, `rom-crc.json`, `checks.json`, `dats/`, `thumbnails/`, `themes/`, `ports/`,
 `updates.json`, `device-art/`. Never commit any of it.
 
 Settings > Cache and History and resets clear parts of it through `POST /api/settings/clear-cache`

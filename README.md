@@ -75,6 +75,9 @@ per-session token. Nothing is uploaded anywhere.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
+- **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
+  the copies waiting their turn and a history of finished ones. Start more copies while one runs and they queue up;
+  minimise the panel to a thin progress bar or hide it and reopen it from the top bar.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
   cloned the repository or downloaded the ZIP. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 - **Settings**: folders, connections, caches, history resets and a factory reset that starts over from the setup wizard.

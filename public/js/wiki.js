@@ -90,8 +90,12 @@ const ARTICLES = [
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
       handheld, move them to the Trash, or delete them from the handheld's card.</p>`],
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
-      active. A progress bar shows what is happening and you can stop at any time. A card formatted as FAT32 cannot hold a single file over 4 GB;
-      the manager warns you before it tries.</p>`],
+      active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
+    ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
+      and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
+      Start more copies while one runs and they wait in line. Stop the running copy or take a waiting one out of the queue at any time.
+      Click the panel's title to minimise it to a thin progress bar, or hide it and open it again from the top bar. The history is kept
+      between restarts until you clear it. Over USB the handheld takes one copy at a time, so a new one can start when the current one finishes.</p>`],
     ["Adding new games", `<p><b>Add games</b> takes game files you drop on it, puts each in the right system folder, and looks up its description and box art.</p>`],
     ["ScummVM games", `<p>A ScummVM game is a folder of data files, not a single ROM. Drop the game's folder on <b>Add games</b> (or use
       <b>Choose a ScummVM game folder</b>): it becomes <code>Roms/SCUMMVM/&lt;Name&gt;.scummvm</code>, an empty file the handheld lists, plus the
@@ -303,8 +307,8 @@ const ARTICLES = [
       The right side is the handheld: SD1 (MustardOS) and TF2 (games), over the card reader, USB or Wi-Fi. Pick a place in the list at the top of each side,
       click a folder to open it, and use the path or the up arrow to go back.</p>`],
     ["Picking and copying", `<p>Click rows or tick them to pick files and folders, then <b>Copy to handheld</b> or <b>Copy to computer</b>. They land in the
-      folder open on the other side. You are told how much will be copied and asked before anything already there is replaced. Copies run in the
-      progress bar at the bottom like game copies, and can be stopped.</p>`],
+      folder open on the other side. You are told how much will be copied and asked before anything already there is replaced. Copies show in the
+      Transfers panel like game copies: they can wait in line behind another copy, and can be stopped.</p>`],
     ["Rename, new folder, delete", `<ul>
       <li>The buttons above each list make a new folder, rename the one picked item, or delete the picked items.</li>
       <li>On this computer, deleting moves things to the Trash. On the handheld it is permanent, including everything inside a folder.</li>

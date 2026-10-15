@@ -276,6 +276,8 @@ export const devName = () => (handheldMode() ? app.device.target.name || "the ha
 export const devWord = () => (handheldMode() ? "device" : cardWord());
 export const ready = () => !!app.device.target && !app.device.error && app.device.status === "ready";
 export const busy = () => !!app.job && app.job.state === "running";
+/** New transfers wait in the queue, except over USB where the handheld serves one session at a time. */
+export const canQueue = () => !busy() || app.device.target?.id !== "usb";
 
 export const keyOf = (sys, g) => sys.code + "/" + g.f;
 export const onCardState = (sys, g) => (app.device.target ? app.device.files[keyOf(sys, g)] : undefined);

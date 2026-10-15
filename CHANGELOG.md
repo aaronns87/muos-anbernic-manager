@@ -12,13 +12,26 @@ next version number.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | Transfers panel with a queue and history |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
 | [1.2.0](#120---2026-10-14) | 2026-10-14 | Theme Designer, cheats per game in Game Tuning |
 | [1.1.0](#110---2026-10-13) | 2026-10-13 | Game Tuning, game viewer with handheld status and tabs, Emulation Systems tab, app market, Windows installer, factory reset, AGPL license |
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **Transfers panel** in the bottom-right corner instead of the progress bar at the bottom: the running copy with its
+  progress, speed, time left and current file, the copies waiting their turn, and a history of finished ones with size,
+  duration, speed and any failed files. It can be minimised to a thin progress bar, hidden and reopened from the top bar,
+  and the history is kept between restarts until you clear it.
+
+### Changed
+
+- **Copies queue up.** Starting a game, file or app copy while another one runs adds it to the queue instead of refusing
+  it, and the transfer dialog says **Queue** instead of **Transfer**. Games already waiting are not queued twice, and the
+  free space check counts what the queue will still write. Over USB the handheld still takes one copy at a time.
 
 ## [1.2.1] - 2026-10-14
 

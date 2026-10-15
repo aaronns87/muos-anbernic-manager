@@ -12,7 +12,7 @@ import { runCommand, sshStatus } from "./device/ssh.ts";
 import type { Target } from "./device/target.ts";
 import { withTarget } from "./device/target.ts";
 import { UserError } from "./errors.ts";
-import { Job, requireIdle, startJob, type Work } from "./jobs.ts";
+import { Job, requireQueueable, startJob, type Work } from "./jobs.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { isDir, listDir, removeQuietly, safePart, shq as quote, splitName } from "./util.ts";
@@ -305,7 +305,7 @@ function archiveStorage(t: Target) {
 
 /** Copies packages from the apps folder into ARCHIVE on the connected device (card reader, USB or Wi-Fi). */
 export async function sendApps(body: Record<string, unknown>) {
-  requireIdle("Wait for the current job to finish first.");
+  requireQueueable(String(body.volume ?? ""));
   const names = (Array.isArray(body.names) ? body.names : []).map(localName);
   if (!names.length) throw new UserError("Pick at least one package.");
   const jobs: AppWork[] = [];

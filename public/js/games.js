@@ -3,7 +3,7 @@
 import {
   $, app, api, esc, human, plural, initial, highlight, store, copyText, toast, section, icon, scanWhen,
   ACCENTS, EXCLUDED, ART_KINDS, ICONS, TOKEN,
-  handheldMode, slowHint, devName, devWord, cardWord, busy, ready, keyOf, onCardState, isOnCard, canCopy
+  handheldMode, slowHint, devName, devWord, cardWord, busy, canQueue, ready, keyOf, onCardState, isOnCard, canCopy
 } from "./core.js";
 import { renderDevice } from "./device.js";
 import { startPlan } from "./copy.js";
@@ -804,7 +804,7 @@ function renderBulk() {
     const onDevice = picked.filter(([sys, g]) => onCardState(sys, g)).length;
     actions = `${onDevice ? `<button class="btn" data-bulk="device-remove"${dis ? " disabled" : ""} title="Delete the selected games that are on ${esc(devName())} from it">${icon("x")}<span>Remove from ${esc(devWord())}</span></button>` : ""}
       <button class="btn danger" data-bulk="trash"${n && !dis ? "" : " disabled"} title="Move the ROMs and their artwork to the Trash on this computer">${icon("trash")}<span>Move to Trash</span></button>
-      <button class="btn primary" data-bulk="transfer"${sendable && ready() && !dis ? "" : " disabled"} title="${ready() ? `Transfer the selected games to ${esc(devName())}` : "Connect the handheld or insert TF2 first"}">${icon("transfer")}<span>Transfer${sendable && sendable !== n ? ` ${sendable.toLocaleString()}` : ""} to ${esc(devName())}</span></button>`;
+      <button class="btn primary" data-bulk="transfer"${sendable && ready() && !bulkTask && canQueue() ? "" : " disabled"} title="${ready() ? `Transfer the selected games to ${esc(devName())}` : "Connect the handheld or insert TF2 first"}">${icon("transfer")}<span>Transfer${sendable && sendable !== n ? ` ${sendable.toLocaleString()}` : ""} to ${esc(devName())}</span></button>`;
     if (picked.length) {
       const extra = picked.length - picked.filter(([sys]) => !EXCLUDED.has(sys.code)).length;
       if (extra) actions = `<span class="bulk-note" title="Ports are installed with PortMaster">${extra} not transferable</span>` + actions;
@@ -842,7 +842,7 @@ async function bulkAction(action) {
   if (action === "close") return setSelecting(false);
   if (action === "all") return selectAllShown();
   if (action === "none") return clearSelection();
-  if (!picked.length || busy() || bulkTask) return;
+  if (!picked.length || bulkTask || (action === "transfer" ? !canQueue() : busy())) return;
   const volume = app.device.target ? app.device.target.id : "";
   if (action === "transfer") {
     const keys = picked.filter(([sys]) => canCopy(sys)).map(([sys, g]) => keyOf(sys, g));

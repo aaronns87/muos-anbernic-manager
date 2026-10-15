@@ -1,7 +1,11 @@
-// Background jobs (one at a time): copying ROMs to the device, and moving artwork either way.
+// Background jobs: copying ROMs to the device, and moving artwork either way. One runs at a time; the rest wait in a
+// queue, and finished ones are kept as a short history.
 
+import fs from "node:fs";
 import fsp from "node:fs/promises";
-import { CATALOGUE_PATH, FAT32_LIMIT, ROMS_DIR } from "./catalogue.ts";
+import path from "node:path";
+import { CATALOGUE_PATH, FAT32_LIMIT, ROMS_DIR, USB_ID } from "./catalogue.ts";
+import { ctx } from "./context.ts";
 import { catalogueFor, deviceCatalogues, deviceFiles } from "./device/content.ts";
 import type { Progress } from "./device/fs.ts";
 import { art, withTarget, type Target, type TargetInfo } from "./device/target.ts";
@@ -18,16 +22,26 @@ export interface Work {
 }
 
 export type JobKind = "transfer" | "art" | "artsend" | "apps" | "files";
+export type JobState = "queued" | "running" | "done" | "cancelled" | "failed";
+
+let nextId = 1;
+
+function newId(): number {
+  pastJobs();
+  return nextId++;
+}
 
 export abstract class Job<W extends Work = Work> {
   abstract readonly kind: JobKind;
+  readonly id = newId();
   readonly verb: string = "COPIED";
   readonly label: string;
   readonly jobs: W[];
   readonly volume: string;
   readonly target: string;
   readonly total: number;
-  state: "running" | "done" | "cancelled" | "failed" = "running";
+  state: JobState = "queued";
+  message = "";
   phase = "copy";
   index = 0;
   doneBytes = 0;
@@ -36,7 +50,8 @@ export abstract class Job<W extends Work = Work> {
   failed: string[] = [];
   error = "";
   cancelled = false;
-  readonly started = Date.now();
+  readonly created = Date.now();
+  started = 0;
   finished = 0;
   promise: Promise<void> = Promise.resolve();
 
@@ -86,6 +101,8 @@ export abstract class Job<W extends Work = Work> {
   protected async after(_outcome: Job["state"]): Promise<void> {}
 
   start(): void {
+    this.started = Date.now();
+    this.state = "running";
     this.promise = (async () => {
       let outcome: Job["state"] = "done";
       try {
@@ -106,21 +123,68 @@ export abstract class Job<W extends Work = Work> {
   }
 
   snapshot() {
-    const elapsed = Math.max(((this.finished || Date.now()) - this.started) / 1000, 0.001);
-    const speed = this.doneBytes / elapsed;
+    const elapsed = this.started ? Math.max(((this.finished || Date.now()) - this.started) / 1000, 0.001) : 0;
+    const speed = elapsed ? this.doneBytes / elapsed : 0;
     return {
-      kind: this.kind, state: this.state, phase: this.phase, label: this.label, target: this.target,
+      id: this.id, kind: this.kind, state: this.state, phase: this.phase, label: this.label, target: this.target,
       index: this.index, count: this.jobs.length, done_bytes: this.doneBytes, total_bytes: this.total,
       current: this.current, speed, eta: speed && this.state === "running" ? (this.total - this.doneBytes) / speed : 0,
       elapsed, copied: this.copied, failed: this.failed.slice(0, 50), failed_count: this.failed.length, error: this.error,
+      created: this.created, started: this.started, finished: this.finished,
     };
   }
 }
 
-let current: Job<Work> | null = null;
+export type JobSnapshot = ReturnType<Job["snapshot"]>;
 
-export const jobRunning = (): boolean => current?.state === "running";
-export const currentJob = () => current;
+let current: Job<Work> | null = null;
+const queue: Job<Work>[] = [];
+const HISTORY = 50;
+let history: JobSnapshot[] | null = null;
+
+const historyFile = () => path.join(ctx.cacheDir, "transfers.json");
+
+function pastJobs(): JobSnapshot[] {
+  if (!history) {
+    try {
+      const list = JSON.parse(fs.readFileSync(historyFile(), "utf8"));
+      history = Array.isArray(list) ? list.slice(0, HISTORY) : [];
+    } catch {
+      history = [];
+    }
+    nextId = Math.max(nextId, ...history.map((j) => j.id + 1));
+  }
+  return history;
+}
+
+function saveHistory(): void {
+  const file = historyFile(), tmp = `${file}.tmp`;
+  fsp.writeFile(tmp, JSON.stringify(pastJobs()))
+    .then(() => fsp.rename(tmp, file))
+    .catch((error) => say("yellow", "CHECK", `The transfer history was not saved: ${(error as Error).message}`));
+}
+
+function remember(job: Job<Work>): void {
+  const list = pastJobs();
+  list.unshift(job.snapshot());
+  list.splice(HISTORY);
+  saveHistory();
+}
+
+/** Running or waiting: other work that touches the cards waits for the queue to empty. */
+export const jobRunning = (): boolean => current?.state === "running" || queue.length > 0;
+
+/** The running job first, then the queue in the order it will run. */
+export const activeJobs = (): Job<Work>[] => [...(current?.state === "running" ? [current] : []), ...queue];
+
+export function jobList() {
+  return { job: current?.snapshot() ?? null, active: activeJobs().map((j) => j.snapshot()), history: pastJobs() };
+}
+
+/** Bytes still to be written to a volume by the running and waiting jobs. */
+export function pendingBytes(volume: string): number {
+  return activeJobs().filter((j) => j.volume === volume).reduce((n, j) => n + j.total - j.doneBytes, 0);
+}
 
 /** Set while a System section job (install, TF2 setup, reset) owns a card; the message says which. */
 export const locks = { system: "" };
@@ -130,16 +194,62 @@ export function requireIdle(message = "Wait for the current job to finish."): vo
   if (locks.system) throw new UserError(locks.system);
 }
 
-export function startJob<W extends Work>(job: Job<W>, message: string) {
-  requireIdle();
-  current = job as unknown as Job<Work>;
-  say("cyan", "COPYING", message);
+/** For work that can wait in the queue. Over USB the handheld serves one session at a time, so a new job there cannot
+ *  even be planned while another is using it. */
+export function requireQueueable(volume: string): void {
+  if (locks.system) throw new UserError(locks.system);
+  if (volume === USB_ID && jobRunning()) throw new UserError("Over USB the handheld handles one transfer at a time. Wait for the current one to finish.");
+}
+
+function run(job: Job<Work>): void {
+  current = job;
+  say("cyan", "COPYING", job.message);
   job.start();
+  job.promise.then(() => {
+    remember(job);
+    const next = queue.shift();
+    if (next) run(next);
+  });
+}
+
+export function startJob<W extends Work>(job: Job<W>, message: string) {
+  if (locks.system) throw new UserError(locks.system);
+  const j = job as unknown as Job<Work>;
+  j.message = message;
+  if (jobRunning()) {
+    queue.push(j);
+    say("cyan", "QUEUED", message);
+  } else {
+    run(j);
+  }
   return job.snapshot();
 }
 
-export function cancelJob(): void {
-  if (current && jobRunning()) current.cancelled = true;
+function dropQueued(job: Job<Work>): void {
+  job.state = "cancelled";
+  job.finished = Date.now();
+  say("yellow", "STOPPED", `${job.label} was taken out of the queue before it started.`);
+  remember(job);
+}
+
+/** Stops one job by id, running or waiting. Without an id it stops the running job and empties the queue. */
+export function cancelJob(id?: number): void {
+  if (id === undefined) {
+    for (const job of queue.splice(0)) dropQueued(job);
+    if (current?.state === "running") current.cancelled = true;
+    return;
+  }
+  const i = queue.findIndex((j) => j.id === id);
+  if (i >= 0) dropQueued(queue.splice(i, 1)[0]);
+  else if (current?.id === id && current.state === "running") current.cancelled = true;
+}
+
+/** Removes one finished job from the history, or all of them without an id. */
+export function forgetJob(id?: number): void {
+  const list = pastJobs();
+  if (id === undefined) list.splice(0);
+  else list.splice(0, list.length, ...list.filter((j) => j.id !== id));
+  saveHistory();
 }
 
 export async function waitForJob(): Promise<void> {
@@ -201,8 +311,13 @@ export async function makePlan(t: Target, targets: unknown[]) {
   if (!picked.size) throw new UserError("No ROM files found in the given paths.");
   const remote = await deviceFiles(t.roms, [...new Set([...picked.keys()].map((rel) => rel.split("/")[0]))].sort());
   const onCard = !t.roms.remote;
-  const plan = { new: [] as RomWork[], identical: [] as string[], different: [] as RomWork[], skipped, too_big: [] as string[] };
+  const waiting = new Set(activeJobs().filter((j) => j.kind === "transfer" && j.volume === t.info.id).flatMap((j) => j.jobs.map((w) => w.rel.toLowerCase())));
+  const plan = { new: [] as RomWork[], identical: [] as string[], different: [] as RomWork[], queued: [] as string[], skipped, too_big: [] as string[] };
   for (const [rel, src] of [...picked].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (waiting.has(rel.toLowerCase())) {
+      plan.queued.push(rel);
+      continue;
+    }
     const st = await fsp.stat(src);
     if (onCard && t.info.fs === "fat" && st.size >= FAT32_LIMIT) plan.too_big.push(rel);
     const hit = remote.get(rel.toLowerCase());
@@ -239,7 +354,8 @@ export function planSummary(info: TargetInfo, plan: Awaited<ReturnType<typeof ma
   }
   const sum = (jobs: Work[]) => jobs.reduce((s, j) => s + j.size, 0);
   return {
-    card: info,
+    card: { ...info, free: Math.max(0, info.free - pendingBytes(info.id)) },
+    queued: plan.queued.length,
     new: { count: plan.new.length, bytes: sum(plan.new) },
     different: { count: plan.different.length, bytes: sum(plan.different), files: plan.different.slice(0, 50).map((j) => j.rel) },
     identical: plan.identical.length,
@@ -250,13 +366,14 @@ export function planSummary(info: TargetInfo, plan: Awaited<ReturnType<typeof ma
 }
 
 export async function startCopy(body: Record<string, unknown>) {
-  requireIdle("A copy is already running.");
   const volume = String(body.volume ?? "");
+  requireQueueable(volume);
   const { plan, free, name } = await withTarget(volume, async (t) => ({
-    plan: await makePlan(t, (body.targets as unknown[]) || [""]), free: t.info.free, name: t.name,
+    plan: await makePlan(t, (body.targets as unknown[]) || [""]), free: t.info.free - pendingBytes(volume), name: t.name,
   }));
   if (plan.too_big.length) throw new UserError(`${plan.too_big[0]} is 4 GB or larger, which FAT32 cannot store.`);
   const jobs = [...plan.new, ...(body.replace ? plan.different : [])];
+  if (!jobs.length && plan.queued.length) throw new UserError("These games are already waiting in Transfers.");
   if (!jobs.length) throw new UserError(`Nothing to copy. Everything is already on ${name}.`);
   const total = jobs.reduce((s, j) => s + j.size, 0);
   if (total > free) throw new UserError(`These ROMs need ${human(total)} and ${name} has ${human(free)} free.`);

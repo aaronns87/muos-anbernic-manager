@@ -9,7 +9,7 @@ import { ctx } from "./context.ts";
 import type { DeviceFs, Progress } from "./device/fs.ts";
 import { withTarget, type Target } from "./device/target.ts";
 import { UserError } from "./errors.ts";
-import { Job, requireIdle, startJob, type Work } from "./jobs.ts";
+import { Job, requireIdle, requireQueueable, startJob, type Work } from "./jobs.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { exists, inside, removeQuietly } from "./util.ts";
@@ -338,7 +338,7 @@ async function walkDevice(f: DeviceFs, parts: string[], local: string, out: File
 
 /** Copies picked files and folders between the two sides. With check set it only reports what would happen. */
 export async function filesCopy(body: Record<string, unknown>) {
-  requireIdle("A transfer is already running.");
+  requireQueueable(String(body.volume ?? ""));
   const from = side(body.from), up = from === "local";
   const src = (body.src ?? {}) as Record<string, unknown>, dest = (body.dest ?? {}) as Record<string, unknown>;
   const srcRoot = String(src.root ?? ""), srcDir = cleanParts(src.path), destRoot = String(dest.root ?? ""), destDir = cleanParts(dest.path);
