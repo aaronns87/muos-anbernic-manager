@@ -24,6 +24,19 @@ export interface Work {
 export type JobKind = "transfer" | "art" | "artsend" | "apps" | "files";
 export type JobState = "queued" | "running" | "done" | "cancelled" | "failed";
 
+/** How one file of a job went. "skipped" is a file the job never reached because it stopped. */
+export interface FileResult {
+  rel: string;
+  size: number;
+  state: "done" | "failed" | "running" | "waiting" | "skipped";
+  secs?: number;
+  done?: number;
+  error?: string;
+}
+
+/** Per-file results kept for each job; a job with more files keeps the first ones and its totals. */
+const FILE_LIMIT = 500;
+
 let nextId = 1;
 
 function newId(): number {
@@ -50,6 +63,8 @@ export abstract class Job<W extends Work = Work> {
   failed: string[] = [];
   error = "";
   cancelled = false;
+  private readonly results: FileResult[] = [];
+  private fileBase = 0;
   readonly created = Date.now();
   started = 0;
   finished = 0;
@@ -71,7 +86,9 @@ export abstract class Job<W extends Work = Work> {
       if (this.cancelled) throw new Cancelled();
       this.index = i + 1;
       this.current = job.rel;
-      const base = this.doneBytes;
+      const base = this.fileBase = this.doneBytes;
+      const began = Date.now();
+      const secs = () => (Date.now() - began) / 1000;
       try {
         await this.copyOne(t, job, (sent) => {
           this.doneBytes = base + sent;
@@ -79,11 +96,13 @@ export abstract class Job<W extends Work = Work> {
         });
         misses = 0;
         this.copied++;
+        if (i < FILE_LIMIT) this.results[i] = { rel: job.rel, size: job.size, state: "done", secs: secs() };
       } catch (error) {
         if (error instanceof Cancelled) throw error;
         misses++;
         this.failed.push(job.rel);
         this.error = (error as Error).message;
+        if (i < FILE_LIMIT) this.results[i] = { rel: job.rel, size: job.size, state: "failed", secs: secs(), error: this.error };
         if (misses >= 3) throw new UserError(`Stopped after three failures in a row. Last one: ${this.error}`);
       } finally {
         this.doneBytes = base + job.size;
@@ -122,20 +141,33 @@ export abstract class Job<W extends Work = Work> {
     })();
   }
 
+  /** Every file of the job (up to FILE_LIMIT) with how it went so far. Folders created on the way are left out. */
+  fileList(): FileResult[] {
+    const out: FileResult[] = [];
+    for (const [i, w] of this.jobs.slice(0, FILE_LIMIT).entries()) {
+      if ((w as Work & { folder?: boolean }).folder) continue;
+      const done = this.results[i];
+      if (done) out.push(done);
+      else if (this.state === "running" && i === this.index - 1) out.push({ rel: w.rel, size: w.size, state: "running", done: this.doneBytes - this.fileBase });
+      else out.push({ rel: w.rel, size: w.size, state: this.state === "running" || this.state === "queued" ? "waiting" : "skipped" });
+    }
+    return out;
+  }
+
   snapshot() {
     const elapsed = this.started ? Math.max(((this.finished || Date.now()) - this.started) / 1000, 0.001) : 0;
     const speed = elapsed ? this.doneBytes / elapsed : 0;
     return {
       id: this.id, kind: this.kind, state: this.state, phase: this.phase, label: this.label, target: this.target,
       index: this.index, count: this.jobs.length, done_bytes: this.doneBytes, total_bytes: this.total,
-      current: this.current, speed, eta: speed && this.state === "running" ? (this.total - this.doneBytes) / speed : 0,
+      current: this.current, file_done: this.state === "running" ? this.doneBytes - this.fileBase : 0, speed, eta: speed && this.state === "running" ? (this.total - this.doneBytes) / speed : 0,
       elapsed, copied: this.copied, failed: this.failed.slice(0, 50), failed_count: this.failed.length, error: this.error,
       created: this.created, started: this.started, finished: this.finished,
     };
   }
 }
 
-export type JobSnapshot = ReturnType<Job["snapshot"]>;
+export type JobSnapshot = ReturnType<Job["snapshot"]> & { files?: FileResult[] };
 
 let current: Job<Work> | null = null;
 const queue: Job<Work>[] = [];
@@ -166,7 +198,7 @@ function saveHistory(): void {
 
 function remember(job: Job<Work>): void {
   const list = pastJobs();
-  list.unshift(job.snapshot());
+  list.unshift({ ...job.snapshot(), files: job.fileList() });
   list.splice(HISTORY);
   saveHistory();
 }
@@ -178,7 +210,20 @@ export const jobRunning = (): boolean => current?.state === "running" || queue.l
 export const activeJobs = (): Job<Work>[] => [...(current?.state === "running" ? [current] : []), ...queue];
 
 export function jobList() {
-  return { job: current?.snapshot() ?? null, active: activeJobs().map((j) => j.snapshot()), history: pastJobs() };
+  return {
+    job: current?.snapshot() ?? null,
+    active: activeJobs().map((j) => j.snapshot()),
+    history: pastJobs().map(({ files: _files, ...j }) => j),
+  };
+}
+
+/** The files of one job, running, waiting or finished. */
+export function jobFiles(id: number): { id: number; files: FileResult[] } {
+  const live = activeJobs().find((j) => j.id === id);
+  if (live) return { id, files: live.fileList() };
+  const past = pastJobs().find((j) => j.id === id);
+  if (!past) throw new UserError("That transfer is no longer in the list.");
+  return { id, files: past.files ?? [] };
 }
 
 /** Bytes still to be written to a volume by the running and waiting jobs. */

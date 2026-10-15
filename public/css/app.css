@@ -965,9 +965,27 @@ body.has-bulk .toast { bottom: 100px; }
 .tx-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tx-bad { color: var(--bad-text); font-style: normal; }
 .tx-file { margin-top: 4px; font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-fail { margin: 6px 0 0 40px; font-size: 12px; color: var(--muted); }
-.tx-fail summary { cursor: pointer; color: var(--warn); }
-.tx-fail ul { margin: 6px 0 0; padding-left: 18px; max-height: 120px; overflow: auto; }
+.tx-indent { margin-left: 40px; }
+.tx-more { display: inline-flex; align-items: center; gap: 4px; margin: 8px 0 0 34px; padding: 2px 6px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.tx-more:hover { color: var(--text); background: var(--panel-2); }
+.tx-more .i { width: 14px; height: 14px; transition: transform .2s; }
+.tx-more[aria-expanded="true"] .i { transform: rotate(180deg); }
+.tx-files { list-style: none; margin: 6px 0 0 40px; padding: 0; font-size: 12px; color: var(--muted); }
+.tx-files.muted-note { padding: 4px 0; }
+.tx-f { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); }
+.tx-f:first-child { border-top: 0; }
+.tx-f .spinner.sm { width: 12px; height: 12px; }
+.tx-f .bar { grid-column: 2 / 4; height: 3px; margin-top: 4px; }
+.tx-f.more { display: block; color: var(--faint); }
+.tx-fi { display: grid; place-items: center; }
+.tx-fi .i { width: 13px; height: 13px; }
+.tx-fi.ok { color: var(--ok); }
+.tx-fi.err { color: var(--bad-text); }
+.tx-fi.off { color: var(--faint); }
+.tx-fn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.tx-f.waiting .tx-fn, .tx-f.skipped .tx-fn { color: var(--muted); }
+.tx-fs { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tx-ferr { grid-column: 2 / 4; font-size: 11.5px; color: var(--bad-text); overflow-wrap: anywhere; }
 .tx-none { padding: 14px 4px; }
 body.has-dock .top { bottom: calc(var(--dock-h, 0px) + 34px); }
 body.has-bulk.has-dock .top { bottom: calc(var(--dock-h, 0px) + 108px); }

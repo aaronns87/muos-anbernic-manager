@@ -37,7 +37,7 @@ import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
-import { cancelJob, forgetJob, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
+import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
 import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP } from "./system/ops.ts";
@@ -145,6 +145,7 @@ const routes: Record<string, Handler> = {
     return { games: library.totals.games, sig: library.sig };
   },
   "GET /api/job": () => jobList(),
+  "GET /api/job/files": (q) => jobFiles(Number(q.get("id"))),
   "POST /api/job/cancel": (_, body) => {
     cancelJob(body.id === undefined ? undefined : Number(body.id));
     return jobList();

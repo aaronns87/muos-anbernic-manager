@@ -25,7 +25,8 @@ next version number.
 - **Transfers panel** in the bottom-right corner instead of the progress bar at the bottom: the running copy with its
   progress, speed, time left and current file, the copies waiting their turn, and a history of finished ones with size,
   duration, speed and any failed files. It can be minimised to a thin progress bar, hidden and reopened from the top bar,
-  and the history is kept between restarts until you clear it.
+  and the history is kept between restarts until you clear it. A copy of several games or files lists each one with its
+  own progress while it runs, and its size, time and speed (or the reason it failed) once it is done.
 
 ### Changed
 

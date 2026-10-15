@@ -166,7 +166,10 @@ export async function poll() {
 
 // ---------------------------------------------------------------- transfers panel
 
-const T = { active: [], history: [], shown: false, ready: false, min: store.get("dockMin", false), pastSig: "" };
+const T = {
+  active: [], history: [], shown: false, ready: false, min: store.get("dockMin", false), pastSig: "", pressing: false,
+  open: new Set(), files: new Map(), loading: new Set(),
+};
 
 const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
 const unit = (j) => (j.kind === "art" || j.kind === "artsend" ? "image" : "file");
@@ -174,6 +177,56 @@ const pctOf = (j) => (j.total_bytes ? Math.min(100, Math.floor((j.done_bytes / j
 const where = (j) => ({ art: "into Roms/", apps: `to ARCHIVE on ${j.target}` })[j.kind] || `to ${j.target}`;
 const kindIcon = (j) => `<span class="tx-ico">${icon(KIND_ICON[j.kind] || "transfer")}</span>`;
 const dot = " &middot; ";
+
+const FILE_ICON = { done: ["check", "ok"], failed: ["x", "err"], skipped: ["dot", "off"], waiting: ["clock", "off"] };
+
+function fileRow(j, f) {
+  let ic, side, bar = "";
+  if (f.state === "running" && j.state === "running") {
+    const pct = f.size ? Math.min(100, Math.floor(((j.file_done || 0) / f.size) * 100)) : 0;
+    ic = `<span class="spinner sm"></span>`;
+    side = `${pct}%${dot}${human(f.size)}`;
+    bar = `<div class="bar thin"><i style="width:${pct}%"></i></div>`;
+  } else {
+    const [name, cls] = FILE_ICON[f.state] || FILE_ICON.waiting;
+    ic = `<span class="tx-fi ${cls}">${icon(name)}</span>`;
+    side = f.state === "done" ? [human(f.size), f.secs >= 1 ? clock(f.secs) : "", f.secs >= 1 ? `${human(f.size / f.secs)}/s` : ""].filter(Boolean).join(dot)
+      : f.state === "failed" ? `<span class="tx-bad">Failed</span>`
+      : f.state === "skipped" ? "Not copied" : human(f.size);
+  }
+  return `<li class="tx-f ${f.state}" title="${esc(f.rel)}">${ic}<span class="tx-fn">${esc(f.rel.split("/").pop())}</span><span class="tx-fs">${side}</span>${bar}
+    ${f.error ? `<div class="tx-ferr">${esc(f.error)}</div>` : ""}</li>`;
+}
+
+function fileRows(j) {
+  const got = T.files.get(j.id);
+  if (!got) return `<div class="tx-files muted-note"><span class="spinner sm"></span> Loading the files&hellip;</div>`;
+  const list = got.list.length ? got.list : (j.failed || []).map((rel) => ({ rel, size: 0, state: "failed" }));
+  if (!list.length) return `<div class="tx-files muted-note">No file details were kept for this transfer.</div>`;
+  const more = got.list.length >= 500 && j.count > got.list.length ? `<li class="tx-f more">The first ${got.list.length} of ${j.count.toLocaleString()} files</li>` : "";
+  return `<ul class="tx-files">${list.map((f) => fileRow(j, f)).join("")}${more}</ul>`;
+}
+
+function filesToggle(j) {
+  if (j.count < 2) return "";
+  const open = T.open.has(j.id);
+  const label = open ? "Hide the files" : `Show the ${j.count.toLocaleString()} files${j.failed_count ? `${dot}${j.failed_count} failed` : ""}`;
+  return `<button class="tx-more" data-dock="files" data-id="${j.id}" aria-expanded="${open}">${icon("down")}<span>${label}</span></button>${open ? fileRows(j) : ""}`;
+}
+
+/** Fetches a job's file list when it is shown and out of date: once for waiting and finished jobs, after each file for the running one. */
+function wantFiles(j) {
+  if (!T.open.has(j.id) || T.loading.has(j.id)) return;
+  const got = T.files.get(j.id);
+  if (got && got.index === j.index && got.state === j.state) return;
+  T.loading.add(j.id);
+  const keep = (list) => T.files.set(j.id, { list, index: j.index, state: j.state });
+  api(`job/files?id=${j.id}`).then((r) => keep(r.files), () => keep([])).finally(() => {
+    T.loading.delete(j.id);
+    T.pastSig = "";
+    renderDock();
+  });
+}
 
 const stamp = (t) => {
   const d = new Date(t);
@@ -200,13 +253,13 @@ function runningItem(j) {
     <div class="tx-meta"><span>${pct}%${dot}${human(j.done_bytes)} of ${human(j.total_bytes)}</span><span>${j.speed ? `${human(j.speed)}/s` : "Starting"}</span></div>
     <div class="tx-meta"><span>${u === "image" ? "Image" : "File"} ${j.index.toLocaleString()} of ${j.count.toLocaleString()}${j.failed_count ? `${dot}<em class="tx-bad">${j.failed_count} failed</em>` : ""}</span>
       <span>${j.speed && j.eta ? `${clock(j.eta)} left` : clock(j.elapsed)}</span></div>
-    ${j.current ? `<div class="tx-file" title="${esc(j.current)}">${esc(j.current)}</div>` : ""}</li>`;
+    ${j.current ? `<div class="tx-file" title="${esc(j.current)}">${esc(j.current)}</div>` : ""}${filesToggle(j)}</li>`;
 }
 
 function waitingItem(j) {
   return `<li class="tx wait"><div class="tx-top">${kindIcon(j)}<div class="tx-name"><b title="${esc(j.label)}">${esc(j.label)}</b>
       <small>${plural(j.count, unit(j))}${dot}${human(j.total_bytes)}${dot}${esc(where(j))}</small></div>
-    <button class="btn icon small ghost" data-dock="cancel" data-id="${j.id}" title="Remove from the queue" aria-label="Remove ${esc(j.label)} from the queue">${icon("x")}</button></div></li>`;
+    <button class="btn icon small ghost" data-dock="cancel" data-id="${j.id}" title="Remove from the queue" aria-label="Remove ${esc(j.label)} from the queue">${icon("x")}</button></div>${filesToggle(j)}</li>`;
 }
 
 const PAST = { done: ["check", "ok"], cancelled: ["stop", "off"], failed: ["x", "err"] };
@@ -215,14 +268,12 @@ function pastItem(j) {
   const [ic, cls] = j.state === "done" && j.failed_count ? ["alert", "warn"] : PAST[j.state] || PAST.failed;
   const took = j.started && j.finished ? clock((j.finished - j.started) / 1000) : "";
   const facts = [j.done_bytes ? human(j.done_bytes) : "", took, j.state === "done" && j.speed && j.done_bytes ? `${human(j.speed)}/s` : ""].filter(Boolean);
-  const failed = j.failed?.length ? `<details class="tx-fail"><summary>${plural(j.failed_count, `failed ${unit(j)}`)}</summary>
-      <ul>${j.failed.map((f) => `<li>${esc(f)}</li>`).join("")}${j.failed_count > j.failed.length ? `<li>&hellip;and ${j.failed_count - j.failed.length} more</li>` : ""}</ul>
-      ${j.error ? `<div class="tx-file">${esc(j.error)}</div>` : ""}</details>` : "";
+  const failed = j.count < 2 && j.failed_count && j.error ? `<div class="tx-ferr tx-indent">${esc(j.error)}</div>` : "";
   return `<li class="tx past ${cls}"><div class="tx-top"><span class="tx-ico ${cls}">${icon(ic)}</span>
       <div class="tx-name">
         <div class="tx-row"><b title="${esc(j.label)}">${esc(j.label)}</b>${j.finished ? `<time title="${esc(new Date(j.finished).toLocaleString())}">${stamp(j.finished)}</time>` : ""}</div>
         <div class="tx-row"><small title="${esc(pastSummary(j))}">${esc(pastSummary(j))}</small><span class="tx-facts">${facts.join(dot)}</span></div></div>
-      <button class="btn icon small ghost tx-forget" data-dock="forget" data-id="${j.id}" title="Remove from the list" aria-label="Remove ${esc(j.label)} from the list">${icon("x")}</button></div>${failed}</li>`;
+      <button class="btn icon small ghost tx-forget" data-dock="forget" data-id="${j.id}" title="Remove from the list" aria-label="Remove ${esc(j.label)} from the list">${icon("x")}</button></div>${failed}${filesToggle(j)}</li>`;
 }
 
 function headSummary() {
@@ -246,6 +297,7 @@ function headIcon() {
 
 function renderDock() {
   const dock = $("dock");
+  if (T.pressing) return;
   if (!dock.firstChild) {
     dock.innerHTML = `<div class="dock-head" id="dock-head"></div><div class="bar thin dock-mini" id="dock-mini"><i></i></div>
       <div class="dock-body" id="dock-body"><div id="dock-active"></div><div id="dock-past"></div></div>`;
@@ -272,6 +324,7 @@ function renderDock() {
         <ul class="tx-list">${T.history.map(pastItem).join("")}</ul>`
       : T.active.length ? "" : `<div class="muted-note tx-none">Transfers you start show up here.</div>`;
   }
+  for (const j of [...T.active, ...T.history]) wantFiles(j);
   document.body.style.setProperty("--dock-h", `${dock.offsetHeight}px`);
 }
 
@@ -287,12 +340,22 @@ export function bindCopy() {
   $("t-cancel").addEventListener("click", () => $("transfer").close());
   $("t-start").addEventListener("click", startTransfer);
   document.addEventListener("click", (e) => { if (e.target.closest("[data-dock-open]")) toggleDock(); });
+  // The panel redraws while jobs run; holding it still between press and release keeps clicks on its buttons.
+  $("dock").addEventListener("pointerdown", () => { T.pressing = true; });
+  addEventListener("pointerup", () => setTimeout(() => { if (T.pressing) { T.pressing = false; renderDock(); } }), true);
+  addEventListener("pointercancel", () => { T.pressing = false; });
   $("dock").addEventListener("click", async (e) => {
     const el = e.target.closest("[data-dock]");
     if (!el) return;
     const action = el.dataset.dock, id = el.dataset.id ? Number(el.dataset.id) : undefined;
     if (action === "min") { T.min = !T.min; store.set("dockMin", T.min); renderDock(); return; }
     if (action === "close") { T.shown = false; renderDock(); return; }
+    if (action === "files") {
+      if (!T.open.delete(id)) T.open.add(id);
+      T.pastSig = "";
+      renderDock();
+      return;
+    }
     el.disabled = true;
     try {
       if (action === "stop" || action === "cancel") apply(await api("job/cancel", { id }));

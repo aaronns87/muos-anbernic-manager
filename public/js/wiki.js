@@ -93,6 +93,8 @@ const ARTICLES = [
       active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
       and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
+      A copy of several games has <b>Show the files</b>: every game in it with its own progress while it copies, and afterwards its size,
+      time and speed, or why it failed.
       Start more copies while one runs and they wait in line. Stop the running copy or take a waiting one out of the queue at any time.
       Click the panel's title to minimise it to a thin progress bar, or hide it and open it again from the top bar. The history is kept
       between restarts until you clear it. Over USB the handheld takes one copy at a time, so a new one can start when the current one finishes.</p>`],
