@@ -5,8 +5,8 @@ and version numbers follow the policy in [CONTRIBUTING.md](CONTRIBUTING.md#versi
 patch releases for fixes, major releases only for big or breaking changes.
 
 Running managers offer an update when the `VERSION` file on GitHub's `main` branch is higher than theirs. Changes under
-**Unreleased** are already on `main` (a `git pull` or a fresh download gets them) and are offered as an update with the
-next version number.
+**Unreleased** are on the `changes/unreleased` branch and reach `main`, and with it running managers, in the next
+version.
 
 ## Version history
 
