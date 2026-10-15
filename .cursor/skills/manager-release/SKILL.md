@@ -1,6 +1,6 @@
 ---
 name: manager-release
-description: Releases a new version of muOS Anbernic Manager - setting the version the user gave in VERSION, package.json and package-lock.json, testing, committing and pushing to main so running managers offer the update. Use when the user asks to release, publish, tag or bump the version. Never use it to pick a version on your own.
+description: Releases a new version of muOS Anbernic Manager - renaming changes/unreleased to version/X.Y.Z, setting the version the user gave in VERSION, package.json and package-lock.json, testing, tagging, creating the GitHub release and opening a pull request into main that the user merges. Use when the user asks to release, publish, tag or bump the version. Never use it to pick a version on your own.
 ---
 
 # Releasing
@@ -20,37 +20,49 @@ Prefer minor over major. The new number must be higher than the current `VERSION
 
 ## Steps
 
+Branches follow `.cursor/rules/branching.mdc`: unreleased work is on `changes/unreleased`, a release is made on
+`version/X.Y.Z` and reaches `main` only when the user merges its pull request on GitHub.
+
 ```
-- [ ] 1. Working tree clean, on main, up to date (git status, git pull --ff-only)
-- [ ] 2. Set the version
-- [ ] 3. Move CHANGELOG.md "Unreleased" to the new version
-- [ ] 4. npm run check && npm test
-- [ ] 5. Commit "Version X.Y.Z" and push
-- [ ] 6. Tag vX.Y.Z and create the GitHub release with the changelog section as notes
+- [ ] 1. Working tree clean, on changes/unreleased, up to date (git status, git pull --ff-only)
+- [ ] 2. Rename the branch to version/X.Y.Z, push it, delete the remote changes/unreleased
+- [ ] 3. Set the version
+- [ ] 4. Move CHANGELOG.md "Unreleased" to the new version
+- [ ] 5. npm run check && npm test
+- [ ] 6. Commit "Version X.Y.Z" and push version/X.Y.Z
+- [ ] 7. Tag vX.Y.Z and create the GitHub release with the changelog section as notes
+- [ ] 8. Open a pull request version/X.Y.Z -> main (never merge it yourself)
+- [ ] 9. Create a new changes/unreleased from version/X.Y.Z and push it
 ```
 
 In `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]`
 above it, add a row to the version history table, and update the links at the bottom (`[Unreleased]` compares
-`vX.Y.Z` with `main`; `[X.Y.Z]` points at `tree/vX.Y.Z`). If Unreleased is empty, ask what the release contains
+`vX.Y.Z` with `changes/unreleased`; `[X.Y.Z]` points at `tree/vX.Y.Z`). If Unreleased is empty, ask what the release contains
 before releasing.
 
 ```bash
 V=1.3.0
+git switch changes/unreleased && git pull --ff-only
+git branch -m changes/unreleased "version/$V"
+git push -u origin "version/$V" && git push origin --delete changes/unreleased
 npm version "$V" --no-git-tag-version      # package.json + package-lock.json
 printf '%s\n' "$V" > VERSION
 node --test --test-name-pattern=VERSION test/unit.test.ts
 npm run check && npm test
 git add VERSION package.json package-lock.json CHANGELOG.md
 git commit -m "Version $V"
-git push origin main
+git push
 git tag "v$V" && git push origin "v$V"
 awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[|^\[Unreleased\]:/ {f=0} f' CHANGELOG.md > /tmp/notes.md
 gh release create "v$V" --verify-tag --title "$V" --notes-file /tmp/notes.md --latest
+gh pr create --base main --head "version/$V" --title "Version $V" --body-file /tmp/notes.md
+git switch -c changes/unreleased && git push -u origin changes/unreleased
 ```
 
 Release commits contain only the version change and the changelog (features are committed before). The GitHub release
 is only for the repository page: the update check reads `VERSION` on `main` and updates pull `main`, never tags or
-releases. Release notes must use absolute links, since relative ones break on the releases page.
+releases, so users get the version once the user merges the pull request (ask for a merge commit, so the tag stays in
+`main`'s history). Release notes must use absolute links, since relative ones break on the releases page.
 
 ## How users get it
 
@@ -58,4 +70,4 @@ releases. Release notes must use absolute links, since relative ones break on th
   a failed check); GitHub's CDN may serve the old file for about 5 minutes after a push.
 - Git clones update with `git pull --ff-only`; downloaded copies are replaced from the ZIP of `main` (the old
   files are kept in `.update-old/`). Both restart through `run.sh` (exit code 75).
-- So a broken `main` reaches users: never push a version bump with failing tests.
+- So a broken `main` reaches users: never open the release pull request with failing tests.

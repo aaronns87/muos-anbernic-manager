@@ -1,0 +1,41 @@
+---
+description: Branch workflow - work on changes/unreleased, release from version/X.Y.Z through a pull request into main
+alwaysApply: true
+---
+
+# Branches
+
+Running managers update from `main` (they read `VERSION` there and pull it), so `main` only moves when the
+maintainer merges a release pull request on GitHub.
+
+| Branch | Holds |
+| --- | --- |
+| `changes/unreleased` | Everything not released yet. All work is committed and pushed here. |
+| `version/X.Y.Z` | One release: `changes/unreleased` renamed, plus the version bump and changelog. |
+| `main` | Released versions only. Never commit or push to it directly. |
+
+## Day to day
+
+- Stay on `changes/unreleased`; commit and push there (`git push origin changes/unreleased`). Do not open pull
+  requests for it.
+- User-visible changes go under **Unreleased** in `CHANGELOG.md`, as before.
+
+## Releasing X.Y.Z (only with a number the user gave; see the `manager-release` skill)
+
+```bash
+V=1.2.3
+git switch changes/unreleased && git pull --ff-only
+git branch -m changes/unreleased "version/$V"
+git push -u origin "version/$V" && git push origin --delete changes/unreleased
+# bump VERSION/package files, move CHANGELOG Unreleased to $V, npm run check && npm test
+git commit -am "Version $V" && git push
+git tag "v$V" && git push origin "v$V"
+gh release create "v$V" --verify-tag --title "$V" --notes-file /tmp/notes.md --latest
+gh pr create --base main --head "version/$V" --title "Version $V" --body-file /tmp/notes.md
+git switch -c changes/unreleased && git push -u origin changes/unreleased
+```
+
+- The maintainer merges the pull request by hand on GitHub; never merge it yourself. Users get the update only
+  after that merge.
+- Ask for **Create a merge commit** when merging, so the tagged commit stays in `main`'s history.
+- The new `changes/unreleased` starts from `version/X.Y.Z`, so it already has the release commit.

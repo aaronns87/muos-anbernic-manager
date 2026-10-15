@@ -51,6 +51,10 @@ the new version and date and adds it to the version history table, then tags the
 publishes a [GitHub release](https://github.com/aaronns87/muos-anbernic-manager/releases) with the same notes.
 Running managers only look at `VERSION` on `main`, so tags and releases never change what they offer.
 
+Branches: unreleased work collects on `changes/unreleased`, and pull requests from contributors should target it. A
+release renames that branch to `version/X.Y.Z`, adds the version bump and changelog there, and reaches `main` through a
+pull request the maintainer merges. A new `changes/unreleased` then starts from the release.
+
 ## License
 
 By contributing you agree that your contributions are licensed under the
