@@ -15,6 +15,9 @@ import { dict, list, parsePlist, str } from "../platform/plist.ts";
 import { isFile } from "../util.ts";
 import { requireCard, type SystemCard } from "./cards.ts";
 import { Cancelled, fullCheck, inspectImage, isSha256, normalizeHash, type ImageInfo } from "./image.ts";
+import { resetTf2OverWifi, setupTf2OverWifi, wifiTf2Card, wifiTf2Confirm, wifiTf2Status } from "./tf2-wifi.ts";
+
+export { wifiTf2Status };
 
 type Op = "install" | "tf2" | "reset";
 type StageState = "wait" | "run" | "done" | "fail" | "skip";
@@ -119,36 +122,57 @@ function validName(name: string, fs: "FAT32" | "ExFAT"): string {
 export async function startSystemJob(body: Record<string, unknown>) {
   requireIdle("Wait for the current transfer to finish first.");
   if (job?.state === "running") throw new UserError("Another card job is running.");
-  if (process.platform !== "darwin") throw new UserError("Card tools need macOS for now.");
   const op = String(body.op ?? "") as Op;
   if (!["install", "tf2", "reset"].includes(op)) throw new UserError("Unknown card job.");
-  const card = await requireCard(String(body.disk ?? ""));
-  if (String(body.confirm ?? "").trim() !== card.id) throw new UserError(`Type ${card.id} to confirm.`);
+  const viaWifi = (op === "tf2" || op === "reset") && body.via === "wifi";
+  if (!viaWifi && process.platform !== "darwin") throw new UserError("Card tools need macOS for now.");
 
-  let next: SystemJob, work: (j: SystemJob) => Promise<void>;
-  if (op === "install") {
-    const image = await inspectImage(String(body.image ?? ""));
-    if (image.bytes > card.size) throw new UserError(`The image unpacks to ${(image.bytes / 1e9).toFixed(1)} GB and ${card.id} holds ${(card.size / 1e9).toFixed(1)} GB.`);
-    let expected = normalizeHash(String(body.hash ?? "")), source = String(body.hashSource ?? "") || "the checksum you entered";
-    if (expected && !isSha256(expected)) throw new UserError("The checksum must be a 64 character SHA256.");
-    if (!expected && image.hash) [expected, source] = [image.hash.value, image.hash.source];
-    if (!expected && image.kind === "gz" && body.allowUnchecked !== true) throw new UserError("Add the SHA256 for this archive, or confirm installing without one.");
-    next = new SystemJob(op, card, `Install ${image.name}`, [["check", "Check image"], ["auth", "Authorize"], ["write", "Write"], ["verify", "Verify"], ["eject", "Eject"]]);
-    next.result = { image: image.name, bytes: image.bytes, hashSource: expected ? source : "" };
-    work = (j) => install(j, image, expected, source);
-  } else if (op === "tf2") {
-    next = new SystemJob(op, card, "Set up TF2", [["erase", "Erase"], ["mount", "Mount"], ["folders", "Create folders"]]);
-    work = (j) => setupTf2(j);
+  let card: SystemCard;
+  let work: (j: SystemJob) => Promise<void>;
+  let next: SystemJob;
+
+  if (viaWifi) {
+    if (String(body.confirm ?? "").trim() !== wifiTf2Confirm) throw new UserError(`Type ${wifiTf2Confirm} to confirm.`);
+    const info = await wifiTf2Status(true);
+    if (!info.ready) throw new UserError(info.reason || "TF2 is not ready over Wi-Fi.");
+    card = wifiTf2Card(info);
+    if (op === "tf2") {
+      next = new SystemJob(op, card, "Set up TF2 over Wi-Fi", [["erase", "Erase"], ["mount", "Mount"], ["folders", "Create folders"]]);
+      const folders = [...TF2_TOP, ...TF2_SYSTEMS.map((s) => `ROMS/${s}`)];
+      work = (j) => setupTf2OverWifi(j, info, folders, TF2_SYSTEMS.length);
+    } else {
+      const fs = body.fs === "ExFAT" ? "ExFAT" as const : "FAT32" as const;
+      const name = validName(String(body.name ?? "TF2"), fs);
+      next = new SystemJob(op, card, `Reset TF2 over Wi-Fi to ${fs === "FAT32" ? "FAT32" : "exFAT"} "${name}"`, [["erase", "Erase"], ["mount", "Mount"]]);
+      work = (j) => resetTf2OverWifi(j, info, fs, name);
+    }
   } else {
-    const fs = body.fs === "ExFAT" ? "ExFAT" : "FAT32";
-    const name = validName(String(body.name ?? "SD_CARD"), fs);
-    next = new SystemJob(op, card, `Reset to ${fs === "FAT32" ? "FAT32" : "exFAT"} "${name}"`, [["erase", "Erase"], ["mount", "Mount"]]);
-    work = (j) => reset(j, fs, name);
+    card = await requireCard(String(body.disk ?? ""));
+    if (String(body.confirm ?? "").trim() !== card.id) throw new UserError(`Type ${card.id} to confirm.`);
+    if (op === "install") {
+      const image = await inspectImage(String(body.image ?? ""));
+      if (image.bytes > card.size) throw new UserError(`The image unpacks to ${(image.bytes / 1e9).toFixed(1)} GB and ${card.id} holds ${(card.size / 1e9).toFixed(1)} GB.`);
+      let expected = normalizeHash(String(body.hash ?? "")), source = String(body.hashSource ?? "") || "the checksum you entered";
+      if (expected && !isSha256(expected)) throw new UserError("The checksum must be a 64 character SHA256.");
+      if (!expected && image.hash) [expected, source] = [image.hash.value, image.hash.source];
+      if (!expected && image.kind === "gz" && body.allowUnchecked !== true) throw new UserError("Add the SHA256 for this archive, or confirm installing without one.");
+      next = new SystemJob(op, card, `Install ${image.name}`, [["check", "Check image"], ["auth", "Authorize"], ["write", "Write"], ["verify", "Verify"], ["eject", "Eject"]]);
+      next.result = { image: image.name, bytes: image.bytes, hashSource: expected ? source : "" };
+      work = (j) => install(j, image, expected, source);
+    } else if (op === "tf2") {
+      next = new SystemJob(op, card, "Set up TF2", [["erase", "Erase"], ["mount", "Mount"], ["folders", "Create folders"]]);
+      work = (j) => setupTf2(j);
+    } else {
+      const fs = body.fs === "ExFAT" ? "ExFAT" : "FAT32";
+      const name = validName(String(body.name ?? "SD_CARD"), fs);
+      next = new SystemJob(op, card, `Reset to ${fs === "FAT32" ? "FAT32" : "exFAT"} "${name}"`, [["erase", "Erase"], ["mount", "Mount"]]);
+      work = (j) => reset(j, fs, name);
+    }
   }
 
   job = next;
   locks.system = `${next.title} on ${card.id} is running. Wait for it to finish.`;
-  busyDisks.add(card.id);
+  if (!viaWifi) busyDisks.add(card.id);
   say("yellow", "CARD", `${next.title} on ${card.id} (${card.media}).`);
   void (async () => {
     try {
@@ -169,7 +193,7 @@ export async function startSystemJob(body: Record<string, unknown>) {
     } finally {
       next.finished = Date.now();
       for (const s of next.stages) if (s.state === "wait") s.state = "skip";
-      busyDisks.delete(card.id);
+      if (!viaWifi) busyDisks.delete(card.id);
       locks.system = "";
     }
   })();

@@ -1,6 +1,6 @@
 // The connection to the handheld: a TF2 card in a reader, or the handheld over USB (MTP).
 
-import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
 import { renderWizard } from "./wizard.js";
@@ -259,6 +259,7 @@ export function renderSideDevice() {
 export function renderStatusbar() {
   const box = $("sb-status");
   if (!box) return;
+  syncSpinnerPhase();
   const conn = connection(), live = isLive(conn), job = app.job;
   const [viaIcon, via] = VIA[app.ui.mode];
   const parts = [];

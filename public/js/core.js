@@ -121,6 +121,11 @@ export const ICONS = {
   spin: `<span class="spinner sm"></span>`,
 };
 
+/** Keeps spinner rotation continuous across DOM remounts (job polls rewrite the panel often). */
+export function syncSpinnerPhase() {
+  document.documentElement.style.setProperty("--spin-phase", `${-(performance.now() % 800)}ms`);
+}
+
 export const store = {
   get(key, fallback) {
     try {

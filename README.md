@@ -73,6 +73,8 @@ per-session token. Nothing is uploaded anywhere.
 
 **Tools**
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
+  Install needs a card reader; Set up TF2 and Reset card can also run over Wi-Fi/SSH on the handheld's TF2 without
+  touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
@@ -237,9 +239,9 @@ those already on `main` but not yet released.
 
 | Connection | How | Good for |
 | --- | --- | --- |
-| Card reader | Take the games card (TF2, or the only card on one-slot models) out and put it in the computer. | Copying many games quickly; System Tools. |
+| Card reader | Take the games card (TF2, or the only card on one-slot models) out and put it in the computer. | Copying many games quickly; install MustardOS, set up TF2, wipe a card. |
 | USB cable | On the handheld: **Configuration > Advanced Settings > USB Function > MTP**, then plug it in. | Copying games and artwork; play time. |
-| Wi-Fi | Turn on **Configuration > Web Services > SFTP + Filebrowser** (files) and **Secure Shell** (everything else). | Everything, including apps, themes, ports, settings and saves. |
+| Wi-Fi | Turn on **Configuration > Web Services > SFTP + Filebrowser** (files) and **Secure Shell** (everything else). | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
 
 Switch between them at the top of the Overview page. The default MustardOS logins (`muos`/`muos` for SFTP, `root`/`root`
 for SSH) are filled in; **Find on network** looks for the handheld's address.
@@ -251,7 +253,7 @@ for SSH) are filled in; **Find on network** looks for the handheld's address.
 - **Copy to the handheld**: select games and use **Transfer**, or compare the library with the device on the Overview page.
 - **Artwork**: the Artwork page shows what is missing; **Scrape** fetches it, sized for your screen.
 - **Install MustardOS**: put a release image (`.img.gz`) in `os/` or download it from the Apps page, then use
-  **System Tools** with the card in a card reader.
+  **System Tools** with the card in a card reader. **Set up TF2** and **Reset card** there can also format the games card over Wi-Fi.
 
 Every page has a **?** button that opens its Wiki article.
 

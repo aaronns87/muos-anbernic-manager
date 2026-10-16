@@ -57,7 +57,8 @@ const ARTICLES = [
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
       <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
-      <tr><td>Install MustardOS, set up or wipe a card</td><td>Card reader</td></tr>
+      <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
+      <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
     </table>`],
     ["What is safe", `<ul>
@@ -93,8 +94,8 @@ const ARTICLES = [
       active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
       and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
-      A copy of several games has <b>Show the files</b>: every game in it with its own progress while it copies, and afterwards its size,
-      time and speed, or why it failed.
+      A copy of several games shows each file expanded by default (you can hide them): every game with its own progress while it
+      copies, and afterwards its size, time and speed, or why it failed.
       Start more copies while one runs and they wait in line. Stop the running copy or take a waiting one out of the queue at any time.
       Click the panel's title to minimise it to a thin progress bar, or hide it and open it again from the top bar. The history is kept
       between restarts until you clear it. Over USB the handheld takes one copy at a time, so a new one can start when the current one finishes.</p>`],
@@ -362,11 +363,13 @@ const ARTICLES = [
         and close the game on the handheld before saving.</p>`],
   ]],
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
-    ["Before you start", `<p>Put the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
-      All three tools <b>erase the card</b>, so back up your saves first (Emulation &rsaquo; Saves). Your computer may ask for your password to write to the card.</p>`],
-    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card, then reads it back to check it was written correctly.</p>`],
-    ["Set up TF2", `<p>Formats a games card and creates the <code>ROMS</code> folders MustardOS expects, ready for Games &rsaquo; copy to the handheld.</p>`],
-    ["Reset card", `<p>Wipes a card to one empty FAT32 or exFAT volume, for example to reuse it for something else.</p>`],
+    ["Before you start", `<p><b>Install MustardOS</b> needs the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
+      <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Writing from a card reader may ask for your password.</p>`],
+    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>`],
+    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the <code>ROMS</code> folders MustardOS expects.
+      Use a card in the reader, or pick <b>Over Wi-Fi</b> to format the TF2 card already in the handheld (<code>/mnt/sdcard</code>) over SSH.
+      The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path.</p>`],
+    ["Reset card", `<p>Wipes a card to one empty volume with no system folders. Pick FAT32 or exFAT and a name, on a card in the reader or on the handheld's TF2 over Wi-Fi (SD1 is never touched). Use <b>Set up TF2</b> when you want the ROMS folders too.</p>`],
   ]],
   ["ssh", "chip", "SSH", "ssh", "A command line on the handheld, plus a quick look at its system.", [
     ["What it is", `<p>A terminal connected to the handheld over Wi-Fi, for people comfortable with Linux commands. It needs ${SSH_ON} on the handheld.</p>`],

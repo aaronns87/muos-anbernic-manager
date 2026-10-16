@@ -55,7 +55,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Theme Designer | `theme-designer.ts` (themes in `ctx.themes`: scheme files, uploads checked by kind, fonts via `lv_font_conv`, create/import/rename/duplicate, `.muxthm` packing, install through `themes.ts`), `zip.ts` (zip writer, safe unzip) |
 | Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts`, `tuning/` (Game Tuning: `profiles.ts` settings and presets, `disc-id.ts` PSP disc IDs, `tuning.ts` per-game files, `cheats.ts` libretro cheat database and per-game cheat files) |
 | Checks and updates | `checks.ts` (No-Intro verify, duplicates), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld), `manager-update.ts` (the manager's own version and self-update) |
-| System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/flash-helper.ts` (runs as root to write a card) |
+| System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH), `system/flash-helper.ts` (runs as root to write a card) |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
 | Helpers | `util.ts` (`inside`, `safePart`, `exists`, `listDir`, ...), `tar.ts`, `errors.ts` |
 
@@ -88,7 +88,8 @@ The handheld runs MustardOS. The manager reaches it three ways, chosen by the us
 
 | Mode | Code | What works |
 | --- | --- | --- |
-| Card reader | `CardFs` on the mounted TF2 card (or SD1 on one-slot models); `system/cards.ts` for raw disks | files, games, artwork; System Tools |
+| Card reader | `CardFs` on the mounted TF2 card (or SD1 on one-slot models); `system/cards.ts` for raw disks | files, games, artwork; System Tools (install, TF2, reset) |
+| Wi-Fi SSH | `runCommand` / `storage.sh` on the handheld | System Tools Set up TF2 and Reset card (never SD1) |
 | USB (MTP) | `device/mtp.ts` via libmtp; vendor `0x1d6b`, product `0x0100` | files, games, artwork, play data |
 | Wi-Fi | `device/sftp.ts` (SFTPGo, port 2022, `muos`/`muos`) and `device/ssh.ts` (port 22, `root`/`root`) | everything; SSH is needed for apps, themes, ports, settings, cores, saves, BIOS |
 

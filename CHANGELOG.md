@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | TF2 format and reset over Wi-Fi/SSH |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
 | [1.2.0](#120---2026-10-14) | 2026-10-14 | Theme Designer, cheats per game in Game Tuning |
@@ -20,6 +20,18 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **TF2 over Wi-Fi.** System Tools can format the games card already in the handheld over SSH (`/mnt/sdcard`).
+  **Set up TF2** creates an exFAT volume named TF2 with the usual ROMS folders; **Reset card** leaves an empty FAT32 or
+  exFAT volume with the name you choose. Confirm by typing `TF2`. The system card (SD1) is never touched. Install
+  MustardOS stays card-reader only.
+
+### Changed
+
+- **Transfers**: multi-file lists start expanded (collapse if you want); the file list sits flush left; circular spinners
+  keep a steady rotation when the panel redraws.
 
 ## [1.2.2] - 2026-10-15
 

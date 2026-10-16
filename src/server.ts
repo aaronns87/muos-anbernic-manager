@@ -40,7 +40,7 @@ import { libraryJson, rescanLibrary } from "./games/library.ts";
 import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
-import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP } from "./system/ops.ts";
+import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { workspaceInfo } from "./workspace.ts";
@@ -288,7 +288,10 @@ const routes: Record<string, Handler> = {
   "POST /api/scrape/plan": (_, body) => scrapePlan(body),
   "GET /api/scrape/image": (q) => scrapeImage(q),
 
-  "GET /api/system/cards": async () => ({ cards: await listCards(), job: systemJob(), busy: locks.system, platform: process.platform }),
+  "GET /api/system/cards": async () => ({
+    cards: await listCards(), job: systemJob(), busy: locks.system, platform: process.platform,
+    wifiTf2: await wifiTf2Status().catch((error) => ({ ready: false, reason: (error as Error).message, host: "", size: 0, part: "", disk: "", mount: "", label: "" })),
+  }),
   "GET /api/system/images": async () => ({ images: await workspaceImages(), tf2: { top: TF2_TOP, systems: tf2Systems() } }),
   "POST /api/system/inspect": (_, body) => inspectImage(String(body.path ?? "")),
   "POST /api/system/hash-file": (_, body) => hashFromFile(String(body.path ?? ""), String(body.image ?? "")),

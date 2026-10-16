@@ -1,4 +1,5 @@
 // System section: the SD card in a card reader, and the jobs that rewrite it (install MustardOS, set up TF2, reset).
+// Set up TF2 and Reset card also run over Wi-Fi/SSH on the handheld's TF2; install stays card-reader only.
 
 import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model } from "./core.js";
 import { imageDevice } from "./devices.js";
@@ -22,7 +23,9 @@ const NAME = /^[A-Z0-9_-][A-Z0-9 _-]*$/;
 
 const S = {
   cards: null, error: "", disk: "", tab: store.get("sysTab", "install"),
-  images: null, tf2: null,
+  images: null, tf2: null, wifiTf2: null,
+  /** "card" = card reader, "wifi" = handheld over SSH. Used on the TF2 and Reset tabs. */
+  target: store.get("sysTf2Target", "card"),
   path: "", image: null, imageError: "", inspecting: false,
   hash: "", hashSource: "", hashError: "", unchecked: false,
   name: "SD_CARD", fs: "FAT32",
@@ -34,6 +37,11 @@ const running = () => app.sysJob?.state === "running";
 const cleanHash = () => S.hash.toLowerCase().replace(/\s+/g, "");
 const cleanName = () => S.name.trim().toUpperCase();
 const nameMax = () => (S.fs === "FAT32" ? 11 : 15);
+const wifiTab = () => S.tab === "tf2" || S.tab === "reset";
+const usingWifi = () => wifiTab() && S.target === "wifi";
+const wifiReady = () => !!S.wifiTf2?.ready;
+const preferWifi = () => wifiTab() && S.target === "card" && !card() && wifiReady();
+const confirmNeed = () => (usingWifi() ? "TF2" : card()?.id || "");
 
 /** The capacity printed on the card (64 GB) from the byte count diskutil reports. */
 function nominal(bytes) {
@@ -81,11 +89,14 @@ function renderCard() {
     return;
   }
   if (!S.cards.length) {
+    const wifiHint = wifiTab() && wifiReady();
     box.innerHTML = `<section class="panel sc sc-empty">
       <div class="slot" aria-hidden="true">${sdArt("slot-card")}<span class="slot-mouth"></span></div>
       <div class="sc-empty-text">
-        <h3>Insert an SD card</h3>
-        <p>Put the card in a card reader on this Mac. Installing, TF2 setup and reset unlock once it shows up here. Internal disks are never listed.</p>
+        <h3>${wifiHint ? "No card in the reader" : "Insert an SD card"}</h3>
+        <p>${wifiHint
+          ? `${S.tab === "tf2" ? "Set up TF2" : "Reset card"} can still run over Wi-Fi on <b>${esc(S.wifiTf2.host)}</b>. Pick <b>Over Wi-Fi</b> in the panel on the right. Install MustardOS still needs a card reader.`
+          : `Put the card in a card reader on this Mac. Installing, TF2 setup and reset unlock once it shows up here. Internal disks are never listed.${wifiTab() && S.wifiTf2?.reason ? ` Over Wi-Fi: ${esc(S.wifiTf2.reason)}` : ""}`}</p>
         <span class="sc-watch"><i></i>Watching for cards</span>
         ${S.error ? `<div class="notice err">${esc(S.error)}</div>` : ""}
       </div></section>`;
@@ -222,12 +233,17 @@ function tf2Form() {
       <ul class="tree-top">${top.map((f) => `<li class="${f === "ROMS" ? "open" : ""}">${icon("folder")}<span>${esc(f)}</span>${f === "ROMS" ? `<small>${plural(systems.length, "system folder")}</small>` : ""}</li>`).join("")}</ul>
       <div class="tree-roms">${systems.map((s) => `<span>${esc(s)}</span>`).join("")}</div>
     </div>
-    <p class="hint">On the handheld this card mounts at <code>/mnt/sdcard</code>, and muOS looks for games in <code>ROMS/&lt;system&gt;</code>. Once it's set up, switch the manager to Card reader and copy games straight onto it.</p>`);
+    <p class="hint">On the handheld this card mounts at <code>/mnt/sdcard</code>, and muOS looks for games in <code>ROMS/&lt;system&gt;</code>.
+      ${usingWifi()
+        ? " Over Wi-Fi the manager formats the card already in the handheld and leaves SD1 alone. Afterward you can copy games over Wi-Fi, USB or a card reader."
+        : " Once it is set up in a card reader, eject it, put it in the TF2 slot, or copy games while it is still in the reader."}</p>
+    ${S.wifiTf2 && !S.wifiTf2.ready && S.wifiTf2.reason ? `<div class="notice">${icon("info")}<span>Wi-Fi setup unavailable: ${esc(S.wifiTf2.reason)}</span></div>` : ""}`);
 }
 
 function resetForm() {
   const n = cleanName(), ok = n && n.length <= nameMax() && NAME.test(n);
-  const c = card();
+  const c = card(), wifi = usingWifi(), w = S.wifiTf2;
+  const sizeText = wifi ? (w?.size ? human(w.size) : "the whole card") : (c ? human(c.size) : "the whole card");
   const fsCard = (id, title, text) => `<button class="fs-opt${S.fs === id ? " on" : ""}" data-sys="fs" data-fs="${id}" role="radio" aria-checked="${S.fs === id}">
       <span class="fs-radio"></span><span><b>${title}</b><small>${text}</small></span></button>`;
   return step(1, "Format", ok ? "done" : "", "", `
@@ -239,12 +255,26 @@ function resetForm() {
       <input class="control mono" id="sys-name" maxlength="${nameMax()}" value="${esc(S.name)}" spellcheck="false" autocomplete="off"></label>
     <p class="hint" id="sys-name-hint">${ok ? `Up to ${nameMax()} characters: A–Z, 0–9, space, _ and -. Lowercase becomes uppercase.` : `<span class="bad-text">Use up to ${nameMax()} letters, numbers, spaces, _ or -.</span>`}</p>
     <div class="sub-head">After reset</div>
-    <div class="pbar"><i class="seg-${S.fs === "FAT32" ? "fat" : "exfat"}" style="flex:1"><b>${esc(n || "NO NAME")}</b><small>${S.fs === "FAT32" ? "FAT32" : "exFAT"} &middot; ${c ? human(c.size) : "the whole card"}</small></i></div>
-    <p class="hint">MBR partition map with one ${S.fs === "FAT32" ? "FAT32" : "exFAT"} volume, mounted on this Mac when done.</p>`);
+    <div class="pbar"><i class="seg-${S.fs === "FAT32" ? "fat" : "exfat"}" style="flex:1"><b>${esc(n || "NO NAME")}</b><small>${S.fs === "FAT32" ? "FAT32" : "exFAT"} &middot; ${sizeText}${wifi ? " &middot; over Wi-Fi" : ""}</small></i></div>
+    <p class="hint">${wifi
+      ? "Formats the games card in the handheld to one empty volume. No ROMS folders are created. SD1 is not touched. Use <b>Set up TF2</b> when you want the system folders too."
+      : `MBR partition map with one ${S.fs === "FAT32" ? "FAT32" : "exFAT"} volume, mounted on this Mac when done.`}</p>`);
 }
 
 /** Checklist that gates the start button. */
 function checks() {
+  if (usingWifi()) {
+    const w = S.wifiTf2;
+    const list = [
+      { ok: wifiReady(), text: wifiReady() ? `TF2 on ${w.host} over Wi-Fi` : (w?.reason || "Connect the handheld over Wi-Fi with SSH") },
+    ];
+    if (S.tab === "reset") {
+      const n = cleanName();
+      list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
+    }
+    list.push({ ok: wifiReady() && S.confirm.trim() === "TF2", text: "Type TF2 to confirm" });
+    return list;
+  }
   const c = card(), list = [{ ok: !!c, text: c ? `SD card ${c.id} detected` : "Insert an SD card" }];
   if (S.tab === "install") {
     const im = S.image, v = cleanHash();
@@ -262,25 +292,43 @@ function checks() {
 }
 
 function goPanel() {
-  const c = card(), op = OPS[S.tab];
+  const c = card(), op = OPS[S.tab], wifi = usingWifi(), w = S.wifiTf2;
   const src = S.tab === "install"
     ? S.image ? [icon("file"), S.image.name, human(S.image.bytes)] : [icon("file"), "Disk image", "Not picked yet"]
     : S.tab === "tf2" ? [icon("folder"), "TF2 layout", `exFAT · ${(S.tf2?.systems.length || 54)} systems`]
-    : [icon("eraser"), cleanName() || "NO NAME", S.fs === "FAT32" ? "FAT32" : "exFAT"];
-  const loses = c ? c.partitions.length ? `${plural(c.partitions.length, "partition")}${c.partitions.some((p) => p.volume) ? ` (${c.partitions.filter((p) => p.volume).map((p) => p.volume).join(", ")})` : ""}` : "everything on it" : "";
+    : [icon("eraser"), cleanName() || "NO NAME", `${S.fs === "FAT32" ? "FAT32" : "exFAT"}${wifi ? " · empty" : ""}`];
+  const targetOk = wifi ? wifiReady() : !!c;
+  const targetTitle = wifi ? "TF2" : (c ? c.id : "No card");
+  const targetSub = wifi
+    ? (wifiReady() ? `${w.host}${w.size ? ` · ${nominal(w.size)}` : ""}` : "Connect over Wi-Fi")
+    : (c ? `${nominal(c.size)} · ${c.role.label}` : "Insert one");
+  const need = confirmNeed();
+  const loses = !wifi && c
+    ? (c.partitions.length ? `${plural(c.partitions.length, "partition")}${c.partitions.some((p) => p.volume) ? ` (${c.partitions.filter((p) => p.volume).map((p) => p.volume).join(", ")})` : ""}` : "everything on it")
+    : "";
+  const warn = wifi
+    ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases TF2 on the handheld</b> (<code>/mnt/sdcard</code>). Every game and folder on that card is deleted${S.tab === "reset" ? "; the volume is left empty" : ""}. SD1 (MustardOS) is not touched.</span></div>`
+    : c ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases ${esc(c.id)} completely.</b> ${c.role.kind === "tf2" ? "This is a TF2 games card; its ROMS go too. " : c.role.kind === "muos" ? "The MustardOS install and its saves go too. " : ""}Loses ${esc(loses)}.</span></div>` : "";
+  const targets = wifiTab() ? `<div class="sc-chips go-targets" role="tablist" aria-label="Where to ${S.tab === "tf2" ? "set up TF2" : "reset the card"}">
+      <button class="${!wifi ? "on" : ""}" role="tab" aria-selected="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
+      <button class="${wifi ? "on" : ""}" role="tab" aria-selected="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
+    </div>` : "";
   return `<aside class="panel sys-go">
     <h2>${icon(op.icon)}${op.name}</h2>
+    ${targets}
     <div class="go-flow">
       <div class="go-node">${src[0]}<b title="${esc(src[1])}">${esc(src[1])}</b><small>${esc(src[2])}</small></div>
       <span class="go-arrow">${icon("arrow")}</span>
-      <div class="go-node target${c ? "" : " missing"}">${sdArt()}<b>${c ? esc(c.id) : "No card"}</b><small>${c ? `${nominal(c.size)} · ${esc(c.role.label)}` : "Insert one"}</small></div>
+      <div class="go-node target${targetOk ? "" : " missing"}">${sdArt()}<b>${esc(targetTitle)}</b><small>${esc(targetSub)}</small></div>
     </div>
     <ul class="go-checks" id="sys-checks">${checkList()}</ul>
-    ${c ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases ${esc(c.id)} completely.</b> ${c.role.kind === "tf2" ? "This is a TF2 games card; its ROMS go too. " : c.role.kind === "muos" ? "The MustardOS install and its saves go too. " : ""}Loses ${esc(loses)}.</span></div>` : ""}
-    <label class="confirm-field"><span>Type <code>${c ? esc(c.id) : "the disk"}</code> to confirm</span>
-      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${c ? esc(c.id) : ""}" ${c ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>
+    ${warn}
+    <label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
+      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>
     <button class="btn danger-solid go-btn" id="sys-go" data-sys="start" ${ready() ? "" : "disabled"}>${S.starting ? `<span class="spinner sm"></span>Starting` : `${icon(op.icon)}${op.button}`}</button>
-    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}macOS asks for your password before writing.` : `${icon("info")}Uses diskutil; takes under a minute.`}</p>
+    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}macOS asks for your password before writing.`
+      : wifi ? `${icon("info")}${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
+      : `${icon("info")}Uses diskutil; takes under a minute.`}</p>
   </aside>`;
 }
 
@@ -355,7 +403,15 @@ function doneText(j) {
   if (j.op === "install") return `<b>MustardOS is on ${esc(j.disk)}${r.verified ? " and verified" : ""}.</b>
     <p>The card was read back and matches the image${r.hashSource ? `, and the image matched ${esc(r.hashSource)}` : ""}. It's ejected and safe to pull out.</p>
     <ol class="job-next"><li>Put it in the handheld's <b>TF1</b> slot, the one muOS boots from.</li><li>Turn it on. The first boot sets up the card and can sit on <i>Factory Reset</i> for 5–10 minutes.</li><li>Then come back to Overview and connect over Wi-Fi.</li></ol>`;
-  if (j.op === "tf2") return `<b>TF2 is ready at <code>${esc(r.mount || "/Volumes/TF2")}</code>.</b><p>${plural(r.systems || 0, "system folder")} under ROMS. Switch the manager to Card reader to copy games to it, then eject and put it in the TF2 slot.</p>`;
+  if (j.op === "tf2") {
+    if (r.via === "wifi") {
+      return `<b>TF2 on the handheld is ready at <code>${esc(r.mount || "/mnt/sdcard")}</code>.</b><p>${plural(r.systems || 0, "system folder")} under ROMS. Copy games over Wi-Fi, USB or a card reader. SD1 was not touched.</p>`;
+    }
+    return `<b>TF2 is ready at <code>${esc(r.mount || "/Volumes/TF2")}</code>.</b><p>${plural(r.systems || 0, "system folder")} under ROMS. Switch the manager to Card reader to copy games to it, then eject and put it in the TF2 slot.</p>`;
+  }
+  if (r.via === "wifi") {
+    return `<b>TF2 on the handheld is an empty ${esc(r.fs === "FAT32" ? "FAT32" : "exFAT")} volume${r.name ? ` named ${esc(r.name)}` : ""} at <code>${esc(r.mount || "/mnt/sdcard")}</code>.</b><p>No ROMS folders were created. Run <b>Set up TF2</b> when you want them, or copy files yourself. SD1 was not touched.</p>`;
+  }
   return `<b>${esc(j.disk)} is now an empty volume${r.name ? ` named ${esc(r.name)}` : ""}.</b><p>${r.mount ? `Mounted at <code>${esc(r.mount)}</code>.` : "Ready to use."}</p>`;
 }
 
@@ -366,13 +422,26 @@ async function loadCards() {
     const r = await api("system/cards");
     S.error = "";
     S.cards = r.cards;
+    S.wifiTf2 = r.wifiTf2 || null;
     setJob(r.job);
   } catch (error) {
     S.error = error.message;
     S.cards ||= [];
   }
   if (S.disk && !S.cards.some((c) => c.id === S.disk)) S.disk = "";
-  const sig = JSON.stringify(S.cards.map((c) => [c.id, c.size, c.scheme, c.role.kind, c.partitions.map((p) => [p.id, p.mount])]));
+  // Prefer Wi-Fi when a Wi-Fi-capable tab is open, no card is in the reader, and the handheld is ready.
+  if (preferWifi()) {
+    S.target = "wifi";
+    store.set("sysTf2Target", "wifi");
+  }
+  if (S.target === "wifi" && !wifiReady() && card()) {
+    S.target = "card";
+    store.set("sysTf2Target", "card");
+  }
+  const sig = JSON.stringify([
+    S.cards.map((c) => [c.id, c.size, c.scheme, c.role.kind, c.partitions.map((p) => [p.id, p.mount])]),
+    S.wifiTf2?.ready, S.wifiTf2?.host, S.wifiTf2?.reason, S.target,
+  ]);
   renderCard();
   if (sig !== S.sig) {
     if (S.sig) S.confirm = "";
@@ -472,15 +541,21 @@ export function showSystem() {
 // ---------------------------------------------------------------- actions
 
 async function start() {
-  const c = card();
-  if (!c || !ready()) return;
+  if (!ready()) return;
   const op = OPS[S.tab];
-  const body = { op: S.tab, disk: c.id, confirm: S.confirm.trim() };
-  if (S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked });
+  const wifi = usingWifi();
+  const c = card();
+  if (!wifi && !c) return;
+  const body = wifi
+    ? { op: S.tab, via: "wifi", confirm: S.confirm.trim() }
+    : { op: S.tab, disk: c.id, confirm: S.confirm.trim() };
+  if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked });
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
   const ok = await confirmBox({
     title: `${op.button}?`,
-    html: `${S.tab === "install" ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b>.</p>` : ""}<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
+    html: wifi
+      ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
+      : `${S.tab === "install" ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b>.</p>` : ""}<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
     ok: op.button, danger: true,
   });
   if (!ok) return;
@@ -498,7 +573,26 @@ async function start() {
 
 async function act(el) {
   const what = el.dataset.sys;
-  if (what === "tab") { S.tab = el.dataset.tab; S.confirm = ""; store.set("sysTab", S.tab); renderBody(); return; }
+  if (what === "tab") {
+    S.tab = el.dataset.tab;
+    S.confirm = "";
+    store.set("sysTab", S.tab);
+    if (preferWifi()) {
+      S.target = "wifi";
+      store.set("sysTf2Target", "wifi");
+    }
+    renderCard();
+    renderBody();
+    return;
+  }
+  if (what === "target") {
+    S.target = el.dataset.target === "wifi" ? "wifi" : "card";
+    S.confirm = "";
+    store.set("sysTf2Target", S.target);
+    renderCard();
+    renderBody();
+    return;
+  }
   if (what === "disk") { S.disk = el.dataset.disk; S.confirm = ""; renderCard(); renderBody(); return; }
   if (what === "refresh") { el.disabled = true; await loadCards(); return; }
   if (what === "use-image") { if (el.dataset.path !== S.path) useImage(el.dataset.path); return; }
