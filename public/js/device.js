@@ -1,6 +1,7 @@
 // The connection to the handheld: a TF2 card in a reader, or the handheld over USB (MTP).
 
 import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
+import { chatConfigured } from "./chat.js";
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
 import { renderWizard } from "./wizard.js";
@@ -281,6 +282,9 @@ export function renderStatusbar() {
     parts.push(`<span class="sb-item sb-batt${battery <= 15 ? " low" : ""}" title="Battery ${battery}%"><span class="batt"><i style="width:${battery}%"></i></span>${battery}%</span>`);
   }
   parts.push(versionItem());
+  if (chatConfigured()) {
+    parts.push(`<button type="button" class="sb-item sb-chat" data-chat-open title="Open or hide the assistant">${icon("chat")}<span>Assistant</span></button>`);
+  }
   const now = new Date();
   const date = formatDate(now);
   parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);

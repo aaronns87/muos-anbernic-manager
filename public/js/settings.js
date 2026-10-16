@@ -11,6 +11,7 @@ import { openWizard } from "./wizard.js";
 import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
 import { forgetPlay } from "./play.js";
+import { chatConfiguredChanged } from "./chat.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -20,7 +21,7 @@ const PLACE_ICONS = {
   folder: FOLDER,
 };
 
-const s = { data: null, error: "", loading: false, working: "", browse: null, bound: false };
+const s = { data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false, chatKey: "" };
 
 /** Reads the settings again the next time the section opens, after the setup wizard changed them. */
 export function forgetSettings() {
@@ -37,7 +38,10 @@ export function showSettings() {
 async function load() {
   s.loading = true;
   try {
-    s.data = await api("settings");
+    const [data, chat] = await Promise.all([api("settings"), api("chat/settings")]);
+    s.data = data;
+    s.chat = chat;
+    s.chatKey = "";
     s.error = "";
   } catch (error) {
     s.error = error.message;
@@ -64,8 +68,49 @@ function render() {
   }
   const d = s.data;
   $("settings-sub").textContent = d.settings.roms ? `Roms folder: ${d.roms}` : "Where the manager finds your games, and how it behaves";
-  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}${resetPanel()}</div>`;
+  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${assistantPanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}${resetPanel()}</div>`;
 }
+
+function assistantPanel() {
+  const c = s.chat;
+  if (!c) return panel("full", "Assistant", `<p class="muted-note">Loading assistant settings&hellip;</p>`);
+  const prov = c.providers.find((p) => p.id === c.provider) || c.providers[0];
+  const models = (prov?.models || []).map((m) => `<option value="${esc(m.id)}"${c.model === m.id ? " selected" : ""}>${esc(m.label)}</option>`).join("");
+  const providers = c.providers.map((p) => `<option value="${esc(p.id)}"${c.provider === p.id ? " selected" : ""}>${esc(p.label)}</option>`).join("");
+  const help = c.help?.[c.provider] || "";
+  const status = c.configured
+    ? `<span class="set-chip ok">Key saved${c.keyHint ? ` (${esc(c.keyHint)})` : ""}</span>`
+    : `<span class="set-chip warn">No key — chat stays hidden</span>`;
+  return panel("full", `${icon("chat")} Assistant`, `
+    <p class="muted-note">Optional help chat that uses <b>your own free API key</b> (bring your own key). The key stays in the manager cache on this
+      computer and is sent only to the provider you choose. Without a key, the chat button stays hidden.</p>
+    <div class="set-row"><span><b>Status</b><small>After you save a key, open chat from the mustard chat button in the bottom-right corner, or <b>Assistant</b> in the top bar.</small></span>${status}</div>
+    <div class="set-row"><span><b>Provider</b><small>${esc(help)}</small></span>
+      <select class="control" id="chat-provider">${providers}</select></div>
+    <div class="set-row"><span><b>API key</b><small>Leave blank to keep the saved key. Clear removes it.</small></span>
+      <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste a free API key"}" value="${esc(s.chatKey)}"></div>
+    <div class="set-row"><span><b>Model</b><small>Or type a custom model id for this provider.</small></span>
+      <select class="control" id="chat-model">${models}<option value="__custom__"${(prov?.models || []).every((m) => m.id !== c.model) ? " selected" : ""}>Custom&hellip;</option></select></div>
+    <div class="set-row" id="chat-custom-row"${(prov?.models || []).some((m) => m.id === c.model) ? " hidden" : ""}><span><b>Custom model id</b></span>
+      <input class="control mono" id="chat-custom" spellcheck="false" value="${esc((prov?.models || []).some((m) => m.id === c.model) ? "" : c.model)}"></div>
+    <div class="set-row"><span><b>Temperature</b><small>Lower is more factual (0–1).</small></span>
+      <input class="control" id="chat-temp" type="number" min="0" max="1" step="0.1" value="${c.temperature}"></div>
+    <div class="set-row"><span><b>Max reply tokens</b><small>Caps length and free-tier use.</small></span>
+      <input class="control" id="chat-maxtok" type="number" min="256" max="4096" step="128" value="${c.maxTokens}"></div>
+    <label class="set-row set-toggle"><span><b>Include library context</b><small>Search your Roms/ library and LaunchBox descriptions when answering.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" id="chat-library"${c.includeLibrary ? " checked" : ""}><span class="switch-track"></span></span></label>
+    <label class="set-row set-toggle"><span><b>Include connection context</b><small>Send Wi-Fi/SSH/card status (never passwords) with each question.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" id="chat-connection"${c.includeConnection ? " checked" : ""}><span class="switch-track"></span></span></label>
+    <div class="panel-actions set-actions">
+      <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
+      <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
+    </div>
+    <div class="notice">${icon("info")}<span><b>Free keys.</b> <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a> (fast),
+      <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini), or
+      <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> models ending in <code>:free</code>.
+      Free tiers rate-limit; if a reply fails, wait or switch provider. See the Wiki article <b>Assistant</b>.</span></div>`);
+}
+
 
 const KINDS = {
   roms: { name: "Roms folder", workspace: "Roms" },
@@ -506,6 +551,42 @@ async function makeShortcut() {
   render();
 }
 
+async function saveAssistant(clear) {
+  if (!s.chat) return;
+  if (clear) {
+    const ok = await confirmBox({
+      title: "Clear the assistant key?",
+      html: "<p>The chat button disappears until you paste a key again. Conversation history in the panel is not kept on the server.</p>",
+      ok: "Clear key",
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  s.working = "chat";
+  render();
+  try {
+    const modelSel = $("chat-model")?.value;
+    const model = modelSel === "__custom__" ? ($("chat-custom")?.value || "").trim() : modelSel;
+    s.chat = await api("chat/settings", {
+      provider: $("chat-provider")?.value || s.chat.provider,
+      apiKey: clear ? "" : ($("chat-key")?.value ?? s.chatKey),
+      clearKey: !!clear,
+      model,
+      temperature: Number($("chat-temp")?.value),
+      maxTokens: Number($("chat-maxtok")?.value),
+      includeLibrary: !!$("chat-library")?.checked,
+      includeConnection: !!$("chat-connection")?.checked,
+    });
+    s.chatKey = "";
+    chatConfiguredChanged(s.chat.configured, s.chat);
+    toast(clear ? "Assistant key cleared" : s.chat.configured ? "Assistant saved" : "Saved — add a key to enable chat", 2600);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
 async function resetPrefs() {
   const ok = await confirmBox({
     title: "Reset view preferences?",
@@ -550,6 +631,8 @@ function bind() {
     else if (action === "wizard") openWizard();
     else if (action === "shortcut") makeShortcut();
     else if (action === "reset") factoryReset();
+    else if (action === "chat-save") saveAssistant(false);
+    else if (action === "chat-clear") saveAssistant(true);
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));
@@ -568,9 +651,18 @@ function bind() {
     if (t.dataset.setToggle) saveToggle(t.dataset.setToggle, t.checked);
     else if (t.dataset.setArtmax !== undefined) { artMax.set(t.value); toast("Saved"); }
     else if (t.dataset.setDate !== undefined) { app.ui.dateFormat = t.value; store.set("dateFormat", t.value); renderStatusbar(); }
+    else if (t.id === "chat-provider" && s.chat) {
+      s.chat.provider = t.value;
+      const p = s.chat.providers.find((x) => x.id === t.value);
+      if (p) s.chat.model = p.defaultModel;
+      render();
+    } else if (t.id === "chat-model") {
+      $("chat-custom-row").hidden = t.value !== "__custom__";
+    }
   });
   root.addEventListener("input", (e) => {
     if (e.target.id === "set-browse-path" && s.browse) s.browse.input = e.target.value;
+    if (e.target.id === "chat-key") s.chatKey = e.target.value;
   });
   root.addEventListener("submit", (e) => {
     if (e.target.dataset.setForm !== "go") return;

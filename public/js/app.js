@@ -5,6 +5,7 @@ import { deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatu
 import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
+import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
@@ -26,6 +27,7 @@ import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { openActivity } from "./activity.js";
 import { renderOverview } from "./overview.js";
+import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
 import "./combo.js";
 
 const TITLES = {
@@ -163,10 +165,13 @@ function bindShared() {
 
 applyView();
 setSideMin(store.get("sideMin", false), false);
+onChatConfigured(() => renderStatusbar());
 bindShared();
 bindModelPicker();
 bindGames();
 bindCopy();
+bindChat();
+bindWhatsNew();
 bindArtwork();
 bindArtworkView();
 bindSystem();
@@ -181,7 +186,8 @@ if (!TOKEN) {
 } else {
   startLibraryLoad();
   refreshDevice();
-  checkWizard();
+  loadChatConfig();
+  checkWizard().then(() => checkWhatsNew());
   startManagerChecks();
   if (section() !== "apps") countApps();
   poll();

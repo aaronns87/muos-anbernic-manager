@@ -77,12 +77,17 @@ per-session token. Nothing is uploaded anywhere.
   touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
+- **Assistant**: optional chat (bring your own free API key under Settings → Assistant) that knows the manager, your
+  library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the bottom-right corner
+  or **Assistant** in the top bar. Replies support Markdown (including tables) and show timestamps; it will not invent
+  walkthroughs.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
   the copies waiting their turn and a history of finished ones. Start more copies while one runs and they queue up;
   minimise the panel to a thin progress bar or hide it and reopen it from the top bar.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
-  cloned the repository or downloaded the ZIP. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
-- **Settings**: folders, connections, caches, history resets and a factory reset that starts over from the setup wizard.
+  cloned the repository or downloaded the ZIP. After you restart into a new version, a **What's new** dialog lists the
+  changes once. See [CHANGELOG.md](CHANGELOG.md) for the full history.
+- **Settings**: folders, connections, the assistant API key, caches, history resets and a factory reset that starts over from the setup wizard.
 
 ## Screenshots
 

@@ -462,6 +462,12 @@ function paint(what = "all") {
 
 // ---------------------------------------------------------------- entry points
 
+/** The open game viewer, for the assistant and other panels. */
+export function openViewerGame() {
+  if (!V.cur || !$("viewer")?.open) return null;
+  return { code: V.cur.sys.code, file: V.cur.g.f, title: V.cur.g.t };
+}
+
 /** Fills the viewer for the game at app.visible[index]; called by openViewer. */
 export function enrichViewer(index) {
   const [si, g] = app.visible[index];

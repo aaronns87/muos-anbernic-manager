@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | TF2 format and reset over Wi-Fi/SSH |
+| [Unreleased](#unreleased) | | TF2 over Wi-Fi, BYOK assistant |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
 | [1.2.0](#120---2026-10-14) | 2026-10-14 | Theme Designer, cheats per game in Game Tuning |
@@ -27,6 +27,15 @@ version.
   **Set up TF2** creates an exFAT volume named TF2 with the usual ROMS folders; **Reset card** leaves an empty FAT32 or
   exFAT volume with the name you choose. Confirm by typing `TF2`. The system card (SD1) is never touched. Install
   MustardOS stays card-reader only.
+- **Assistant (BYOK).** Optional chat after you paste a free API key under Settings (Groq, Google Gemini or OpenRouter).
+  Open it from the mustard chat button in the bottom-right corner or **Assistant** in the top bar. Answers are grounded
+  in the Wiki, your Roms library, LaunchBox metadata and connection status; replies render Markdown (including tables)
+  with timestamps. Groq free chat models: `openai/gpt-oss-20b` (default), `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`.
+  It will not invent walkthroughs (it points to GameFAQs / StrategyWiki instead) and cannot change the handheld. The key
+  stays in `.cache` on this computer.
+- **What's new after update.** The first time you open the manager after a version bump, a dialog lists the changelog
+  entries for the new version (and any you skipped). It is remembered in `.cache/seen-version` so it only appears once
+  per upgrade.
 
 ### Changed
 

@@ -56,6 +56,8 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts`, `tuning/` (Game Tuning: `profiles.ts` settings and presets, `disc-id.ts` PSP disc IDs, `tuning.ts` per-game files, `cheats.ts` libretro cheat database and per-game cheat files) |
 | Checks and updates | `checks.ts` (No-Intro verify, duplicates), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld), `manager-update.ts` (the manager's own version and self-update) |
 | System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH), `system/flash-helper.ts` (runs as root to write a card) |
+| Assistant (BYOK chat) | `chat.ts` (`.cache/chat.json` key, Groq/Gemini/OpenRouter, context from `docs/assistant-wiki.json` + library + connection); UI `public/js/chat.js` (FAB + dock, Markdown replies) |
+| What's new | `whats-new.ts` (`.cache/seen-version` vs `VERSION`, parse `CHANGELOG.md`); UI `public/js/whats-new.js` |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
 | Helpers | `util.ts` (`inside`, `safePart`, `exists`, `listDir`, ...), `tar.ts`, `errors.ts` |
 
@@ -73,7 +75,7 @@ of DOM and Node APIs.
 - `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`).
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
   (+ `updates.js`), `handheld.js`, `themes.js` (Designer tab: `theme-designer.js` editor and preview, `theme-assets.js` file panels, `theme-preview.js` canvas renderer, `theme-schema.js` every scheme setting), `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
-  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `wiki.js`.
+  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `wiki.js`, `chat.js` (assistant dock).
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
   their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
   `manager-update.js`, `activity.js`. The library game viewer is opened by `games.js` and filled by
@@ -133,4 +135,5 @@ localStorage keys and reloads once `/api/manager` reports a new start time.
 `VERSION` is compared with `https://raw.githubusercontent.com/<repo>/main/VERSION` (repo from
 `package.json` `repository`) at most every 3 hours. A git clone updates with `git pull --ff-only origin main`;
 a downloaded copy swaps in the files of GitHub's ZIP of `main` (old ones in `.update-old/`). Then the process
-exits with code 75 and `run.sh` restarts it. Versions are set by hand; see `.cursor/rules/versioning.mdc`.
+exits with code 75 and `run.sh` restarts it. After that restart, `whats-new.ts` compares `VERSION` to
+`.cache/seen-version` and may open the What's new dialog once. Versions are set by hand; see `.cursor/rules/versioning.mdc`.
