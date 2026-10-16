@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
 | [1.2.0](#120---2026-10-14) | 2026-10-14 | Theme Designer, cheats per game in Game Tuning |
@@ -20,6 +21,29 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.2.3] - 2026-10-16
+
+### Added
+
+- **TF2 over Wi-Fi.** System Tools can format the games card already in the handheld over SSH (`/mnt/sdcard`).
+  **Set up TF2** creates an exFAT volume named TF2 with the usual ROMS folders; **Reset card** leaves an empty FAT32 or
+  exFAT volume with the name you choose. Confirm by typing `TF2`. The system card (SD1) is never touched. Install
+  MustardOS stays card-reader only.
+- **Assistant (BYOK).** Optional chat after you paste a free API key under Settings (Groq, Google Gemini or OpenRouter).
+  Open it from the mustard chat button in the bottom-right corner or **Assistant** in the top bar. Answers are grounded
+  in the Wiki, your Roms library, LaunchBox metadata and connection status; replies render Markdown (including tables)
+  with timestamps. Groq free chat models: `openai/gpt-oss-20b` (default), `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`.
+  It will not invent walkthroughs (it points to GameFAQs / StrategyWiki instead) and cannot change the handheld. The key
+  stays in `.cache` on this computer.
+- **What's new after update.** The first time you open the manager after a version bump, a dialog lists the changelog
+  entries for the new version (and any you skipped). It is remembered in `.cache/seen-version` so it only appears once
+  per upgrade.
+
+### Changed
+
+- **Transfers**: multi-file lists start expanded (collapse if you want); the file list sits flush left; circular spinners
+  keep a steady rotation when the panel redraws.
 
 ## [1.2.2] - 2026-10-15
 
@@ -183,7 +207,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.2...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.3...changes/unreleased
+[1.2.3]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.3
 [1.2.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.2
 [1.2.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.1
 [1.2.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.0

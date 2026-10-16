@@ -484,6 +484,14 @@
   <div class="mgr-body" id="mgr-body"></div>
   <footer class="fv-foot" id="mgr-foot"></footer>
 </dialog>
+<dialog id="whats-new" class="whats" aria-labelledby="whats-title">
+  <header class="help-head">
+    <div><h2 id="whats-title">What&rsquo;s new</h2><p id="whats-sub">Changes in this version of the manager.</p></div>
+    <button class="icon-btn help-x" data-whats="close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="whats-body" id="whats-body"></div>
+  <footer class="fv-foot"><span class="muted-note">From CHANGELOG.md in the manager folder.</span><span class="grow"></span><button class="btn primary" data-whats="close">Got it</button></footer>
+</dialog>
 <dialog id="wizard" class="wiz" aria-labelledby="wiz-title">
   <header class="wiz-head">
     <ol class="wiz-steps" id="wiz-steps"></ol>
@@ -516,6 +524,10 @@
 <div class="busy" id="busy" hidden><div><span class="spinner"></span><span id="busy-text">Working&hellip;</span></div></div>
 <div class="bulk" id="bulk" hidden></div>
 <div class="dock" id="dock" role="region" aria-label="Transfers" hidden></div>
+<div class="dock chat-dock" id="chat-dock" role="region" aria-label="Assistant" hidden></div>
+<button type="button" class="chat-fab" id="chat-fab" data-chat-open hidden title="Open the assistant" aria-label="Open assistant" aria-controls="chat-dock" aria-expanded="false">
+  <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+</button>
 <button class="top" id="top" title="Back to top">&#8593;</button>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

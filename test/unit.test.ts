@@ -33,6 +33,7 @@ import zlib from "node:zlib";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
 import { inside, safePart, splitName } from "../src/util.ts";
+import { parseChangelog, releasesSince } from "../src/whats-new.ts";
 
 const tmp = (t: { after: (fn: () => void) => void }) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "manager-test-"));
@@ -101,6 +102,33 @@ test("compareVersions", () => {
   assert.ok(compareVersions("v8.0.5", "2.2.1") > 0);
   assert.equal(compareVersions("1.4", "v1.4.0"), 0);
   assert.ok(compareVersions("1.10", "1.9") > 0);
+});
+
+test("whats-new parses CHANGELOG version blocks", () => {
+  const md = `# Changelog
+## [Unreleased]
+### Added
+- Skip me
+## [1.2.2] - 2026-10-15
+### Added
+- **Transfers** panel
+  with a queue.
+### Fixed
+- A small bug
+## [1.2.1] - 2026-10-14
+### Changed
+- Dropdowns
+`;
+  const all = parseChangelog(md);
+  assert.equal(all.length, 2);
+  assert.equal(all[0].version, "1.2.2");
+  assert.equal(all[0].date, "2026-10-15");
+  assert.equal(all[0].sections[0].title, "Added");
+  assert.match(all[0].sections[0].items[0], /Transfers.*queue/);
+  assert.equal(all[0].sections[1].items[0], "A small bug");
+  const since = releasesSince(all, "1.2.1", "1.2.2");
+  assert.deepEqual(since.map((r) => r.version), ["1.2.2"]);
+  assert.deepEqual(releasesSince(all, "1.2.0", "1.2.2").map((r) => r.version), ["1.2.2", "1.2.1"]);
 });
 
 test("versionOfBuild finds a point release from the build id in an image name", () => {

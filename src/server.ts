@@ -40,7 +40,7 @@ import { libraryJson, rescanLibrary } from "./games/library.ts";
 import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
-import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP } from "./system/ops.ts";
+import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { workspaceInfo } from "./workspace.ts";
@@ -52,8 +52,10 @@ import { biosJson, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
+import { chatSettingsPublic, runChat, saveChatSettings } from "./chat.ts";
 import { createShortcut } from "./shortcut.ts";
 import { managerStatus, restartManager, startedAt, updateManager } from "./manager-update.ts";
+import { dismissWhatsNew, whatsNewStatus } from "./whats-new.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
@@ -192,8 +194,13 @@ const routes: Record<string, Handler> = {
     return { ok: true };
   },
   "GET /api/settings": () => settingsJson(),
+  "GET /api/chat/settings": () => chatSettingsPublic(),
+  "POST /api/chat/settings": (_, body) => saveChatSettings(body),
+  "POST /api/chat": (_, body) => runChat(body),
   "GET /api/manager": (q) => managerStatus(q.get("refresh") === "1"),
   "POST /api/manager/update": () => updateManager(),
+  "GET /api/whats-new": () => whatsNewStatus(),
+  "POST /api/whats-new/dismiss": () => dismissWhatsNew(),
   "POST /api/settings": (_, body) => saveSettings(body),
   "GET /api/settings/folders": (q) => browseFolders(q),
   "POST /api/settings/pick-folder": (_, body) => pickFolder(body),
@@ -288,7 +295,10 @@ const routes: Record<string, Handler> = {
   "POST /api/scrape/plan": (_, body) => scrapePlan(body),
   "GET /api/scrape/image": (q) => scrapeImage(q),
 
-  "GET /api/system/cards": async () => ({ cards: await listCards(), job: systemJob(), busy: locks.system, platform: process.platform }),
+  "GET /api/system/cards": async () => ({
+    cards: await listCards(), job: systemJob(), busy: locks.system, platform: process.platform,
+    wifiTf2: await wifiTf2Status().catch((error) => ({ ready: false, reason: (error as Error).message, host: "", size: 0, part: "", disk: "", mount: "", label: "" })),
+  }),
   "GET /api/system/images": async () => ({ images: await workspaceImages(), tf2: { top: TF2_TOP, systems: tf2Systems() } }),
   "POST /api/system/inspect": (_, body) => inspectImage(String(body.path ?? "")),
   "POST /api/system/hash-file": (_, body) => hashFromFile(String(body.path ?? ""), String(body.image ?? "")),

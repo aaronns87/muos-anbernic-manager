@@ -103,6 +103,8 @@ const PATHS = {
   pencil: '<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
   palette: '<path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/><circle cx="17" cy="11" r="1"/>',
+  chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 
 /** An inline icon; sizes come from CSS (.i, or the button it sits in). */
@@ -120,6 +122,11 @@ export const ICONS = {
   get: icon("download"),
   spin: `<span class="spinner sm"></span>`,
 };
+
+/** Keeps spinner rotation continuous across DOM remounts (job polls rewrite the panel often). */
+export function syncSpinnerPhase() {
+  document.documentElement.style.setProperty("--spin-phase", `${-(performance.now() % 800)}ms`);
+}
 
 export const store = {
   get(key, fallback) {

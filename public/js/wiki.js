@@ -31,8 +31,9 @@ const ARTICLES = [
       <code>git pull</code> in a copy installed with <code>git clone</code>, or downloads and swaps in the new files in a copy
       downloaded as a ZIP (the old files stay in <code>.update-old</code>), then restarts in the same tab.
       ${path("Settings", "Check for manager updates")} turns the check off.</p>
-      <p><b>What's new.</b> Every version's changes are listed in <code>CHANGELOG.md</code> in the manager's folder; <b>What's new</b> in the
-      update dialog opens it on GitHub. Changes listed under <b>Unreleased</b> are already on GitHub and arrive with the next version.</p>`],
+      <p><b>What's new.</b> After you update and restart, a <b>What's new</b> dialog lists the changes for that version (from
+        <code>CHANGELOG.md</code>). It only appears once per version. You can also open the full changelog from the manager updates
+        dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>
@@ -57,7 +58,8 @@ const ARTICLES = [
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
       <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
-      <tr><td>Install MustardOS, set up or wipe a card</td><td>Card reader</td></tr>
+      <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
+      <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
     </table>`],
     ["What is safe", `<ul>
@@ -93,8 +95,8 @@ const ARTICLES = [
       active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
       and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
-      A copy of several games has <b>Show the files</b>: every game in it with its own progress while it copies, and afterwards its size,
-      time and speed, or why it failed.
+      A copy of several games shows each file expanded by default (you can hide them): every game with its own progress while it
+      copies, and afterwards its size, time and speed, or why it failed.
       Start more copies while one runs and they wait in line. Stop the running copy or take a waiting one out of the queue at any time.
       Click the panel's title to minimise it to a thin progress bar, or hide it and open it again from the top bar. The history is kept
       between restarts until you clear it. Over USB the handheld takes one copy at a time, so a new one can start when the current one finishes.</p>`],
@@ -362,11 +364,13 @@ const ARTICLES = [
         and close the game on the handheld before saving.</p>`],
   ]],
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
-    ["Before you start", `<p>Put the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
-      All three tools <b>erase the card</b>, so back up your saves first (Emulation &rsaquo; Saves). Your computer may ask for your password to write to the card.</p>`],
-    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card, then reads it back to check it was written correctly.</p>`],
-    ["Set up TF2", `<p>Formats a games card and creates the <code>ROMS</code> folders MustardOS expects, ready for Games &rsaquo; copy to the handheld.</p>`],
-    ["Reset card", `<p>Wipes a card to one empty FAT32 or exFAT volume, for example to reuse it for something else.</p>`],
+    ["Before you start", `<p><b>Install MustardOS</b> needs the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
+      <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Writing from a card reader may ask for your password.</p>`],
+    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>`],
+    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the <code>ROMS</code> folders MustardOS expects.
+      Use a card in the reader, or pick <b>Over Wi-Fi</b> to format the TF2 card already in the handheld (<code>/mnt/sdcard</code>) over SSH.
+      The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path.</p>`],
+    ["Reset card", `<p>Wipes a card to one empty volume with no system folders. Pick FAT32 or exFAT and a name, on a card in the reader or on the handheld's TF2 over Wi-Fi (SD1 is never touched). Use <b>Set up TF2</b> when you want the ROMS folders too.</p>`],
   ]],
   ["ssh", "chip", "SSH", "ssh", "A command line on the handheld, plus a quick look at its system.", [
     ["What it is", `<p>A terminal connected to the handheld over Wi-Fi, for people comfortable with Linux commands. It needs ${SSH_ON} on the handheld.</p>`],
@@ -378,7 +382,7 @@ const ARTICLES = [
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
     ["Behaviour and looks", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
-      the date and clock format, and the size uploaded artwork is saved at.</p>`],
+      the date and clock format, and the size uploaded artwork is saved at. <b>Assistant</b> is where you paste a free chat API key if you want the in-app help chat.</p>`],
     ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
       ROM check results. They are fetched or worked out again when needed.</p>`],
@@ -393,7 +397,7 @@ const ARTICLES = [
     ["Factory reset", `<p>The red panel at the bottom starts the manager over as if it had just been installed. It moves to the Trash:</p>
       <ul>
         <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups and themes;</li>
-        <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, downloaded game data and
+        <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, assistant API keys, downloaded game data and
           catalogues, ROM check results and the activity log;</li>
         <li>this browser's view preferences.</li>
       </ul>
@@ -401,6 +405,33 @@ const ARTICLES = [
         not touched, and neither is the app shortcut. Nothing is deleted outright, so you can get it back from the Trash until you empty it. On a
         Mac, a folder on another drive is left where it is instead of being copied to the Trash; delete it yourself if you want it gone.
         When the manager was not started with <code>run.sh</code> or <code>run.cmd</code> it stops instead of restarting, so start it again.</p>`],
+  ]],
+  ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own free API key to help with the manager and your library.", [
+    ["What it is", `<p>A chat panel in the bottom-right corner. After you save an API key under ${path("Settings", "Assistant")},
+      a mustard chat button appears there, and an <b>Assistant</b> control appears in the top bar. Either opens the panel;
+      hide it with the panel's close control. The manager never ships a shared key: you bring your own (BYOK).</p>
+      <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
+        <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
+    ["What it is good at", `<ul>
+      <li>How the manager works, using the same help text as this Wiki for the page you are on.</li>
+      <li>What is in your <code>Roms/</code> library (systems, genres, titles) and LaunchBox descriptions when game data is downloaded.</li>
+      <li>Describing a game you have open, or recommending titles from your library.</li>
+      <li>Connection status (card reader, USB, Wi-Fi / SSH) without sending passwords.</li>
+    </ul>`],
+    ["What it will not do", `<ul>
+      <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
+      <li>Format cards, wipe disks or change the handheld. Use System Tools and the other sections for that.</li>
+    </ul>`],
+    ["Free API keys", `<p>Under ${path("Settings", "Assistant")} pick a provider and paste a key:</p>
+      <ul>
+        <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
+          Free-tier chat models are <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
+          <code>qwen/qwen3.8-27b</code>. Llama chat models are no longer on Groq's free plan.</li>
+        <li><b>Google Gemini</b> — <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>: Gemini Flash models, free tier.</li>
+        <li><b>OpenRouter</b> — <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>: models whose id ends in <code>:free</code>, or <code>openrouter/free</code>. Lower daily cap until you have ever bought credit.</li>
+      </ul>
+      <p>Keys stay in the manager's <code>.cache</code> on this computer (file mode 600) and are sent only to the provider you chose.
+        Free tiers rate-limit; if a reply fails, wait or switch provider. A factory reset removes the key with the rest of the cache.</p>`],
   ]],
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">

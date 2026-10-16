@@ -1,6 +1,6 @@
 // Copying games to the device, and the Transfers panel every job reports to: running, waiting and finished jobs.
 
-import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
 import { renderDevice, refreshDevice, renderStatusbar } from "./device.js";
 import { loadLibrary, resetListing } from "./games.js";
 import { resetOverview } from "./overview.js";
@@ -168,7 +168,8 @@ export async function poll() {
 
 const T = {
   active: [], history: [], shown: false, ready: false, min: store.get("dockMin", false), pastSig: "", pressing: false,
-  open: new Set(), files: new Map(), loading: new Set(),
+  /** Job ids the user collapsed; multi-file lists start expanded. */
+  closed: new Set(), files: new Map(), loading: new Set(),
 };
 
 const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
@@ -207,16 +208,20 @@ function fileRows(j) {
   return `<ul class="tx-files">${list.map((f) => fileRow(j, f)).join("")}${more}</ul>`;
 }
 
+function filesOpen(j) {
+  return j.count >= 2 && !T.closed.has(j.id);
+}
+
 function filesToggle(j) {
   if (j.count < 2) return "";
-  const open = T.open.has(j.id);
+  const open = filesOpen(j);
   const label = open ? "Hide the files" : `Show the ${j.count.toLocaleString()} files${j.failed_count ? `${dot}${j.failed_count} failed` : ""}`;
   return `<button class="tx-more" data-dock="files" data-id="${j.id}" aria-expanded="${open}">${icon("down")}<span>${label}</span></button>${open ? fileRows(j) : ""}`;
 }
 
 /** Fetches a job's file list when it is shown and out of date: once for waiting and finished jobs, after each file for the running one. */
 function wantFiles(j) {
-  if (!T.open.has(j.id) || T.loading.has(j.id)) return;
+  if (!filesOpen(j) || T.loading.has(j.id)) return;
   const got = T.files.get(j.id);
   if (got && got.index === j.index && got.state === j.state) return;
   T.loading.add(j.id);
@@ -298,6 +303,7 @@ function headIcon() {
 function renderDock() {
   const dock = $("dock");
   if (T.pressing) return;
+  syncSpinnerPhase();
   if (!dock.firstChild) {
     dock.innerHTML = `<div class="dock-head" id="dock-head"></div><div class="bar thin dock-mini" id="dock-mini"><i></i></div>
       <div class="dock-body" id="dock-body"><div id="dock-active"></div><div id="dock-past"></div></div>`;
@@ -351,7 +357,7 @@ export function bindCopy() {
     if (action === "min") { T.min = !T.min; store.set("dockMin", T.min); renderDock(); return; }
     if (action === "close") { T.shown = false; renderDock(); return; }
     if (action === "files") {
-      if (!T.open.delete(id)) T.open.add(id);
+      if (!T.closed.delete(id)) T.closed.add(id);
       T.pastSig = "";
       renderDock();
       return;

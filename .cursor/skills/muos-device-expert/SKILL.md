@@ -54,7 +54,9 @@ await withTarget(volume, async (t) => {
 
 - Writes only from an explicit user action; device deletes are permanent, so confirm first.
 - Agents must not write to the user's real handheld or cards to test. Read-only listing is fine.
-- `src/system/` (flashing, formatting, backups) accepts only whole external removable disks; never relax it.
+- `src/system/` install accepts only whole external removable disks; never relax that. Set up TF2 and Reset card may also
+  run over SSH (`system/tf2-wifi.ts`) against `/mnt/sdcard` only - never `/mnt/mmc` / SD1. Reset over Wi-Fi leaves an
+  empty FAT32 or exFAT volume with the chosen name; Set up TF2 always uses exFAT named TF2 and creates the ROMS folders.
 - Every write logs with `say(...)` so it shows in the activity log.
 
 ## Before changing device code
