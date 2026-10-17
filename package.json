@@ -1,6 +1,6 @@
 {
   "name": "muos-anbernic-manager",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Local manager for Anbernic and TrimUI handhelds running MustardOS: games, artwork, apps, themes, ports and settings over a card reader, USB or Wi-Fi.",
   "license": "AGPL-3.0-or-later",
   "repository": {
