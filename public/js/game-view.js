@@ -12,7 +12,7 @@ const stemOf = (f) => String(f).replace(/\.[^.]+$/, "");
 const baseOf = (p) => String(p).split("/").pop() || "";
 
 const V = {
-  tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, video: false, expanded: false, fixing: false, saving: false,
+  tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, renaming: false, video: false, expanded: false, fixing: false, saving: false,
   details: new Map(), dataRef: null, rel: [], dev: { key: "", at: 0, seq: 0 },
 };
 let hooks = { open: () => {}, reload: async () => {} };
@@ -133,6 +133,7 @@ function tagsHtml() {
   if (c?.state === "ok") out.push(`<span class="t-ok" title="Matches the No-Intro list${c.as ? ` as ${esc(c.as)}` : ""}">${icon("check")}Verified</span>`);
   else if (c?.state === "bad") out.push(`<span class="t-bad" title="${esc(c.note)}">${icon("alert")}Bad dump</span>`);
   else if (c?.state === "modified") out.push(`<span class="t-warn" title="A hack, translation or patched copy">Modified</span>`);
+  if (c?.disc?.state === "bad") out.push(`<span class="t-bad" title="${esc(c.disc.note)}">${icon("alert")}Disc layout</span>`);
   if (d?.bios?.required && d.bios.files.some((f) => f.state !== "ok")) out.push(`<span class="t-warn" title="This system's default core needs a BIOS file you don't have">${icon("shield")}BIOS missing</span>`);
   if (c?.copies.length) out.push(`<span title="Other versions of this game in your library">${plural(c.copies.length + 1, "version")}</span>`);
   if (g.c) out.push(`<span title="A MAME clone of ${esc(g.c)}">Clone</span>`);
@@ -302,8 +303,18 @@ function detailsPane() {
     ["System", `${esc(sys.name)} <span class="muted">${esc(sys.maker)}${sys.year ? ` &middot; ${sys.year}` : ""}</span>`],
   ]);
   const crc = d === null || d === undefined ? `<span class="spinner sm"></span>` : d.error ? "&ndash;" : d.check.crc ? `<code>${esc(d.check.crc)}</code>` : `<span class="muted">Worked out by a library check</span>`;
+  const stem = stemOf(g.f), ext = g.x || (g.f.includes(".") ? g.f.split(".").pop() : "");
+  const fileName = V.renaming
+    ? `<form class="v-rename" id="v-rename-form">
+        <input class="control" id="v-rename-input" value="${esc(stem)}" spellcheck="false" autocomplete="off" aria-label="New file name" ${V.saving ? "disabled" : ""}>
+        <span class="v-rename-ext">.${esc(ext)}</span>
+        <button type="submit" class="btn small primary" ${V.saving ? "disabled" : ""}>${V.saving ? `<span class="spinner sm"></span>` : "Save"}</button>
+        <button type="button" class="btn small" data-vrename="cancel" ${V.saving ? "disabled" : ""}>Cancel</button>
+      </form>`
+    : `<code title="${esc(g.f)}">${esc(g.f)}</code>
+      <button class="link-btn" data-vrename="open" title="Rename the file in Roms/">${icon("pencil")}Rename</button>`;
   const file = dl([
-    ["File", `<code>${esc(g.f)}</code>`],
+    ["File", fileName],
     ["Type", esc(g.x.toUpperCase() || "-")],
     ["Size", `${human(g.s)}${g.n ? ` <span class="muted">with ${plural(g.n, "data file")}</span>` : ""}`],
     ["Modified", esc(`${formatDate(new Date(g.m * 1000), "long")} ${formatTime(new Date(g.m * 1000))}`)],
@@ -311,7 +322,7 @@ function detailsPane() {
     ["Artwork", g.i ? "Yes" : `<span class="app-bad">Missing</span> ${go("art", "Find artwork")}`],
     ["Path", `<code>${esc(g.p)}</code>`],
   ]);
-  return [sec("Game", "handheld", game), sec("File", "file", file), checkSection(d), biosSection(d), arcadeSection()].join("");
+  return [sec("Game", "handheld", game), sec("File", "file", file), checkSection(d), discSection(d), biosSection(d), arcadeSection()].join("");
 }
 
 function checkSection(d) {
@@ -333,6 +344,22 @@ function checkSection(d) {
     <p class="v-note">Checked ${esc(c.checked)}${lists ? ` against ${lists}` : ""}.</p>`, run);
 }
 
+function discSection(d) {
+  if (d === null || d === undefined || d.error) return "";
+  const disc = d.check?.disc;
+  if (!disc) return "";
+  const open = go("disc", "Open Disc layouts");
+  if (disc.state === "bad") {
+    return sec("Disc layout", "layers", `<div class="v-state">${chip("bad", "Problem", "alert")}<span>${esc(disc.note)}</span></div>
+      <p class="v-note">Archives (.zip / .7z) and incomplete .bin/.cue sets often boot to a black screen. Use ${open} and <b>Fix&hellip;</b> to extract or convert to .chd.</p>`);
+  }
+  if (disc.state === "tip") {
+    return sec("Disc layout", "layers", `<div class="v-state">${chip("warn", "Works", "info")}<span>${esc(disc.note)}</span></div>
+      <p class="v-note">Convert complete .cue sheets to .chd under ${open}.</p>`);
+  }
+  return sec("Disc layout", "layers", `<div class="v-state">${chip("ok", "OK", "check")}<span>${esc(disc.note || "Disc layout looks fine.")}</span></div>`, open);
+}
+
 function biosSection(d) {
   if (d === null || d === undefined || d.error) return "";
   const b = d.bios;
@@ -340,7 +367,7 @@ function biosSection(d) {
   if (!b.system || !b.files.length) return sec("BIOS", "shield", note("No BIOS file needed."));
   const who = b.required ? "The default core needs these files." : b.requiredBy.length ? `Only some cores need them: ${esc(b.requiredBy.join(", "))}.` : "Optional: games may run better with them.";
   const rows = b.files.map((f) => `<li>${f.state === "ok" ? chip("ok", "Have it", "check") : f.state === "unknown" ? chip("warn", "Unknown version") : chip(b.required ? "bad" : "", "Missing")}
-    <span><code>${esc(f.path)}</code>${f.desc ? `<small>${esc(f.desc)}</small>` : ""}</span></li>`).join("");
+    <span class="v-file-meta"><code>${esc(f.path)}</code>${f.desc ? `<small>${esc(f.desc)}</small>` : ""}</span></li>`).join("");
   return sec("BIOS", "shield", `${note(who)}<ul class="v-files">${rows}</ul>`, go("bios", "Open BIOS"));
 }
 
@@ -422,7 +449,7 @@ function savesSection() {
   const rows = [...s.files].sort((a, b) => b.mtime - a.mtime).map((f) => {
     const parts = f.path.split("/");
     const kind = /(^|\/)state\//.test(f.path) ? (/\.png$/i.test(f.path) ? "State picture" : "Save state") : "Save";
-    return `<li>${chip(kind === "Save" ? "ok" : "", kind)}<span><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}</small></span></li>`;
+    return `<li>${chip(kind === "Save" ? "ok" : "", kind)}<span class="v-file-meta"><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}</small></span></li>`;
   }).join("");
   return sec("Saves", "save", `<ul class="v-files">${rows}</ul>`, link);
 }
@@ -475,7 +502,7 @@ export function enrichViewer(index) {
   if (!V.nav) V.back = [];
   V.nav = false;
   V.cur = { index, si, g, sys, m: g.lb ? app.data.meta[g.lb] : null, key: keyOf(sys, g) };
-  V.editing = V.video = V.expanded = false;
+  V.editing = V.renaming = V.video = V.expanded = false;
   $("v-facts").innerHTML = factsHtml(V.cur.m);
   $("v-back").innerHTML = backHtml();
   $("v-back").hidden = !V.back.length;
@@ -516,6 +543,13 @@ function openRelated(i) {
 }
 
 function goTo(where) {
+  if (where === "disc") {
+    store.set("emuTab", "checks");
+    store.set("checkView", "disc");
+    $("viewer").close();
+    location.hash = "#emulation";
+    return;
+  }
   const emu = { cores: "cores", checks: "checks", bios: "bios", saves: "saves" }[where];
   if (emu) store.set("emuTab", emu);
   $("viewer").close();
@@ -556,6 +590,29 @@ async function saveDescription(remove) {
   paint();
 }
 
+async function saveRename() {
+  const { sys, g, key } = V.cur;
+  const stem = ($("v-rename-input")?.value || "").trim();
+  if (!stem) { toast("Type a new file name", 2500); return; }
+  const ext = g.x || (g.f.includes(".") ? g.f.split(".").pop() : "");
+  const to = `${stem}.${ext}`;
+  if (to === g.f) { V.renaming = false; paint(); return; }
+  V.saving = true;
+  paint();
+  try {
+    const res = await api("games/rename", { path: keyOf(sys, g), to });
+    V.renaming = false;
+    V.details.delete(key);
+    const nextKey = `${sys.code}/${res.to}`;
+    await hooks.reload(nextKey);
+    toast(res.art ? `Renamed (and ${plural(res.art, "artwork file")})` : "Renamed", 2200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  V.saving = false;
+  paint();
+}
+
 async function replaceArt(file) {
   if (!file || !V.cur) return;
   const { sys, g, key } = V.cur;
@@ -579,7 +636,7 @@ export function bindGameView(h) {
   const viewer = $("viewer");
   viewer.addEventListener("close", () => { if (V.video) { V.video = false; if (V.tab === "about") $("v-pane").innerHTML = aboutPane(); } });
   viewer.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
+    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vrename], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
     if (!t || t.disabled) return;
     if (t.matches("[data-vfix]")) { e.stopPropagation(); fixCore(); }
     else if (t.matches("[data-vtab]")) { V.tab = t.dataset.vtab; store.set("viewerTab", V.tab); paint(); }
@@ -591,10 +648,17 @@ export function bindGameView(h) {
     else if (t.id === "v-back") { const idx = V.back.pop(); if (idx !== undefined) openAt(idx); }
     else if (t.id === "v-reveal") api("game/reveal", { code: V.cur.sys.code, file: V.cur.g.f }).catch((err) => toast(err.message, 4000));
     else if (t.id === "v-art-replace") pickImage().then(replaceArt);
-    else if (t.dataset.vedit === "open") { V.editing = true; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
+    else if (t.dataset.vedit === "open") { V.editing = true; V.renaming = false; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
     else if (t.dataset.vedit === "cancel") { V.editing = false; paint(); }
     else if (t.dataset.vedit === "save") saveDescription(false);
     else if (t.dataset.vedit === "remove") saveDescription(true);
+    else if (t.dataset.vrename === "open") { V.renaming = true; V.editing = false; V.tab = "details"; paint(); $("v-rename-input")?.focus(); $("v-rename-input")?.select(); }
+    else if (t.dataset.vrename === "cancel") { V.renaming = false; paint(); }
+  });
+  viewer.addEventListener("submit", (e) => {
+    if (e.target?.id !== "v-rename-form") return;
+    e.preventDefault();
+    saveRename();
   });
   viewer.addEventListener("keydown", (e) => {
     const c = e.target.closest?.(".v-card[data-vtab]");

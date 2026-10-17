@@ -32,7 +32,7 @@ import "./combo.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
-  handheld: ["Device Settings", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "save"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
+  handheld: ["Device Settings", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
   ssh: ["SSH", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
 };
 

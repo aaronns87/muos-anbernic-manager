@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
@@ -21,6 +22,40 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.2.4] - 2026-10-17
+
+### Added
+
+- **PlayStation black-screen checks.** Emulation → BIOS gains **Fix names** to rename recognised BIOS files to the
+  lowercase paths MustardOS expects (e.g. `SCPH5501.BIN` → `scph5501.bin`). The workspace `bios/` folder is created
+  automatically when you open the BIOS tab. Each row shows a short description, expected MD5, an **MD5 matches** chip,
+  and a trash control to remove the file from the bios folder and/or the handheld. Library check gains a **Disc layouts**
+  view that flags orphaned `.bin` files, incomplete `.cue` / `.m3u` sheets, and `.zip` / `.7z` archives under `Roms/PS`.
+- **Convert PlayStation discs to CHD.** When `chdman` (from MAME / `rom-tools`) is on your PATH, Disc layouts can convert
+  complete `.cue` / `.m3u` sets to `.chd`, optionally moving the originals to the Trash. OS-specific install help is shown
+  when the tool is missing.
+- **Fix PlayStation archives.** `.zip` / `.7z` (including a 7z misnamed as `.zip`) are flagged as disc-layout problems.
+  **Fix…** opens a wizard that inspects the archive, checks for `p7zip` / `chdman`, extracts, converts to `.chd` when
+  possible, and can move the archive to the Trash.
+- **Rename a game file** from the game viewer Details tab (keeps the extension; also renames matching artwork and your
+  own description when present).
+
+### Fixed
+
+- Disc Fix wizard: Start fix stayed visible during work (flex layout overrode `hidden`); archive extracts with a single
+  top folder no longer look for a double-nested `.cue` path.
+- Disc layouts accordion lists every game when expanded (OK sheets were hidden behind “Every sheet looks complete”).
+- Fix wizard Done step no longer shows the last progress line (e.g. `convert: Game.cue`) as a red error after success.
+
+### Changed
+
+- Disc Fix wizard: step rail, clearer tool/option cards, phase progress, Done as the primary close action, Cancel
+  disabled while working. Disc layouts notes SwanStation when a `.chd` opens then quits on the handheld.
+- **Connection chip in the top bar** shows every live link (USB, Wi-Fi, card) and opens a panel to switch the primary
+  path, reconnect, or set up Wi-Fi. Overview remains the full connection page. USB and Wi-Fi can both show as live at
+  once; copies still use one primary path.
+- Emulation sidebar icon is a gamepad instead of a save/floppy glyph.
 
 ## [1.2.3] - 2026-10-16
 
@@ -207,7 +242,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.3...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.4...changes/unreleased
+[1.2.4]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.4
 [1.2.3]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.3
 [1.2.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.2
 [1.2.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.1

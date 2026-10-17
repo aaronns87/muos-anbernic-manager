@@ -163,6 +163,42 @@ const retryButton = (label = "Check again", opts = {}) => devBtn("refresh", "ref
 /** Whether the connection is usable: a card, or the handheld over USB or Wi-Fi. */
 export const isLive = (conn) => ["card", "usb", "wifi"].includes(conn.state);
 
+/** Every link that is up right now (not only the primary copy path). */
+export function liveLinks() {
+  const d = app.device, h = d.handheld, w = d.wifi || {};
+  const usb = !!(h && h.mtp && h.ready && h.libmtp && !h.released);
+  const wifi = !!(w.configured && w.reachable);
+  const card = d.targets.length > 0;
+  return { usb, wifi, card, any: usb || wifi || card };
+}
+
+/** Short status line per link for the connection panel. */
+function linkStatusRows() {
+  const d = app.device, h = d.handheld, w = d.wifi || {}, links = liveLinks(), primary = app.ui.mode;
+  let usbStatus = "Not found";
+  if (links.usb) usbStatus = "Connected";
+  else if (h && h.released) usbStatus = "Disconnected";
+  else if (h && h.mtp && !h.ready) usbStatus = "Waiting for computer";
+  else if (h && h.mtp) usbStatus = "Needs libmtp";
+  else if (h) usbStatus = "Not in MTP mode";
+
+  let wifiStatus = "Needs setup";
+  if (links.wifi) wifiStatus = w.host ? `Connected · ${w.host}` : "Connected";
+  else if (w.configured) wifiStatus = "Not reachable";
+
+  let cardStatus = "Not found";
+  if (links.card) {
+    const t = d.targets[0];
+    cardStatus = d.targets.length === 1 ? `Connected · ${t.name || t.id}` : `${d.targets.length} cards in readers`;
+  }
+
+  return [
+    { mode: "usb", ico: "cable", label: "USB", status: usbStatus, live: links.usb, primary: primary === "usb" },
+    { mode: "wifi", ico: "wifi", label: "Wi-Fi", status: wifiStatus, live: links.wifi, primary: primary === "wifi" },
+    { mode: "card", ico: "sd", label: "Card reader", status: cardStatus, live: links.card, primary: primary === "card" }
+  ];
+}
+
 /** The handheld's SFTPGo web file manager, or "" before an address is set. */
 export function filebrowserUrl() {
   const w = app.device.wifi;
@@ -256,13 +292,114 @@ export function renderSideDevice() {
   box.innerHTML = `${head}<div class="sd-stores">${body}</div>${app.device.error ? `<p class="sd-msg err">${esc(app.device.error)}</p>` : ""}`;
 }
 
+let connPanelOpen = false;
+
+function ensureConnPanel() {
+  let el = $("sb-conn-panel");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "sb-conn-panel";
+  el.className = "sb-conn-panel";
+  el.hidden = true;
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", "Connection");
+  document.body.appendChild(el);
+  return el;
+}
+
+function positionConnPanel() {
+  const btn = document.querySelector("[data-conn-panel]");
+  const panel = $("sb-conn-panel");
+  if (!btn || !panel || panel.hidden) return;
+  const r = btn.getBoundingClientRect();
+  const width = Math.min(380, window.innerWidth - 16);
+  let left = r.right - width;
+  if (left < 8) left = 8;
+  panel.style.top = `${Math.round(r.bottom + 6)}px`;
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.width = `${width}px`;
+}
+
+function paintConnPanel() {
+  const panel = ensureConnPanel();
+  if (!connPanelOpen) {
+    panel.hidden = true;
+    document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  const conn = connection(), w = app.device.wifi || {};
+  const rows = linkStatusRows().map((row) =>
+    `<li class="sb-conn-link${row.live ? " live" : ""}${row.primary ? " primary" : ""}">
+      <span class="sb-conn-link-ico">${icon(row.ico)}</span>
+      <span class="sb-conn-link-text"><b>${esc(row.label)}${row.primary ? " · primary" : ""}</b><small>${esc(row.status)}</small></span>
+    </li>`).join("");
+  const showWifi = app.ui.mode === "wifi" || !w.configured;
+  panel.innerHTML = `<div class="sb-conn-panel-inner">
+    <div class="sb-conn-section"><span class="mode-label">Connect with</span>${modePicker()}</div>
+    <ul class="sb-conn-links">${rows}</ul>
+    <div class="sb-conn-actions">${deviceButtons(conn)}</div>
+    ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi settings</span>${wifiForm({ ids: false })}</div>` : ""}
+    <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
+  </div>`;
+  panel.hidden = false;
+  document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "true");
+  positionConnPanel();
+}
+
+function closeConnPanel() {
+  if (!connPanelOpen) return;
+  connPanelOpen = false;
+  paintConnPanel();
+}
+
+function toggleConnPanel() {
+  connPanelOpen = !connPanelOpen;
+  paintConnPanel();
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-conn-panel]")) {
+    e.preventDefault();
+    toggleConnPanel();
+    return;
+  }
+  if (e.target.closest("[data-conn-overview]")) {
+    closeConnPanel();
+    return;
+  }
+  if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && connPanelOpen) closeConnPanel();
+});
+
+window.addEventListener("resize", () => { if (connPanelOpen) positionConnPanel(); });
+
+/** Chip label and icons for every live link (primary path stays in the panel). */
+function connChip(conn, links) {
+  const tip = links.any
+    ? linkStatusRows().filter((r) => r.live).map((r) => `${r.label}: ${r.status}`).join("\n") || conn.tip || conn.title
+    : conn.title;
+  if (conn.state === "checking" && !links.any) {
+    return { state: "wait", tip, icons: icon(VIA[app.ui.mode][0]), label: "Connecting" };
+  }
+  if (!links.any) {
+    return { state: "off", tip, icons: icon(VIA[app.ui.mode][0]), label: "Offline" };
+  }
+  const names = [], icons = [];
+  if (links.usb) { names.push("USB"); icons.push(icon("cable")); }
+  if (links.wifi) { names.push("Wi-Fi"); icons.push(icon("wifi")); }
+  if (links.card) { names.push("Card"); icons.push(icon("sd")); }
+  return { state: "on", tip, icons: icons.join(""), label: names.join(" · ") };
+}
+
 /** The top bar's right side, like the MustardOS header: job, connection, battery, clock. */
 export function renderStatusbar() {
   const box = $("sb-status");
   if (!box) return;
   syncSpinnerPhase();
-  const conn = connection(), live = isLive(conn), job = app.job;
-  const [viaIcon, via] = VIA[app.ui.mode];
+  const conn = connection(), live = isLive(conn), links = liveLinks(), job = app.job;
   const parts = [];
   const waiting = (app.transfers?.active.length || 0) - (job && job.state === "running" ? 1 : 0);
   if (job && job.state === "running") {
@@ -275,8 +412,8 @@ export function renderStatusbar() {
   if (sys && sys.state === "running") {
     parts.push(`<a class="sb-item sb-job" href="#system" title="${esc(sys.title)}">${ICONS.spin}${esc(sys.short)} ${sys.percent}%</a>`);
   }
-  const state = live ? "on" : conn.state === "checking" ? "wait" : "off";
-  parts.push(`<a class="sb-item sb-conn ${state}" href="#overview" title="${esc(live ? conn.tip || conn.title : conn.title)}">${icon(viaIcon)}<span>${esc(live ? via : conn.state === "checking" ? "Connecting" : "Offline")}</span></a>`);
+  const chip = connChip(conn, links);
+  parts.push(`<button type="button" class="sb-item sb-conn ${chip.state}" data-conn-panel aria-expanded="${connPanelOpen}" aria-haspopup="dialog" title="${esc(chip.tip)}">${chip.icons}<span>${esc(chip.label)}</span></button>`);
   const battery = app.overview.info?.identity?.battery;
   if (live && typeof battery === "number" && battery > 0) {
     parts.push(`<span class="sb-item sb-batt${battery <= 15 ? " low" : ""}" title="Battery ${battery}%"><span class="batt"><i style="width:${battery}%"></i></span>${battery}%</span>`);
@@ -290,6 +427,7 @@ export function renderStatusbar() {
   parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);
   parts.push(`<button type="button" class="sb-help" data-help title="Help for this page (?)" aria-label="Help for this page">${icon("help")}</button>`);
   box.innerHTML = parts.join("");
+  if (connPanelOpen) paintConnPanel();
 }
 
 /** The connection in the Games header: a compact status chip. */
@@ -407,19 +545,20 @@ export function modePicker() {
   </div>`;
 }
 
-/** The Wi-Fi settings: the handheld's address and SFTPGo login. */
-export function wifiForm() {
+/** The Wi-Fi settings: the handheld's address and SFTPGo login. Pass ids:false in the status-bar panel to avoid clashing with Overview. */
+export function wifiForm({ ids = true } = {}) {
   const w = app.device.wifi || {}, dis = busy() ? " disabled" : "";
+  const id = (name) => (ids ? ` id="wifi-${name}"` : "");
   const found = wifiFound.list
     ? wifiFound.list.length
       ? `<div class="wifi-found">Found: ${wifiFound.list.map((f) => `<button class="btn" data-device="wifi-use" data-host="${esc(f.host)}">${esc(f.host)}</button>`).join("")}</div>`
       : `<div class="wifi-found nil">Nothing on this network answers on port 2022. Check that the handheld is awake and SFTP + Filebrowser is enabled.</div>`
     : "";
   return `<div class="wifi-form">
-    <label>Address<input class="control" id="wifi-host" placeholder="192.168.0.32" value="${esc(w.host || "")}" spellcheck="false" autocomplete="off"></label>
-    <label>User<input class="control" id="wifi-user" value="${esc(w.user || "muos")}" spellcheck="false" autocomplete="off"></label>
-    <label>Password<input class="control" id="wifi-pass" type="password" placeholder="${w.configured ? "saved" : "muos"}" autocomplete="off"></label>
-    <label>SFTP port<input class="control" id="wifi-port" inputmode="numeric" value="${esc(String(w.port || 2022))}"></label>
+    <label>Address<input class="control"${id("host")} data-wifi="host" placeholder="192.168.0.32" value="${esc(w.host || "")}" spellcheck="false" autocomplete="off"></label>
+    <label>User<input class="control"${id("user")} data-wifi="user" value="${esc(w.user || "muos")}" spellcheck="false" autocomplete="off"></label>
+    <label>Password<input class="control"${id("pass")} data-wifi="pass" type="password" placeholder="${w.configured ? "saved" : "muos"}" autocomplete="off"></label>
+    <label>SFTP port<input class="control"${id("port")} data-wifi="port" inputmode="numeric" value="${esc(String(w.port || 2022))}"></label>
     <div class="wifi-actions">
       <button class="btn${w.reachable ? "" : " primary"}" data-device="wifi-save"${dis}>${icon("plug")}<span>Save and connect</span></button>
       <button class="btn" data-device="wifi-find"${dis || (wifiFound.busy ? " disabled" : "")} title="Look for SFTPGo on this computer's local networks">${wifiFound.busy ? `${ICONS.spin}<span>Looking</span>` : `${icon("search")}<span>Find on network</span>`}</button>
@@ -431,9 +570,15 @@ export function wifiForm() {
 const wifiFound = { list: null, busy: false };
 
 async function saveWifi(el, host) {
-  const value = (id) => ($(id) ? $(id).value.trim() : "");
-  const body = { host: host || value("wifi-host"), user: value("wifi-user") || "muos", port: Number(value("wifi-port")) || 2022 };
-  if (value("wifi-pass")) body.password = $("wifi-pass").value;
+  const form = el?.closest?.(".wifi-form");
+  const field = (name) => form?.querySelector(`[data-wifi="${name}"]`) || $(`wifi-${name}`);
+  const value = (name) => {
+    const input = field(name);
+    return input ? input.value.trim() : "";
+  };
+  const body = { host: host || value("host"), user: value("user") || "muos", port: Number(value("port")) || 2022 };
+  const pass = field("pass");
+  if (pass && pass.value) body.password = pass.value;
   working(el, "Connecting");
   try {
     await api("device/wifi", body);
@@ -442,8 +587,9 @@ async function saveWifi(el, host) {
     return renderDevice();
   }
   wifiFound.list = null;
-  if ($("wifi-host")) $("wifi-host").value = body.host;
-  if ($("wifi-pass")) $("wifi-pass").value = "";
+  const hostInput = field("host"), passInput = field("pass");
+  if (hostInput) hostInput.value = body.host;
+  if (passInput) passInput.value = "";
   await refreshDevice(true);
   const conn = connection();
   toast(conn.state === "wifi" ? `${conn.title} is connected over Wi-Fi` : conn.state === "error" ? conn.sub : conn.title, 4000);
@@ -452,7 +598,7 @@ async function saveWifi(el, host) {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || !e.target.closest || !e.target.closest(".wifi-form") || busy()) return;
   e.preventDefault();
-  const button = document.querySelector('[data-device="wifi-save"]');
+  const button = e.target.closest(".wifi-form").querySelector('[data-device="wifi-save"]');
   if (button && !button.disabled) saveWifi(button);
 });
 
