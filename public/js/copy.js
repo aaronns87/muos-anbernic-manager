@@ -310,7 +310,11 @@ function renderDock() {
   }
   dock.hidden = !T.shown;
   document.body.classList.toggle("has-dock", T.shown);
-  if (!T.shown) { T.pastSig = ""; return; }
+  if (!T.shown) {
+    T.pastSig = "";
+    document.body.style.setProperty("--dock-h", "0px");
+    return;
+  }
   dock.classList.toggle("min", T.min);
   const run = T.active.find((j) => j.state === "running");
   const waiting = T.active.filter((j) => j !== run);

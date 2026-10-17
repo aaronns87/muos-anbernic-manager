@@ -997,10 +997,11 @@ body.has-bulk.has-dock.has-chat-fab .top { bottom: calc(var(--dock-h, 0px) + 162
 .sb-chat { color: var(--mustard); border: 1px solid color-mix(in srgb, var(--mustard) 40%, var(--line)); background: color-mix(in srgb, var(--mustard) 10%, transparent); }
 .sb-chat:hover { background: color-mix(in srgb, var(--mustard) 18%, var(--panel-2)); }
 .chat-dock {
-  z-index: 61; bottom: calc(22px + var(--dock-h, 0px) + 10px); width: min(440px, calc(100vw - 44px));
+  z-index: 61; bottom: 32px; width: min(440px, calc(100vw - 44px));
   border-color: color-mix(in srgb, var(--mustard) 28%, var(--line-2));
 }
-.chat-dock.min { bottom: calc(22px + var(--dock-h, 0px) + 10px); }
+body.has-dock .chat-dock, body.has-dock .chat-dock.min { bottom: calc(22px + var(--dock-h, 0px) + 10px); }
+.chat-dock.min { bottom: 32px; }
 .chat-body { display: flex; flex-direction: column; gap: 0; max-height: min(62vh, 560px); padding: 0; }
 .chat-log {
   flex: 1; min-height: 180px; max-height: min(42vh, 360px); overflow: auto; display: flex; flex-direction: column; gap: 10px;
