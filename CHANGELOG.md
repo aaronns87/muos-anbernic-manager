@@ -28,14 +28,27 @@ version.
   lowercase paths MustardOS expects (e.g. `SCPH5501.BIN` → `scph5501.bin`). The workspace `bios/` folder is created
   automatically when you open the BIOS tab. Each row shows a short description, expected MD5, an **MD5 matches** chip,
   and a trash control to remove the file from the bios folder and/or the handheld. Library check gains a **Disc layouts**
-  view that flags orphaned `.bin` files and incomplete `.cue` / `.m3u` sheets under `Roms/PS` — a common cause of a black
-  screen on launch.
+  view that flags orphaned `.bin` files, incomplete `.cue` / `.m3u` sheets, and `.zip` / `.7z` archives under `Roms/PS`.
 - **Convert PlayStation discs to CHD.** When `chdman` (from MAME / `rom-tools`) is on your PATH, Disc layouts can convert
   complete `.cue` / `.m3u` sets to `.chd`, optionally moving the originals to the Trash. OS-specific install help is shown
   when the tool is missing.
 - **Fix PlayStation archives.** `.zip` / `.7z` (including a 7z misnamed as `.zip`) are flagged as disc-layout problems.
   **Fix…** opens a wizard that inspects the archive, checks for `p7zip` / `chdman`, extracts, converts to `.chd` when
   possible, and can move the archive to the Trash.
+- **Rename a game file** from the game viewer Details tab (keeps the extension; also renames matching artwork and your
+  own description when present).
+
+### Fixed
+
+- Disc Fix wizard: Start fix stayed visible during work (flex layout overrode `hidden`); archive extracts with a single
+  top folder no longer look for a double-nested `.cue` path.
+- Disc layouts accordion lists every game when expanded (OK sheets were hidden behind “Every sheet looks complete”).
+- Fix wizard Done step no longer shows the last progress line (e.g. `convert: Game.cue`) as a red error after success.
+
+### Changed
+
+- Disc Fix wizard: step rail, clearer tool/option cards, phase progress, Done as the primary close action, Cancel
+  disabled while working. Disc layouts notes SwanStation when a `.chd` opens then quits on the handheld.
 
 ## [1.2.3] - 2026-10-16
 

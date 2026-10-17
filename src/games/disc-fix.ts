@@ -282,11 +282,26 @@ async function extract7z(bin: string, file: string, dest: string): Promise<void>
   if (r.code !== 0) throw new UserError((r.stderr || r.stdout || "7z extract failed.").trim().slice(0, 240));
 }
 
-/** If extract root has a single directory, return that directory. */
-async function flattenRoot(root: string): Promise<string> {
+/** If extract root has a single directory, peel into it (common zip/7z layout). */
+async function flattenRoot(root: string): Promise<{ root: string; peeled: string }> {
   const entries = (await listDir(root)).filter((e) => !e.name.startsWith(".") && e.name !== "__MACOSX");
-  if (entries.length === 1 && entries[0].isDirectory()) return path.join(root, entries[0].name);
-  return root;
+  if (entries.length === 1 && entries[0].isDirectory()) {
+    return { root: path.join(root, entries[0].name), peeled: entries[0].name };
+  }
+  return { root, peeled: "" };
+}
+
+/**
+ * Archive member paths include the top folder; after flattenRoot peels that folder,
+ * strip the same prefix so joins do not double-nest (Twisted Metal 2 (USA)/... ? ...).
+ */
+export function relAfterFlatten(rel: string, peeled: string): string {
+  let n = rel.replaceAll("\\", "/");
+  if (!peeled) return n;
+  const prefix = `${peeled.replaceAll("\\", "/")}/`;
+  if (n === peeled || n === peeled.replaceAll("\\", "/")) return "";
+  if (n.toLowerCase().startsWith(prefix.toLowerCase())) return n.slice(prefix.length);
+  return n;
 }
 
 async function moveInto(folder: string, src: string, destName: string): Promise<string> {
@@ -357,12 +372,14 @@ async function fixOneArchive(opts: {
     runState.current = opts.file;
     if (inspect.archive === "zip") await extractZip(full, tmp);
     else await extract7z(opts.tools.p7zip.path, full, tmp);
-    const root = await flattenRoot(tmp);
+    const flat = await flattenRoot(tmp);
+    const root = flat.root;
+    const map = (rel: string) => relAfterFlatten(rel, flat.peeled);
 
     if (inspect.plan.kind === "readyChd") {
       runState.phase = "place";
       for (const rel of inspect.plan.chds) {
-        const src = path.join(root, rel);
+        const src = path.join(root, map(rel));
         const name = await uniqueDest(destFolder, written.length ? `${stem} disc${written.length + 1}` : stem, "chd");
         runState.current = name;
         written.push(await moveInto(destFolder, src, name));
@@ -370,7 +387,7 @@ async function fixOneArchive(opts: {
     } else if (inspect.plan.kind === "readyPbp") {
       runState.phase = "place";
       for (const rel of inspect.plan.pbps) {
-        const src = path.join(root, rel);
+        const src = path.join(root, map(rel));
         const name = await uniqueDest(destFolder, written.length ? `${stem} (${written.length + 1})` : stem, "pbp");
         runState.current = name;
         written.push(await moveInto(destFolder, src, name));
@@ -381,7 +398,7 @@ async function fixOneArchive(opts: {
         runState.phase = "convert";
         const chds: string[] = [];
         for (let i = 0; i < inspect.plan.cues.length; i++) {
-          const cueRel = inspect.plan.cues[i];
+          const cueRel = map(inspect.plan.cues[i]);
           const outStem = inspect.plan.cues.length === 1 ? stem : `${stem} (Disc ${i + 1})`;
           runState.current = path.basename(cueRel);
           chds.push(await convertCueInPlace(opts.tools.chdman.path, root, cueRel, outStem, destFolder));
@@ -396,7 +413,8 @@ async function fixOneArchive(opts: {
         runState.phase = "place";
         // Copy cue + referenced tracks + m3u for each set
         const toCopy = new Set<string>();
-        for (const cueRel of inspect.plan.cues) {
+        for (const cueRaw of inspect.plan.cues) {
+          const cueRel = map(cueRaw);
           toCopy.add(cueRel);
           const text = await fsp.readFile(path.join(root, cueRel), "utf8");
           for (const ref of sheetRefs("cue", text)) {
@@ -404,7 +422,7 @@ async function fixOneArchive(opts: {
             toCopy.add(beside);
           }
         }
-        for (const rel of inspect.members.filter((m) => m.toLowerCase().endsWith(".m3u"))) toCopy.add(rel);
+        for (const rel of inspect.members.filter((m) => m.toLowerCase().endsWith(".m3u"))) toCopy.add(map(rel));
         written.push(...await copyTreeFiles(root, destFolder, [...toCopy], stem));
       }
     }

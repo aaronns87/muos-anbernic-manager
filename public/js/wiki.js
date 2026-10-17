@@ -130,7 +130,8 @@ const ARTICLES = [
       <ul><li><b>About</b>: the description and its source, a video from YouTube when the database has one, and <b>Write your own</b>.
       Your description is saved next to the game in <code>Roms/&lt;SYSTEM&gt;/Text/</code>.</li>
       <li><b>Details</b>: the database facts, the file (size, date, CRC32, path), the library check result, the BIOS files the system
-      needs, and for arcade games the parent or clone set.</li>
+      needs, and for arcade games the parent or clone set. <b>Rename</b> on the file row changes the name in <code>Roms/</code>
+      (same extension) and renames matching artwork and your own description when present.</li>
       <li><b>Handheld</b>: the core and who set it, play time (total, launches, average session, first and last played, cores used),
       collections and save files. <b>Read again</b> refreshes it.</li>
       <li><b>Related</b>: other versions, the arcade family, the same series, more from the developer and more of the genre. Opening one
@@ -510,7 +511,8 @@ const ARTICLES = [
     </ul>`],
     ["A game doesn't start or crashes", `<ul>
       <li>Emulation &rsaquo; BIOS: does its system need a BIOS file that is missing on the handheld? Use <b>Fix names</b> if a file is there but named wrong (PlayStation often needs lowercase <code>scph5501.bin</code> and friends).</li>
-      <li>Emulation &rsaquo; Library check &rsaquo; Disc layouts: for PlayStation, is the <code>.cue</code> missing or incomplete?</li>
+      <li>Emulation &rsaquo; Library check &rsaquo; Disc layouts: for PlayStation, is the game still a <code>.zip</code> / <code>.7z</code>, or is the <code>.cue</code> missing or incomplete? Use <b>Fix&hellip;</b> on archives.</li>
+      <li>PlayStation <code>.chd</code> that shows a black screen then quits: try <b>SwanStation</b> (or DuckStation) under Emulation &rsaquo; Cores for that game or the PS folder. PCSX ReARMed often fails on multi-track discs.</li>
       <li>Emulation &rsaquo; Cores: try another core for the folder or just that game (on the handheld's game options).</li>
       <li>Emulation &rsaquo; Library check &rsaquo; Verify dumps: is the file a bad dump?</li>
     </ul>`],

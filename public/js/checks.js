@@ -1,9 +1,10 @@
-// Library check tab: ROM dumps verified against No-Intro, and duplicate games with a suggested one to keep.
+// Library check tab: ROM dumps verified against No-Intro, duplicate games, and PlayStation disc layouts.
 
 import { $, api, esc, formatDate, human, icon, plural, setKeepingScroll, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { openDiscFixWizard } from "./disc-fix-wizard.js";
 
-const C = { data: null, error: "", loading: false, starting: false, trashing: false, timer: 0, pick: new Set(), seen: new Set(), open: new Set(), art: true, gone: new Set() };
+const C = { data: null, error: "", loading: false, starting: false, trashing: false, converting: false, timer: 0, pick: new Set(), seen: new Set(), open: new Set(), discInit: new Set(), art: true, gone: new Set() };
 const STATES = {
   bad: ["bad", "alert", "Bad dump", "Doesn't match the good dump No-Intro lists for this game: damaged, overdumped or modified"],
   unknown: ["warn", "info", "Not in No-Intro", "No game with this name or checksum: a homebrew, hack or unlicensed release, or a different naming scheme"],
@@ -44,7 +45,9 @@ async function load() {
   C.loading = false;
   render();
   clearTimeout(C.timer);
-  if (C.data?.run.running) C.timer = setTimeout(() => { if (!$("view-emulation").hidden && checksTabOpen()) load(); }, 900);
+  if (C.data?.run.running || C.data?.chd?.run?.running || C.data?.fix?.run?.running) {
+    C.timer = setTimeout(() => { if (!$("view-emulation").hidden && checksTabOpen()) load(); }, 900);
+  }
 }
 
 // ---------------------------------------------------------------- verify
@@ -104,6 +107,111 @@ function verifyPanel(d) {
     : `<div class="chk-empty">${icon("hash")}<div><b>${plural(games, "game")} in ${plural(d.supported.length, "folder")} can be checked</b>
         <small>${esc(d.supported.map((s) => s.name).join(", "))}</small></div></div>`;
   return `<section class="panel chk-panel">${head}${intro}${r.error ? `<div class="notice err">${esc(r.error)}</div>` : ""}${progress}${results}</section>`;
+}
+
+// ---------------------------------------------------------------- disc layouts (PlayStation) + CHD / archive Fix
+
+const DISC = {
+  bad: ["bad", "alert", "Problem", ""],
+  tip: ["warn", "info", "Tip", ""],
+  ok: ["ok", "check", "OK", ""],
+};
+
+const chdReady = (g) => (g.x === "cue" || g.x === "m3u") && g.state === "tip";
+const archiveFixable = (g) => g.fixable && g.state === "bad" && (g.archive === "zip" || g.archive === "7z");
+const chdReadyList = (d) => (d.disc?.systems || []).flatMap((s) => s.games.filter(chdReady).map((g) => ({ ...g, code: s.code })));
+const archiveFixList = (d) => (d.disc?.systems || []).flatMap((s) => s.games.filter(archiveFixable).map((g) => ({ ...g, code: s.code })));
+
+const DISC_ORDER = { bad: 0, tip: 1, ok: 2 };
+
+function discRow(g, code, toolOk) {
+  const [cls, ico, label] = DISC[g.state] || DISC.ok;
+  const busy = C.converting || !!C.data?.chd?.run?.running || !!C.data?.fix?.run?.running;
+  let action = "";
+  if (archiveFixable(g)) {
+    action = `<button class="btn small primary" data-ck="fix-one" data-code="${esc(code)}" data-file="${esc(g.f)}"${busy ? " disabled" : ""}>${icon("wrench")}<span>Fix...</span></button>`;
+  } else if (chdReady(g)) {
+    action = toolOk
+      ? `<button class="btn small" data-ck="chd-one" data-code="${esc(code)}" data-file="${esc(g.f)}"${busy ? " disabled" : ""}>${icon("wrench")}<span>CHD</span></button>`
+      : `<button class="btn small" disabled title="Install chdman (rom-tools), then Refresh tooling">${icon("wrench")}<span>CHD</span></button>`;
+  }
+  const arch = g.archive ? `<span class="tag" title="Archive format">${esc(g.archive)}</span> ` : "";
+  return `<div class="chk-game"><div><b title="${esc(g.p)}">${esc(g.f)}</b><small>${arch}${esc(g.note || g.t)}</small></div>
+    <span class="set-chip ${cls}">${icon(ico)}${label}</span>${action}</div>`;
+}
+
+function chdTooling(d) {
+  const chd = d.chd, tool = chd?.tool, run = chd?.run, install = chd?.install;
+  const fix = d.fix, tools = fix?.tools, fixRun = fix?.run;
+  const ready = chdReadyList(d);
+  const archives = archiveFixList(d);
+  const busy = C.converting || !!run?.running || !!fixRun?.running;
+  const chdChip = !tool ? "" : tool.present
+    ? `<span class="set-chip ok" title="${esc(tool.path)}">${icon("check")}chdman${tool.version ? ` ${esc(tool.version)}` : ""}</span>`
+    : `<span class="set-chip warn">${icon("alert")}chdman not found</span>`;
+  const zipChip = !tools ? "" : tools.p7zip?.present
+    ? `<span class="set-chip ok" title="${esc(tools.p7zip.path)}">${icon("check")}p7zip</span>`
+    : `<span class="set-chip warn">${icon("alert")}p7zip not found</span>`;
+  const progress = run?.running ? `<div class="chk-progress"><div class="meter"><i style="width:${run.total ? Math.round((run.done / run.total) * 100) : 0}%"></i></div>
+    <small>${run.done} of ${run.total} &middot; ${esc(run.current || "Converting")}</small></div>`
+    : fixRun?.running ? `<div class="chk-progress"><div class="meter"><i style="width:45%"></i></div>
+    <small><span class="spinner sm"></span> ${esc(fixRun.phase || "Fix")}: ${esc(fixRun.current || "")}</small></div>` : "";
+  const installPanel = tool && !tool.present && install && ready.length ? `<div class="notice">${icon("info")}<span>
+    <b>Convert to CHD needs chdman</b> (${esc(install.os)}). ${esc(install.summary)}
+    <ol class="chk-confirm">${install.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+    After installing, click <b>Refresh tooling</b>.</span></div>` : "";
+  const actions = `<div class="chk-bar">
+    ${chdChip}${zipChip}
+    <button class="link-btn" data-ck="chd-refresh"${C.loading || busy ? " disabled" : ""}>Refresh tooling</button>
+    <span class="grow"></span>
+    ${archives.length ? `<button class="btn small primary" data-ck="fix-all"${busy ? " disabled" : ""}>${icon("wrench")}<span>Fix ${archives.length} archive${archives.length === 1 ? "" : "s"}</span></button>` : ""}
+    ${tool?.present && ready.length ? `<button class="btn small" data-ck="chd-all"${busy ? " disabled" : ""}>${busy && run?.running ? `<span class="spinner sm"></span><span>Converting&hellip;</span>` : `${icon("wrench")}<span>Convert ${ready.length} to CHD</span>`}</button>` : ""}
+  </div>`;
+  const noneReady = !archives.length && tool?.present && !ready.length && !run?.running && !fixRun?.running
+    ? `<p class="muted-note">No archives or complete .cue / .m3u sheets to fix. Games that are already .chd or .pbp stay as they are.</p>`
+    : "";
+  return `${actions}${installPanel}${noneReady}${progress}${run?.error && !run.running ? `<div class="notice err">${esc(run.error)}</div>` : ""}
+    ${fixRun?.error && !fixRun.running ? `<div class="notice err">${esc(fixRun.error)}</div>` : ""}`;
+}
+
+function discPanel(d) {
+  const systems = d.disc?.systems || [];
+  const bad = systems.reduce((n, s) => n + s.counts.bad, 0);
+  const tip = systems.reduce((n, s) => n + s.counts.tip, 0);
+  const toolOk = !!d.chd?.tool?.present;
+  const head = `<h2>${icon("layers")}Disc layouts<span class="grow"></span>
+    ${bad ? `<span class="set-chip bad">${icon("alert")}${plural(bad, "problem")}</span>` : ""}
+    ${tip ? `<span class="set-chip warn">${icon("info")}${plural(tip, "tip")}</span>` : ""}
+    ${!bad && !tip && systems.length ? `<span class="set-chip ok">${icon("check")}All clear</span>` : ""}</h2>`;
+  const intro = `<p class="muted-note">PlayStation games need a .chd, .pbp, or a complete .cue + .bin set - not a .zip / .7z archive.
+    Archives and broken sheets show as problems; use <b>Fix...</b> to extract and convert, or <b>CHD</b> for complete cue sheets.
+    If a .chd opens then quits on the handheld, try <b>SwanStation</b> under Emulation &rsaquo; Cores.</p>`;
+  if (!systems.length) {
+    return `<section class="panel chk-panel">${head}${intro}${chdTooling(d)}
+      <div class="chk-empty">${icon("layers")}<div><b>No PlayStation games yet</b>
+        <small>Add games under <code>Roms/PS</code> to check their disc sheets.</small></div></div></section>`;
+  }
+  return `<section class="panel chk-panel">${head}${intro}${chdTooling(d)}
+    <div class="chk-list">${systems.map((s) => {
+      const key = `disc:${s.code}`;
+      if (!C.discInit.has(s.code)) {
+        C.discInit.add(s.code);
+        if (s.counts.bad > 0 || s.counts.tip > 0) C.open.add(key);
+      }
+      const open = C.open.has(key);
+      const games = [...s.games].sort((a, b) => (DISC_ORDER[a.state] ?? 9) - (DISC_ORDER[b.state] ?? 9) || a.f.localeCompare(b.f));
+      return `<div class="chk-sys${open ? " open" : ""}">
+        <button class="chk-sys-head" data-ck="open" data-code="${esc(key)}" aria-expanded="${open}">
+          <span class="chk-sys-name"><b>${esc(s.name)}</b><small>${esc(s.code)} &middot; ${plural(s.games.length, "game")}</small></span>
+          <span class="chk-chips">${s.counts.bad ? `<span class="set-chip bad">${icon("alert")}${s.counts.bad}</span>` : ""}
+            ${s.counts.tip ? `<span class="set-chip warn">${icon("info")}${s.counts.tip}</span>` : ""}
+            ${s.counts.ok ? `<span class="set-chip ok">${icon("check")}${s.counts.ok}</span>` : ""}</span>
+          ${icon(open ? "down" : "right")}
+        </button>
+        ${open ? `<div class="chk-games">${games.map((g) => discRow(g, s.code, toolOk)).join("")}</div>` : ""}
+      </div>`;
+    }).join("")}</div>
+  </section>`;
 }
 
 // ---------------------------------------------------------------- duplicates
@@ -170,12 +278,15 @@ function render() {
   }
   const v = view();
   const issues = (d.verify?.systems || []).reduce((n, s) => n + s.counts.bad, 0);
+  const discBad = (d.disc?.systems || []).reduce((n, s) => n + s.counts.bad, 0);
+  const panel = v === "dupes" ? dupesPanel(d) : v === "disc" ? discPanel(d) : verifyPanel(d);
   setKeepingScroll(root, `<div class="segmented chk-switch" role="group" aria-label="Check">
       <button data-ck="view" data-view="verify" class="${v === "verify" ? "on" : ""}">${icon("hash")}<span>Verify dumps</span>${issues ? `<small>${issues}</small>` : ""}</button>
+      <button data-ck="view" data-view="disc" class="${v === "disc" ? "on" : ""}">${icon("layers")}<span>Disc layouts</span>${discBad ? `<small>${discBad}</small>` : ""}</button>
       <button data-ck="view" data-view="dupes" class="${v === "dupes" ? "on" : ""}">${icon("copy")}<span>Duplicates</span>${d.dupes.groups.length ? `<small>${d.dupes.groups.length}</small>` : ""}</button>
     </div>
     ${C.error ? `<div class="notice err">${esc(C.error)}</div>` : ""}
-    ${v === "dupes" ? dupesPanel(d) : verifyPanel(d)}`, ".chk-games");
+    ${panel}`, ".chk-games");
 }
 
 async function startVerify() {
@@ -187,6 +298,31 @@ async function startVerify() {
     toast(error.message, 4000);
   }
   C.starting = false;
+  load();
+}
+
+async function convertChd(files, code = "PS") {
+  if (!files.length) return;
+  const ok = await confirmBox({
+    title: files.length === 1 ? `Convert ${files[0]} to CHD?` : `Convert ${files.length} sheets to CHD?`,
+    html: `<p>Uses <code>chdman createcd</code> on this computer. Each complete .cue becomes one .chd (multi-disc .m3u games get one .chd per disc).
+      Test the new file before you remove anything from the handheld.</p>
+      <ul class="chk-confirm">${files.slice(0, 8).map((f) => `<li><code>${esc(f)}</code></li>`).join("")}${files.length > 8 ? `<li>and ${files.length - 8} more</li>` : ""}</ul>
+      <label class="chk-check"><input type="checkbox" id="ck-chd-trash" checked> Move the original .cue and track files to the Trash after a successful convert</label>`,
+    ok: "Convert",
+  });
+  if (!ok) return;
+  const trash = $("ck-chd-trash")?.checked ?? true;
+  C.converting = true;
+  render();
+  try {
+    const res = await api("chd/convert", { code, files, trash });
+    if (C.data) C.data.chd = res;
+    toast(files.length === 1 ? "Converting..." : `Converting ${files.length} sheets...`, 2500);
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  C.converting = false;
   load();
 }
 
@@ -259,6 +395,16 @@ export function bindChecks(viewEl) {
       const games = systems.flatMap((s) => s.games).filter((g) => !C.gone.has(g.p));
       const rows = ck === "trash-one" ? games.filter((g) => g.p === el.dataset.path) : games.filter((g) => g.state === "bad");
       if (rows.length) trashChecked(rows);
+    } else if (ck === "chd-refresh") load();
+    else if (ck === "chd-one") convertChd([el.dataset.file], el.dataset.code || "PS");
+    else if (ck === "chd-all") {
+      const list = chdReadyList(C.data);
+      if (list.length) convertChd(list.map((g) => g.f), list[0].code || "PS");
+    } else if (ck === "fix-one") {
+      openDiscFixWizard({ code: el.dataset.code || "PS", files: [el.dataset.file], onDone: () => load() });
+    } else if (ck === "fix-all") {
+      const list = archiveFixList(C.data);
+      if (list.length) openDiscFixWizard({ code: list[0].code || "PS", files: list.map((g) => g.f), onDone: () => load() });
     }
   });
   viewEl.addEventListener("change", (e) => {

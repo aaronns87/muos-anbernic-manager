@@ -9,7 +9,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fixBiosNames, parseCatalog, parseIni } from "../src/bios.ts";
 import { chdInstallHelp, convertibleFromDisc, isChdConvertible, probeChdman, trashBasenamesForSheet } from "../src/games/chd.ts";
-import { classifyMembers } from "../src/games/disc-fix.ts";
+import { classifyMembers, relAfterFlatten } from "../src/games/disc-fix.ts";
 import { gameDiscLayout, sheetRefs, sniffArchive } from "../src/games/disc-layout.ts";
 import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
@@ -765,6 +765,12 @@ test("sniffArchive and classifyMembers for PlayStation fix plans", () => {
   assert.equal(classifyMembers(["readme.txt"]).kind, "unsupported");
   assert.equal(classifyMembers([]).kind, "empty");
   assert.equal(classifyMembers(["__MACOSX/._Game.bin", "Game.chd"]).kind, "readyChd");
+  assert.equal(
+    relAfterFlatten("Twisted Metal 2 (USA)/Twisted Metal 2 (USA).cue", "Twisted Metal 2 (USA)"),
+    "Twisted Metal 2 (USA).cue",
+  );
+  assert.equal(relAfterFlatten("Game.cue", ""), "Game.cue");
+  assert.equal(relAfterFlatten("Game.cue", "Folder"), "Game.cue");
 });
 
 test("CHD helpers: eligibility, trash file set, install help, and chdman probe shape", async () => {

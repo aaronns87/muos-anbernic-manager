@@ -31,7 +31,7 @@ import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.
 import { cardHint, usbModel, wifiModel } from "./device/model.ts";
 import { deviceFor } from "../public/js/devices.js";
 import { UserError } from "./errors.ts";
-import { deleteGame } from "./games/actions.ts";
+import { deleteGame, renameGame } from "./games/actions.ts";
 import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./games/add.ts";
 import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
@@ -245,6 +245,7 @@ const routes: Record<string, Handler> = {
   },
   "POST /api/games/copy": async (_, body) => ({ job: await startCopy(body) }),
   "POST /api/games/delete": (_, body) => deleteGame(body),
+  "POST /api/games/rename": (_, body) => renameGame(body),
   "GET /api/checks": (query) => checksJson(query),
   "POST /api/checks/verify": (_, body) => startVerify(body),
   "POST /api/checks/trash": (_, body) => trashGames(body),

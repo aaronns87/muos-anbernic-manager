@@ -905,6 +905,7 @@ dd code { font-size: 12px; }
 .space-line { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
 .space-line b { color: var(--text); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog-actions [hidden] { display: none !important; }
 #devgame { width: min(760px, 94vw); }
 .d-art { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .d-tile { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -2300,9 +2301,35 @@ body.has-hh-bar #view-handheld { padding-bottom: 90px; }
 .dfx { width: min(560px, calc(100vw - 32px)); }
 .dfx .t-body { display: flex; flex-direction: column; gap: 12px; max-height: min(80vh, 640px); }
 .dfx #dfx-body { overflow: auto; display: flex; flex-direction: column; gap: 10px; }
-.dfx-tool { display: flex; flex-direction: column; gap: 6px; }
-.dfx details { font-size: 12.5px; color: var(--muted); }
-.dfx details summary { cursor: pointer; color: var(--text); }
+.dfx-steps { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; color: var(--faint); font-size: 12px; font-weight: 700; }
+.dfx-steps li { display: flex; align-items: center; gap: 6px; }
+.dfx-steps li span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-2); font-size: 11px; }
+.dfx-steps li.past { color: var(--muted); }
+.dfx-steps li.past span { background: color-mix(in srgb, var(--mustard) 25%, transparent); border-color: transparent; color: var(--text); }
+.dfx-steps li.on { color: var(--text); }
+.dfx-steps li.on span { background: var(--mustard); border-color: var(--mustard); color: var(--on-mustard); }
+.dfx-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.dfx-card-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dfx-card-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.dfx-card p { margin: 0; font-size: 13px; line-height: 1.45; }
+.dfx-wait { display: flex; align-items: center; gap: 12px; padding: 8px 2px; }
+.dfx-wait > div { display: flex; flex-direction: column; gap: 3px; }
+.dfx-wait b { font-size: 13.5px; }
+.dfx-tool { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.dfx-tool.missing { border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.dfx-tool-head { display: flex; align-items: center; gap: 10px; }
+.dfx-opts { display: flex; flex-direction: column; gap: 10px; }
+.dfx-opt { align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.dfx-opt span { display: flex; flex-direction: column; gap: 3px; }
+.dfx-opt b { color: var(--text); font-size: 13.5px; font-weight: 650; }
+.dfx-opt small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.dfx-details { font-size: 12.5px; color: var(--muted); }
+.dfx-details summary { cursor: pointer; color: var(--text); }
+.dfx-work { display: flex; flex-direction: column; gap: 10px; }
+.v-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
+.v-rename .control { flex: 1 1 140px; min-width: 0; height: 30px; font: 500 12.5px var(--mono); }
+.v-rename-ext { color: var(--muted); font: 500 12.5px var(--mono); flex: none; }
+.v-rename .btn { flex: none; }
 .bios-file .dev-chips { flex: none; justify-content: flex-end; }
 .bios-file .set-chip .i { width: 12px; height: 12px; margin-right: 4px; }
 .bios-file .btn .i { width: 14px; height: 14px; }

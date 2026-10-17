@@ -12,7 +12,7 @@ const stemOf = (f) => String(f).replace(/\.[^.]+$/, "");
 const baseOf = (p) => String(p).split("/").pop() || "";
 
 const V = {
-  tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, video: false, expanded: false, fixing: false, saving: false,
+  tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, renaming: false, video: false, expanded: false, fixing: false, saving: false,
   details: new Map(), dataRef: null, rel: [], dev: { key: "", at: 0, seq: 0 },
 };
 let hooks = { open: () => {}, reload: async () => {} };
@@ -303,8 +303,18 @@ function detailsPane() {
     ["System", `${esc(sys.name)} <span class="muted">${esc(sys.maker)}${sys.year ? ` &middot; ${sys.year}` : ""}</span>`],
   ]);
   const crc = d === null || d === undefined ? `<span class="spinner sm"></span>` : d.error ? "&ndash;" : d.check.crc ? `<code>${esc(d.check.crc)}</code>` : `<span class="muted">Worked out by a library check</span>`;
+  const stem = stemOf(g.f), ext = g.x || (g.f.includes(".") ? g.f.split(".").pop() : "");
+  const fileName = V.renaming
+    ? `<form class="v-rename" id="v-rename-form">
+        <input class="control" id="v-rename-input" value="${esc(stem)}" spellcheck="false" autocomplete="off" aria-label="New file name" ${V.saving ? "disabled" : ""}>
+        <span class="v-rename-ext">.${esc(ext)}</span>
+        <button type="submit" class="btn small primary" ${V.saving ? "disabled" : ""}>${V.saving ? `<span class="spinner sm"></span>` : "Save"}</button>
+        <button type="button" class="btn small" data-vrename="cancel" ${V.saving ? "disabled" : ""}>Cancel</button>
+      </form>`
+    : `<code title="${esc(g.f)}">${esc(g.f)}</code>
+      <button class="link-btn" data-vrename="open" title="Rename the file in Roms/">${icon("pencil")}Rename</button>`;
   const file = dl([
-    ["File", `<code>${esc(g.f)}</code>`],
+    ["File", fileName],
     ["Type", esc(g.x.toUpperCase() || "-")],
     ["Size", `${human(g.s)}${g.n ? ` <span class="muted">with ${plural(g.n, "data file")}</span>` : ""}`],
     ["Modified", esc(`${formatDate(new Date(g.m * 1000), "long")} ${formatTime(new Date(g.m * 1000))}`)],
@@ -492,7 +502,7 @@ export function enrichViewer(index) {
   if (!V.nav) V.back = [];
   V.nav = false;
   V.cur = { index, si, g, sys, m: g.lb ? app.data.meta[g.lb] : null, key: keyOf(sys, g) };
-  V.editing = V.video = V.expanded = false;
+  V.editing = V.renaming = V.video = V.expanded = false;
   $("v-facts").innerHTML = factsHtml(V.cur.m);
   $("v-back").innerHTML = backHtml();
   $("v-back").hidden = !V.back.length;
@@ -580,6 +590,29 @@ async function saveDescription(remove) {
   paint();
 }
 
+async function saveRename() {
+  const { sys, g, key } = V.cur;
+  const stem = ($("v-rename-input")?.value || "").trim();
+  if (!stem) { toast("Type a new file name", 2500); return; }
+  const ext = g.x || (g.f.includes(".") ? g.f.split(".").pop() : "");
+  const to = `${stem}.${ext}`;
+  if (to === g.f) { V.renaming = false; paint(); return; }
+  V.saving = true;
+  paint();
+  try {
+    const res = await api("games/rename", { path: keyOf(sys, g), to });
+    V.renaming = false;
+    V.details.delete(key);
+    const nextKey = `${sys.code}/${res.to}`;
+    await hooks.reload(nextKey);
+    toast(res.art ? `Renamed (and ${plural(res.art, "artwork file")})` : "Renamed", 2200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  V.saving = false;
+  paint();
+}
+
 async function replaceArt(file) {
   if (!file || !V.cur) return;
   const { sys, g, key } = V.cur;
@@ -603,7 +636,7 @@ export function bindGameView(h) {
   const viewer = $("viewer");
   viewer.addEventListener("close", () => { if (V.video) { V.video = false; if (V.tab === "about") $("v-pane").innerHTML = aboutPane(); } });
   viewer.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
+    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vrename], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
     if (!t || t.disabled) return;
     if (t.matches("[data-vfix]")) { e.stopPropagation(); fixCore(); }
     else if (t.matches("[data-vtab]")) { V.tab = t.dataset.vtab; store.set("viewerTab", V.tab); paint(); }
@@ -615,10 +648,17 @@ export function bindGameView(h) {
     else if (t.id === "v-back") { const idx = V.back.pop(); if (idx !== undefined) openAt(idx); }
     else if (t.id === "v-reveal") api("game/reveal", { code: V.cur.sys.code, file: V.cur.g.f }).catch((err) => toast(err.message, 4000));
     else if (t.id === "v-art-replace") pickImage().then(replaceArt);
-    else if (t.dataset.vedit === "open") { V.editing = true; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
+    else if (t.dataset.vedit === "open") { V.editing = true; V.renaming = false; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
     else if (t.dataset.vedit === "cancel") { V.editing = false; paint(); }
     else if (t.dataset.vedit === "save") saveDescription(false);
     else if (t.dataset.vedit === "remove") saveDescription(true);
+    else if (t.dataset.vrename === "open") { V.renaming = true; V.editing = false; V.tab = "details"; paint(); $("v-rename-input")?.focus(); $("v-rename-input")?.select(); }
+    else if (t.dataset.vrename === "cancel") { V.renaming = false; paint(); }
+  });
+  viewer.addEventListener("submit", (e) => {
+    if (e.target?.id !== "v-rename-form") return;
+    e.preventDefault();
+    saveRename();
   });
   viewer.addEventListener("keydown", (e) => {
     const c = e.target.closest?.(".v-card[data-vtab]");
