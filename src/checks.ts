@@ -8,6 +8,9 @@ import zlib from "node:zlib";
 import { ctx } from "./context.ts";
 import { UserError } from "./errors.ts";
 import { deleteGame } from "./games/actions.ts";
+import { chdJson } from "./games/chd.ts";
+import { discFixJson } from "./games/disc-fix.ts";
+import { discLayoutReport, gameDiscLayout } from "./games/disc-layout.ts";
 import { getLibrary, splitTitle, type Game } from "./games/library.ts";
 import { ARCADE, norm } from "./games/systems.ts";
 import { human, say } from "./log.ts";
@@ -395,7 +398,9 @@ export async function checksJson(query?: URLSearchParams) {
     for (const g of gone) counts[g.state]--;
     return { ...s, counts, renamed: s.renamed - gone.filter((g) => g.as).length, games: s.games.filter((g) => present.has(g.p)) };
   }) };
-  return { run: { ...run }, verify, supported, dupes: { groups, extra, bytes, prefer: query?.get("prefer") ?? "usa" } };
+  const disc = await discLayoutReport(library);
+  const [chd, fix] = await Promise.all([chdJson(), discFixJson()]);
+  return { run: { ...run }, verify, supported, disc, chd, fix, dupes: { groups, extra, bytes, prefer: query?.get("prefer") ?? "usa" } };
 }
 
 /** One game's last verify result, its CRC when hashed, and the other versions of it in the same folder. */
@@ -408,9 +413,11 @@ export async function gameCheck(code: string, games: Game[], g: Game) {
   const state: State | "" = hit?.state ?? (sys && !sys.error && h ? "ok" : "");
   const key = NO_DUPES.has(code) ? "" : groupKey(g);
   const copies = key ? games.filter((o) => o !== g && groupKey(o) === key).map((o) => ({ f: o.f, t: o.t, g: o.g, s: o.s })) : [];
+  const disc = await gameDiscLayout(code, g);
   return {
     supported: !!DATS[code], checked: sys ? last!.checked : "", state, as: hit?.as ?? "", like: hit?.like ?? "", note: hit?.note ?? "",
     dats: sys?.dats ?? [], crc: h?.e.length === 1 ? h.e[0][2] : "", copies,
+    disc: disc ? { state: disc.state, note: disc.note } : null,
   };
 }
 

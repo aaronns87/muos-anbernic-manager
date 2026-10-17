@@ -62,9 +62,11 @@ per-session token. Nothing is uploaded anywhere.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
-- **Emulation**: back up and restore saves and save states, check BIOS files, choose emulator cores per system or game,
-  edit RetroArch options, and run a health check of your library. **Systems** lists every system with what the
-  handheld can run, and why a system is missing when it cannot.
+- **Emulation**: back up and restore saves and save states, check BIOS files in the workspace `bios/` folder (**Fix
+  names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit
+  RetroArch options, and run a health check of your library (verify dumps, duplicates, and PlayStation **disc layouts**
+  for orphaned `.bin` / broken `.cue` sheets, plus **Convert to CHD** when `chdman` is installed). **Systems** lists
+  every system with what the handheld can run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
 - **Game Tuning**: per-game emulator settings for heavy or light games (PPSSPP, Mupen64Plus-Next, PCSX-ReARMed,
   SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest, Balanced and Best looking presets and

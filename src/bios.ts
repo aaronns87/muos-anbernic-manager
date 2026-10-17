@@ -246,8 +246,9 @@ export async function biosJson(query?: URLSearchParams) {
   if (reachable && (!catalog || query?.get("refresh") === "1" || Date.now() - catalog.fetched > CATALOG_AGE)) {
     try { catalog = await fetchCatalog(); } catch (error) { catalogError = (error as Error).message; }
   }
-  const available = await isDir(ctx.bios);
-  const local = available ? await localFiles() : [];
+  await fsp.mkdir(ctx.bios, { recursive: true });
+  const available = true;
+  const local = await localFiles();
   let device: Map<string, { rel: string; md5: string }> | null = null;
   if (reachable && catalog) {
     try { device = await deviceFiles(catalog); } catch (error) { deviceError = (error as Error).message; }
@@ -269,7 +270,7 @@ export async function biosJson(query?: URLSearchParams) {
     }
     const d = device?.get(key);
     return {
-      key, path: f.path, desc: f.desc, hashes: f.md5s.length, main,
+      key, path: f.path, desc: f.desc, hashes: f.md5s.length, md5s: f.md5s, main,
       local: { state: localState, source },
       device: device ? { state: d ? judge(f, d.md5) : "missing" as State } : null,
     };
@@ -289,6 +290,7 @@ export async function biosJson(query?: URLSearchParams) {
   const knownPaths = new Set(Object.keys(catalog?.files || {}));
   return {
     folder: ctx.bios, available,
+    deviceFolder: DEVICE_BIOS,
     catalog: catalog ? { fetched: catalog.fetched, version: catalog.version, files: Object.keys(catalog.files).length } : null,
     catalogError,
     device: { reachable, host: status.host, error: deviceError },
@@ -343,6 +345,113 @@ export async function sendBios(body: Record<string, unknown>) {
   }
   say("green", "SENT", `${plan.length} BIOS file${plan.length === 1 ? "" : "s"} to ${DEVICE_BIOS}: ${plan.map((p) => p.target).join(", ")}.`);
   return { sent: plan.length, ...(await biosJson()) };
+}
+
+/** Removes a BIOS file from the workspace bios folder (Trash) and/or from the handheld over SSH. */
+export async function deleteBios(body: Record<string, unknown>) {
+  const key = String(body.key ?? "").toLowerCase();
+  const doLocal = body.local === true;
+  const doDevice = body.device === true;
+  if (!key) throw new UserError("Pick a BIOS file.");
+  if (!doLocal && !doDevice) throw new UserError("Choose the bios folder, the handheld, or both.");
+  const catalog = lastReport.catalog || (await cachedCatalog());
+  if (!catalog?.files[key]) throw new UserError("Open the BIOS tab again; that BIOS file is not in the list.");
+  const f = catalog.files[key];
+  if (!safeBiosPath(f.path)) throw new UserError(`${f.path} is not a safe path.`);
+
+  let trashed = "";
+  let removedDevice = false;
+
+  if (doLocal) {
+    const local = await localFiles();
+    const here = local.find((x) => x.rel.toLowerCase() === key)
+      || (f.md5s.length ? local.find((x) => f.md5s.includes(x.md5)) : undefined)
+      || local.find((x) => path.basename(x.rel).toLowerCase() === path.basename(f.path).toLowerCase());
+    if (!here) throw new UserError(`${f.path} is not in the bios folder.`);
+    const full = path.join(ctx.bios, ...here.rel.split("/"));
+    if (!inside(ctx.bios, full)) throw new UserError("That path is outside the bios folder.");
+    await platform.trash(full);
+    trashed = here.rel;
+  }
+
+  if (doDevice) {
+    const status = await sshStatus();
+    if (!status.configured || !status.reachable) {
+      throw new UserError("Connect the handheld over Wi-Fi with SSH on to delete a BIOS file there.");
+    }
+    const { out, code } = await runCommand(
+      `cd ${DEVICE_BIOS} 2>/dev/null && rm -f ${quote(f.path)} && sync && echo @ok`,
+      30_000,
+    );
+    if (code !== 0 || !out.includes("@ok")) throw new UserError(`Could not delete ${f.path} on the handheld.`);
+    removedDevice = true;
+  }
+
+  const bits = [
+    trashed && `moved ${trashed} to the Trash`,
+    removedDevice && `deleted ${f.path} on the handheld`,
+  ].filter(Boolean);
+  say("yellow", "BIOS", bits.join("; ") + ".");
+  return { trashed, removedDevice, ...(await biosJson()) };
+}
+
+/**
+ * Renames recognised BIOS files in the bios folder to the names MustardOS / RetroArch expect
+ * (e.g. SCPH5501.BIN → scph5501.bin). Matches by MD5 or case-insensitive path.
+ */
+export async function fixBiosNames(catalogOverride?: Catalog) {
+  const catalog = catalogOverride || lastReport.catalog || (await cachedCatalog());
+  if (!catalog) throw new UserError("Open the BIOS tab again; the list of BIOS files is not loaded.");
+  if (!(await isDir(ctx.bios))) throw new UserError("The bios folder is missing.");
+  const local = await localFiles();
+  lastReport = { catalog, local };
+  const fixed: { from: string; to: string }[] = [];
+  const skipped: { from: string; to: string; why: string }[] = [];
+  const claimed = new Set<string>();
+
+  for (const [key, f] of Object.entries(catalog.files)) {
+    if (!safeBiosPath(f.path)) continue;
+    const here = local.find((x) => x.rel.toLowerCase() === key && (!f.md5s.length || f.md5s.includes(x.md5)))
+      || (f.md5s.length ? local.find((x) => f.md5s.includes(x.md5)) : undefined);
+    if (!here || here.rel === f.path) continue;
+    const srcKey = here.rel.toLowerCase();
+    if (claimed.has(srcKey)) continue;
+
+    const from = path.join(ctx.bios, ...here.rel.split("/"));
+    const to = path.join(ctx.bios, ...f.path.split("/"));
+    if (!inside(ctx.bios, from) || !inside(ctx.bios, to)) {
+      skipped.push({ from: here.rel, to: f.path, why: "unsafe path" });
+      continue;
+    }
+
+    const samePath = from.toLowerCase() === to.toLowerCase();
+    const existing = await fsp.stat(to).catch(() => null);
+    if (existing?.isFile() && !samePath) {
+      const otherMd5 = await md5File(to);
+      if (otherMd5 === here.md5) {
+        await platform.trash(from);
+        claimed.add(srcKey);
+        fixed.push({ from: here.rel, to: f.path });
+        continue;
+      }
+      skipped.push({ from: here.rel, to: f.path, why: "a different file already has that name" });
+      continue;
+    }
+
+    await fsp.mkdir(path.dirname(to), { recursive: true });
+    if (samePath && from !== to) {
+      const tmp = path.join(path.dirname(to), `.fix-${path.basename(to)}.tmp`);
+      await fsp.rename(from, tmp);
+      await fsp.rename(tmp, to);
+    } else {
+      await fsp.rename(from, to);
+    }
+    claimed.add(srcKey);
+    fixed.push({ from: here.rel, to: f.path });
+  }
+
+  if (fixed.length) say("green", "BIOS", `Renamed ${fixed.length} file${fixed.length === 1 ? "" : "s"} to the names the emulators look for.`);
+  return { fixed, skipped, ...(await biosJson()) };
 }
 
 function uploadName(name: unknown): string {

@@ -36,6 +36,8 @@ import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./
 import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
+import { chdJson, startChdConvert } from "./games/chd.ts";
+import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from "./games/disc-fix.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
 import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
@@ -48,7 +50,7 @@ import { acceptWebSocket } from "./ws.ts";
 import { scrapeGame, scrapeImage, scrapePlan } from "./scrape.ts";
 import { downloadUpdate, updatesJson } from "./updates.ts";
 import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } from "./cores.ts";
-import { biosJson, sendBios, uploadBios } from "./bios.ts";
+import { biosJson, deleteBios, fixBiosNames, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
@@ -246,6 +248,12 @@ const routes: Record<string, Handler> = {
   "GET /api/checks": (query) => checksJson(query),
   "POST /api/checks/verify": (_, body) => startVerify(body),
   "POST /api/checks/trash": (_, body) => trashGames(body),
+  "GET /api/chd": () => chdJson(),
+  "POST /api/chd/convert": (_, body) => startChdConvert(body),
+  "GET /api/disc-fix": () => discFixJson(),
+  "POST /api/disc-fix/inspect": (_, body) => inspectDiscArchive(body),
+  "POST /api/disc-fix/start": (_, body) => startDiscFix(body),
+  "POST /api/disc-fix/batch": (_, body) => startDiscFixBatch(body),
   "POST /api/games/add/detect": (_, body) => detectGames(body),
   "POST /api/games/add/describe": (_, body) => searchDescriptions(body),
   "POST /api/games/add/artwork": (_, body) => scrapeGame(body),
@@ -268,6 +276,8 @@ const routes: Record<string, Handler> = {
   "POST /api/saves/trash": (_, body) => trashBackup(body),
   "GET /api/bios": (query) => biosJson(query),
   "POST /api/bios/send": (_, body) => sendBios(body),
+  "POST /api/bios/fix-names": () => fixBiosNames(),
+  "POST /api/bios/delete": (_, body) => deleteBios(body),
   "PUT /api/bios/upload": (query, _, req) => uploadBios(req, query),
   "GET /api/cores": () => coresJson(),
   "GET /api/cores/games": (query) => folderGames(query),

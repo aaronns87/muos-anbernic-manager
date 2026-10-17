@@ -252,12 +252,19 @@ const ARTICLES = [
         <li>Before a restore replaces anything, the manager first backs up what is on the handheld (labelled <i>Before a restore</i>), so a restore can be undone.</li>
       </ul>`],
     ["BIOS", `<p>Some systems (PlayStation, Sega CD, Game Boy Advance and others) need a BIOS file: a copy of the original console's startup chip.
-      Without it, games for that system may not start.</p>
+      Without it, games for that system may not start (PlayStation often shows a black screen).</p>
       <ul>
+        <li>The workspace has a <code>bios</code> folder (created automatically), next to <code>Roms</code>, <code>apps</code> and the others.
+          Local detection only looks there &mdash; not at the workspace root. <b>Show folder</b> opens it.</li>
         <li>Each system lists the files it needs and the optional ones, and whether you have them here and on the handheld.</li>
         <li>Files are checked by their fingerprint (MD5), so you know a file is the right one, not just named right.</li>
         <li><b>Add BIOS files</b> (or drop files on the page) stores recognised files in your <code>bios</code> folder under the name MustardOS expects.</li>
-        <li><b>Send</b> copies them to the handheld and checks them again there.</li>
+        <li><b>Fix names</b> renames recognised files that are already in the folder but with the wrong casing
+          (for example <code>SCPH5501.BIN</code> &rarr; <code>scph5501.bin</code>). Emulators need those exact names.</li>
+        <li><b>Send</b> copies them to the handheld and checks them again there. On MustardOS every system looks in
+          <code>/run/muos/storage/bios</code> (shown under each system name).</li>
+        <li>Each row shows a short description, the expected MD5, and whether the local copy matches. The trash control
+          can move the file from the bios folder to the Trash and/or delete it on the handheld (needs SSH).</li>
       </ul>`],
     ["Cores", `<p>A <i>core</i> is the emulator program that runs a game. Some systems have several; one may run a game better than another.</p>
       <ul>
@@ -300,7 +307,34 @@ const ARTICLES = [
       </ul>
       <p>The <b>bin</b> button on a row moves that game to the Trash on this computer, optionally with its artwork. A folder with several bad dumps
       also has a button that moves all of them to the Trash at once. Nothing on the handheld is touched; remove it there from Games if it was copied.</p>
-      <p>Arcade, CD-based and engine folders (PlayStation, ScummVM and so on) are not covered.</p>`],
+      <p>Arcade, CD-based and engine folders (PlayStation, ScummVM and so on) are not covered by No-Intro verify; use <b>Disc layouts</b> for PlayStation sheets.</p>`],
+    ["Library check: disc layouts", `<p>PlayStation games need a <code>.chd</code>, <code>.pbp</code>, or a complete <code>.cue</code> + <code>.bin</code> set.
+      A <code>.zip</code> / <code>.7z</code> archive, a lone <code>.bin</code>, or a broken cue often boots to a black screen.</p>
+      <ul>
+        <li><b>Problem</b>: archives, orphaned <code>.bin</code>/<code>.iso</code>, empty or broken cue/m3u sheets, or missing track files.</li>
+        <li><b>Tip</b>: the cue is complete; convert to <code>.chd</code> when you can.</li>
+        <li><b>OK</b>: <code>.chd</code>, <code>.pbp</code>, or a complete sheet.</li>
+      </ul>
+      <p>Use <b>Fix&hellip;</b> on archives (extract / convert) or <b>CHD</b> on complete cue sheets. See <b>Convert to CHD</b> and <b>Fix PlayStation archives</b>.</p>`],
+    ["Fix PlayStation archives", `<p>Roms dumped as <code>.zip</code> or <code>.7z</code> (sometimes a 7z file wrongly named <code>.zip</code>) cannot be started by PlayStation cores.
+      Disc layouts marks them as problems and offers <b>Fix&hellip;</b>.</p>
+      <ol>
+        <li>The wizard looks inside the archive and explains what it found.</li>
+        <li>Install tools if needed: <code>brew install p7zip</code> for .7z, <code>brew install rom-tools</code> for <code>chdman</code>.</li>
+        <li>Choose whether to prefer <code>.chd</code> and whether to move the archive to the Trash.</li>
+        <li>The manager extracts, converts when possible, and rescans your library.</li>
+      </ol>
+      <p>If the archive only has loose <code>.bin</code> files without a cue, extract manually and add a matching cue, then convert.</p>`],
+    ["Convert to CHD", `<p>A <code>.chd</code> packs a PlayStation disc (cue + bins) into one compressed file that MustardOS cores load well.
+      Conversion runs on this computer with MAME's <code>chdman</code>; the manager does not ship that tool.</p>
+      <ul>
+        <li><b>macOS</b>: <code>brew install rom-tools</code> (not <code>mame</code> &mdash; that formula is only the emulator), then <code>which chdman</code>.
+          For .7z archives also <code>brew install p7zip</code>.</li>
+        <li><b>Linux</b>: install <code>mame-tools</code> or <code>mame</code>, and <code>p7zip-full</code> when needed.</li>
+        <li><b>Windows</b>: install MAME (<code>chdman</code> on PATH) and 7-Zip for .7z.</li>
+      </ul>
+      <p>In Emulation &rsaquo; Library check &rsaquo; Disc layouts, <b>Refresh tooling</b> detects the tools.
+        Complete .cue / .m3u sheets get <b>CHD</b>; archives get <b>Fix&hellip;</b>. Multi-disc sets become one .chd per disc plus an .m3u.</p>`],
     ["Library check: duplicates", `<p>Finds games you have more than once in the same folder: other regions, revisions or file formats. One version is
       <i>Suggested</i> to keep, chosen by the region you prefer (USA, Europe or Japan first), then good dumps over betas and prototypes, then the newest
       revision. The others are ticked; untick anything you want to keep, then <b>Move to the Trash</b>. You are warned if every version of a game is ticked.
@@ -475,9 +509,10 @@ const ARTICLES = [
       <li>The address may have changed: use <b>Find on network</b> in Overview's Wi-Fi settings.</li>
     </ul>`],
     ["A game doesn't start or crashes", `<ul>
-      <li>Emulation &rsaquo; BIOS: does its system need a BIOS file that is missing on the handheld?</li>
-      <li>Emulation &rsaquo; Cores: try another core for the folder or just that game.</li>
-      <li>Emulation &rsaquo; Library check: is the file a bad dump?</li>
+      <li>Emulation &rsaquo; BIOS: does its system need a BIOS file that is missing on the handheld? Use <b>Fix names</b> if a file is there but named wrong (PlayStation often needs lowercase <code>scph5501.bin</code> and friends).</li>
+      <li>Emulation &rsaquo; Library check &rsaquo; Disc layouts: for PlayStation, is the <code>.cue</code> missing or incomplete?</li>
+      <li>Emulation &rsaquo; Cores: try another core for the folder or just that game (on the handheld's game options).</li>
+      <li>Emulation &rsaquo; Library check &rsaquo; Verify dumps: is the file a bad dump?</li>
     </ul>`],
     ["Games or artwork don't show on the handheld", `<ul>
       <li>Games must be in the right system folder inside <code>ROMS</code> on the TF2 card.</li>

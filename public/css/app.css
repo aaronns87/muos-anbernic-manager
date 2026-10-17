@@ -819,7 +819,8 @@ dialog::backdrop { background: rgba(6, 4, 3, .74); backdrop-filter: blur(6px); -
 .v-files { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .v-files li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .v-files li + li { border-top: 1px solid var(--line); }
-.v-files li > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.v-files .v-file-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.v-files .set-chip { flex: none; white-space: nowrap; }
 .v-files code { font-size: 12px; overflow-wrap: anywhere; }
 .v-files small { font-size: 11.5px; color: var(--muted); }
 .v-cols span { font-size: 12px; padding: 3px 10px; }
@@ -2290,9 +2291,18 @@ body.has-hh-bar #view-handheld { padding-bottom: 90px; }
 .bios-files { display: flex; flex-direction: column; }
 .bios-file { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
 .bios-file.opt .bios-name b { font-weight: 500; color: var(--muted); }
-.bios-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bios-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .bios-name b { font: 600 12.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bios-name small { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bios-name small { color: var(--muted); font-size: 11.5px; }
+.bios-name .bios-blurb { line-height: 1.35; white-space: normal; }
+.bios-name .bios-hash { font: 500 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.9; }
+
+.dfx { width: min(560px, calc(100vw - 32px)); }
+.dfx .t-body { display: flex; flex-direction: column; gap: 12px; max-height: min(80vh, 640px); }
+.dfx #dfx-body { overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.dfx-tool { display: flex; flex-direction: column; gap: 6px; }
+.dfx details { font-size: 12.5px; color: var(--muted); }
+.dfx details summary { cursor: pointer; color: var(--text); }
 .bios-file .dev-chips { flex: none; justify-content: flex-end; }
 .bios-file .set-chip .i { width: 12px; height: 12px; margin-right: 4px; }
 .bios-file .btn .i { width: 14px; height: 14px; }

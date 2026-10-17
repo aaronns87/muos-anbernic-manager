@@ -7,7 +7,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { parseCatalog, parseIni } from "../src/bios.ts";
+import { fixBiosNames, parseCatalog, parseIni } from "../src/bios.ts";
+import { chdInstallHelp, convertibleFromDisc, isChdConvertible, probeChdman, trashBasenamesForSheet } from "../src/games/chd.ts";
+import { classifyMembers } from "../src/games/disc-fix.ts";
+import { gameDiscLayout, sheetRefs, sniffArchive } from "../src/games/disc-layout.ts";
+import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
 import { collectionItem, fnv1a, romOf } from "../src/play.ts";
@@ -668,4 +672,123 @@ test("zip: a folder packs and unpacks with empty folders, and unsafe entries are
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+const discGame = (f: string, x: string): Game => ({
+  t: splitName(f)[0], k: f.toLowerCase(), f, x, s: 1, m: 0, g: [], a: "", i: "", p: f, lb: "",
+});
+
+test("sheetRefs parses quoted and unquoted cue FILE lines and m3u entries", () => {
+  assert.deepEqual(
+    sheetRefs("cue", 'FILE "game.bin" BINARY\nFILE track02.wav WAVE\n'),
+    ["game.bin", "track02.wav"],
+  );
+  assert.deepEqual(sheetRefs("cue", "FILE unquoted.bin BINARY"), ["unquoted.bin"]);
+  assert.deepEqual(sheetRefs("ccd", 'FILE "disc.img" BINARY'), ["disc.img"]);
+  assert.deepEqual(sheetRefs("m3u", "# comment\ndisc1.cue\n\ndisc2.cue\n"), ["disc1.cue", "disc2.cue"]);
+  assert.deepEqual(sheetRefs("cue", ""), []);
+});
+
+test("disc layout flags orphan bins, missing cue tracks, archives, and prefers chd", async (t) => {
+  const dir = tmp(t);
+  const before = ctx.root;
+  t.after(() => setRoot(before));
+  setRoot(dir);
+  fs.mkdirSync(path.join(ctx.roms, "PS"), { recursive: true });
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Twisted Metal.bin"), "x");
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Broken.cue"), 'FILE "Missing.bin" BINARY\n');
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Complete.cue"), 'FILE "Complete.bin" BINARY\n');
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Complete.bin"), "x");
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Good.chd"), "x");
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Fake.zip"), Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0, 0]));
+  fs.writeFileSync(path.join(ctx.roms, "PS", "Real.zip"), Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]));
+
+  const orphan = await gameDiscLayout("PS", discGame("Twisted Metal.bin", "bin"));
+  assert.equal(orphan?.state, "bad");
+  assert.match(orphan!.note, /\.cue/);
+
+  const broken = await gameDiscLayout("PS", discGame("Broken.cue", "cue"));
+  assert.equal(broken?.state, "bad");
+  assert.match(broken!.note, /Missing track file Missing\.bin/);
+
+  const complete = await gameDiscLayout("PS", discGame("Complete.cue", "cue"));
+  assert.equal(complete?.state, "tip");
+  assert.equal(complete?.fixable, true);
+
+  const chd = await gameDiscLayout("PS", discGame("Good.chd", "chd"));
+  assert.equal(chd?.state, "ok");
+
+  const misnamed = await gameDiscLayout("PS", discGame("Fake.zip", "zip"));
+  assert.equal(misnamed?.state, "bad");
+  assert.equal(misnamed?.archive, "7z");
+  assert.equal(misnamed?.fixable, true);
+
+  const realZip = await gameDiscLayout("PS", discGame("Real.zip", "zip"));
+  assert.equal(realZip?.state, "bad");
+  assert.equal(realZip?.archive, "zip");
+  assert.equal(realZip?.fixable, true);
+
+  assert.equal(await gameDiscLayout("GB", discGame("Tetris.gb", "gb")), null);
+});
+
+test("fixBiosNames renames a wrong-case BIOS file to the catalogue path", async (t) => {
+  const dir = tmp(t);
+  const before = ctx.root;
+  t.after(() => setRoot(before));
+  setRoot(dir);
+  fs.mkdirSync(ctx.bios, { recursive: true });
+  fs.writeFileSync(path.join(ctx.bios, "SCPH1001.BIN"), "ps1-bios");
+  const catalog = {
+    fetched: 0,
+    version: "test",
+    systems: [],
+    files: {
+      "scph1001.bin": { path: "scph1001.bin", md5s: [] as string[], desc: "" },
+    },
+  };
+  const result = await fixBiosNames(catalog);
+  assert.deepEqual(result.fixed, [{ from: "SCPH1001.BIN", to: "scph1001.bin" }]);
+  assert.equal(result.skipped.length, 0);
+  assert.deepEqual(fs.readdirSync(ctx.bios), ["scph1001.bin"]);
+});
+
+test("sniffArchive and classifyMembers for PlayStation fix plans", () => {
+  assert.equal(sniffArchive(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0])), "zip");
+  assert.equal(sniffArchive(Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0, 0])), "7z");
+  assert.equal(sniffArchive(Buffer.from([0x52, 0x61, 0x72, 0x21, 0, 0, 0, 0])), "rar");
+  assert.equal(sniffArchive(Buffer.from([0, 1, 2, 3])), "");
+  assert.equal(classifyMembers(["Game.chd"]).kind, "readyChd");
+  assert.equal(classifyMembers(["Game.pbp"]).kind, "readyPbp");
+  assert.equal(classifyMembers(["Game.cue", "Game.bin"]).kind, "cueSet");
+  assert.equal(classifyMembers(["Disc1.cue", "Disc1.bin", "Disc2.cue", "Disc2.bin"]).kind, "cueSet");
+  assert.equal(classifyMembers(["Game.bin"]).kind, "orphanBin");
+  assert.equal(classifyMembers(["readme.txt"]).kind, "unsupported");
+  assert.equal(classifyMembers([]).kind, "empty");
+  assert.equal(classifyMembers(["__MACOSX/._Game.bin", "Game.chd"]).kind, "readyChd");
+});
+
+test("CHD helpers: eligibility, trash file set, install help, and chdman probe shape", async () => {
+  assert.equal(isChdConvertible({ x: "cue", state: "tip" }), true);
+  assert.equal(isChdConvertible({ x: "m3u", state: "tip" }), true);
+  assert.equal(isChdConvertible({ x: "cue", state: "bad" }), false);
+  assert.equal(isChdConvertible({ x: "bin", state: "tip" }), false);
+  assert.equal(isChdConvertible({ x: "chd", state: "ok" }), false);
+  assert.deepEqual(
+    trashBasenamesForSheet("cue", "Game.cue", 'FILE "Game.bin" BINARY\nFILE "track2.bin" BINARY\n').sort(),
+    ["Game.bin", "Game.cue", "track2.bin"].sort(),
+  );
+  assert.deepEqual(
+    convertibleFromDisc([
+      { f: "A.cue", p: "A.cue", t: "A", x: "cue", state: "tip", note: "" },
+      { f: "B.bin", p: "B.bin", t: "B", x: "bin", state: "bad", note: "" },
+    ]).map((g) => g.f),
+    ["A.cue"],
+  );
+  const help = chdInstallHelp();
+  assert.ok(help.steps.length >= 2);
+  assert.ok(help.os);
+  const tool = await probeChdman();
+  assert.equal(typeof tool.present, "boolean");
+  assert.equal(typeof tool.path, "string");
+  assert.equal(typeof tool.version, "string");
 });

@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | PS1 BIOS/disc checks, CHD convert, archive Fix wizard |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
 | [1.2.1](#121---2026-10-14) | 2026-10-14 | Filterable dropdowns that line up with their field, full-width new theme form |
@@ -21,6 +21,21 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **PlayStation black-screen checks.** Emulation → BIOS gains **Fix names** to rename recognised BIOS files to the
+  lowercase paths MustardOS expects (e.g. `SCPH5501.BIN` → `scph5501.bin`). The workspace `bios/` folder is created
+  automatically when you open the BIOS tab. Each row shows a short description, expected MD5, an **MD5 matches** chip,
+  and a trash control to remove the file from the bios folder and/or the handheld. Library check gains a **Disc layouts**
+  view that flags orphaned `.bin` files and incomplete `.cue` / `.m3u` sheets under `Roms/PS` — a common cause of a black
+  screen on launch.
+- **Convert PlayStation discs to CHD.** When `chdman` (from MAME / `rom-tools`) is on your PATH, Disc layouts can convert
+  complete `.cue` / `.m3u` sets to `.chd`, optionally moving the originals to the Trash. OS-specific install help is shown
+  when the tool is missing.
+- **Fix PlayStation archives.** `.zip` / `.7z` (including a 7z misnamed as `.zip`) are flagged as disc-layout problems.
+  **Fix…** opens a wizard that inspects the archive, checks for `p7zip` / `chdman`, extracts, converts to `.chd` when
+  possible, and can move the archive to the Trash.
 
 ## [1.2.3] - 2026-10-16
 

@@ -133,6 +133,7 @@ function tagsHtml() {
   if (c?.state === "ok") out.push(`<span class="t-ok" title="Matches the No-Intro list${c.as ? ` as ${esc(c.as)}` : ""}">${icon("check")}Verified</span>`);
   else if (c?.state === "bad") out.push(`<span class="t-bad" title="${esc(c.note)}">${icon("alert")}Bad dump</span>`);
   else if (c?.state === "modified") out.push(`<span class="t-warn" title="A hack, translation or patched copy">Modified</span>`);
+  if (c?.disc?.state === "bad") out.push(`<span class="t-bad" title="${esc(c.disc.note)}">${icon("alert")}Disc layout</span>`);
   if (d?.bios?.required && d.bios.files.some((f) => f.state !== "ok")) out.push(`<span class="t-warn" title="This system's default core needs a BIOS file you don't have">${icon("shield")}BIOS missing</span>`);
   if (c?.copies.length) out.push(`<span title="Other versions of this game in your library">${plural(c.copies.length + 1, "version")}</span>`);
   if (g.c) out.push(`<span title="A MAME clone of ${esc(g.c)}">Clone</span>`);
@@ -311,7 +312,7 @@ function detailsPane() {
     ["Artwork", g.i ? "Yes" : `<span class="app-bad">Missing</span> ${go("art", "Find artwork")}`],
     ["Path", `<code>${esc(g.p)}</code>`],
   ]);
-  return [sec("Game", "handheld", game), sec("File", "file", file), checkSection(d), biosSection(d), arcadeSection()].join("");
+  return [sec("Game", "handheld", game), sec("File", "file", file), checkSection(d), discSection(d), biosSection(d), arcadeSection()].join("");
 }
 
 function checkSection(d) {
@@ -333,6 +334,22 @@ function checkSection(d) {
     <p class="v-note">Checked ${esc(c.checked)}${lists ? ` against ${lists}` : ""}.</p>`, run);
 }
 
+function discSection(d) {
+  if (d === null || d === undefined || d.error) return "";
+  const disc = d.check?.disc;
+  if (!disc) return "";
+  const open = go("disc", "Open Disc layouts");
+  if (disc.state === "bad") {
+    return sec("Disc layout", "layers", `<div class="v-state">${chip("bad", "Problem", "alert")}<span>${esc(disc.note)}</span></div>
+      <p class="v-note">Archives (.zip / .7z) and incomplete .bin/.cue sets often boot to a black screen. Use ${open} and <b>Fix&hellip;</b> to extract or convert to .chd.</p>`);
+  }
+  if (disc.state === "tip") {
+    return sec("Disc layout", "layers", `<div class="v-state">${chip("warn", "Works", "info")}<span>${esc(disc.note)}</span></div>
+      <p class="v-note">Convert complete .cue sheets to .chd under ${open}.</p>`);
+  }
+  return sec("Disc layout", "layers", `<div class="v-state">${chip("ok", "OK", "check")}<span>${esc(disc.note || "Disc layout looks fine.")}</span></div>`, open);
+}
+
 function biosSection(d) {
   if (d === null || d === undefined || d.error) return "";
   const b = d.bios;
@@ -340,7 +357,7 @@ function biosSection(d) {
   if (!b.system || !b.files.length) return sec("BIOS", "shield", note("No BIOS file needed."));
   const who = b.required ? "The default core needs these files." : b.requiredBy.length ? `Only some cores need them: ${esc(b.requiredBy.join(", "))}.` : "Optional: games may run better with them.";
   const rows = b.files.map((f) => `<li>${f.state === "ok" ? chip("ok", "Have it", "check") : f.state === "unknown" ? chip("warn", "Unknown version") : chip(b.required ? "bad" : "", "Missing")}
-    <span><code>${esc(f.path)}</code>${f.desc ? `<small>${esc(f.desc)}</small>` : ""}</span></li>`).join("");
+    <span class="v-file-meta"><code>${esc(f.path)}</code>${f.desc ? `<small>${esc(f.desc)}</small>` : ""}</span></li>`).join("");
   return sec("BIOS", "shield", `${note(who)}<ul class="v-files">${rows}</ul>`, go("bios", "Open BIOS"));
 }
 
@@ -422,7 +439,7 @@ function savesSection() {
   const rows = [...s.files].sort((a, b) => b.mtime - a.mtime).map((f) => {
     const parts = f.path.split("/");
     const kind = /(^|\/)state\//.test(f.path) ? (/\.png$/i.test(f.path) ? "State picture" : "Save state") : "Save";
-    return `<li>${chip(kind === "Save" ? "ok" : "", kind)}<span><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}</small></span></li>`;
+    return `<li>${chip(kind === "Save" ? "ok" : "", kind)}<span class="v-file-meta"><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}</small></span></li>`;
   }).join("");
   return sec("Saves", "save", `<ul class="v-files">${rows}</ul>`, link);
 }
@@ -516,6 +533,13 @@ function openRelated(i) {
 }
 
 function goTo(where) {
+  if (where === "disc") {
+    store.set("emuTab", "checks");
+    store.set("checkView", "disc");
+    $("viewer").close();
+    location.hash = "#emulation";
+    return;
+  }
   const emu = { cores: "cores", checks: "checks", bios: "bios", saves: "saves" }[where];
   if (emu) store.set("emuTab", emu);
   $("viewer").close();
