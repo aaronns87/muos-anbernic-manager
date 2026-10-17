@@ -49,6 +49,10 @@ version.
 
 - Disc Fix wizard: step rail, clearer tool/option cards, phase progress, Done as the primary close action, Cancel
   disabled while working. Disc layouts notes SwanStation when a `.chd` opens then quits on the handheld.
+- **Connection chip in the top bar** shows every live link (USB, Wi-Fi, card) and opens a panel to switch the primary
+  path, reconnect, or set up Wi-Fi. Overview remains the full connection page. USB and Wi-Fi can both show as live at
+  once; copies still use one primary path.
+- Emulation sidebar icon is a gamepad instead of a save/floppy glyph.
 
 ## [1.2.3] - 2026-10-16
 

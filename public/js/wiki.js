@@ -39,7 +39,8 @@ const ARTICLES = [
       <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
-    </ul>`],
+    </ul>
+    <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel (switch the primary path for copies, reconnect, or set up Wi-Fi). Game copies still use one primary path at a time.</p>`],
     ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
       artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
       <table class="wiki-table">
@@ -76,7 +77,8 @@ const ARTICLES = [
   ]],
   ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
-      games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.</p>`],
+      games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
+      The top-bar chip opens the connection panel; Overview remains the full connection page.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
       when the handheld reconnects; <b>Find on network</b> searches for it again.</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
@@ -245,7 +247,7 @@ const ARTICLES = [
     ["What it needs", `<p>Browsing and previews need only an internet connection, and the Designer works offline. Installing, applying and deleting need
       the handheld over Wi-Fi with ${SSH_ON}, and MustardOS 2601.0 or newer, which keeps themes as folders.</p>`],
   ]],
-  ["emulation", "save", "Emulation", "emulation", "Saves, BIOS files, emulator cores and a health check of your library.", [
+  ["emulation", "gamepad", "Emulation", "emulation", "Saves, BIOS files, emulator cores and a health check of your library.", [
     ["Saves", `<p>Backs up every save game and save state from the handheld into your <code>backups</code> folder, one compressed file per backup.</p>
       <ul>
         <li><b>Back up now</b> takes a backup. The handheld panel shows how many files changed since the last one.</li>
