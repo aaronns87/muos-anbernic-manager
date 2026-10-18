@@ -16,6 +16,10 @@ const C = {
   loading: false,
   device: "",
   buttonsFrom: "",
+  /** Per-selection axis map; board defaults when on the configured stick device. */
+  axesLeft: null,
+  axesRight: null,
+  axesHat: null,
   state: null,
   poll: null,
   calibrating: false,
@@ -34,14 +38,64 @@ const roleHint = (d) => {
   return "";
 };
 
+/** Mirror of server inferAxisPairs — used when the user picks a non-default input node. */
+function inferAxisPairs(abs) {
+  const sticks = (abs || []).filter((c) => c >= 0 && c <= 5).sort((a, b) => a - b);
+  const hatX = (abs || []).includes(16) ? 16 : -1;
+  const hatY = (abs || []).includes(17) ? 17 : -1;
+  if (sticks.includes(0) && sticks.includes(1)) {
+    const right = sticks.includes(3) && sticks.includes(4) ? [3, 4]
+      : sticks.includes(2) && sticks.includes(5) ? [2, 5] : [-1, -1];
+    return { left: [0, 1], right, hat: [hatX, hatY] };
+  }
+  if (sticks.includes(2) && sticks.includes(3)) {
+    const right = sticks.includes(4) && sticks.includes(5) ? [4, 5] : [-1, -1];
+    return { left: [2, 3], right, hat: [hatX, hatY] };
+  }
+  if (sticks.length >= 2) {
+    return {
+      left: [sticks[0], sticks[1]],
+      right: sticks.length >= 4 ? [sticks[2], sticks[3]] : [-1, -1],
+      hat: [hatX, hatY],
+    };
+  }
+  return { left: [0, 1], right: [3, 4], hat: [hatX, hatY] };
+}
+
+function applyAxesForDevice(path) {
+  const snap = C.snap;
+  if (!snap) return;
+  const boardDev = snap.stickDevice || "";
+  if (path && path === boardDev && snap.axesLeft) {
+    C.axesLeft = snap.axesLeft;
+    C.axesRight = snap.axesRight;
+    C.axesHat = snap.axesHat;
+    return;
+  }
+  const abs = (snap.devices || []).find((d) => d.path === path)?.abs || [];
+  const inferred = inferAxisPairs(abs);
+  C.axesLeft = inferred.left;
+  C.axesRight = inferred.right;
+  C.axesHat = inferred.hat;
+}
+
 const stickCount = () => {
   const n = C.snap?.sticks;
   if (n === 0) return 0;
   if (n === 1 || n === 2) return n;
+  const right = C.axesRight || C.snap?.axesRight || [];
+  if (right[0] >= 0 && right[1] >= 0) return 2;
   const abs = (C.snap?.devices || []).find((d) => d.path === C.device)?.abs || [];
-  if (abs.includes(3) || abs.includes(4)) return 2;
-  if (abs.includes(0) || abs.includes(1)) return 1;
+  if (abs.filter((c) => c >= 0 && c <= 5).length >= 4) return 2;
+  if (abs.some((c) => c >= 0 && c <= 5)) return 1;
   return 2;
+};
+
+const axisCodesQuery = () => {
+  const left = C.axesLeft || C.snap?.axesLeft || [0, 1];
+  const right = C.axesRight || C.snap?.axesRight || [3, 4];
+  const hat = C.axesHat || C.snap?.axesHat || [16, 17];
+  return [...left, ...right, ...hat].filter((c) => Number.isInteger(c) && c >= 0).join(",") || "0,1,2,3,4,5,16,17";
 };
 
 function stopPoll() {
@@ -76,6 +130,7 @@ async function load() {
     C.snap = await api("controls");
     C.device = C.snap.stickDevice || C.snap.devices?.[0]?.path || "";
     C.buttonsFrom = C.snap.buttonDevice || C.device;
+    applyAxesForDevice(C.device);
     C.draftJson = C.snap.joycalJson;
     const all = await api("handheld/settings").catch(() => null);
     if (all) {
@@ -106,8 +161,19 @@ function startPoll() {
 async function tick() {
   if (!$("hh-controls") || $("hh-controls").hidden || C.calibrating || C.wizard) return;
   try {
-    const q = new URLSearchParams({ device: C.device, axes: "0,1,3,4" });
+    const q = new URLSearchParams({ device: C.device, axes: axisCodesQuery() });
     if (C.buttonsFrom && C.buttonsFrom !== C.device) q.set("buttons", C.buttonsFrom);
+    const hat = C.axesHat || C.snap?.axesHat;
+    if (hat) q.set("hat", hat.join(","));
+    const labels = C.snap?.buttonCodes;
+    if (labels && typeof labels === "object") {
+      q.set("labels", JSON.stringify(labels));
+      // Only watch codes the board (or fallback map) actually defines as face buttons.
+      const watch = Object.entries(labels)
+        .filter(([, name]) => ["A", "B", "X", "Y", "L1", "R1", "L2", "R2", "Select", "Start", "L3", "R3", "Menu", "Up", "Down", "Left", "Right"].includes(name))
+        .map(([code]) => code);
+      if (watch.length) q.set("watch", watch.join(","));
+    }
     C.state = await api(`controls/state?${q}`);
     C.error = "";
     paintLive();
@@ -116,7 +182,8 @@ async function tick() {
     const el = $("ctrl-live-note");
     if (el) el.textContent = error.message;
   }
-  C.poll = setTimeout(tick, 120);
+  // SSH round-trips are slow; keep one in flight and avoid hammering the handheld.
+  C.poll = setTimeout(tick, 250);
 }
 
 function render() {
@@ -206,14 +273,16 @@ function stickSvg(label, pair) {
 function padsHtml() {
   const n = stickCount();
   if (n === 0) return `<p class="muted-note">This board reports no analog sticks.</p>`;
-  const left = stickSvg("Left stick", axisPair([0, 1]));
-  const right = n > 1 ? stickSvg("Right stick", axisPair([3, 4])) : "";
+  const leftCodes = C.axesLeft || C.snap?.axesLeft || [0, 1];
+  const rightCodes = C.axesRight || C.snap?.axesRight || [3, 4];
+  const left = stickSvg("Left stick", axisPair(leftCodes));
+  const right = n > 1 && rightCodes[0] >= 0 ? stickSvg("Right stick", axisPair(rightCodes)) : "";
   return left + right;
 }
 
 function buttonsHtml() {
   const btns = C.state?.buttons || {};
-  const order = ["A", "B", "X", "Y", "L1", "R1", "L2", "R2", "Select", "Start", "L3", "R3", "Up", "Down", "Left", "Right"];
+  const order = ["A", "B", "X", "Y", "L1", "R1", "L2", "R2", "Select", "Start", "L3", "R3", "Menu", "Up", "Down", "Left", "Right"];
   return order.map((name) =>
     `<span class="ctrl-btn${btns[name] ? " on" : ""}">${esc(name)}</span>`).join("");
 }
@@ -463,6 +532,7 @@ function bind() {
       // Keep a separate Keys node for face buttons when the stick device has none.
       if (picked?.keys) C.buttonsFrom = C.device;
       else C.buttonsFrom = C.snap?.buttonDevice || C.device;
+      applyAxesForDevice(C.device);
       C.state = null;
       render();
       startPoll();

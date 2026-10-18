@@ -15,7 +15,9 @@ import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
 import { collectionItem, fnv1a, romOf } from "../src/play.ts";
-import { parseInputDevices, pickStickDevice, pickButtonDevice } from "../src/device/controls.ts";
+import {
+  parseInputDevices, pickStickDevice, pickButtonDevice, parseBoardInputMap, inferAxisPairs,
+} from "../src/device/controls.ts";
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
@@ -849,4 +851,66 @@ B: ABS=1b
   assert.equal(stick?.name, "muOS Gamepad");
   assert.ok(buttons);
   assert.notEqual(list[0]?.name, "muOS-Keys");
+});
+
+test("parseInputDevices keeps muOS-Keys when it is the js0 stick device", () => {
+  const text = `I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="muOS-Keys"
+P: Phys=gpio-keys-polled/input0
+S: Sysfs=/devices/platform/gpio_keys/input/input1
+U: Uniq=
+H: Handlers=kbd js0 event1
+B: PROP=0
+B: EV=20000b
+B: KEY=400000000 1fff000000000000 0 0 c000000000000 2
+B: ABS=3003c
+`;
+  const list = parseInputDevices(text);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].path, "/dev/input/event1");
+  assert.ok(list[0].score > 0);
+  assert.deepEqual(list[0].abs, [2, 3, 4, 5, 16, 17]);
+  assert.equal(pickStickDevice(list)?.path, "/dev/input/event1");
+});
+
+test("inferAxisPairs and parseBoardInputMap use MustardOS Z/RX layout", () => {
+  const pairs = inferAxisPairs([2, 3, 4, 5, 16, 17]);
+  assert.deepEqual(pairs.left, [2, 3]);
+  assert.deepEqual(pairs.right, [4, 5]);
+  const map = parseBoardInputMap(`
+analog/left/left=2
+analog/left/up=3
+analog/right/left=4
+analog/right/up=5
+dpad/left=16
+dpad/up=17
+button/a=304
+button/b=305
+button/y=306
+button/x=307
+button/l1=308
+button/r1=309
+button/select=310
+button/start=311
+device=/dev/input/event1
+`);
+  assert.deepEqual(map.left, [2, 3]);
+  assert.deepEqual(map.right, [4, 5]);
+  assert.equal(map.buttons[304], "A");
+  assert.equal(map.buttons[305], "B");
+  assert.equal(map.device, "/dev/input/event1");
+});
+
+test("parseBoardInputMap leaves missing analog as -1 for inference", () => {
+  const map = parseBoardInputMap(`
+button/a=304
+button/b=305
+device=/dev/input/event1
+`);
+  assert.deepEqual(map.left, [-1, -1]);
+  assert.deepEqual(map.right, [-1, -1]);
+  assert.equal(map.buttons[304], "A");
+  const inferred = inferAxisPairs([2, 3, 4, 5]);
+  const left = map.left[0] >= 0 ? map.left : inferred.left;
+  assert.deepEqual(left, [2, 3]);
 });

@@ -8,6 +8,8 @@ import { wifiModel } from "./model.ts";
 const JOYCAL_BIN = "/opt/muos/bin/joycal";
 const JOYCAL_JSON = "/opt/muos/share/conf/joycal.json";
 const BOARD_STICK = "/opt/muos/device/config/board/stick";
+const INPUT_CODE = "/opt/muos/device/config/input/code";
+const INPUT_GENERAL = "/opt/muos/device/config/input/general";
 
 export type InputDevice = {
   path: string;
@@ -30,55 +32,106 @@ export type AxisSample = {
   flat: number;
 };
 
+export type BoardInputMap = {
+  /** Absolute axis codes: left [x,y], right [x,y]. */
+  left: [number, number];
+  right: [number, number];
+  hat: [number, number];
+  /** Linux key/btn code -> UI label (from MustardOS board config when present). */
+  buttons: Record<number, string>;
+  device: string;
+};
+
 const ABS_NAMES: Record<number, string> = {
   0: "ABS_X", 1: "ABS_Y", 2: "ABS_Z", 3: "ABS_RX", 4: "ABS_RY", 5: "ABS_RZ",
   16: "ABS_HAT0X", 17: "ABS_HAT0Y",
 };
 
-/** Linux BTN_* / common handheld face-button codes to UI labels (Nintendo-style A/B on the right). */
-const CODE_LABEL: Record<number, string> = {
-  // BTN_GAMEPAD / BTN_SOUTH.. (Xbox numbering in kernel; labels match typical handheld face layout)
-  304: "B", // BTN_SOUTH
-  305: "A", // BTN_EAST
-  306: "C",
-  307: "X", // BTN_NORTH
-  308: "Y", // BTN_WEST
-  309: "Z",
-  310: "L1", 311: "R1", 312: "L2", 313: "R2",
-  314: "Select", 315: "Start", 316: "Mode",
-  317: "L3", 318: "R3",
-  // D-pad as buttons on some boards
+/** Fallback when board config is missing (Xbox BTN_* numbering, Nintendo face labels). */
+const FALLBACK_LABEL: Record<number, string> = {
+  304: "B", 305: "A", 306: "Y", 307: "X",
+  308: "L1", 309: "R1", 310: "L2", 311: "R2",
+  312: "Select", 313: "Start", 314: "Mode", 315: "L3", 316: "R3", 317: "L3", 318: "R3",
   544: "Up", 545: "Down", 546: "Left", 547: "Right",
-  // Keyboard-style face keys used by some muOS "Keys" nodes
-  28: "A", // KEY_ENTER
-  57: "B", // KEY_SPACE
-  29: "X", // KEY_LEFTCTRL
-  56: "Y", // KEY_LEFTALT
-  1: "Select", // KEY_ESC
-  14: "Start", // KEY_BACKSPACE
+  28: "A", 57: "B", 29: "X", 56: "Y", 1: "Select", 14: "Start",
   103: "Up", 108: "Down", 105: "Left", 106: "Right",
 };
+
+const BTN_FILE_LABEL: Record<string, string> = {
+  a: "A", b: "B", x: "X", y: "Y",
+  l1: "L1", r1: "R1", l2: "L2", r2: "R2", l3: "L3", r3: "R3",
+  select: "Select", start: "Start", menu_short: "Menu", menu_long: "Menu",
+};
+
+const STICK_ABS = new Set([0, 1, 2, 3, 4, 5]);
 
 const quote = (s: string) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
 function scoreDevice(name: string, handlers: string[], abs: number[], hasKeys: boolean): { score: number; role: InputDevice["role"] } {
   const n = name.toLowerCase();
   const hasJs = handlers.some((h) => /^js\d+$/.test(h));
-  const stickAbs = abs.filter((c) => [0, 1, 3, 4].includes(c)).length;
-  const isKeys = /\bkeys?\b|keyboard|gpio|adc-keys|power/.test(n);
-  const isPad = /gamepad|joystick|joypad|stick|controller|muos(?!.*key)/i.test(n) || hasJs;
+  const stickAbs = abs.filter((c) => STICK_ABS.has(c)).length;
+  const keysOnly = /\bkeys?\b|keyboard|gpio|adc-keys|power|pek/.test(n) && stickAbs < 2 && !hasJs;
+  const isPad = /gamepad|joystick|joypad|stick|controller/i.test(n) || hasJs || stickAbs >= 2;
   let score = 0;
   score += stickAbs * 10;
-  if (hasJs) score += 25;
+  if (hasJs) score += 30;
   if (isPad) score += 20;
-  if (isKeys) score -= 40;
-  if (hasKeys && stickAbs === 0) score -= 5;
-  if (stickAbs >= 2 && !isKeys) score += 15;
+  if (keysOnly) score -= 40;
+  if (hasKeys && stickAbs === 0 && !hasJs) score -= 5;
+  if (stickAbs >= 2) score += 15;
   let role: InputDevice["role"] = "other";
   if (stickAbs >= 2 && hasKeys) role = "mixed";
   else if (stickAbs >= 2 || hasJs) role = "sticks";
-  else if (hasKeys || isKeys) role = "buttons";
+  else if (hasKeys || keysOnly) role = "buttons";
   return { score, role };
+}
+
+/** Infer stick axis pairs from a device's ABS bitfield when board config is missing. */
+export function inferAxisPairs(abs: number[]): { left: [number, number]; right: [number, number]; hat: [number, number] } {
+  const sticks = abs.filter((c) => STICK_ABS.has(c)).sort((a, b) => a - b);
+  const hatX = abs.includes(16) ? 16 : -1;
+  const hatY = abs.includes(17) ? 17 : -1;
+  if (sticks.includes(0) && sticks.includes(1)) {
+    const right: [number, number] = sticks.includes(3) && sticks.includes(4) ? [3, 4]
+      : sticks.includes(2) && sticks.includes(5) ? [2, 5]
+      : [-1, -1];
+    return { left: [0, 1], right, hat: [hatX, hatY] };
+  }
+  // Common Allwinner/muOS layout: left Z/RX (2,3), right RY/RZ (4,5).
+  if (sticks.includes(2) && sticks.includes(3)) {
+    const right: [number, number] = sticks.includes(4) && sticks.includes(5) ? [4, 5] : [-1, -1];
+    return { left: [2, 3], right, hat: [hatX, hatY] };
+  }
+  if (sticks.length >= 2) {
+    return { left: [sticks[0], sticks[1]], right: sticks.length >= 4 ? [sticks[2], sticks[3]] : [-1, -1], hat: [hatX, hatY] };
+  }
+  return { left: [0, 1], right: [3, 4], hat: [hatX, hatY] };
+}
+
+/** Parse MustardOS /opt/muos/device/config/input dump into axis + button maps. */
+export function parseBoardInputMap(text: string, preferredDevice = ""): BoardInputMap {
+  const get = (path: string) => {
+    const m = new RegExp(`(?:^|\\n)${path.replace(/\//g, "\\/")}=([^\\n]*)`).exec(text);
+    return m?.[1]?.trim() ?? "";
+  };
+  // Missing keys return -1 so callers can fall back to inferAxisPairs (0 is a valid ABS code).
+  const num = (path: string) => {
+    const raw = get(path);
+    if (!raw) return -1;
+    const v = Number(raw);
+    return Number.isInteger(v) ? v : -1;
+  };
+  const left: [number, number] = [num("analog/left/left"), num("analog/left/up")];
+  const right: [number, number] = [num("analog/right/left"), num("analog/right/up")];
+  const hat: [number, number] = [num("dpad/left"), num("dpad/up")];
+  const buttons: Record<number, string> = { ...FALLBACK_LABEL };
+  for (const [file, label] of Object.entries(BTN_FILE_LABEL)) {
+    const code = Number(get(`button/${file}`));
+    if (Number.isInteger(code) && code > 0) buttons[code] = label;
+  }
+  const device = get("device") || preferredDevice;
+  return { left, right, hat, buttons, device };
 }
 
 /** Parse /proc/bus/input/devices into joystick / keys event nodes. */
@@ -96,10 +149,10 @@ export function parseInputDevices(text: string): InputDevice[] {
     const abs = absBits(absLine);
     const hasJs = handlers.some((h) => /^js\d+$/.test(h));
     const hasKeys = !!keyLine;
-    const stickAbs = abs.some((c) => [0, 1, 3, 4].includes(c));
+    const stickAbs = abs.some((c) => STICK_ABS.has(c));
     // Keep stick devices and button-only Keys nodes (for face buttons).
     if (!stickAbs && !hasJs && !hasKeys) continue;
-    if (!stickAbs && !hasJs && hasKeys && !/key|gpio|button|pad|muos/i.test(name)) continue;
+    if (!stickAbs && !hasJs && hasKeys && !/key|gpio|button|pad|muos|dierct/i.test(name)) continue;
     const { score, role } = scoreDevice(name, handlers, abs, hasKeys);
     out.push({
       path: `/dev/input/${event}`,
@@ -116,7 +169,7 @@ export function parseInputDevices(text: string): InputDevice[] {
 
 export function pickStickDevice(devices: InputDevice[]): InputDevice | null {
   return devices.find((d) => d.role === "sticks" || d.role === "mixed")
-    || devices.find((d) => d.abs.some((c) => [0, 1, 3, 4].includes(c)))
+    || devices.find((d) => d.abs.some((c) => STICK_ABS.has(c)) || d.handlers.some((h) => /^js\d+$/.test(h)))
     || null;
 }
 
@@ -152,16 +205,15 @@ async function requireSsh() {
 const SAMPLE_PY = String.raw`import fcntl,struct,sys,json
 paths=[p for p in sys.argv[1].split(",") if p]
 codes=[int(x) for x in sys.argv[2].split(",") if x!=""]
+watch=set(int(x) for x in sys.argv[3].split(",") if x!="")
 EVIOCGABS=lambda c:(2<<30)|(24<<16)|(ord("E")<<8)|(0x40+c)
 EVIOCGKEY=(2<<30)|(0x208<<16)|(ord("E")<<8)|0x18
-# Face + shoulders + d-pad + common muOS keycodes
-WATCH=set([1,14,28,29,56,57,103,105,106,108]+list(range(304,319))+list(range(544,548)))
 axes=[]; pressed=[]
 seen=set()
 for path in paths:
   try:
     f=open(path,"rb")
-  except Exception as e:
+  except Exception:
     continue
   fd=f.fileno()
   if path==paths[0]:
@@ -176,7 +228,7 @@ for path in paths:
   kbuf=bytearray(512)
   try:
     fcntl.ioctl(fd,EVIOCGKEY,kbuf)
-    for code in sorted(WATCH):
+    for code in sorted(watch):
       if kbuf[code//8]&(1<<(code%8)) and code not in seen:
         seen.add(code)
         pressed.append(code)
@@ -185,6 +237,39 @@ for path in paths:
   f.close()
 print(json.dumps({"axes":axes,"pressed":pressed}))
 `;
+
+async function readBoardInputMap(stickDev: InputDevice | null): Promise<BoardInputMap> {
+  const inferred = inferAxisPairs(stickDev?.abs || [0, 1, 3, 4]);
+  // BusyBox-friendly dump of MustardOS input code files (axis + button numbers).
+  const script = [
+    `echo "@map_begin"`,
+    `for f in ${INPUT_CODE}/analog/left/* ${INPUT_CODE}/analog/right/* ${INPUT_CODE}/button/* ${INPUT_CODE}/dpad/*; do`,
+    `  [ -f "$f" ] || continue`,
+    `  echo "\${f#${INPUT_CODE}/}=$(cat "$f")"`,
+    `done`,
+    `echo "device=$(cat ${INPUT_GENERAL} 2>/dev/null)"`,
+    `echo "@map_end"`,
+  ].join("\n");
+  try {
+    const { out } = await runCommand(script, 12_000);
+    const blob = out.includes("@map_begin")
+      ? out.slice(out.indexOf("@map_begin") + "@map_begin".length, out.indexOf("@map_end"))
+      : "";
+    if (!blob.trim()) {
+      return { ...inferred, buttons: { ...FALLBACK_LABEL }, device: stickDev?.path || "" };
+    }
+    const mapped = parseBoardInputMap(blob, stickDev?.path || "");
+    return {
+      left: mapped.left[0] >= 0 ? mapped.left : inferred.left,
+      right: mapped.right[0] >= 0 ? mapped.right : inferred.right,
+      hat: mapped.hat[0] >= 0 ? mapped.hat : inferred.hat,
+      buttons: mapped.buttons,
+      device: mapped.device || stickDev?.path || "",
+    };
+  } catch {
+    return { ...inferred, buttons: { ...FALLBACK_LABEL }, device: stickDev?.path || "" };
+  }
+}
 
 export async function controlsSnapshot() {
   const ssh = await requireSsh();
@@ -204,7 +289,10 @@ export async function controlsSnapshot() {
   const py = (/^@py\t(.*)$/m.exec(out) || [])[1]?.trim() || "";
   const devicesBlob = out.slice(out.indexOf("@devices_begin") + "@devices_begin".length, out.indexOf("@devices_end"));
   const devices = parseInputDevices(devicesBlob);
-  const stickDev = pickStickDevice(devices);
+  const stickGuess = pickStickDevice(devices);
+  const map = await readBoardInputMap(stickGuess);
+  // Prefer MustardOS's configured input node when it exists in the device list.
+  const stickDev = (map.device && devices.find((d) => d.path === map.device.trim())) || stickGuess;
   const buttonDev = pickButtonDevice(devices, stickDev);
   let joycalJson: unknown = null;
   if (hasJson) {
@@ -216,6 +304,7 @@ export async function controlsSnapshot() {
     }
   }
   const detected = await wifiModel(true).catch(() => null);
+  const axisCodes = [...map.left, ...map.right, ...map.hat].filter((c) => c >= 0);
   return {
     reachable: true,
     host: ssh.host,
@@ -226,11 +315,16 @@ export async function controlsSnapshot() {
     joycalJson,
     python: !!py,
     devices,
-    stickDevice: stickDev?.path || "",
-    buttonDevice: buttonDev?.path || "",
+    stickDevice: stickDev?.path || map.device || "",
+    buttonDevice: buttonDev?.path || stickDev?.path || "",
+    axesLeft: map.left,
+    axesRight: map.right,
+    axesHat: map.hat,
+    axisCodes,
+    buttonCodes: map.buttons,
     board: detected ? { id: detected.id, board: detected.board, via: detected.via } : null,
     experimental: true,
-    note: "Analog calibration uses MustardOS's experimental joycal tool. Close games first so nothing else holds the sticks. Pick the Gamepad/joystick device for sticks (not muOS-Keys).",
+    note: "Analog calibration uses MustardOS's experimental joycal tool. Close games first so nothing else holds the sticks. Axis and button codes come from the handheld's MustardOS input map.",
   };
 }
 
@@ -241,16 +335,39 @@ export async function controlsState(query: URLSearchParams) {
   if (!/^\/dev\/input\/event\d+$/.test(device)) throw new UserError("Pick a valid input device.");
   const paths = [device];
   if (buttonsFrom && /^\/dev\/input\/event\d+$/.test(buttonsFrom) && buttonsFrom !== device) paths.push(buttonsFrom);
-  const codes = String(query.get("axes") || "0,1,3,4")
+  const codes = String(query.get("axes") || "0,1,2,3,4,5,16,17")
     .split(",")
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isInteger(n) && n >= 0 && n < 64);
-  const axisList = (codes.length ? codes : [0, 1, 3, 4]).join(",");
+  const axisList = (codes.length ? codes : [0, 1, 2, 3, 4, 5, 16, 17]).join(",");
+  const watchCodes = String(query.get("watch") || "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  const defaultWatch = [
+    1, 14, 28, 29, 56, 57, 103, 105, 106, 108, 114, 115, 354,
+    ...Array.from({ length: 16 }, (_, i) => 304 + i),
+    ...Array.from({ length: 4 }, (_, i) => 544 + i),
+  ];
+  const watchList = (watchCodes.length ? watchCodes : defaultWatch).join(",");
+  let labels: Record<number, string> = { ...FALLBACK_LABEL };
+  const labelsRaw = String(query.get("labels") || "").trim();
+  if (labelsRaw) {
+    try {
+      const parsed = JSON.parse(labelsRaw) as Record<string, string>;
+      labels = { ...labels };
+      for (const [k, v] of Object.entries(parsed)) {
+        const code = Number(k);
+        if (Number.isInteger(code) && v) labels[code] = v;
+      }
+    } catch { /* keep fallback */ }
+  }
+  const hat = String(query.get("hat") || "16,17").split(",").map((s) => Number(s.trim()));
   const b64 = Buffer.from(SAMPLE_PY, "utf8").toString("base64");
   const cmd = [
     `TMP=$(mktemp)`,
     `printf '%s' ${quote(b64)} | base64 -d > "$TMP"`,
-    `python3 "$TMP" ${quote(paths.join(","))} ${quote(axisList)} 2>/dev/null || echo '{"error":"sample failed"}'`,
+    `python3 "$TMP" ${quote(paths.join(","))} ${quote(axisList)} ${quote(watchList)} 2>/dev/null || echo '{"error":"sample failed"}'`,
     `rm -f "$TMP"`,
   ].join("; ");
   const { out } = await runCommand(cmd, 12_000);
@@ -281,8 +398,19 @@ export async function controlsState(query: URLSearchParams) {
     }));
   const buttons: Record<string, boolean> = {};
   for (const code of parsed.pressed || []) {
-    const label = CODE_LABEL[code] || `Key${code}`;
+    const label = labels[code] || FALLBACK_LABEL[code] || `Key${code}`;
     buttons[label] = true;
+  }
+  // D-pad often arrives as ABS hat, not EV_KEY.
+  const hatX = axes.find((a) => a.code === hat[0]);
+  const hatY = axes.find((a) => a.code === hat[1]);
+  if (hatX) {
+    if (hatX.value < 0) buttons.Left = true;
+    if (hatX.value > 0) buttons.Right = true;
+  }
+  if (hatY) {
+    if (hatY.value < 0) buttons.Up = true;
+    if (hatY.value > 0) buttons.Down = true;
   }
   return { at: Date.now(), device, buttonsFrom: buttonsFrom || device, axes, buttons, pressed: parsed.pressed || [] };
 }

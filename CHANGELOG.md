@@ -59,9 +59,10 @@ version.
 
 - UI text that showed as diamond question marks (invalid Latin-1 bytes in JS/TS served as UTF-8), including Benchmark
   separators and several other recently edited scripts; CPU Benchmark stress no longer depends on BusyBox `yes`.
-- Device Controls defaults to the gamepad/joystick input node (not muOS-Keys), samples face buttons from a Keys node when
-  needed, and maps Nintendo-style A/B labels. Benchmark storage timing uses `/proc/uptime` (BusyBox has no `date %N`);
-  CPU load start no longer puts `;` after `&` (BusyBox ash syntax error).
+- Device Controls reads MustardOS board input maps (axis codes like ABS_Z/RX on muOS-Keys, and A/B keycodes from
+  `/opt/muos/device/config/input/code`), so live pads match the handheld; switching input devices re-infers axes from
+  that node's ABS bits. Benchmark storage timing uses `/proc/uptime` without a broken `sh -c` JSON wrap; CPU stress is
+  started from a temp script (avoids `pkill -f` killing the SSH session).
 - Assistant chat Markdown: treat `**Title` / `**Title**` lines as headings, render tab-separated tables, keep bold
   on one line, and strip leftover `**` so broken model markup does not show raw asterisks. Prompt asks for pipe
   tables and closed bold.

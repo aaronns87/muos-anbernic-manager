@@ -165,25 +165,26 @@ async function speedOne(mount: string, name: string, free: number, phase: Phase)
   }
   const dir = `${mount}/${BENCH_DIR}`;
   const file = `${dir}/${FILE_NAME}`;
-  // BusyBox `date` has no %N; time with /proc/uptime (seconds, fractional).
+  // BusyBox `date` has no %N. Read /proc/uptime with sed (not awk/$1 — those break under ssh2).
+  // Do not wrap in `sh -c $(JSON.stringify(...))`; that empties the timestamps.
   const script = [
     `mkdir -p '${dir}'`,
     `rm -f '${file}'`,
-    `W0=$(awk '{print $1}' /proc/uptime)`,
+    `W0=$(sed 's/ .*//' /proc/uptime)`,
     `dd if=/dev/zero of='${file}' bs=1M count=${SIZE_MB} conv=fsync 2>/dev/null || dd if=/dev/zero of='${file}' bs=1M count=${SIZE_MB} 2>/dev/null`,
     `sync`,
-    `W1=$(awk '{print $1}' /proc/uptime)`,
+    `W1=$(sed 's/ .*//' /proc/uptime)`,
     `echo WRITE:$W0:$W1`,
-    `R0=$(awk '{print $1}' /proc/uptime)`,
+    `R0=$(sed 's/ .*//' /proc/uptime)`,
     `dd if='${file}' of=/dev/null bs=1M 2>/dev/null`,
-    `R1=$(awk '{print $1}' /proc/uptime)`,
+    `R1=$(sed 's/ .*//' /proc/uptime)`,
     `echo READ:$R0:$R1`,
     `rm -f '${file}'`,
     `rmdir '${dir}' 2>/dev/null || true`,
   ].join("; ");
   note(`${name}: writing and reading ${SIZE_MB} MB...`, phase);
   try {
-    const { out, err, code } = await runCommand(`sh -c ${JSON.stringify(script)}`, 60_000);
+    const { out, err, code } = await runCommand(script, 60_000);
     if (code && code !== 0) throw new UserError(err.trim() || `Storage test failed on ${name} (exit ${code}).`);
     const span = (kind: string) => {
       const m = new RegExp(`${kind}:([0-9.]+):([0-9.]+)`).exec(out);
@@ -232,10 +233,14 @@ async function runStorage(phase: Phase): Promise<void> {
 async function killStress(): Promise<void> {
   const pid = run.stressPid;
   run.stressPid = "";
+  // Kill by pid/pgid only — never `pkill -f` with a marker that appears in this SSH command line
+  // (that matches the session itself and aborts the benchmark).
   const parts = [
-    "pkill -f muos-bench-cpu 2>/dev/null",
-    pid ? `kill -TERM -${pid} 2>/dev/null; kill -KILL -${pid} 2>/dev/null; kill -TERM ${pid} 2>/dev/null; kill -KILL ${pid} 2>/dev/null` : "",
-    "rm -f /tmp/muos-bench-cpu.pid",
+    "PID=$(cat /tmp/muos-bench-cpu.pid 2>/dev/null || true)",
+    pid ? `PID=\${PID:-${pid}}` : "",
+    '[ -n "$PID" ] && kill -TERM -$PID 2>/dev/null; [ -n "$PID" ] && kill -KILL -$PID 2>/dev/null',
+    '[ -n "$PID" ] && kill -TERM $PID 2>/dev/null; [ -n "$PID" ] && kill -KILL $PID 2>/dev/null',
+    "rm -f /tmp/muos-bench-cpu.pid /tmp/muos-bench-cpu.sh",
     "true",
   ].filter(Boolean);
   await runCommand(parts.join("; "), 8_000).catch(() => {});
@@ -253,13 +258,23 @@ async function runCpu(phase: Phase): Promise<void> {
     note(message, phase);
     throw new UserError(message);
   }
-  // BusyBox-safe workers (no `yes`/`nproc`): setsid so SSH close does not kill them.
-  // Do not put `;` after `&` (ash: unexpected ";").
+  // Write a script on the handheld, then setsid it. Avoids: BusyBox `yes`, ash `&;`, and
+  // `pkill -f` matching this SSH command (marker text in argv kills the session).
+  const worker = [
+    "#!/bin/sh",
+    "echo $$ >/tmp/muos-bench-cpu.pid",
+    "n=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 4)",
+    "i=0",
+    'while [ "$i" -lt "$n" ]; do while true; do :; done & i=$((i+1)); done',
+    "wait",
+  ].join("\n");
+  const b64 = Buffer.from(worker, "utf8").toString("base64");
   const start = await runCommand(
     [
-      "pkill -f muos-bench-cpu 2>/dev/null || true",
-      "rm -f /tmp/muos-bench-cpu.pid",
-      "setsid sh -c 'echo muos-bench-cpu >/dev/null; echo $$ >/tmp/muos-bench-cpu.pid; n=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 4); i=0; while [ \"$i\" -lt \"$n\" ]; do while true; do :; done & i=$((i+1)); done; wait' </dev/null >/dev/null 2>&1 & sleep 1",
+      "rm -f /tmp/muos-bench-cpu.pid /tmp/muos-bench-cpu.sh",
+      `printf '%s' '${b64}' | base64 -d > /tmp/muos-bench-cpu.sh`,
+      "chmod +x /tmp/muos-bench-cpu.sh",
+      "setsid /tmp/muos-bench-cpu.sh </dev/null >/dev/null 2>&1 & sleep 1",
       "cat /tmp/muos-bench-cpu.pid 2>/dev/null || echo @fail",
     ].join("; "),
     12_000,
