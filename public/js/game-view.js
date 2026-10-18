@@ -2,8 +2,12 @@
 // and related games, in tabs. Handheld data is read in the background and kept for a while across games.
 
 import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, store, toast, canCopy, devName, handheldMode, keyOf, onCardState } from "./core.js";
-import { artMax, droppedImage, pickImage, pngData } from "./art-images.js";
+import { artMax, confirmBox, droppedImage, pickImage, pngData } from "./art-images.js";
 import { noteKind, systemNote, useCore, useSystem } from "./system-notes.js";
+import { focusTuningGame } from "./tuning.js";
+import {
+  catalogueDirty, draftFromOwn, optGroupsHtml, valuesPayload,
+} from "./opt-editor.js";
 
 const TABS = [["about", "About"], ["details", "Details"], ["handheld", "Handheld"], ["related", "Related"]];
 const DEVICE_TTL = 120_000;
@@ -14,6 +18,7 @@ const baseOf = (p) => String(p).split("/").pop() || "";
 const V = {
   tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, renaming: false, video: false, expanded: false, fixing: false, saving: false,
   details: new Map(), dataRef: null, rel: [], dev: { key: "", at: 0, seq: 0 },
+  tune: { key: "", loading: false, error: "", game: null, draft: null, gov: "", optQ: "", saving: false },
 };
 let hooks = { open: () => {}, reload: async () => {} };
 
@@ -396,8 +401,78 @@ function handheldPane() {
     out.push(note("Connect the handheld over USB or Wi-Fi to see the core it starts with, play time, collections and saves."));
     return out.join("");
   }
-  out.push(coreSection(), playSection(), collectionsSection(), savesSection());
+  out.push(coreSection(), tuneSection(), playSection(), collectionsSection(), savesSection());
   return out.join("") + `<p class="v-note">Read from the handheld ${V.dev.at ? esc(formatTime(new Date(V.dev.at))) : ""}. <button class="link-btn" data-vrefresh>Read again</button></p>`;
+}
+
+function onHandheldNow() {
+  if (!canCopy(V.cur.sys)) return false;
+  const st = onCardState(V.cur.sys, V.cur.g);
+  return st === "same" || st === "check" || st === "changed";
+}
+
+function ensureTuneLoaded() {
+  const key = V.cur.key;
+  if (V.tune.key === key && (V.tune.game || V.tune.loading || V.tune.error)) return;
+  if (!onHandheldNow()) { V.tune = { key, loading: false, error: "", game: null, draft: null, gov: "", optQ: "", saving: false }; return; }
+  V.tune = { key, loading: true, error: "", game: null, draft: null, gov: "", optQ: "", saving: false };
+  const { sys, g } = V.cur;
+  api(`tuning/game?${new URLSearchParams({ folder: sys.code, file: g.f })}`).then((game) => {
+    if (V.cur?.key !== key) return;
+    V.tune = {
+      key, loading: false, error: "", game,
+      draft: draftFromOwn(game.catalogue || [], game.own, game.base),
+      gov: game.gov?.own || "", optQ: "", saving: false,
+    };
+    paint("device");
+  }).catch((error) => {
+    if (V.cur?.key !== key) return;
+    V.tune = { key, loading: false, error: error.message, game: null, draft: null, gov: "", optQ: "", saving: false };
+    paint("device");
+  });
+}
+
+function tuneSection() {
+  ensureTuneLoaded();
+  const link = go("tuning", "Open Game Tuning");
+  if (!onHandheldNow()) {
+    return sec("Core options", "sliders", note("Transfer this game to the handheld to edit Menu+X core options here."), link);
+  }
+  const t = V.tune;
+  if (t.loading || t.key !== V.cur.key) return sec("Core options", "sliders", loading("Loading Menu+X options&hellip;"), link);
+  if (t.error) return sec("Core options", "sliders", note(esc(t.error)), link);
+  const g = t.game;
+  if (!g) return "";
+  if (g.kind === "ppsspp" && !g.discId) {
+    return sec("Core options", "sliders", note("PPSSPP needs the game's disc ID for per-game settings. Open Game Tuning to enter it."), link);
+  }
+  if (!g.core && g.kind !== "ppsspp") {
+    return sec("Core options", "sliders",
+      note("This game does not start a RetroArch core, so Menu+X core options are not available. You can still set a CPU governor in Game Tuning, or assign a RetroArch core under Emulation → Cores."),
+      link);
+  }
+  const cat = g.catalogue || [];
+  const dirty = catalogueDirty(cat, t.draft, g.own, g.base) || t.gov !== (g.gov?.own || "");
+  const n = cat.length;
+  const filter = n > 12
+    ? `<div class="tune-opt-filter"><label class="search small">${icon("search")}<input type="search" data-vtune-optq placeholder="Filter options" value="${esc(t.optQ)}" aria-label="Filter core options"></label><span class="muted-note">${n} options</span></div>`
+    : "";
+  const govBlock = `<label class="tune-row${t.gov ? " set" : ""}">
+      <span class="tune-row-text"><b>CPU governor</b><small>Optional. Leave default to use the folder or system governor.</small></span>
+      <input class="control mono${t.gov ? " active" : ""}" data-vtune-gov placeholder="${esc(g.gov?.folder || g.gov?.system || "default")}" value="${esc(t.gov)}" ${t.saving ? "disabled" : ""} aria-label="CPU governor">
+    </label>`;
+  return sec("Core options", "sliders", `
+    <p class="muted-note">Same as Menu+X on the handheld${g.core ? ` (${esc(g.core)})` : ""}. Defaults come from the ${esc(g.baseFrom === "folder" ? "folder" : g.baseFrom === "core" ? "core" : "emulator")}.
+      ${g.hasOwnFile ? "This game has its own .opt file." : "Saving creates a per-game options file."}</p>
+    ${filter}
+    <div class="v-tune-opts">${optGroupsHtml(cat, t.draft, g.base, { q: t.optQ, disabled: t.saving, dataKey: "vtune-key" })}</div>
+    <div class="tune-rows" style="margin-top:8px">${govBlock}</div>
+    <div class="tune-actions" style="margin-top:10px">
+      <button class="btn ghost" data-vtune="reset"${(g.hasOwnFile || g.gov?.own) && !t.saving ? "" : " disabled"}>Use folder settings</button>
+      <span class="grow"></span>
+      ${dirty ? `<span class="muted-note">Unsaved changes</span>` : ""}
+      <button class="btn primary" data-vtune="save"${dirty && !t.saving ? "" : " disabled"}>${t.saving ? `<span class="spinner sm"></span>` : icon("check")}<span>Save</span></button>
+    </div>`, link);
 }
 
 function coreSection() {
@@ -503,6 +578,7 @@ export function enrichViewer(index) {
   V.nav = false;
   V.cur = { index, si, g, sys, m: g.lb ? app.data.meta[g.lb] : null, key: keyOf(sys, g) };
   V.editing = V.renaming = V.video = V.expanded = false;
+  V.tune = { key: "", loading: false, error: "", game: null, draft: null, gov: "", optQ: "", saving: false };
   $("v-facts").innerHTML = factsHtml(V.cur.m);
   $("v-back").innerHTML = backHtml();
   $("v-back").hidden = !V.back.length;
@@ -550,10 +626,60 @@ function goTo(where) {
     location.hash = "#emulation";
     return;
   }
+  if (where === "tuning") {
+    focusTuningGame(V.cur.sys.code, V.cur.g.f);
+    $("viewer").close();
+    location.hash = "#tuning";
+    return;
+  }
   const emu = { cores: "cores", checks: "checks", bios: "bios", saves: "saves" }[where];
   if (emu) store.set("emuTab", emu);
   $("viewer").close();
   location.hash = emu ? "#emulation" : where === "art" ? "#artwork" : `#${where}`;
+}
+
+async function saveTune() {
+  const t = V.tune, g = t.game;
+  if (!g || t.saving) return;
+  t.saving = true;
+  paint("device");
+  try {
+    await api("tuning/save", {
+      folder: g.folder, file: g.file, values: valuesPayload(g.catalogue || [], t.draft), gov: t.gov, discId: g.discId,
+    });
+    toast("Core options saved. They apply the next time the game starts.", 3200);
+    V.tune.key = "";
+    ensureTuneLoaded();
+    paint("device");
+  } catch (error) {
+    t.saving = false;
+    toast(error.message, 4500);
+    paint("device");
+  }
+}
+
+async function resetTune() {
+  const t = V.tune, g = t.game;
+  if (!g || t.saving) return;
+  const ok = await confirmBox({
+    title: "Remove this game's own settings?",
+    html: `<p>The game goes back to the settings of its ${esc(g.folder)} folder${g.gov?.own ? " and its CPU governor" : ""}.</p>`,
+    ok: "Remove", danger: true,
+  });
+  if (!ok) return;
+  t.saving = true;
+  paint("device");
+  try {
+    await api("tuning/reset", { folder: g.folder, file: g.file, discId: g.discId });
+    toast("Using folder settings again", 2600);
+    V.tune.key = "";
+    ensureTuneLoaded();
+    paint("device");
+  } catch (error) {
+    t.saving = false;
+    toast(error.message, 4500);
+    paint("device");
+  }
 }
 
 async function fixCore() {
@@ -636,6 +762,13 @@ export function bindGameView(h) {
   const viewer = $("viewer");
   viewer.addEventListener("close", () => { if (V.video) { V.video = false; if (V.tab === "about") $("v-pane").innerHTML = aboutPane(); } });
   viewer.addEventListener("click", (e) => {
+    const vt = e.target.closest("[data-vtune]");
+    if (vt && !vt.disabled) {
+      e.stopPropagation();
+      if (vt.dataset.vtune === "save") saveTune();
+      else if (vt.dataset.vtune === "reset") resetTune();
+      return;
+    }
     const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vrename], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
     if (!t || t.disabled) return;
     if (t.matches("[data-vfix]")) { e.stopPropagation(); fixCore(); }
@@ -643,7 +776,7 @@ export function bindGameView(h) {
     else if (t.matches("[data-vrel]")) openRelated(+t.dataset.vrel);
     else if (t.matches("[data-vgo]")) goTo(t.dataset.vgo);
     else if (t.matches("[data-vvideo]")) { V.video = true; paint(); }
-    else if (t.matches("[data-vrefresh]")) { loadDevice(true); paint("device"); }
+    else if (t.matches("[data-vrefresh]")) { loadDevice(true); V.tune.key = ""; paint("device"); }
     else if (t.id === "v-more") { V.expanded = true; $("v-desc")?.classList.remove("clamp"); t.remove(); }
     else if (t.id === "v-back") { const idx = V.back.pop(); if (idx !== undefined) openAt(idx); }
     else if (t.id === "v-reveal") api("game/reveal", { code: V.cur.sys.code, file: V.cur.g.f }).catch((err) => toast(err.message, 4000));
@@ -654,6 +787,32 @@ export function bindGameView(h) {
     else if (t.dataset.vedit === "remove") saveDescription(true);
     else if (t.dataset.vrename === "open") { V.renaming = true; V.editing = false; V.tab = "details"; paint(); $("v-rename-input")?.focus(); $("v-rename-input")?.select(); }
     else if (t.dataset.vrename === "cancel") { V.renaming = false; paint(); }
+  });
+  viewer.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset.vtuneKey !== undefined) {
+      if (!V.tune.draft) return;
+      V.tune.draft[el.dataset.vtuneKey] = el.value;
+      paint("device");
+    } else if (el.dataset.vtuneGov !== undefined) {
+      V.tune.gov = el.value.trim();
+      paint("device");
+    }
+  });
+  viewer.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset.vtuneOptq !== undefined) {
+      V.tune.optQ = el.value;
+      const pane = $("v-pane");
+      if (pane && V.tab === "handheld") {
+        const keep = el.selectionStart;
+        paint("device");
+        const next = pane.querySelector("[data-vtune-optq]");
+        if (next) { next.focus(); next.setSelectionRange(keep, keep); }
+      }
+    } else if (el.dataset.vtuneGov !== undefined) {
+      V.tune.gov = el.value;
+    }
   });
   viewer.addEventListener("submit", (e) => {
     if (e.target?.id !== "v-rename-form") return;

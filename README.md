@@ -64,15 +64,16 @@ per-session token. Nothing is uploaded anywhere.
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
 - **Emulation**: back up and restore saves and save states, check BIOS files in the workspace `bios/` folder (**Fix
   names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit
-  RetroArch options, and run a health check of your library (verify dumps, duplicates, and PlayStation **disc layouts**
-  for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD** when `p7zip` / `chdman`
-  are installed). **Systems** lists every system with what the handheld can run, and why a system is missing when it
-  cannot.
+  RetroArch picture/play and Menu+X **core options** per folder, and run a health check of your library (verify dumps,
+  duplicates, and PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and
+  **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can
+  run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
-- **Game Tuning**: per-game emulator settings for heavy or light games (PPSSPP, Mupen64Plus-Next, PCSX-ReARMed,
-  SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest, Balanced and Best looking presets and
-  recommendations for known heavy games. **Cheats** per game from the libretro cheat database (RetroArch cores) or the
-  cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
+- **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
+  PPSSPP, Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest,
+  Balanced and Best looking presets and recommendations for known heavy games. The game viewer Handheld tab embeds the
+  same editor when the game is on the device. **Cheats** per game from the libretro cheat database (RetroArch cores) or
+  the cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
 
 **Tools**
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.

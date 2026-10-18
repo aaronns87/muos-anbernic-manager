@@ -134,8 +134,9 @@ const ARTICLES = [
       <li><b>Details</b>: the database facts, the file (size, date, CRC32, path), the library check result, the BIOS files the system
       needs, and for arcade games the parent or clone set. <b>Rename</b> on the file row changes the name in <code>Roms/</code>
       (same extension) and renames matching artwork and your own description when present.</li>
-      <li><b>Handheld</b>: the core and who set it, play time (total, launches, average session, first and last played, cores used),
-      collections and save files. <b>Read again</b> refreshes it.</li>
+      <li><b>Handheld</b>: the core and who set it, <b>Core options</b> (same as Menu+X on the handheld) when the game is on the device and starts a RetroArch core or PPSSPP,
+      play time (total, launches, average session, first and last played, cores used), collections and save files.
+      <b>Open Game Tuning</b> opens the full page with presets; <b>Read again</b> refreshes device data.</li>
       <li><b>Related</b>: other versions, the arcade family, the same series, more from the developer and more of the genre. Opening one
       adds a <b>Back</b> link.</li></ul>
       <p>Drop an image on the artwork, or use <b>Replace artwork</b>, to change the box art. <b>Show in Finder</b> (Explorer on Windows)
@@ -293,16 +294,19 @@ const ARTICLES = [
         <li><b>No core</b>: nothing in MustardOS runs these games, such as PolyGame Master 2 and OpenBOR.</li>
       </ul>
       <p>The list needs the handheld over Wi-Fi with Secure Shell on, like the Cores tab.</p>`],
-    ["RetroArch", `<p>Most systems run in RetroArch. This tab sets its picture and play options per ROM folder, without opening RetroArch's menu on the handheld:
-      aspect ratio, integer scaling, smoothing, shader, overlay (screen border) and its opacity, rewind and the FPS counter.</p>
+    ["RetroArch", `<p>Most systems run in RetroArch. This tab sets picture, play and Menu+X-style core options per ROM folder, without opening RetroArch on the handheld.</p>
       <ul>
-        <li><b>Defaults</b> shows what every folder uses unless it has its own options.</li>
-        <li><b>Only &lt;folder&gt;</b> saves options for that ROM folder. <b>Every folder using &lt;core&gt;</b> saves them for the core, so all folders that use
+        <li><b>Picture and play</b>: aspect ratio, integer scaling, smoothing, shader, overlay (screen border) and its opacity, rewind and the FPS counter.
+          Written as RetroArch <code>.cfg</code> overrides.</li>
+        <li><b>Core options</b>: the same Menu+X core options as on the handheld (<code>.opt</code> files under <code>info/config/&lt;core&gt;/</code>).
+          The list comes from options already on the device, with curated labels for known cores. Filter when the list is long.</li>
+        <li><b>Defaults</b> at the top shows what every folder uses for picture and play unless it has its own options.</li>
+        <li><b>Only &lt;folder&gt;</b> saves for that ROM folder. <b>Every folder using &lt;core&gt;</b> saves for the core, so all folders that use
           it change together (for example GB and GBC with Gambatte). Options for a single folder win over options for the core.</li>
-        <li><b>Default</b> in a list means "not set here", and shows what applies instead. <b>Back to defaults</b> clears everything for that scope.</li>
-        <li>The options are written as RetroArch override files on the handheld; changes apply the next time a game starts. Folders whose core is not
-          part of RetroArch (PSP, ScummVM, ports) are listed separately.</li>
-      </ul>`],
+        <li><b>Default</b> in a list means "not set here", and shows what applies instead. <b>Back to defaults</b> clears that scope's file.</li>
+        <li>Changes apply the next time a game starts. Folders whose core is not part of RetroArch (standalone PSP, ScummVM, ports) are listed separately.</li>
+      </ul>
+      <p>Per-game core options also live in the game viewer's <b>Handheld</b> tab and on the <b>Game Tuning</b> page.</p>`],
     ["Library check: verify dumps", `<p>A game file is a <i>dump</i>: a copy of the original cartridge. The No-Intro project keeps a list of known good dumps.
       <b>Check</b> compares each of your files with that list. Nothing is changed; zip files are read without unpacking.</p>
       <ul>
@@ -365,25 +369,29 @@ const ARTICLES = [
   ]],
   ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings, cheats and CPU governor.", [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
-      Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own settings without changing any other game.
-      It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.</p>`],
+      Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own Menu+X-style core options and CPU governor
+      without changing any other game. It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.
+      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.</p>`],
     ["Pick a game", `<p>The list on the left shows your library. Open the system list and type a few letters to narrow it (arrow keys and Enter work
-      too); systems with emulator settings come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
+      too); systems with curated presets come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
       The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
       <ul>
+        <li><b>Any RetroArch core</b>: the full Menu+X option catalogue for that core, built from <code>.opt</code> files on the handheld
+          (plus curated labels for known cores such as Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation and Flycast).</li>
         <li><b>PSP</b>: PPSSPP, standalone or the RetroArch core. Standalone PPSSPP keeps settings under the disc ID (like <code>ULUS10391</code>),
           read from the ISO, CSO or PBP file. For CHD files, type the ID; PPSSPP shows it under Game settings &rsaquo; Game info.</li>
-        <li><b>N64</b>: Mupen64Plus-Next. <b>PlayStation</b>: PCSX-ReARMed, SwanStation, DuckStation. <b>Dreamcast, NAOMI, Atomiswave</b>: Flycast.</li>
-        <li><b>Every game</b>: its own CPU governor. For emulators with no per-game settings (for example the standalone N64 and Dreamcast emulators)
-          this is the only option; switch the game to one of the cores above in Emulation &rsaquo; Cores for more.</li>
+        <li><b>Every game</b>: its own CPU governor. Standalone emulators that are not RetroArch only offer the governor unless you switch the game
+          to a RetroArch core in Emulation &rsaquo; Cores.</li>
       </ul>
-      <p>A game does not have to be on the handheld yet: settings saved now apply once you copy it.</p>`],
-    ["Presets and recommendations", `<p><b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you. Known heavy games get a
-      recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting point for your handheld's
-      chip: play a few minutes, then adjust. Every setting says whether it buys <i>Speed</i>, <i>Looks</i> or both, and what it costs.</p>
+      <p>A game does not have to be on the handheld yet: settings saved now apply once you copy it. Creating a per-game <code>.opt</code> for the first
+      time copies from the folder or core template when one exists.</p>`],
+    ["Presets and recommendations", `<p>For cores with curated profiles, <b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you.
+      Known heavy games get a recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting
+      point for your handheld's chip: play a few minutes, then adjust. Curated settings say whether they buy <i>Speed</i>, <i>Looks</i> or both.
+      Other cores show the full device catalogue without presets.</p>
       <p><i>Default</i> means the value the game uses today, from its folder's or core's options, or from PPSSPP's own settings.</p>`],
     ["Save and undo", `<p><b>Save to handheld</b> writes the game's own settings file. It starts as a copy of what the game used before, so only the
-      settings you changed differ; PPSSPP's buttons are kept too. <b>Back to folder settings</b> removes the game's own file and governor again. For
+      settings you changed differ; PPSSPP's buttons are kept too. <b>Use folder settings</b> removes the game's own file and governor again. For
       standalone PPSSPP that also removes settings made for the game in PPSSPP's own menu.</p>
       <p>Files on the handheld: <code>info/config/&lt;core&gt;/&lt;game&gt;.opt</code> for RetroArch cores,
       <code>emulator/ppsspp/.config/ppsspp/PSP/SYSTEM/&lt;disc ID&gt;_ppsspp.ini</code> for PPSSPP, and <code>info/content/&lt;folder&gt;/&lt;game&gt;.gov</code>

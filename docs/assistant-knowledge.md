@@ -113,7 +113,7 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed.
 
-Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, play stats, collections, saves, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
+Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, Menu+X core options when the game is on the handheld and starts RetroArch or PPSSPP, play stats, collections, saves, Open Game Tuning, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
 
 ### Deleting
 
@@ -202,7 +202,7 @@ All known systems vs what MustardOS can run. Show all systems toggle. States: On
 
 ### RetroArch
 
-Per ROM folder: aspect, integer scale, smooth, shader, overlay/opacity, rewind, FPS. Defaults vs Only folder vs Every folder using core. Written as overrides; apply next game start. Non-RetroArch cores listed separately.
+Per ROM folder: **Picture and play** (aspect, integer scale, smooth, shader, overlay/opacity, rewind, FPS as `.cfg` overrides) and **Core options** (Menu+X `.opt` catalogue from the handheld, curated labels when known). Scope: Only folder vs Every folder using core. Apply next game start. Non-RetroArch cores listed separately. Per-game options also in Game Tuning and the game viewer Handheld tab.
 
 ### Library check
 
@@ -224,11 +224,11 @@ Copy to handheld / Copy to computer into open folder; confirm overwrites; appear
 
 ## tuning - Game Tuning
 
-Per-game emulator settings and cheats without changing other games. Wi-Fi+SSH; applies next start.
+Per-game Menu+X core options, CPU governor and cheats without changing other games. Wi-Fi+SSH; applies next start. Folder-wide options: Emulation > RetroArch. Same editor in the game viewer Handheld tab when the game is on the device.
 
-Pick system then game (Tuned badge). Emulators with settings: PSP (PPSSPP standalone or RA; disc ID for standalone), N64 Mupen64Plus-Next, PS PCSX-ReARMed/SwanStation/DuckStation, DC/NAOMI/Atomiswave Flycast. Every game: CPU governor. Settings can be saved before the game is on the handheld.
+Pick system then game (Tuned badge). Any RetroArch core: full `.opt` catalogue from the handheld (curated labels for known cores). PSP: PPSSPP standalone or RA (disc ID for standalone). Every game: CPU governor. Standalone non-RA: governor only unless switched to a RetroArch core. Settings can be saved before the game is on the handheld; first save can create `.opt` from folder/core template.
 
-Presets Fastest / Balanced / Best looking; recommendations for known heavy titles. Save to handheld; Back to folder settings. Paths: `info/config/<core>/<game>.opt`, PPSSPP `.../SYSTEM/<discID>_ppsspp.ini`, governor `info/content/<folder>/<game>.gov`.
+Presets Fastest / Balanced / Best looking and recommendations for profiled cores; other cores show the device catalogue without presets. Save to handheld; Use folder settings. Paths: `info/config/<core>/<game>.opt`, PPSSPP `.../SYSTEM/<discID>_ppsspp.ini`, governor `info/content/<folder>/<game>.gov`.
 
 **Cheats**: tick and Save cheats. RetroArch from libretro DB by filename; PPSSPP from MustardOS or DB by disc ID. Apply cheats after game load may need enabling (MustardOS default off). Remove cheats deletes RA .cht. Close game before saving cheats; cheats can break saves.
 

@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Device Benchmark, Settings tabs, Assistant knowledge base |
+| [Unreleased](#unreleased) | | Full RetroArch Menu+X options, Device Benchmark, Settings tabs |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
@@ -25,6 +25,10 @@ version.
 
 ### Added
 
+- **Full RetroArch core options (Menu+X parity).** Emulation → RetroArch keeps picture and play (`.cfg`) and adds a
+  searchable **Core options** block (`.opt`) per folder or core, built from options on the handheld with curated labels
+  for known cores. Game Tuning shows the full catalogue for any RetroArch core (presets still for profiled ones). The
+  game viewer **Handheld** tab embeds the same editor when the game is on the device, with a link to Game Tuning.
 - **Editable Assistant system prompt.** Settings → Assistant → **Edit prompt** opens a dialog to change the instructions
   sent with every chat message, save a custom prompt, or revert to the built-in default. A warning shows while a custom
   prompt is active.
@@ -39,7 +43,8 @@ version.
 - **Device Settings** is renamed **Device**, with **Settings** (MustardOS options) and **Benchmark** tabs.
 - **Settings tabs.** Settings is split into Folders, Behaviour, Assistant, Data and Resets, with a short blurb for each
   tab and clearer panel intros.
-- Wiki, README and screenshots updated for Settings tabs, Device/Benchmark and the Assistant knowledge base.
+- Wiki, README and assistant knowledge updated for Menu+X core options, Settings tabs, Device/Benchmark and the Assistant
+  knowledge base.
 - Top-bar Transfers control shows **Show Transfers** or **Hide Transfers** next to the icon.
 
 ### Fixed
