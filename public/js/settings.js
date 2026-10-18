@@ -176,7 +176,7 @@ function folderBox(d, which) {
       <span class="set-chip">${f.custom ? "Custom" : "Default"}</span>${folderState(which, f)}
     </div>
     <div class="panel-actions set-actions">
-      <button class="btn${which === "roms" ? " primary" : ""}" data-set="browse"${attrs(s.browse ? "x" : "")}>${FOLDER} Change folder&hellip;</button>
+      <button class="btn" data-set="browse"${attrs(s.browse ? "x" : "")}>${FOLDER} Change folder&hellip;</button>
       ${d.pickFolder ? `<button class="btn" data-set="pick"${attrs()}>${icon("search")}<span>Choose in ${esc(d.fileManager)}&hellip;</span></button>` : ""}
       ${f.available ? `<button class="btn" data-set="reveal" data-which="${which}">${icon("external")}<span>Show in ${esc(d.fileManager)}</span></button>` : ""}
       ${f.custom ? `<button class="btn ghost" data-set="default"${attrs()} title="${esc(f.default)}">${icon("refresh")}<span>Use the workspace ${KINDS[which].workspace} folder</span></button>` : ""}

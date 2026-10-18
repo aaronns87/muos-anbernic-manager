@@ -39,6 +39,7 @@ version.
 
 - Assistant panel no longer sits under the top bar after Transfers was opened: closing Transfers clears its height
   offset, and the chat dock only lifts for Transfers while that panel is open.
+- Top-bar **Show Transfers** stays available after finished transfers are cleared (it no longer required history to appear).
 
 ## [1.2.4] - 2026-10-17
 

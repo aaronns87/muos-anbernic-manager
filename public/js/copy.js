@@ -171,6 +171,7 @@ const T = {
   /** Job ids the user collapsed; multi-file lists start expanded. */
   closed: new Set(), files: new Map(), loading: new Set(),
 };
+app.transfers = T;
 
 const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
 const unit = (j) => (j.kind === "art" || j.kind === "artsend" ? "image" : "file");

@@ -404,17 +404,6 @@ export function renderStatusbar() {
   const waiting = (app.transfers?.active.length || 0) - (job && job.state === "running" ? 1 : 0);
   const dockOpen = !!app.transfers?.shown;
   const dockLabel = dockOpen ? "Hide Transfers" : "Show Transfers";
-  if (job && job.state === "running") {
-    const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 0;
-    const progress = `${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}`;
-    parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. ${dockLabel}." aria-label="${esc(dockLabel)}">${ICONS.spin}<span>${progress}</span></button>`);
-  } else if (app.transfers?.history.length) {
-    parts.push(`<button class="sb-item sb-job idle" data-dock-open title="${esc(dockLabel)}" aria-label="${esc(dockLabel)}">${icon("download")}<span>${esc(dockLabel)}</span></button>`);
-  }
-  const sys = app.sysJob;
-  if (sys && sys.state === "running") {
-    parts.push(`<a class="sb-item sb-job" href="#system" title="${esc(sys.title)}">${ICONS.spin}${esc(sys.short)} ${sys.percent}%</a>`);
-  }
   const chip = connChip(conn, links);
   parts.push(`<button type="button" class="sb-item sb-conn ${chip.state}" data-conn-panel aria-expanded="${connPanelOpen}" aria-haspopup="dialog" title="${esc(chip.tip)}">${chip.icons}<span>${esc(chip.label)}</span></button>`);
   const battery = app.overview.info?.identity?.battery;
@@ -423,6 +412,17 @@ export function renderStatusbar() {
   }
   if (chatConfigured()) {
     parts.push(`<button type="button" class="sb-item sb-chat" data-chat-open title="Open or hide the assistant">${icon("chat")}<span>Assistant</span></button>`);
+  }
+  if (job && job.state === "running") {
+    const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 0;
+    const progress = `${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}`;
+    parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. ${dockLabel}." aria-label="${esc(dockLabel)}">${ICONS.spin}<span>${progress}</span></button>`);
+  } else if (app.transfers) {
+    parts.push(`<button class="sb-item sb-job idle" data-dock-open title="${esc(dockLabel)}" aria-label="${esc(dockLabel)}">${icon("download")}<span>${esc(dockLabel)}</span></button>`);
+  }
+  const sys = app.sysJob;
+  if (sys && sys.state === "running") {
+    parts.push(`<a class="sb-item sb-job" href="#system" title="${esc(sys.title)}">${ICONS.spin}${esc(sys.short)} ${sys.percent}%</a>`);
   }
   const now = new Date();
   const date = formatDate(now);
