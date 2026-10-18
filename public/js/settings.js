@@ -11,7 +11,7 @@ import { openWizard } from "./wizard.js";
 import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
 import { forgetPlay } from "./play.js";
-import { chatConfiguredChanged } from "./chat.js";
+import { chatConfiguredChanged, mdHtml } from "./chat.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -21,12 +21,12 @@ const PLACE_ICONS = {
   folder: FOLDER,
 };
 
-const s = { data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false, chatKey: "", promptBound: false };
+const s = { data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false, chatKey: "", promptBound: false, knowledgeBound: false, knowledgeMd: "" };
 
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups and themes"],
   ["behaviour", "sliders", "Behaviour", "Copying, startup, updates, theme, clock and uploaded artwork size"],
-  ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context and system prompt"],
+  ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
   ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
   ["resets", "trash", "Resets", "Clear logs and preferences on this computer, play history on the handheld, or start over"],
 ];
@@ -110,7 +110,7 @@ function assistantPanel() {
     ? `<span class="set-chip warn">Custom</span>`
     : `<span class="set-chip ok">Default</span>`;
   const promptWarn = c.systemPromptCustom
-    ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore Wiki grounding, walkthrough refusal or other built-in limits.
+    ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
         <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span></div>`
     : "";
   return panel("full", `${icon("chat")} Assistant`, `
@@ -124,8 +124,8 @@ function assistantPanel() {
       <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste a free API key"}" value="${esc(s.chatKey)}"></div>
     <div class="set-row"><span><b>Model</b><small>Or type a custom model id for this provider.</small></span>
       <select class="control" id="chat-model">${models}<option value="__custom__"${(prov?.models || []).every((m) => m.id !== c.model) ? " selected" : ""}>Custom&hellip;</option></select></div>
-    <div class="set-row" id="chat-custom-row"${(prov?.models || []).some((m) => m.id === c.model) ? " hidden" : ""}><span><b>Custom model id</b></span>
-      <input class="control mono" id="chat-custom" spellcheck="false" value="${esc((prov?.models || []).some((m) => m.id === c.model) ? "" : c.model)}"></div>
+    <div class="set-row" id="chat-custom-row"${(prov?.models || []).some((m) => m.id === c.model) ? " hidden" : ""}><span><b>Custom model id</b><small>Used when the model list is set to Custom&hellip;</small></span>
+      <input class="control mono" id="chat-custom" spellcheck="false" ${(prov?.models || []).some((m) => m.id === c.model) ? "disabled " : ""}value="${esc((prov?.models || []).some((m) => m.id === c.model) ? "" : c.model)}"></div>
     <div class="set-row"><span><b>Temperature</b><small>Lower is more factual (0–1).</small></span>
       <input class="control" id="chat-temp" type="number" min="0" max="1" step="0.1" value="${c.temperature}"></div>
     <div class="set-row"><span><b>Max reply tokens</b><small>Caps length and free-tier use.</small></span>
@@ -136,6 +136,8 @@ function assistantPanel() {
       <span class="switch"><input type="checkbox" role="switch" id="chat-connection"${c.includeConnection ? " checked" : ""}><span class="switch-track"></span></span></label>
     <div class="set-row"><span><b>System prompt</b><small>Instructions sent with every message before live context. Editable even before you add a key.</small></span>
       <span class="set-prompt-actions">${promptChip}<button class="btn" data-set="chat-prompt"${s.working ? " disabled" : ""}>${icon("pencil")}<span>Edit prompt</span></button></span></div>
+    <div class="set-row"><span><b>Knowledge base</b><small>Read-only guide the assistant uses for manager UI and limits (not the in-app Wiki).</small></span>
+      <button class="btn" data-set="chat-knowledge"${s.working ? " disabled" : ""}>${icon("book")}<span>View knowledge base</span></button></div>
     <div class="panel-actions set-actions">
       <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
       <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
@@ -688,6 +690,39 @@ function bindPromptDialog() {
   dialog.addEventListener("cancel", (e) => { e.preventDefault(); closePromptEditor(); });
 }
 
+function closeKnowledgeViewer() {
+  $("chat-knowledge")?.close();
+}
+
+async function openKnowledgeViewer() {
+  const dialog = $("chat-knowledge"), body = $("chat-knowledge-body");
+  if (!dialog || !body) return;
+  body.innerHTML = `<p class="muted-note"><span class="spinner sm"></span> Loading&hellip;</p>`;
+  if (!dialog.open) dialog.showModal();
+  try {
+    if (!s.knowledgeMd) {
+      const res = await api("chat/knowledge");
+      s.knowledgeMd = res.markdown || "";
+    }
+    body.innerHTML = s.knowledgeMd
+      ? mdHtml(s.knowledgeMd)
+      : `<p class="muted-note">Knowledge base file is missing.</p>`;
+  } catch (error) {
+    body.innerHTML = `<p class="muted-note">${esc(error.message)}</p>`;
+  }
+  body.focus();
+}
+
+function bindKnowledgeDialog() {
+  if (s.knowledgeBound) return;
+  const dialog = $("chat-knowledge");
+  if (!dialog) return;
+  s.knowledgeBound = true;
+  $("chat-knowledge-close")?.addEventListener("click", closeKnowledgeViewer);
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) closeKnowledgeViewer(); });
+  dialog.addEventListener("cancel", (e) => { e.preventDefault(); closeKnowledgeViewer(); });
+}
+
 async function resetPrefs() {
   const ok = await confirmBox({
     title: "Reset view preferences?",
@@ -703,6 +738,7 @@ async function resetPrefs() {
 function bind() {
   s.bound = true;
   bindPromptDialog();
+  bindKnowledgeDialog();
   const root = $("view-settings");
   $("settings-tabs")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-settings-tab]");
@@ -743,6 +779,7 @@ function bind() {
     else if (action === "chat-save") saveAssistant(false);
     else if (action === "chat-clear") saveAssistant(true);
     else if (action === "chat-prompt") openPromptEditor();
+    else if (action === "chat-knowledge") openKnowledgeViewer();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));
@@ -767,7 +804,10 @@ function bind() {
       if (p) s.chat.model = p.defaultModel;
       render();
     } else if (t.id === "chat-model") {
-      $("chat-custom-row").hidden = t.value !== "__custom__";
+      const custom = t.value === "__custom__";
+      const row = $("chat-custom-row"), input = $("chat-custom");
+      if (row) row.hidden = !custom;
+      if (input) { input.disabled = !custom; if (custom) input.focus(); }
     }
   });
   root.addEventListener("input", (e) => {

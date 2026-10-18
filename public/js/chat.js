@@ -66,8 +66,8 @@ function mdTableHtml(block) {
   return `<div class="chat-table"><table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
-/** Safe subset of Markdown for assistant replies (escape first, then light formatting). */
-function mdHtml(src) {
+/** Safe subset of Markdown for assistant replies and the knowledge-base viewer. */
+export function mdHtml(src) {
   const slots = [];
   const park = (html) => {
     slots.push(html);

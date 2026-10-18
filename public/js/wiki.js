@@ -13,7 +13,7 @@ const ARTICLES = [
     ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
-      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device Settings, Themes,
+      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device, Themes,
       Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
       (Settings, Wiki) is about the manager itself.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
@@ -58,7 +58,7 @@ const ARTICLES = [
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
-      <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Install or uninstall apps, Device (settings and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
@@ -204,13 +204,17 @@ const ARTICLES = [
           <i>Newer than GitHub</i> means your copy came from somewhere else with its own numbering; nothing to do.</li>
       </ul>`],
   ]],
-  ["handheld", "sliders", "Device Settings", "handheld", "Change the handheld's MustardOS settings from here.", [
-    ["What it is", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
-      changed over Wi-Fi with SSH.</p>`],
-    ["Changing settings", `<p>Change as many options as you like; they are collected and written together when you save. Each option says when the change takes
-      effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.</p>`],
-    ["Undo", `<p><b>Undo last save</b> puts back the values from before your last save.</p>`],
-    ["Finding an option", `<p>Use the search box. <b>Advanced</b> shows options most people never need.</p>`],
+  ["handheld", "sliders", "Device", "handheld", "MustardOS settings and a Benchmark suite on the handheld over SSH.", [
+    ["The tabs", `<p><b>Settings</b> is the MustardOS options (same as before). <b>Benchmark</b> runs connectivity, storage and a short CPU load to
+      troubleshoot the handheld. Both need Wi-Fi with Secure Shell on.</p>`],
+    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
+      changed over Wi-Fi with SSH. Change as many as you like; they are written together when you save. Each option says when the change takes
+      effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
+      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.</p>`],
+    ["Benchmark", `<p>Pick <b>Connectivity</b> (SSH latency, free space, uptime, battery), <b>Storage speed</b> (timed write/read of a temporary
+      32&nbsp;MB file on SD1 and TF2), and/or <b>CPU and thermal</b> (loads all cores for up to 20 seconds while sampling usage and temperature).
+      <b>Run selected</b> or <b>Run all</b>; <b>Stop</b> aborts a long run. Storage files live under <code>.muos-bench/</code> and are deleted afterwards.
+      The CPU test asks for confirmation and will not start if the battery is below 15%.</p>`],
   ]],
   ["themes", "palette", "Themes", "themes", "Browse MustardOS themes, design your own, and install and apply them on the handheld.", [
     ["Browse", `<p>Lists the themes from the MustardOS theme library (<a href="https://theme.muos.dev" target="_blank" rel="noopener">theme.muos.dev</a>),
@@ -422,7 +426,8 @@ const ARTICLES = [
       images, BIOS files, save backups and the themes you design are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],
-    ["Assistant", `<p>Paste a free chat API key, pick a provider and model, and optionally edit the system prompt. See the Wiki article <b>Assistant</b>.</p>`],
+    ["Assistant", `<p>Paste a free chat API key, pick a provider and model, optionally edit the system prompt, and open the read-only
+      <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
     ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
       ROM check results. They are fetched or worked out again when needed.</p>`],
@@ -453,11 +458,14 @@ const ARTICLES = [
       <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
         <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
     ["System prompt", `<p>Under ${path("Settings", "Assistant")}, <b>Edit prompt</b> opens a dialog with the instructions sent with every message
-      (before live Wiki, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
+      (before the knowledge base, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
       on the settings page; changing it can weaken grounding, walkthrough refusal and other built-in limits, so keep the default unless you
       know what you need. You can edit the prompt before you paste an API key.</p>`],
+    ["Knowledge base", `<p><b>View knowledge base</b> on the Assistant tab opens a read-only modal with the guide the chat uses for manager UI,
+      connections and limits. It is not this Wiki and cannot be edited in the app. Live library matches and connection status are added
+      per message and are not part of that file.</p>`],
     ["What it is good at", `<ul>
-      <li>How the manager works, using the same help text as this Wiki for the page you are on.</li>
+      <li>How the manager works, using the assistant knowledge base (and the section for the page you are on).</li>
       <li>What is in your <code>Roms/</code> library (systems, genres, titles) and LaunchBox descriptions when game data is downloaded.</li>
       <li>Describing a game you have open, or recommending titles from your library.</li>
       <li>Connection status (card reader, USB, Wi-Fi / SSH) without sending passwords.</li>

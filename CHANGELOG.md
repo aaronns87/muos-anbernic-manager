@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Settings tabs, editable Assistant system prompt |
+| [Unreleased](#unreleased) | | Device Benchmark, Settings tabs, Assistant knowledge base |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
@@ -28,11 +28,18 @@ version.
 - **Editable Assistant system prompt.** Settings → Assistant → **Edit prompt** opens a dialog to change the instructions
   sent with every chat message, save a custom prompt, or revert to the built-in default. A warning shows while a custom
   prompt is active.
+- **Assistant knowledge base.** Chat grounding uses `docs/assistant-knowledge.md` (manager UI, connections and limits)
+  instead of the old thin JSON wiki pack. Settings → Assistant → **View knowledge base** opens it read-only in a modal.
+- **Device › Benchmark.** Connectivity (SSH latency, free space, uptime, battery), storage write/read speed on SD1/TF2,
+  and a short stoppable CPU/thermal load over Wi-Fi with SSH. Run selected tests or all; results and a live log stay on
+  the page for the session.
 
 ### Changed
 
+- **Device Settings** is renamed **Device**, with **Settings** (MustardOS options) and **Benchmark** tabs.
 - **Settings tabs.** Settings is split into Folders, Behaviour, Assistant, Data and Resets, with a short blurb for each
   tab and clearer panel intros.
+- Wiki, README and screenshots updated for Settings tabs, Device/Benchmark and the Assistant knowledge base.
 - Top-bar Transfers control shows **Show Transfers** or **Hide Transfers** next to the icon.
 
 ### Fixed

@@ -57,7 +57,7 @@ per-session token. Nothing is uploaded anywhere.
 **Handheld**
 - **Apps**: an app market of popular MustardOS apps with screenshots and release notes, picking the package for your
   handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
-- **Device Settings**: change MustardOS settings (display, audio, network, interface and more) from the computer.
+- **Device**: change MustardOS settings from the computer, and run connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
@@ -80,17 +80,18 @@ per-session token. Nothing is uploaded anywhere.
   touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
-- **Assistant**: optional chat (bring your own free API key under Settings → Assistant) that knows the manager, your
-  library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the bottom-right corner
-  or **Assistant** in the top bar. Replies support Markdown (including tables) and show timestamps; it will not invent
-  walkthroughs.
+- **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
+  base plus your library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the
+  bottom-right corner or **Assistant** in the top bar. View the knowledge base read-only from Settings → Assistant.
+  Replies support Markdown (including tables) and show timestamps; it will not invent walkthroughs.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
   the copies waiting their turn and a history of finished ones. Start more copies while one runs and they queue up;
   minimise the panel to a thin progress bar or hide it and reopen it from the top bar.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
   cloned the repository or downloaded the ZIP. After you restart into a new version, a **What's new** dialog lists the
   changes once. See [CHANGELOG.md](CHANGELOG.md) for the full history.
-- **Settings**: folders, connections, the assistant API key, caches, history resets and a factory reset that starts over from the setup wizard.
+- **Settings**: five tabs — **Folders**, **Behaviour**, **Assistant** (API key, model, system prompt, view knowledge base),
+  **Data** and **Resets** (including factory reset that starts over from the setup wizard).
 
 ## Screenshots
 
@@ -121,8 +122,11 @@ per-session token. Nothing is uploaded anywhere.
 <p align="center"><img src="docs/screenshots/apps.jpg" width="100%" alt="App market"></p>
 <p align="center"><em>Apps: the app market with screenshots and release notes, picking the right package for your handheld.</em></p>
 
-<p align="center"><img src="docs/screenshots/handheld.jpg" width="100%" alt="Device Settings"></p>
-<p align="center"><em>Device Settings: change MustardOS settings on the handheld from the computer.</em></p>
+<p align="center"><img src="docs/screenshots/handheld.jpg" width="100%" alt="Device"></p>
+<p align="center"><em>Device: Settings (MustardOS options) and Benchmark (connectivity, storage, CPU) over Wi-Fi with SSH.</em></p>
+
+<p align="center"><img src="docs/screenshots/settings.jpg" width="100%" alt="Settings Assistant"></p>
+<p align="center"><em>Settings → Assistant: bring-your-own-key chat, Edit prompt and View knowledge base.</em></p>
 
 <p align="center"><img src="docs/screenshots/wizard.jpg" width="100%" alt="Setup wizard"></p>
 <p align="center"><em>Setup wizard: the first start asks for your handheld, folders and connection.</em></p>

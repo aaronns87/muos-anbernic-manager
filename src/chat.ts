@@ -1,5 +1,5 @@
 // BYOK chat assistant: settings in .cache/chat.json, OpenAI-compatible providers, and a grounded context pack
-// (wiki, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
+// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
 
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -38,11 +38,12 @@ const PROMPT_MAX = 12_000;
 export const DEFAULT_SYSTEM_PROMPT = `You are the in-app assistant for muOS Anbernic Manager, a desktop app that manages Anbernic/TrimUI handhelds running MustardOS (muOS).
 
 Rules:
-- Prefer facts from the CONTEXT block over your own memory. If context is missing, say so briefly.
+- Prefer facts from the CONTEXT block over your own memory. CONTEXT includes the manager knowledge base — treat it as ground truth for UI paths, tabs and connections. If context is missing, say so briefly.
 - Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
 - For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
 - Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
-- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device Settings).
+- Do NOT invent buttons, tabs or menus that are not in the knowledge base.
+- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
 - Keep answers concise and practical. Use plain language.
 - Never ask for or repeat API keys or passwords.`;
 
@@ -94,10 +95,12 @@ const normalizePrompt = (value: unknown): string => {
 const effectivePrompt = (s: ChatSettings) => s.systemPrompt.trim() || DEFAULT_SYSTEM_PROMPT;
 
 const settingsFile = () => path.join(ctx.cacheDir, "chat.json");
-const wikiFile = () => path.join(ctx.managerDir, "docs", "assistant-wiki.json");
+const knowledgeFile = () => path.join(ctx.managerDir, "docs", "assistant-knowledge.md");
+
+type KnowledgeSection = { title: string; text: string };
 
 let cached: ChatSettings | null = null;
-let wikiCache: Record<string, { title: string; text: string }> | null = null;
+let knowledgeCache: { raw: string; sections: Record<string, KnowledgeSection> } | null = null;
 
 /** Llama left Groq's free/developer tiers; map old presets to a current chat model. */
 const GROQ_RETIRED = new Set(["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b", "qwen/qwen3-32b-instruct"]);
@@ -213,23 +216,51 @@ export async function saveChatSettings(body: Record<string, unknown>) {
   return chatSettingsPublic();
 }
 
-async function loadWiki(): Promise<Record<string, { title: string; text: string }>> {
-  if (wikiCache) return wikiCache;
-  try {
-    wikiCache = JSON.parse(await fsp.readFile(wikiFile(), "utf8"));
-  } catch {
-    wikiCache = {};
+/** Parse `## slug — Title` sections from assistant-knowledge.md. */
+function parseKnowledge(raw: string): Record<string, KnowledgeSection> {
+  const sections: Record<string, KnowledgeSection> = {};
+  const parts = raw.split(/^## /m).slice(1);
+  for (const part of parts) {
+    const nl = part.indexOf("\n");
+    const heading = (nl < 0 ? part : part.slice(0, nl)).trim();
+    const body = (nl < 0 ? "" : part.slice(nl + 1)).trim();
+    const m = heading.match(/^([a-z0-9_-]+)\s+[—–-]\s+(.+)$/i);
+    if (!m) continue;
+    const slug = m[1].toLowerCase();
+    sections[slug] = { title: m[2].trim(), text: body };
   }
-  return wikiCache!;
+  return sections;
 }
 
-function wikiBlock(section: string, wiki: Record<string, { title: string; text: string }>): string {
+async function loadKnowledge(): Promise<{ raw: string; sections: Record<string, KnowledgeSection> }> {
+  if (knowledgeCache) return knowledgeCache;
+  try {
+    const raw = await fsp.readFile(knowledgeFile(), "utf8");
+    knowledgeCache = { raw, sections: parseKnowledge(raw) };
+  } catch {
+    knowledgeCache = { raw: "", sections: {} };
+  }
+  return knowledgeCache!;
+}
+
+/** Full Markdown for the Settings → Assistant read-only viewer. */
+export async function chatKnowledgePublic(): Promise<{ markdown: string }> {
+  const { raw } = await loadKnowledge();
+  return { markdown: raw };
+}
+
+function knowledgeBlock(section: string, sections: Record<string, KnowledgeSection>): string {
   const parts: string[] = [];
-  const start = wiki.start;
+  const start = sections.start;
   if (start) parts.push(`## Manager help: ${start.title}\n${start.text}`);
-  const key = section && wiki[section] ? section : "";
-  if (key && key !== "start") parts.push(`## Current section: ${wiki[key].title}\n${wiki[key].text}`);
-  const assistant = wiki.assistant;
+  const key = section && sections[section] ? section : "";
+  if (key && key !== "start") parts.push(`## Current section: ${sections[key].title}\n${sections[key].text}`);
+  // Troubleshooting / glossary when on Wiki or when no page-specific pack matched.
+  if (key === "wiki" || !key) {
+    if (sections.help) parts.push(`## Troubleshooting\n${sections.help.text}`);
+    if (sections.glossary) parts.push(`## Glossary\n${sections.glossary.text}`);
+  }
+  const assistant = sections.assistant;
   if (assistant) parts.push(`## Assistant limits\n${assistant.text}`);
   return parts.join("\n\n");
 }
@@ -335,8 +366,8 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
 }
 
 async function buildContext(section: string, userText: string, gameKey: string, opts: ChatSettings): Promise<string> {
-  const wiki = await loadWiki();
-  const parts = [wikiBlock(section || "start", wiki)];
+  const { sections } = await loadKnowledge();
+  const parts = [knowledgeBlock(section || "start", sections)];
   if (opts.includeConnection) parts.push(await connectionBlock());
   if (opts.includeLibrary) {
     try {

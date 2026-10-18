@@ -11,6 +11,7 @@ import { renderOverview, resetOverview, loadInfo } from "./overview.js";
 import { renderArtwork } from "./artwork-view.js";
 import { renderApps } from "./apps.js";
 import { renderEmulation } from "./emulation.js";
+import { renderDeviceSection } from "./device-section.js";
 import { renderFiles } from "./files.js";
 import { renderPlay } from "./play.js";
 import { renderTuning } from "./tuning.js";
@@ -459,6 +460,7 @@ export function renderDevice() {
   if (section() === "artwork") renderArtwork();
   if (section() === "apps") renderApps();
   if (section() === "emulation") renderEmulation();
+  if (section() === "handheld") renderDeviceSection();
   if (section() === "files") renderFiles();
   if (section() === "play") renderPlay();
   if (section() === "tuning") renderTuning(!!app.device.wifi?.reachable);
