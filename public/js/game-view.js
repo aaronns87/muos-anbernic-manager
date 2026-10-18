@@ -1,7 +1,7 @@
 // The library game viewer's details: facts, the game's state on the handheld, its file, library check, BIOS
 // and related games, in tabs. Handheld data is read in the background and kept for a while across games.
 
-import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, store, toast, canCopy, devName, handheldMode, keyOf, onCardState } from "./core.js";
+import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, store, toast, busy, canCopy, devName, handheldMode, isOnCard, keyOf, onCardState } from "./core.js";
 import { artMax, confirmBox, droppedImage, pickImage, pngData } from "./art-images.js";
 import { noteKind, systemNote, useCore, useSystem } from "./system-notes.js";
 import { focusTuningGame } from "./tuning.js";
@@ -548,6 +548,34 @@ function fitDesc() {
   if (desc.scrollHeight <= desc.clientHeight + 4) { desc.classList.remove("clamp"); more.remove(); }
 }
 
+/** Transfer button: hide when copy is impossible; disable when the ROM is already on the handheld. */
+export function syncTransferButton() {
+  const btn = $("v-transfer");
+  const label = $("v-transfer-label");
+  if (!btn || !label) return;
+  if (!V.cur) {
+    btn.hidden = true;
+    return;
+  }
+  const { sys, g } = V.cur;
+  const ok = canCopy(sys);
+  btn.hidden = !ok;
+  if (!ok) return;
+  const st = onCardState(sys, g);
+  const already = isOnCard(sys, g);
+  btn.disabled = already || busy();
+  btn.title = already
+    ? `This game is already on ${devName()}.`
+    : st === "changed"
+      ? `The handheld has a different copy. Transfer again to replace it.`
+      : `Copy this game to ${devName()}.`;
+  label.textContent = already
+    ? `Already on ${devName()}`
+    : st === "changed"
+      ? `Replace on ${devName()}`
+      : `Transfer to ${devName()}`;
+}
+
 /** Redraws the parts that depend on what changed: "all", "details" or "device". */
 function paint(what = "all") {
   if (!V.cur || !$("viewer").open) return;
@@ -555,6 +583,7 @@ function paint(what = "all") {
   $("v-tags").innerHTML = tagsHtml();
   $("v-cards").innerHTML = cardsHtml();
   $("v-tabs").innerHTML = tabsHtml(groups.reduce((n, [, items]) => n + items.length, 0));
+  syncTransferButton();
   const panes = { about: ["all"], details: ["all", "details"], handheld: ["all", "device"], related: ["all", "details"] }[V.tab];
   if (!panes.includes(what)) return;
   const pane = $("v-pane");
@@ -584,7 +613,7 @@ export function enrichViewer(index) {
   $("v-back").hidden = !V.back.length;
   const fm = fileManager();
   $("v-reveal-label").textContent = fm ? `Show in ${fm}` : "Open folder";
-  V.devSig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}`;
+  V.devSig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
   loadDetails();
   loadDevice();
   paint();
@@ -594,12 +623,14 @@ export function enrichViewer(index) {
 /** Refreshes the handheld parts of an open viewer when the connection changes. */
 export function viewerDeviceChanged() {
   if (!V.cur || !$("viewer").open) return;
-  const { sys } = V.cur;
-  const sig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}`;
-  if (sig === V.devSig) return;
+  const { sys, g } = V.cur;
+  const sig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
+  if (sig === V.devSig) {
+    syncTransferButton();
+    return;
+  }
   V.devSig = sig;
-  $("v-transfer").hidden = !canCopy(sys);
-  $("v-transfer-label").textContent = `Transfer to ${devName()}`;
+  syncTransferButton();
   loadDevice();
   paint("device");
 }
@@ -779,7 +810,11 @@ export function bindGameView(h) {
     else if (t.matches("[data-vrefresh]")) { loadDevice(true); V.tune.key = ""; paint("device"); }
     else if (t.id === "v-more") { V.expanded = true; $("v-desc")?.classList.remove("clamp"); t.remove(); }
     else if (t.id === "v-back") { const idx = V.back.pop(); if (idx !== undefined) openAt(idx); }
-    else if (t.id === "v-reveal") api("game/reveal", { code: V.cur.sys.code, file: V.cur.g.f }).catch((err) => toast(err.message, 4000));
+    else if (t.id === "v-reveal") {
+      api("game/reveal", { code: V.cur.sys.code, file: V.cur.g.f })
+        .then(() => toast(`Showing in ${fileManager() || "the file manager"}`, 2000))
+        .catch((err) => toast(err.message, 4500));
+    }
     else if (t.id === "v-art-replace") pickImage().then(replaceArt);
     else if (t.dataset.vedit === "open") { V.editing = true; V.renaming = false; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
     else if (t.dataset.vedit === "cancel") { V.editing = false; paint(); }

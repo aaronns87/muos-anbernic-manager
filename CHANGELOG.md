@@ -61,8 +61,11 @@ version.
   separators and several other recently edited scripts; CPU Benchmark stress no longer depends on BusyBox `yes`.
 - Device Controls reads MustardOS board input maps (axis codes like ABS_Z/RX on muOS-Keys, and A/B keycodes from
   `/opt/muos/device/config/input/code`), so live pads match the handheld; switching input devices re-infers axes from
-  that node's ABS bits. Benchmark storage timing uses `/proc/uptime` without a broken `sh -c` JSON wrap; CPU stress is
-  started from a temp script (avoids `pkill -f` killing the SSH session).
+  that node's ABS bits; button-only nodes (e.g. direct-keys-polled) are sampled together with the stick device; stick
+  up/down matches hardware. Benchmark storage timing uses `/proc/uptime` without a broken `sh -c` JSON wrap; CPU stress
+  is started from a temp script (avoids `pkill -f` killing the SSH session).
+- Game viewer **Transfer** is disabled (label **Already on …**) when the ROM is already on the handheld; **Replace on …**
+  stays available when the card copy differs.
 - Assistant chat Markdown: treat `**Title` / `**Title**` lines as headings, render tab-separated tables, keep bold
   on one line, and strip leftover `**` so broken model markup does not show raw asterisks. Prompt asks for pipe
   tables and closed bold.

@@ -15,7 +15,10 @@ const C = {
   error: "",
   loading: false,
   device: "",
+  /** Event node used for stick ABS (stays on the stick device if the dropdown picks buttons-only). */
+  axisDevice: "",
   buttonsFrom: "",
+  buttonPaths: [],
   /** Per-selection axis map; board defaults when on the configured stick device. */
   axesLeft: null,
   axesRight: null,
@@ -37,6 +40,31 @@ const roleHint = (d) => {
   if (d.role === "buttons") return "buttons";
   return "";
 };
+
+/** Kernel typo "dierct" ? readable label; path stays real. */
+const deviceLabel = (d) => String(d?.name || "Unknown").replace(/\bdierct\b/gi, "direct");
+
+const hasStickAxes = (d) => {
+  if (!d) return false;
+  if ((d.handlers || []).some((h) => /^js\d+$/.test(h))) return true;
+  return (d.abs || []).some((c) => c >= 0 && c <= 5);
+};
+
+function syncButtonPaths(preferred) {
+  const snap = C.snap;
+  const listed = snap?.buttonDevices || (snap?.buttonDevice ? [snap.buttonDevice] : []);
+  const paths = [];
+  const add = (p) => {
+    if (p && !paths.includes(p)) paths.push(p);
+  };
+  add(preferred);
+  for (const p of listed) add(p);
+  add(snap?.stickDevice);
+  add(C.axisDevice);
+  add(C.device);
+  C.buttonPaths = paths;
+  C.buttonsFrom = paths.filter((p) => p !== C.axisDevice).join(",") || paths[0] || "";
+}
 
 /** Mirror of server inferAxisPairs — used when the user picks a non-default input node. */
 function inferAxisPairs(abs) {
@@ -129,8 +157,9 @@ async function load() {
   try {
     C.snap = await api("controls");
     C.device = C.snap.stickDevice || C.snap.devices?.[0]?.path || "";
-    C.buttonsFrom = C.snap.buttonDevice || C.device;
-    applyAxesForDevice(C.device);
+    C.axisDevice = C.device;
+    applyAxesForDevice(C.axisDevice);
+    syncButtonPaths(C.snap.buttonDevice);
     C.draftJson = C.snap.joycalJson;
     const all = await api("handheld/settings").catch(() => null);
     if (all) {
@@ -161,8 +190,8 @@ function startPoll() {
 async function tick() {
   if (!$("hh-controls") || $("hh-controls").hidden || C.calibrating || C.wizard) return;
   try {
-    const q = new URLSearchParams({ device: C.device, axes: axisCodesQuery() });
-    if (C.buttonsFrom && C.buttonsFrom !== C.device) q.set("buttons", C.buttonsFrom);
+    const q = new URLSearchParams({ device: C.axisDevice || C.device, axes: axisCodesQuery() });
+    if (C.buttonsFrom) q.set("buttons", C.buttonsFrom);
     const hat = C.axesHat || C.snap?.axesHat;
     if (hat) q.set("hat", hat.join(","));
     const labels = C.snap?.buttonCodes;
@@ -204,12 +233,15 @@ function render() {
     ? devices.map((d) => {
       const hint = roleHint(d);
       const tag = hint ? ` [${hint}]` : "";
-      return `<option value="${esc(d.path)}"${d.path === C.device ? " selected" : ""}>${esc(d.name)}${tag} (${esc(d.path)})</option>`;
+      return `<option value="${esc(d.path)}"${d.path === C.device ? " selected" : ""}>${esc(deviceLabel(d))}${tag} (${esc(d.path)})</option>`;
     }).join("")
     : `<option value="">No stick device found</option>`;
-  const btnDev = devices.find((d) => d.path === C.buttonsFrom);
-  const btnNote = btnDev && C.buttonsFrom !== C.device
-    ? ` Face buttons also from ${btnDev.name}.`
+  const extraBtn = (C.buttonPaths || [])
+    .filter((p) => p && p !== (C.axisDevice || C.device))
+    .map((p) => devices.find((d) => d.path === p))
+    .filter(Boolean);
+  const btnNote = extraBtn.length
+    ? ` Buttons also from ${extraBtn.map((d) => deviceLabel(d)).join(", ")}.`
     : "";
 
   box.innerHTML = `<div class="hh-controls">
@@ -221,7 +253,7 @@ function render() {
           <select class="control" data-ctrl="device"${C.calibrating ? " disabled" : ""}>${deviceOpts}</select>
         </label>
         <button class="btn small" data-ctrl="refresh"${C.loading ? " disabled" : ""}>${icon("refresh")}<span>Refresh</span></button>
-        ${C.wizard || C.calibrating ? "" : `<button class="btn small primary" data-ctrl="cal-start"${!s.joycal || !C.device ? " disabled" : ""}>${icon("wand")}<span>Calibrate analogs</span></button>`}
+        ${C.wizard || C.calibrating ? "" : `<button class="btn small primary" data-ctrl="cal-start"${!s.joycal || !C.axisDevice ? " disabled" : ""}>${icon("wand")}<span>Calibrate analogs</span></button>`}
       </div>
       <p class="muted-note" id="ctrl-live-note">${C.calibrating || C.wizard ? "Live sampling paused while calibrating." : (s.python ? `Sampling over SSH.${btnNote}` : "Python 3 is required on the handheld to sample sticks.")}</p>
       <div class="ctrl-pads" id="ctrl-pads">${padsHtml()}</div>
@@ -249,8 +281,8 @@ function axisPair(codes) {
     const span = Math.max(Math.abs((x?.max || 1) - (x?.min || 0)), 1) / 2;
     return Math.min(0.45, flat / span);
   })();
-  // Invert Y so stick-up moves the knob up (ABS_Y grows when pushed down).
-  return { nx: norm(x), ny: -norm(y), dead, live: !!(x || y) };
+  // ABS grows when the stick is pushed down; SVG +y is also down, so no invert.
+  return { nx: norm(x), ny: norm(y), dead, live: !!(x || y) };
 }
 
 function stickSvg(label, pair) {
@@ -294,8 +326,13 @@ function paintLive() {
   if (btns) btns.innerHTML = buttonsHtml();
   const note = $("ctrl-live-note");
   if (note && !C.wizard && !C.calibrating) {
-    const btnDev = (C.snap?.devices || []).find((d) => d.path === C.buttonsFrom);
-    const extra = btnDev && C.buttonsFrom !== C.device ? ` Face buttons also from ${btnDev.name}.` : "";
+    const extraBtn = (C.buttonPaths || [])
+      .filter((p) => p && p !== (C.axisDevice || C.device))
+      .map((p) => (C.snap?.devices || []).find((d) => d.path === p))
+      .filter(Boolean);
+    const extra = extraBtn.length
+      ? ` Buttons also from ${extraBtn.map((d) => deviceLabel(d)).join(", ")}.`
+      : "";
     note.textContent = `Sampling over SSH.${extra}`;
   }
 }
@@ -402,7 +439,7 @@ async function runCalibrate() {
   render();
   try {
     const res = await api("controls/calibrate", {
-      device: C.device,
+      device: C.axisDevice || C.device,
       noise: 2,
       duration: 6,
       deadzonePad: 8,
@@ -529,10 +566,15 @@ function bind() {
     if (t.dataset.ctrl === "device") {
       C.device = t.value;
       const picked = (C.snap?.devices || []).find((d) => d.path === C.device);
-      // Keep a separate Keys node for face buttons when the stick device has none.
-      if (picked?.keys) C.buttonsFrom = C.device;
-      else C.buttonsFrom = C.snap?.buttonDevice || C.device;
-      applyAxesForDevice(C.device);
+      // Button-only nodes stay selectable for testing, but sticks keep using the stick device.
+      if (hasStickAxes(picked)) {
+        C.axisDevice = C.device;
+        applyAxesForDevice(C.axisDevice);
+      } else {
+        C.axisDevice = C.snap?.stickDevice || C.device;
+        applyAxesForDevice(C.axisDevice);
+      }
+      syncButtonPaths(C.device);
       C.state = null;
       render();
       startPoll();

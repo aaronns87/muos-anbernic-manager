@@ -16,7 +16,8 @@ import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
 import { collectionItem, fnv1a, romOf } from "../src/play.ts";
 import {
-  parseInputDevices, pickStickDevice, pickButtonDevice, parseBoardInputMap, inferAxisPairs,
+  parseInputDevices, pickStickDevice, pickButtonDevice, listButtonDevices,
+  parseBoardInputMap, inferAxisPairs,
 } from "../src/device/controls.ts";
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
@@ -864,13 +865,27 @@ B: PROP=0
 B: EV=20000b
 B: KEY=400000000 1fff000000000000 0 0 c000000000000 2
 B: ABS=3003c
+
+I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="dierct-keys-polled"
+P: Phys=dierct-keys-polled/input0
+S: Sysfs=/devices/platform/dierct-keys-polled/input/input2
+U: Uniq=
+H: Handlers=kbd event2
+B: PROP=0
+B: EV=3
+B: KEY=c378000000000 c042e2100000
 `;
   const list = parseInputDevices(text);
-  assert.equal(list.length, 1);
+  assert.equal(list.length, 2);
   assert.equal(list[0].path, "/dev/input/event1");
   assert.ok(list[0].score > 0);
   assert.deepEqual(list[0].abs, [2, 3, 4, 5, 16, 17]);
-  assert.equal(pickStickDevice(list)?.path, "/dev/input/event1");
+  const stick = pickStickDevice(list);
+  assert.equal(stick?.path, "/dev/input/event1");
+  const buttons = listButtonDevices(list, stick);
+  assert.deepEqual(buttons.map((d) => d.path), ["/dev/input/event1", "/dev/input/event2"]);
+  assert.equal(pickButtonDevice(list, stick)?.path, "/dev/input/event1");
 });
 
 test("inferAxisPairs and parseBoardInputMap use MustardOS Z/RX layout", () => {

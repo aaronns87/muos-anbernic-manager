@@ -174,8 +174,24 @@ export function pickStickDevice(devices: InputDevice[]): InputDevice | null {
 }
 
 export function pickButtonDevice(devices: InputDevice[], stick: InputDevice | null): InputDevice | null {
-  if (stick?.keys) return stick;
-  return devices.find((d) => d.role === "buttons" || (d.keys && d.role !== "sticks")) || stick;
+  const extras = listButtonDevices(devices, stick);
+  return extras[0] || stick;
+}
+
+/** Every node that can contribute face/shoulder key state (merged while sampling). */
+export function listButtonDevices(devices: InputDevice[], stick: InputDevice | null): InputDevice[] {
+  const out: InputDevice[] = [];
+  const seen = new Set<string>();
+  const add = (d: InputDevice | null | undefined) => {
+    if (!d?.path || seen.has(d.path) || !d.keys) return;
+    seen.add(d.path);
+    out.push(d);
+  };
+  add(stick);
+  for (const d of devices) {
+    if (d.role === "buttons" || (d.keys && d.role !== "sticks")) add(d);
+  }
+  return out;
 }
 
 function absBits(hex: string | undefined): number[] {
@@ -293,7 +309,8 @@ export async function controlsSnapshot() {
   const map = await readBoardInputMap(stickGuess);
   // Prefer MustardOS's configured input node when it exists in the device list.
   const stickDev = (map.device && devices.find((d) => d.path === map.device.trim())) || stickGuess;
-  const buttonDev = pickButtonDevice(devices, stickDev);
+  const buttonDevs = listButtonDevices(devices, stickDev);
+  const buttonDev = buttonDevs[0] || stickDev;
   let joycalJson: unknown = null;
   if (hasJson) {
     try {
@@ -317,6 +334,7 @@ export async function controlsSnapshot() {
     devices,
     stickDevice: stickDev?.path || map.device || "",
     buttonDevice: buttonDev?.path || stickDev?.path || "",
+    buttonDevices: buttonDevs.map((d) => d.path),
     axesLeft: map.left,
     axesRight: map.right,
     axesHat: map.hat,
@@ -324,7 +342,7 @@ export async function controlsSnapshot() {
     buttonCodes: map.buttons,
     board: detected ? { id: detected.id, board: detected.board, via: detected.via } : null,
     experimental: true,
-    note: "Analog calibration uses MustardOS's experimental joycal tool. Close games first so nothing else holds the sticks. Axis and button codes come from the handheld's MustardOS input map.",
+    note: "Analog calibration uses MustardOS's experimental joycal tool. Close games first so nothing else holds the sticks. Axis and button codes come from the handheld's MustardOS input map. Button-only nodes are sampled together with the stick device.",
   };
 }
 
@@ -334,7 +352,10 @@ export async function controlsState(query: URLSearchParams) {
   const buttonsFrom = String(query.get("buttons") || "").trim();
   if (!/^\/dev\/input\/event\d+$/.test(device)) throw new UserError("Pick a valid input device.");
   const paths = [device];
-  if (buttonsFrom && /^\/dev\/input\/event\d+$/.test(buttonsFrom) && buttonsFrom !== device) paths.push(buttonsFrom);
+  for (const p of buttonsFrom.split(",")) {
+    const path = p.trim();
+    if (/^\/dev\/input\/event\d+$/.test(path) && !paths.includes(path)) paths.push(path);
+  }
   const codes = String(query.get("axes") || "0,1,2,3,4,5,16,17")
     .split(",")
     .map((s) => Number(s.trim()))
