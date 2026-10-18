@@ -28,7 +28,23 @@ export interface ChatSettings {
   maxTokens: number;
   includeLibrary: boolean;
   includeConnection: boolean;
+  /** Empty string means use DEFAULT_SYSTEM_PROMPT. */
+  systemPrompt: string;
 }
+
+const PROMPT_MAX = 12_000;
+
+/** Built-in instructions sent with every chat turn (before live CONTEXT). */
+export const DEFAULT_SYSTEM_PROMPT = `You are the in-app assistant for muOS Anbernic Manager, a desktop app that manages Anbernic/TrimUI handhelds running MustardOS (muOS).
+
+Rules:
+- Prefer facts from the CONTEXT block over your own memory. If context is missing, say so briefly.
+- Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
+- For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
+- Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
+- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device Settings).
+- Keep answers concise and practical. Use plain language.
+- Never ask for or repeat API keys or passwords.`;
 
 const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
 
@@ -65,7 +81,17 @@ const DEFAULTS: ChatSettings = {
   maxTokens: 1024,
   includeLibrary: true,
   includeConnection: true,
+  systemPrompt: "",
 };
+
+const normalizePrompt = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  if (!text) return "";
+  return text.length > PROMPT_MAX ? text.slice(0, PROMPT_MAX) : text;
+};
+
+const effectivePrompt = (s: ChatSettings) => s.systemPrompt.trim() || DEFAULT_SYSTEM_PROMPT;
 
 const settingsFile = () => path.join(ctx.cacheDir, "chat.json");
 const wikiFile = () => path.join(ctx.managerDir, "docs", "assistant-wiki.json");
@@ -98,6 +124,7 @@ async function loadSettings(): Promise<ChatSettings> {
       maxTokens: Math.round(clampNum(saved.maxTokens, 256, 4096, DEFAULTS.maxTokens)),
       includeLibrary: saved.includeLibrary !== false,
       includeConnection: saved.includeConnection !== false,
+      systemPrompt: normalizePrompt(saved.systemPrompt),
     };
   } catch {
     cached = { ...DEFAULTS };
@@ -124,6 +151,7 @@ const maskKey = (key: string) => {
 
 export async function chatSettingsPublic() {
   const s = await loadSettings();
+  const custom = !!s.systemPrompt.trim();
   return {
     configured: !!s.apiKey.trim(),
     provider: s.provider,
@@ -132,6 +160,9 @@ export async function chatSettingsPublic() {
     maxTokens: s.maxTokens,
     includeLibrary: s.includeLibrary,
     includeConnection: s.includeConnection,
+    systemPrompt: effectivePrompt(s),
+    systemPromptCustom: custom,
+    defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
     keyHint: maskKey(s.apiKey.trim()),
     providers: PROVIDERS.map((id) => ({
       id,
@@ -162,6 +193,12 @@ export async function saveChatSettings(body: Record<string, unknown>) {
   if (body.clearKey === true) apiKey = "";
   let model = normalizeModel(provider, String(body.model ?? current.model));
   if (provider !== current.provider && !String(body.model ?? "").trim()) model = DEFAULT_MODELS[provider];
+  let systemPrompt = current.systemPrompt;
+  if (body.resetSystemPrompt === true) systemPrompt = "";
+  else if (body.systemPrompt !== undefined) {
+    systemPrompt = normalizePrompt(body.systemPrompt);
+    if (systemPrompt === DEFAULT_SYSTEM_PROMPT.trim()) systemPrompt = "";
+  }
   const next: ChatSettings = {
     provider,
     apiKey,
@@ -170,6 +207,7 @@ export async function saveChatSettings(body: Record<string, unknown>) {
     maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 4096, current.maxTokens)),
     includeLibrary: body.includeLibrary !== undefined ? body.includeLibrary !== false && body.includeLibrary !== "false" : current.includeLibrary,
     includeConnection: body.includeConnection !== undefined ? body.includeConnection !== false && body.includeConnection !== "false" : current.includeConnection,
+    systemPrompt,
   };
   await writeSettings(next);
   return chatSettingsPublic();
@@ -184,17 +222,6 @@ async function loadWiki(): Promise<Record<string, { title: string; text: string 
   }
   return wikiCache!;
 }
-
-const SYSTEM_PROMPT = `You are the in-app assistant for muOS Anbernic Manager, a desktop app that manages Anbernic/TrimUI handhelds running MustardOS (muOS).
-
-Rules:
-- Prefer facts from the CONTEXT block over your own memory. If context is missing, say so briefly.
-- Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
-- For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
-- Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
-- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device Settings).
-- Keep answers concise and practical. Use plain language.
-- Never ask for or repeat API keys or passwords.`;
 
 function wikiBlock(section: string, wiki: Record<string, { title: string; text: string }>): string {
   const parts: string[] = [];
@@ -357,7 +384,7 @@ export async function runChat(body: Record<string, unknown>) {
     temperature: s.temperature,
     max_tokens: s.maxTokens,
     messages: [
-      { role: "system", content: `${SYSTEM_PROMPT}\n\nCONTEXT:\n${context}` },
+      { role: "system", content: `${effectivePrompt(s)}\n\nCONTEXT:\n${context}` },
       ...messages,
     ],
   };

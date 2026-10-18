@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Assistant stays bottom-right after closing Transfers |
+| [Unreleased](#unreleased) | | Settings tabs, editable Assistant system prompt |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
@@ -22,6 +22,18 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **Editable Assistant system prompt.** Settings → Assistant → **Edit prompt** opens a dialog to change the instructions
+  sent with every chat message, save a custom prompt, or revert to the built-in default. A warning shows while a custom
+  prompt is active.
+
+### Changed
+
+- **Settings tabs.** Settings is split into Folders, Behaviour, Assistant, Data and Resets, with a short blurb for each
+  tab and clearer panel intros.
+- Top-bar Transfers control shows **Show Transfers** or **Hide Transfers** next to the icon.
 
 ### Fixed
 

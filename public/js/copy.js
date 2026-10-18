@@ -344,6 +344,7 @@ export function toggleDock() {
   if (T.shown) T.min = false;
   store.set("dockMin", T.min);
   renderDock();
+  renderStatusbar();
 }
 
 export function bindCopy() {
@@ -359,7 +360,7 @@ export function bindCopy() {
     if (!el) return;
     const action = el.dataset.dock, id = el.dataset.id ? Number(el.dataset.id) : undefined;
     if (action === "min") { T.min = !T.min; store.set("dockMin", T.min); renderDock(); return; }
-    if (action === "close") { T.shown = false; renderDock(); return; }
+    if (action === "close") { T.shown = false; renderDock(); renderStatusbar(); return; }
     if (action === "files") {
       if (!T.closed.delete(id)) T.closed.add(id);
       T.pastSig = "";

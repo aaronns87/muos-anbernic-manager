@@ -21,7 +21,17 @@ const PLACE_ICONS = {
   folder: FOLDER,
 };
 
-const s = { data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false, chatKey: "" };
+const s = { data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false, chatKey: "", promptBound: false };
+
+const SETTINGS_TABS = [
+  ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups and themes"],
+  ["behaviour", "sliders", "Behaviour", "Copying, startup, updates, theme, clock and uploaded artwork size"],
+  ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context and system prompt"],
+  ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
+  ["resets", "trash", "Resets", "Clear logs and preferences on this computer, play history on the handheld, or start over"],
+];
+
+const settingsTab = () => SETTINGS_TABS.find((t) => t[0] === store.get("settingsTab", "folders")) || SETTINGS_TABS[0];
 
 /** Reads the settings again the next time the section opens, after the setup wizard changed them. */
 export function forgetSettings() {
@@ -58,17 +68,32 @@ const toggle = (key, on, label, note) => `<label class="set-row set-toggle">
     <span class="switch"><input type="checkbox" role="switch" data-set-toggle="${key}"${on ? " checked" : ""}><span class="switch-track"></span></span>
   </label>`;
 
+function paintTabs() {
+  const tabs = $("settings-tabs");
+  if (!tabs) return;
+  const [id] = settingsTab();
+  tabs.innerHTML = SETTINGS_TABS.map(([t, ico, label]) =>
+    `<button role="tab" data-settings-tab="${t}" class="${t === id ? "on" : ""}" aria-selected="${t === id}">${icon(ico)}<span>${label}</span></button>`).join("");
+}
+
 function render() {
   if (!$("settings")) return;
+  paintTabs();
   if (!s.data) {
+    $("settings-sub").textContent = settingsTab()[3];
     $("settings").innerHTML = s.error
       ? `<div class="notice err">${esc(s.error)}</div>`
       : `<div class="planning"><span class="spinner"></span> Reading settings&hellip;</div>`;
     return;
   }
-  const d = s.data;
-  $("settings-sub").textContent = d.settings.roms ? `Roms folder: ${d.roms}` : "Where the manager finds your games, and how it behaves";
-  $("settings").innerHTML = `<div class="ov-grid">${romsPanel(d)}${otherFoldersPanel(d)}${copyPanel(d)}${appearancePanel()}${assistantPanel()}${dataPanel(d)}${cachePanel(d)}${historyPanel(d)}${resetPanel()}</div>`;
+  const d = s.data, [tab, , , sub] = settingsTab();
+  $("settings-sub").textContent = tab === "folders" && d.settings.roms ? `Roms folder: ${d.roms}` : sub;
+  const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
+    : tab === "behaviour" ? `${copyPanel(d)}${appearancePanel()}`
+    : tab === "assistant" ? assistantPanel()
+    : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}`
+    : `${historyPanel(d)}${resetPanel()}`;
+  $("settings").innerHTML = `<div class="ov-grid">${body}</div>`;
 }
 
 function assistantPanel() {
@@ -81,9 +106,17 @@ function assistantPanel() {
   const status = c.configured
     ? `<span class="set-chip ok">Key saved${c.keyHint ? ` (${esc(c.keyHint)})` : ""}</span>`
     : `<span class="set-chip warn">No key — chat stays hidden</span>`;
+  const promptChip = c.systemPromptCustom
+    ? `<span class="set-chip warn">Custom</span>`
+    : `<span class="set-chip ok">Default</span>`;
+  const promptWarn = c.systemPromptCustom
+    ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore Wiki grounding, walkthrough refusal or other built-in limits.
+        <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span></div>`
+    : "";
   return panel("full", `${icon("chat")} Assistant`, `
     <p class="muted-note">Optional help chat that uses <b>your own free API key</b> (bring your own key). The key stays in the manager cache on this
       computer and is sent only to the provider you choose. Without a key, the chat button stays hidden.</p>
+    ${promptWarn}
     <div class="set-row"><span><b>Status</b><small>After you save a key, open chat from the mustard chat button in the bottom-right corner, or <b>Assistant</b> in the top bar.</small></span>${status}</div>
     <div class="set-row"><span><b>Provider</b><small>${esc(help)}</small></span>
       <select class="control" id="chat-provider">${providers}</select></div>
@@ -101,6 +134,8 @@ function assistantPanel() {
       <span class="switch"><input type="checkbox" role="switch" id="chat-library"${c.includeLibrary ? " checked" : ""}><span class="switch-track"></span></span></label>
     <label class="set-row set-toggle"><span><b>Include connection context</b><small>Send Wi-Fi/SSH/card status (never passwords) with each question.</small></span>
       <span class="switch"><input type="checkbox" role="switch" id="chat-connection"${c.includeConnection ? " checked" : ""}><span class="switch-track"></span></span></label>
+    <div class="set-row"><span><b>System prompt</b><small>Instructions sent with every message before live context. Editable even before you add a key.</small></span>
+      <span class="set-prompt-actions">${promptChip}<button class="btn" data-set="chat-prompt"${s.working ? " disabled" : ""}>${icon("pencil")}<span>Edit prompt</span></button></span></div>
     <div class="panel-actions set-actions">
       <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
       <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
@@ -224,7 +259,8 @@ function browser(d) {
 
 function copyPanel(d) {
   return panel("half", "Transfers, startup and updates",
-    toggle("copyArt", d.settings.copyArt, "Send box art with games",
+    `<p class="muted-note">How copying to the handheld behaves, what happens when the manager starts, and whether it looks for newer versions on GitHub.</p>`
+    + toggle("copyArt", d.settings.copyArt, "Send box art with games",
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
@@ -248,6 +284,7 @@ function appearancePanel() {
     .map(([v, l]) => `<button type="button" data-set-clock="${v}" class="${app.ui.clock === v ? "on" : ""}" title="${esc(formatTime(now, v))}">${l}</button>`).join("");
   const dates = DATE_FORMATS.map(([v, l]) => `<option value="${v}"${app.ui.dateFormat === v ? " selected" : ""}>${v === "none" ? l : `${esc(formatDate(now, v))} \u00b7 ${l}`}</option>`).join("");
   return panel("half", "Appearance, clock and images", `
+    <p class="muted-note">Theme and clock in the top bar, and how large uploaded box art is saved.</p>
     <div class="set-row"><span><b>Theme</b><small>Dark matches the MustardOS look on the handheld.</small></span>
       <div class="segmented">${seg}</div></div>
     <div class="set-row"><span><b>Clock</b><small>Time in the top bar: ${esc(formatTime(now))}.</small></span>
@@ -266,7 +303,8 @@ function dataRow(label, note, size, action, button, title = "") {
 
 function dataPanel(d) {
   return panel("half", "Game data",
-    `<div class="set-row"><span><b>Setup wizard</b><small>Walk through the handheld, folders, connection and downloads again</small></span>
+    `<p class="muted-note">Rescan the library or download descriptions and arcade names again. The setup wizard walks through folders and connection from scratch.</p>
+    <div class="set-row"><span><b>Setup wizard</b><small>Walk through the handheld, folders, connection and downloads again</small></span>
       <button class="btn" data-set="wizard">${icon("star")}<span>Run setup</span></button></div>` +
     dataRow("Roms folder scan", "Reads every system folder again, as at start", null, "rescan", "Rescan now")
     + dataRow("Game descriptions", "Text, genres, ratings and years from the LaunchBox Games Database", d.cache.descriptions, "descriptions", "Download again", "About 110 MB; takes a minute or two")
@@ -282,7 +320,8 @@ function cachePanel(d) {
   const row = (label, note, size, what) => `<div class="set-row"><span><b>${label}</b><small>${note} &middot; ${size ? human(size) : "empty"}</small></span>
     ${clearButton("set-clear", what, size)}</div>`;
   return panel("half", "Cache",
-    row("Scraper file lists", "What the libretro thumbnail project has, kept for 14 days", d.cache.thumbnails, "thumbnails")
+    `<p class="muted-note">Clear downloaded lists and previews. They are fetched again when you need them.</p>`
+    + row("Scraper file lists", "What the libretro thumbnail project has, kept for 14 days", d.cache.thumbnails, "thumbnails")
     + row("Device artwork previews", "Pictures already read from the handheld", d.cache.deviceArt, "deviceArt")
     + row("Online catalogues", "PortMaster, app market, theme and MustardOS update lists with their previews; downloaded again when needed", d.cache.catalogues, "catalogues")
     + row("ROM check results", "Verify results, ROM checksums and No-Intro lists", d.cache.checks, "checks")
@@ -312,7 +351,8 @@ function historyPanel(d) {
   const row = (label, note, button) => `<div class="set-row"><span><b>${label}</b><small>${note}</small></span>${button}</div>`;
   let prefs = 0;
   try { prefs = prefKeys().length; } catch {}
-  return panel("full", "History and resets", `<div class="set-cols">
+  return panel("full", "History and resets", `<p class="muted-note">Clear the activity log or browser layout prefs here, or reset play history on the handheld when it is connected over USB or Wi-Fi.</p>
+    <div class="set-cols">
     <div><h3>On this computer</h3>
       ${row("Activity log", `Everything the manager changed, shown on Overview &middot; ${d.cache.activity ? `${d.cache.activity.toLocaleString()} ${d.cache.activity === 1 ? "entry" : "entries"}` : "empty"}`, clearButton("set-clear", "activity", d.cache.activity))}
       ${row("View preferences", "Sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. Keeps the connection, handheld model and SSH snippets", clearButton("set-reset", "prefs", prefs, "Reset"))}
@@ -587,6 +627,67 @@ async function saveAssistant(clear) {
   render();
 }
 
+function syncPromptReset() {
+  const c = s.chat, text = $("chat-prompt-text"), reset = $("chat-prompt-reset");
+  if (!c || !text || !reset) return;
+  const trimmed = text.value.trim();
+  const isDefault = !trimmed || trimmed === (c.defaultSystemPrompt || "").trim();
+  reset.disabled = isDefault || s.working === "prompt";
+}
+
+function openPromptEditor() {
+  if (!s.chat) return;
+  const dialog = $("chat-prompt"), text = $("chat-prompt-text");
+  if (!dialog || !text) return;
+  text.value = s.chat.systemPrompt || s.chat.defaultSystemPrompt || "";
+  syncPromptReset();
+  if (!dialog.open) dialog.showModal();
+  text.focus();
+}
+
+function closePromptEditor() {
+  $("chat-prompt")?.close();
+}
+
+async function savePrompt({ reset = false } = {}) {
+  if (!s.chat) return;
+  s.working = "prompt";
+  syncPromptReset();
+  const saveBtn = $("chat-prompt-save"), resetBtn = $("chat-prompt-reset");
+  if (saveBtn) saveBtn.disabled = true;
+  if (resetBtn) resetBtn.disabled = true;
+  try {
+    const body = reset ? { resetSystemPrompt: true } : { systemPrompt: $("chat-prompt-text")?.value ?? "" };
+    s.chat = await api("chat/settings", body);
+    toast(s.chat.systemPromptCustom ? "Custom system prompt saved" : "Using the default system prompt", 2600);
+    closePromptEditor();
+    render();
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  if (saveBtn) saveBtn.disabled = false;
+  syncPromptReset();
+}
+
+function bindPromptDialog() {
+  if (s.promptBound) return;
+  const dialog = $("chat-prompt");
+  if (!dialog) return;
+  s.promptBound = true;
+  $("chat-prompt-cancel")?.addEventListener("click", closePromptEditor);
+  $("chat-prompt-save")?.addEventListener("click", () => savePrompt());
+  $("chat-prompt-reset")?.addEventListener("click", () => {
+    const text = $("chat-prompt-text");
+    if (text && s.chat) text.value = s.chat.defaultSystemPrompt || "";
+    syncPromptReset();
+    savePrompt({ reset: true });
+  });
+  $("chat-prompt-text")?.addEventListener("input", syncPromptReset);
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) closePromptEditor(); });
+  dialog.addEventListener("cancel", (e) => { e.preventDefault(); closePromptEditor(); });
+}
+
 async function resetPrefs() {
   const ok = await confirmBox({
     title: "Reset view preferences?",
@@ -601,7 +702,15 @@ async function resetPrefs() {
 
 function bind() {
   s.bound = true;
+  bindPromptDialog();
   const root = $("view-settings");
+  $("settings-tabs")?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-settings-tab]");
+    if (!b || b.classList.contains("on")) return;
+    store.set("settingsTab", b.dataset.settingsTab);
+    s.browse = null;
+    render();
+  });
   root.addEventListener("click", async (e) => {
     const el = e.target.closest("[data-set], [data-browse], [data-set-theme], [data-set-clock], [data-set-refresh], [data-set-clear], [data-set-play], [data-set-reset]");
     if (!el || el.disabled) return;
@@ -633,6 +742,7 @@ function bind() {
     else if (action === "reset") factoryReset();
     else if (action === "chat-save") saveAssistant(false);
     else if (action === "chat-clear") saveAssistant(true);
+    else if (action === "chat-prompt") openPromptEditor();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));

@@ -256,6 +256,7 @@
       <header class="page-head">
         <div><p id="settings-sub">Where the manager finds your games, and how it behaves</p></div>
       </header>
+      <nav class="tabs" id="settings-tabs" role="tablist" aria-label="Settings"></nav>
       <div id="settings"></div>
     </section>
     <section class="view" id="view-wiki" hidden>
@@ -396,6 +397,26 @@
     <div class="dialog-actions">
       <button class="btn" id="c-cancel">Cancel</button>
       <button class="btn primary" id="c-ok">OK</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="chat-prompt" class="chat-prompt" aria-labelledby="chat-prompt-title">
+  <div class="t-body">
+    <h2 id="chat-prompt-title">System prompt</h2>
+    <div class="notice warn" id="chat-prompt-warn">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span><b>Changing this can affect the assistant.</b> A custom prompt may weaken grounding in the Wiki and library,
+      walkthrough refusal, and other built-in limits. Keep the default unless you know what you need.</span>
+    </div>
+    <label class="chat-prompt-field">
+      <span class="muted-note">Instructions sent with every message (before live context). Empty and save to use the built-in default.</span>
+      <textarea class="control mono" id="chat-prompt-text" rows="16" maxlength="12000" spellcheck="true" aria-label="System prompt"></textarea>
+    </label>
+    <div class="dialog-actions">
+      <button class="btn ghost" id="chat-prompt-reset" type="button">Revert to default</button>
+      <span class="grow"></span>
+      <button class="btn" id="chat-prompt-cancel" type="button">Cancel</button>
+      <button class="btn primary" id="chat-prompt-save" type="button">Save prompt</button>
     </div>
   </div>
 </dialog>

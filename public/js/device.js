@@ -402,11 +402,14 @@ export function renderStatusbar() {
   const conn = connection(), live = isLive(conn), links = liveLinks(), job = app.job;
   const parts = [];
   const waiting = (app.transfers?.active.length || 0) - (job && job.state === "running" ? 1 : 0);
+  const dockOpen = !!app.transfers?.shown;
+  const dockLabel = dockOpen ? "Hide Transfers" : "Show Transfers";
   if (job && job.state === "running") {
     const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 0;
-    parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. Show or hide Transfers.">${ICONS.spin}${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}</button>`);
+    const progress = `${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}`;
+    parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. ${dockLabel}." aria-label="${esc(dockLabel)}">${ICONS.spin}<span>${progress}</span></button>`);
   } else if (app.transfers?.history.length) {
-    parts.push(`<button class="sb-item sb-job idle" data-dock-open title="Show or hide Transfers" aria-label="Transfers">${icon("download")}</button>`);
+    parts.push(`<button class="sb-item sb-job idle" data-dock-open title="${esc(dockLabel)}" aria-label="${esc(dockLabel)}">${icon("download")}<span>${esc(dockLabel)}</span></button>`);
   }
   const sys = app.sysJob;
   if (sys && sys.state === "running") {
@@ -418,13 +421,13 @@ export function renderStatusbar() {
   if (live && typeof battery === "number" && battery > 0) {
     parts.push(`<span class="sb-item sb-batt${battery <= 15 ? " low" : ""}" title="Battery ${battery}%"><span class="batt"><i style="width:${battery}%"></i></span>${battery}%</span>`);
   }
-  parts.push(versionItem());
   if (chatConfigured()) {
     parts.push(`<button type="button" class="sb-item sb-chat" data-chat-open title="Open or hide the assistant">${icon("chat")}<span>Assistant</span></button>`);
   }
   const now = new Date();
   const date = formatDate(now);
   parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);
+  parts.push(versionItem());
   parts.push(`<button type="button" class="sb-help" data-help title="Help for this page (?)" aria-label="Help for this page">${icon("help")}</button>`);
   box.innerHTML = parts.join("");
   if (connPanelOpen) paintConnPanel();

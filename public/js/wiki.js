@@ -416,14 +416,17 @@ const ARTICLES = [
     ["Be careful", `<p>Commands run as the administrator (root) of the handheld. A wrong command can delete files or stop MustardOS from starting.</p>`],
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
+    ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
+      title describes the tab you are on.</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
-    ["Behaviour and looks", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
-      the date and clock format, and the size uploaded artwork is saved at. <b>Assistant</b> is where you paste a free chat API key if you want the in-app help chat.</p>`],
-    ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
+    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
+      the date and clock format, and the size uploaded artwork is saved at.</p>`],
+    ["Assistant", `<p>Paste a free chat API key, pick a provider and model, and optionally edit the system prompt. See the Wiki article <b>Assistant</b>.</p>`],
+    ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
       ROM check results. They are fetched or worked out again when needed.</p>`],
-    ["History and resets", `<p>Start some things over:</p>
+    ["Resets", `<p>Start some things over:</p>
       <ul>
         <li><b>Activity log</b> clears Recent activity on Overview.</li>
         <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. The connection,
@@ -431,7 +434,7 @@ const ARTICLES = [
         <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
           handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>
       </ul>`],
-    ["Factory reset", `<p>The red panel at the bottom starts the manager over as if it had just been installed. It moves to the Trash:</p>
+    ["Factory reset", `<p>The red panel on the <b>Resets</b> tab starts the manager over as if it had just been installed. It moves to the Trash:</p>
       <ul>
         <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups and themes;</li>
         <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, assistant API keys, downloaded game data and
@@ -449,6 +452,10 @@ const ARTICLES = [
       hide it with the panel's close control. The manager never ships a shared key: you bring your own (BYOK).</p>
       <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
         <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
+    ["System prompt", `<p>Under ${path("Settings", "Assistant")}, <b>Edit prompt</b> opens a dialog with the instructions sent with every message
+      (before live Wiki, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
+      on the settings page; changing it can weaken grounding, walkthrough refusal and other built-in limits, so keep the default unless you
+      know what you need. You can edit the prompt before you paste an API key.</p>`],
     ["What it is good at", `<ul>
       <li>How the manager works, using the same help text as this Wiki for the page you are on.</li>
       <li>What is in your <code>Roms/</code> library (systems, genres, titles) and LaunchBox descriptions when game data is downloaded.</li>
@@ -459,7 +466,7 @@ const ARTICLES = [
       <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
       <li>Format cards, wipe disks or change the handheld. Use System Tools and the other sections for that.</li>
     </ul>`],
-    ["Free API keys", `<p>Under ${path("Settings", "Assistant")} pick a provider and paste a key:</p>
+    ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
       <ul>
         <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
           Free-tier chat models are <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
