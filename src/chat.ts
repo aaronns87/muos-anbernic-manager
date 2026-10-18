@@ -1,5 +1,5 @@
 // BYOK chat assistant: settings in .cache/chat.json, OpenAI-compatible providers, and a grounded context pack
-// (wiki, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
+// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
 
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -9,7 +9,10 @@ import { wifiStatus } from "./device/sftp.ts";
 import { sshStatus } from "./device/ssh.ts";
 import { findCards, withTarget } from "./device/target.ts";
 import { UserError } from "./errors.ts";
+import { byId, screenText } from "./devices.ts";
 import { getLibrary, type Game, type Library, type System } from "./games/library.ts";
+import { wifiModel } from "./device/model.ts";
+import { RECOMMENDATIONS, type Recommendation } from "./tuning/profiles.ts";
 
 const human = (n: number) => {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -28,7 +31,29 @@ export interface ChatSettings {
   maxTokens: number;
   includeLibrary: boolean;
   includeConnection: boolean;
+  /** Empty string means use DEFAULT_SYSTEM_PROMPT. */
+  systemPrompt: string;
 }
+
+const PROMPT_MAX = 12_000;
+
+/** Built-in instructions sent with every chat turn (before live CONTEXT). */
+export const DEFAULT_SYSTEM_PROMPT = `You are the in-app assistant for muOS Anbernic Manager, a desktop app that manages Anbernic/TrimUI handhelds running MustardOS (muOS).
+
+Rules:
+- Prefer facts from the CONTEXT block over your own memory. CONTEXT includes the manager knowledge base — treat it as ground truth for UI paths, tabs and connections. If context is missing, say so briefly.
+- Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
+- For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
+- For RetroArch / PPSSPP performance or "best settings" for a game: prefer Game Tuning tips in CONTEXT (presets Fastest / Balanced / Best looking, and any matched recommendation). Tell the user to apply them under Game Tuning or the game viewer Handheld tab (Core options). Do not invent Menu+X option keys that are not in CONTEXT; if unsure, say to open Game Tuning and try the recommended preset.
+- You cannot search the web. If the user wants community per-game RetroArch tips, point them to the sites listed under finding settings in the knowledge base (Libretro docs/forums, Reddit r/RetroArch and r/SBCGaming, r/muOS for MustardOS). Suggest searching the game title plus the core name (e.g. PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP).
+- Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
+- Do NOT invent buttons, tabs or menus that are not in the knowledge base.
+- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
+- Keep answers concise and practical. Use plain language.
+- When CONTEXT names a selected handheld, tailor performance, screen, Wi-Fi and Game Tuning advice to that model (chip, screen size, Wi-Fi or not). Do not assume a different handheld.
+- Format with simple Markdown the UI can render: short ## headings, bullet or numbered lists, **bold** only for short phrases on one line (always close **), and pipe tables (| col | col |) with a separator row. Do not use tab-separated tables or leave unmatched ** markers.
+- Game Tuning and Core options save only when the user clicks Save (they are not applied automatically).
+- Never ask for or repeat API keys or passwords.`;
 
 const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
 
@@ -65,13 +90,25 @@ const DEFAULTS: ChatSettings = {
   maxTokens: 1024,
   includeLibrary: true,
   includeConnection: true,
+  systemPrompt: "",
 };
 
+const normalizePrompt = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  if (!text) return "";
+  return text.length > PROMPT_MAX ? text.slice(0, PROMPT_MAX) : text;
+};
+
+const effectivePrompt = (s: ChatSettings) => s.systemPrompt.trim() || DEFAULT_SYSTEM_PROMPT;
+
 const settingsFile = () => path.join(ctx.cacheDir, "chat.json");
-const wikiFile = () => path.join(ctx.managerDir, "docs", "assistant-wiki.json");
+const knowledgeFile = () => path.join(ctx.managerDir, "docs", "assistant-knowledge.md");
+
+type KnowledgeSection = { title: string; text: string };
 
 let cached: ChatSettings | null = null;
-let wikiCache: Record<string, { title: string; text: string }> | null = null;
+let knowledgeCache: { raw: string; sections: Record<string, KnowledgeSection> } | null = null;
 
 /** Llama left Groq's free/developer tiers; map old presets to a current chat model. */
 const GROQ_RETIRED = new Set(["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "qwen/qwen3-32b", "qwen/qwen3-32b-instruct"]);
@@ -98,6 +135,7 @@ async function loadSettings(): Promise<ChatSettings> {
       maxTokens: Math.round(clampNum(saved.maxTokens, 256, 4096, DEFAULTS.maxTokens)),
       includeLibrary: saved.includeLibrary !== false,
       includeConnection: saved.includeConnection !== false,
+      systemPrompt: normalizePrompt(saved.systemPrompt),
     };
   } catch {
     cached = { ...DEFAULTS };
@@ -124,6 +162,7 @@ const maskKey = (key: string) => {
 
 export async function chatSettingsPublic() {
   const s = await loadSettings();
+  const custom = !!s.systemPrompt.trim();
   return {
     configured: !!s.apiKey.trim(),
     provider: s.provider,
@@ -132,6 +171,9 @@ export async function chatSettingsPublic() {
     maxTokens: s.maxTokens,
     includeLibrary: s.includeLibrary,
     includeConnection: s.includeConnection,
+    systemPrompt: effectivePrompt(s),
+    systemPromptCustom: custom,
+    defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
     keyHint: maskKey(s.apiKey.trim()),
     providers: PROVIDERS.map((id) => ({
       id,
@@ -162,6 +204,12 @@ export async function saveChatSettings(body: Record<string, unknown>) {
   if (body.clearKey === true) apiKey = "";
   let model = normalizeModel(provider, String(body.model ?? current.model));
   if (provider !== current.provider && !String(body.model ?? "").trim()) model = DEFAULT_MODELS[provider];
+  let systemPrompt = current.systemPrompt;
+  if (body.resetSystemPrompt === true) systemPrompt = "";
+  else if (body.systemPrompt !== undefined) {
+    systemPrompt = normalizePrompt(body.systemPrompt);
+    if (systemPrompt === DEFAULT_SYSTEM_PROMPT.trim()) systemPrompt = "";
+  }
   const next: ChatSettings = {
     provider,
     apiKey,
@@ -170,41 +218,93 @@ export async function saveChatSettings(body: Record<string, unknown>) {
     maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 4096, current.maxTokens)),
     includeLibrary: body.includeLibrary !== undefined ? body.includeLibrary !== false && body.includeLibrary !== "false" : current.includeLibrary,
     includeConnection: body.includeConnection !== undefined ? body.includeConnection !== false && body.includeConnection !== "false" : current.includeConnection,
+    systemPrompt,
   };
   await writeSettings(next);
   return chatSettingsPublic();
 }
 
-async function loadWiki(): Promise<Record<string, { title: string; text: string }>> {
-  if (wikiCache) return wikiCache;
-  try {
-    wikiCache = JSON.parse(await fsp.readFile(wikiFile(), "utf8"));
-  } catch {
-    wikiCache = {};
+/** Parse `## slug — Title` sections from assistant-knowledge.md. */
+function parseKnowledge(raw: string): Record<string, KnowledgeSection> {
+  const sections: Record<string, KnowledgeSection> = {};
+  const parts = raw.split(/^## /m).slice(1);
+  for (const part of parts) {
+    const nl = part.indexOf("\n");
+    const heading = (nl < 0 ? part : part.slice(0, nl)).trim();
+    const body = (nl < 0 ? "" : part.slice(nl + 1)).trim();
+    const m = heading.match(/^([a-z0-9_-]+)\s+[—–-]\s+(.+)$/i);
+    if (!m) continue;
+    const slug = m[1].toLowerCase();
+    sections[slug] = { title: m[2].trim(), text: body };
   }
-  return wikiCache!;
+  return sections;
 }
 
-const SYSTEM_PROMPT = `You are the in-app assistant for muOS Anbernic Manager, a desktop app that manages Anbernic/TrimUI handhelds running MustardOS (muOS).
+async function loadKnowledge(): Promise<{ raw: string; sections: Record<string, KnowledgeSection> }> {
+  if (knowledgeCache) return knowledgeCache;
+  try {
+    const raw = await fsp.readFile(knowledgeFile(), "utf8");
+    knowledgeCache = { raw, sections: parseKnowledge(raw) };
+  } catch {
+    knowledgeCache = { raw: "", sections: {} };
+  }
+  return knowledgeCache!;
+}
 
-Rules:
-- Prefer facts from the CONTEXT block over your own memory. If context is missing, say so briefly.
-- Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
-- For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
-- Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
-- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device Settings).
-- Keep answers concise and practical. Use plain language.
-- Never ask for or repeat API keys or passwords.`;
+/** Full Markdown for the Settings → Assistant read-only viewer. */
+export async function chatKnowledgePublic(): Promise<{ markdown: string }> {
+  const { raw } = await loadKnowledge();
+  return { markdown: raw };
+}
 
-function wikiBlock(section: string, wiki: Record<string, { title: string; text: string }>): string {
+function knowledgeBlock(section: string, sections: Record<string, KnowledgeSection>): string {
   const parts: string[] = [];
-  const start = wiki.start;
+  const start = sections.start;
   if (start) parts.push(`## Manager help: ${start.title}\n${start.text}`);
-  const key = section && wiki[section] ? section : "";
-  if (key && key !== "start") parts.push(`## Current section: ${wiki[key].title}\n${wiki[key].text}`);
-  const assistant = wiki.assistant;
+  const key = section && sections[section] ? section : "";
+  if (key && key !== "start") parts.push(`## Current section: ${sections[key].title}\n${sections[key].text}`);
+  // Troubleshooting / glossary when on Wiki or when no page-specific pack matched.
+  if (key === "wiki" || !key) {
+    if (sections.help) parts.push(`## Troubleshooting\n${sections.help.text}`);
+    if (sections.glossary) parts.push(`## Glossary\n${sections.glossary.text}`);
+  }
+  const assistant = sections.assistant;
   if (assistant) parts.push(`## Assistant limits\n${assistant.text}`);
   return parts.join("\n\n");
+}
+
+/** Selected handheld from the UI (deviceId), else the model detected on Wi-Fi when reachable. */
+async function handheldBlock(deviceId: string, wifiReachable: boolean): Promise<string> {
+  let d = byId(String(deviceId || "").trim());
+  let via = d ? "selected in the manager" : "";
+  if (!d && wifiReachable) {
+    const found = await wifiModel(true).catch(() => null);
+    if (found?.id) {
+      d = byId(found.id);
+      via = `detected over ${found.via}`;
+    } else if (found?.board) {
+      return [
+        "## Handheld",
+        `Board: ${found.board} (not in the manager's device list; detected over ${found.via}).`,
+        "Tailor advice to this board when discussing performance, screen and features.",
+      ].join("\n");
+    }
+  }
+  if (!d) {
+    return [
+      "## Handheld",
+      "No handheld model selected yet. Ask which Anbernic/TrimUI model they use if performance advice depends on it.",
+    ].join("\n");
+  }
+  const screen = `${d.inches % 1 ? d.inches : d.inches.toFixed(1)}" ${screenText(d)}`;
+  return [
+    "## Handheld",
+    `Selected model: ${d.name} (${d.id}), ${d.maker}; ${via || "selected in the manager"}.`,
+    `Chip: ${d.chip}; GPU: ${d.gpu}; RAM: ${d.ram / 1024} GB; screen: ${screen}; form: ${d.form}`
+      + `${d.sticks ? `, ${d.sticks} analog stick${d.sticks === 1 ? "" : "s"}` : ", no analog sticks"}`
+      + `; Wi-Fi: ${d.wifi ? "yes" : "no"}; card slots: ${d.slots}.`,
+    "Tailor performance, Game Tuning, PortMaster and connection advice to this handheld.",
+  ].join("\n");
 }
 
 async function connectionBlock(): Promise<string> {
@@ -260,6 +360,54 @@ function scoreGame(sys: System, g: Game, meta: Library["meta"], tokens: string[]
   return score;
 }
 
+const PRESET_LABEL: Record<string, string> = { speed: "Fastest", balanced: "Balanced", quality: "Best looking" };
+
+/** Profile ids that Game Tuning recommendations may apply to for a ROM folder code. */
+const FOLDER_PROFILES: Record<string, string[]> = {
+  PSP: ["ppsspp", "ppsspp-lr"],
+  N64: ["mupen64plus"],
+  PS: ["pcsx-rearmed", "swanstation", "duckstation"],
+  DC: ["flycast"],
+  NAOMI: ["flycast"],
+  ATOMISWAVE: ["flycast"],
+};
+
+function matchRecommendation(title: string, profiles: string[] | null): Recommendation | null {
+  const name = title.toLowerCase();
+  for (const r of RECOMMENDATIONS) {
+    if (profiles && !r.profiles.some((p) => profiles.includes(p))) continue;
+    if (r.match) {
+      if (!new RegExp(r.match, "i").test(name)) continue;
+    } else if (!profiles) {
+      continue;
+    }
+    return r;
+  }
+  return null;
+}
+
+function tuningHintsBlock(title: string, folderCode: string): string {
+  const profiles = FOLDER_PROFILES[folderCode] || null;
+  const rec = matchRecommendation(title, profiles);
+  const lines = [
+    `### Game Tuning tips`,
+    `Apply under Game Tuning or the game viewer Handheld > Core options (Wi-Fi + SSH). Presets: Fastest, Balanced, Best looking (profiled cores). CPU governor is separate.`,
+  ];
+  if (rec) {
+    const preset = PRESET_LABEL[rec.preset] || rec.preset;
+    lines.push(
+      `Matched recommendation for "${title}": use preset ${preset}`
+      + (rec.gov ? ` with the ${rec.gov} governor` : "")
+      + ` (${rec.profiles.join(", ")}). Note: ${rec.note}`,
+    );
+  } else if (profiles) {
+    lines.push(`No title-specific recommendation; for ${folderCode} start from Balanced (or Fastest for Dreamcast/Flycast) in Game Tuning, then adjust.`);
+  } else {
+    lines.push(`No curated preset for this system; use Menu+X / Core options from the handheld catalogue, or community tips (see knowledge: finding settings).`);
+  }
+  return lines.join("\n");
+}
+
 function libraryBlock(lib: Library, userText: string, gameKey: string): string {
   const lines: string[] = [
     `## Library`,
@@ -277,6 +425,7 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
         lines.push(`LaunchBox: ${m.n}${m.y ? ` (${m.y})` : ""}; genre: ${m.g || " -"}; developer: ${m.dev || " -"}; publisher: ${m.pub || " -"}${m.r != null ? `; rating ${m.r}` : ""}.`);
         if (m.d) lines.push(`Description: ${m.d.slice(0, 900)}${m.d.length > 900 ? "..." : ""}`);
       }
+      lines.push(tuningHintsBlock(g.t, sys.code));
     }
   }
   const tokens = userText.toLowerCase().replace(/[^a-z0-9+#.\s-]/g, " ").split(/\s+/).filter((t) => t.length > 1);
@@ -307,10 +456,14 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
   return lines.join("\n");
 }
 
-async function buildContext(section: string, userText: string, gameKey: string, opts: ChatSettings): Promise<string> {
-  const wiki = await loadWiki();
-  const parts = [wikiBlock(section || "start", wiki)];
+async function buildContext(
+  section: string, userText: string, gameKey: string, opts: ChatSettings, deviceId: string,
+): Promise<string> {
+  const { sections } = await loadKnowledge();
+  const parts = [knowledgeBlock(section || "start", sections)];
   if (opts.includeConnection) parts.push(await connectionBlock());
+  const wifiReachable = !!(await wifiStatus().catch(() => null))?.reachable;
+  parts.push(await handheldBlock(deviceId, wifiReachable));
   if (opts.includeLibrary) {
     try {
       parts.push(libraryBlock(await getLibrary(), userText, gameKey));
@@ -351,13 +504,14 @@ export async function runChat(body: Record<string, unknown>) {
   if (!lastUser) throw new UserError("Type a message first.");
   const section = String(body.section ?? "").trim();
   const gameKey = String(body.gameKey ?? "").trim();
-  const context = await buildContext(section, lastUser.content, gameKey, s);
+  const deviceId = String(body.deviceId ?? "").trim();
+  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId);
   const payload = {
     model: s.model,
     temperature: s.temperature,
     max_tokens: s.maxTokens,
     messages: [
-      { role: "system", content: `${SYSTEM_PROMPT}\n\nCONTEXT:\n${context}` },
+      { role: "system", content: `${effectivePrompt(s)}\n\nCONTEXT:\n${context}` },
       ...messages,
     ],
   };

@@ -46,7 +46,91 @@ export function setOpt(text: string, values: Record<string, string>): string {
     return `${k} = "${v}"`;
   });
   for (const [k, v] of left) lines.push(`${k} = "${v}"`);
-  return lines.join("\n") + "\n";
+  return lines.length ? lines.join("\n") + "\n" : "";
+}
+
+/** Every key/value in a RetroArch .opt (not limited to a curated profile). */
+export function allOptValues(text: string | undefined): Record<string, string> | null {
+  if (text === undefined) return null;
+  return Object.fromEntries(parseOpt(text));
+}
+
+export type CatalogueSetting = {
+  key: string;
+  label: string;
+  help: string;
+  /** null = free-text field; otherwise [value, label] choices. */
+  options: [string, string][] | null;
+  def: string;
+  curated: boolean;
+  impact?: string;
+};
+
+/** Merge curated profile settings with every key seen in device .opt files. */
+export function buildCatalogue(profile: Profile | null, optTexts: (string | undefined)[]): CatalogueSetting[] {
+  const seen = new Map<string, Set<string>>();
+  for (const text of optTexts) {
+    if (!text) continue;
+    for (const [k, v] of parseOpt(text)) {
+      if (!seen.has(k)) seen.set(k, new Set());
+      if (v) seen.get(k)!.add(v);
+    }
+  }
+  const out: CatalogueSetting[] = [];
+  const used = new Set<string>();
+  if (profile) {
+    for (const s of profile.settings) {
+      used.add(s.key);
+      const extras = [...(seen.get(s.key) || [])].filter((v) => !s.options.some(([o]) => o === v));
+      const options: [string, string][] = [...s.options, ...extras.map((v) => [v, v] as [string, string])];
+      out.push({
+        key: s.key, label: s.label, help: s.help, options, def: s.def,
+        curated: true, impact: s.impact,
+      });
+    }
+  }
+  for (const [key, vals] of [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (used.has(key)) continue;
+    const choices = [...vals].sort();
+    out.push({
+      key,
+      label: key.replace(/_/g, " "),
+      help: "Core option found in a .opt file on the handheld.",
+      options: choices.length ? choices.map((v) => [v, v] as [string, string]) : null,
+      def: choices[0] || "",
+      curated: false,
+    });
+  }
+  return out;
+}
+
+function parseTaggedFiles(out: string): Record<string, string> {
+  const text: Record<string, string> = {};
+  let cur = "";
+  for (const line of out.split("\n")) {
+    const m = /^=F\t(.+)$/.exec(line);
+    if (m) { cur = m[1]; text[cur] = ""; continue; }
+    if (line === "=E") break;
+    if (cur) text[cur] += line + "\n";
+  }
+  return text;
+}
+
+/** All .opt files under one RetroArch core config folder. */
+async function readCoreOptDir(core: string): Promise<Record<string, string>> {
+  if (!core || /[/\n\0]/.test(core)) throw new UserError("Invalid RetroArch core name.");
+  const dir = `${CFG}/${core}`;
+  const { out } = await runCommand(`
+cd ${quote(dir)} 2>/dev/null || { echo =E; exit 0; }
+for f in *.opt; do
+  [ -f "$f" ] || continue
+  printf '=F\\t%s\\n' "$f"
+  cat "$f"
+  echo
+done
+echo =E`, 60_000);
+  if (!out.includes("=E")) throw new UserError("The handheld did not answer completely. Try again.");
+  return parseTaggedFiles(out);
 }
 
 /** PPSSPP ini: [Section] headers and "Key = Value" lines. */
@@ -238,19 +322,26 @@ async function gameState(query: { folder: string; file: string; discId?: string 
     ({ id, from: idFrom } = DISC_ID.test(given) ? { id: given, from: "typed" } : await pspDiscId(query.folder, query.file, onDevice));
   }
   const files: Record<string, string> = { gameGov: `${dir}/${name}.gov`, folderGov: `${dir}/core.gov` };
-  if (p?.kind === "retroarch" && em.core) Object.assign(files, { game: `${CFG}/${em.core}/${name}.opt`, folder: `${CFG}/${em.core}/${query.folder}.opt`, core: `${CFG}/${em.core}/${em.core}.opt` });
+  let optDir: Record<string, string> = {};
+  if (em.core) {
+    Object.assign(files, {
+      game: `${CFG}/${em.core}/${name}.opt`,
+      folder: `${CFG}/${em.core}/${query.folder}.opt`,
+      core: `${CFG}/${em.core}/${em.core}.opt`,
+    });
+    optDir = await readCoreOptDir(em.core);
+  }
   if (p?.kind === "ppsspp") Object.assign(files, { global: `${PPSSPP}/ppsspp.ini`, controls: `${PPSSPP}/controls.ini`, ...(id ? { game: `${PPSSPP}/${id}_ppsspp.ini` } : {}) });
   const { out } = await runCommand(`${Object.entries(files).map(([k, f]) => `[ -f ${quote(f)} ] && { printf '=F\\t%s\\n' ${k}; cat ${quote(f)}; echo; }`).join("\n")}\necho =E`, 30_000);
   if (!out.includes("=E")) throw new UserError("The handheld did not answer completely. Try again.");
-  const text: Record<string, string> = {};
-  let cur = "";
-  for (const line of out.split("\n")) {
-    const m = /^=F\t(\w+)$/.exec(line);
-    if (m) { cur = m[1]; text[cur] = ""; continue; }
-    if (line === "=E") break;
-    if (cur) text[cur] += line + "\n";
+  const text = parseTaggedFiles(out);
+  // Prefer full directory read for RA opts when present (same content, ensures catalogue siblings).
+  if (em.core) {
+    if (optDir[`${name}.opt`] !== undefined) text.game = optDir[`${name}.opt`];
+    if (optDir[`${query.folder}.opt`] !== undefined) text.folder = optDir[`${query.folder}.opt`];
+    if (optDir[`${em.core}.opt`] !== undefined) text.core = optDir[`${em.core}.opt`];
   }
-  return { data, em, p, name, onDevice, id, idFrom, files, text };
+  return { data, em, p, name, onDevice, id, idFrom, files, text, optDir };
 }
 
 function valuesOf(p: Profile, text: string | undefined): Record<string, string> | null {
@@ -268,52 +359,119 @@ function valuesOf(p: Profile, text: string | undefined): Record<string, string> 
 
 export async function gameTuning(query: URLSearchParams) {
   const st = await gameState({ folder: String(query.get("folder") ?? ""), file: String(query.get("file") ?? ""), discId: String(query.get("discId") ?? "") });
-  const { em, p, text } = st;
+  const { em, p, text, optDir } = st;
+  const isRa = !!em.core && p?.kind !== "ppsspp";
   const baseFrom = p?.kind === "ppsspp" ? (text.global !== undefined ? "global" : "defaults")
     : text.folder !== undefined ? "folder" : text.core !== undefined ? "core" : "defaults";
   const baseText = p?.kind === "ppsspp" ? text.global : text.folder ?? text.core;
-  const base = p ? valuesOf(p, baseText) ?? {} : {};
-  const own = p && (p.kind === "retroarch" || st.id) ? valuesOf(p, text.game) : null;
-  const known = p?.kind === "retroarch" && baseText !== undefined ? new Set(parseOpt(baseText).keys()) : null;
+  const catalogue = p?.kind === "ppsspp"
+    ? buildCatalogue(p, [])
+    : buildCatalogue(p?.kind === "retroarch" ? p : null, Object.values(optDir).length ? Object.values(optDir) : [text.core, text.folder, text.game]);
+  // Full layer values for RetroArch; curated subset for PPSSPP.
+  const base = isRa ? (allOptValues(baseText) ?? {}) : (p ? valuesOf(p, baseText) ?? {} : {});
+  const own = p?.kind === "ppsspp"
+    ? (st.id ? valuesOf(p, text.game) : null)
+    : isRa ? allOptValues(text.game) : null;
   const gov = (s: string | undefined) => (s ?? "").trim();
   return {
     folder: em.folder.name, file: String(query.get("file")), stem: st.name, onDevice: st.onDevice,
     so: em.so, core: em.core, ownCore: em.own, profile: p?.id ?? null,
+    kind: p?.kind ?? (isRa ? "retroarch" : null),
     discId: st.id, discIdFrom: st.idFrom,
     own, base, baseFrom,
-    available: p ? p.settings.filter((s) => !known || known.has(s.key)).map((s) => s.key) : [],
+    hasOwnFile: text.game !== undefined,
+    canCreate: st.onDevice && (!!em.core || p?.kind === "ppsspp"),
+    catalogue,
+    available: catalogue.map((s) => s.key),
     gov: { own: gov(text.gameGov), folder: gov(text.folderGov), system: st.data.defaultGov },
+  };
+}
+
+/** Core options for a ROM folder (Emulation → RetroArch), scope folder or core. */
+export async function folderOptions(query: URLSearchParams) {
+  const data = await load();
+  if (!data) throw new UserError("Connect the handheld over Wi-Fi with SSH on to edit core options.");
+  const folderName = String(query.get("folder") ?? "");
+  const folder = data.folders.find((f) => f.name === folderName);
+  if (!folder) throw new UserError(`${folderName} is not a ROM folder on the handheld.`);
+  if (!folder.core) throw new UserError(`${folderName} does not start a RetroArch core.`);
+  const scope = query.get("scope") === "core" ? "core" : "folder";
+  const optDir = await readCoreOptDir(folder.core);
+  const fileName = scope === "core" ? `${folder.core}.opt` : `${folderName}.opt`;
+  const ownText = optDir[fileName];
+  const baseName = scope === "folder" ? `${folder.core}.opt` : "";
+  const baseText = scope === "folder" ? optDir[baseName] : undefined;
+  const p = profileFor(folder.so, folder.core);
+  const catalogue = buildCatalogue(p?.kind === "retroarch" ? p : null, Object.values(optDir));
+  const shared = data.folders.filter((f) => f.core === folder.core && f.name !== folderName).map((f) => f.name);
+  return {
+    folder: folderName, core: folder.core, so: folder.so, scope, profile: p?.id ?? null,
+    shared, file: `${CFG}/${folder.core}/${fileName}`,
+    hasOwnFile: ownText !== undefined,
+    own: allOptValues(ownText),
+    base: allOptValues(baseText) ?? {},
+    baseFrom: baseText !== undefined ? "core" : "defaults",
+    catalogue,
   };
 }
 
 // ---------------------------------------------------------------- saving
 
-/** Checks values against the offered choices; a value the game's own file already holds is kept as it is. */
-function checkValues(p: Profile, values: Record<string, unknown>, own: Record<string, string> | null): Record<string, string> {
+/** Validate against catalogue: curated enums when known; observed choices or free text otherwise. Empty clears to base. */
+function checkCatalogueValues(
+  catalogue: CatalogueSetting[],
+  values: Record<string, unknown>,
+  own: Record<string, string> | null,
+): Record<string, string> {
+  const byKey = new Map(catalogue.map((s) => [s.key, s]));
   const out: Record<string, string> = {};
   for (const [k, raw] of Object.entries(values)) {
     const v = String(raw ?? "");
-    const s = p.settings.find((x) => x.key === k);
-    if (!s) throw new UserError(`${k} is not a setting Game Tuning changes.`);
-    if (v && v !== own?.[k] && !s.options.some(([o]) => o === v)) throw new UserError(`"${v}" is not a choice for ${s.label}.`);
+    const s = byKey.get(k);
+    if (!s) throw new UserError(`${k} is not a known core option for this emulator.`);
+    if (v && v !== own?.[k] && s.options && !s.options.some(([o]) => o === v)) {
+      throw new UserError(`"${v}" is not a choice for ${s.label}.`);
+    }
     out[k] = v;
   }
   return out;
 }
 
 export const writeFile = (file: string, content: string) =>
-  `printf '%s' ${quote(b64(content))} | base64 -d > ${quote(file + ".tmp")} && mv ${quote(file + ".tmp")} ${quote(file)} || exit 1`;
+  content
+    ? `printf '%s' ${quote(b64(content))} | base64 -d > ${quote(file + ".tmp")} && mv ${quote(file + ".tmp")} ${quote(file)} || exit 1`
+    : `rm -f ${quote(file)}`;
+
+function applyOptValues(existing: string | undefined, template: string, values: Record<string, string>, catalogue: CatalogueSetting[]): string {
+  const base = parseOpt(template);
+  const set: Record<string, string> = {};
+  const byKey = new Map(catalogue.map((s) => [s.key, s]));
+  for (const [k, v] of Object.entries(values)) {
+    const s = byKey.get(k);
+    set[k] = v || base.get(k) || s?.def || "";
+  }
+  // Keep keys already in the file that were not sent (partial saves from older UI).
+  const start = existing ?? template;
+  return setOpt(start, set);
+}
 
 export async function saveTuning(body: Record<string, unknown>) {
   const st = await gameState({ folder: String(body.folder ?? ""), file: String(body.file ?? ""), discId: String(body.discId ?? "") });
-  const { data, em, p, name, text, files } = st;
+  const { data, em, p, name, text, files, optDir } = st;
   const gov = String(body.gov ?? "");
   if (gov && !data.governors.includes(gov)) throw new UserError(`${gov} is not a CPU governor on the handheld.`);
-  const values = p ? checkValues(p, (body.values ?? {}) as Record<string, unknown>, valuesOf(p, text.game)) : {};
-  const changes = Object.values(values).some(Boolean);
+  const isRa = !!em.core && p?.kind !== "ppsspp";
+  const catalogue = p?.kind === "ppsspp"
+    ? buildCatalogue(p, [])
+    : buildCatalogue(p?.kind === "retroarch" ? p : null, Object.values(optDir).length ? Object.values(optDir) : [text.core, text.folder, text.game]);
+  const own = p?.kind === "ppsspp" ? valuesOf(p, text.game) : allOptValues(text.game);
+  const values = Object.keys(body.values ?? {}).length
+    ? checkCatalogueValues(catalogue, (body.values ?? {}) as Record<string, unknown>, own)
+    : {};
+  const changes = Object.values(values).some(Boolean) || Object.keys(values).length > 0 && text.game !== undefined;
   const steps: string[] = [];
-  if (p && (changes || text.game !== undefined)) {
-    if (p.kind === "ppsspp") {
+  if ((p || isRa) && (changes || text.game !== undefined || Object.keys(values).length)) {
+    if (p?.kind === "ppsspp") {
       if (!st.id) throw new UserError("PPSSPP needs the game's disc ID (like ULUS10391) to keep settings for it.");
       if (text.global === undefined) throw new UserError("PPSSPP's settings file is missing on the handheld. Start PPSSPP once, then try again.");
       const globalIni = parseIni(text.global);
@@ -324,13 +482,11 @@ export async function saveTuning(body: Record<string, unknown>) {
         ini = setIni(ini, s.section!, s.key, v);
       }
       steps.push(writeFile(files.game, ini));
-    } else {
-      if (!em.core) throw new UserError(`${em.so} is not a RetroArch core Game Tuning knows.`);
-      const baseText = text.folder ?? text.core ?? "";
-      const base = parseOpt(baseText);
-      const set: Record<string, string> = {};
-      for (const s of p.settings) if (s.key in values) set[s.key] = values[s.key] || base.get(s.key) || s.def;
-      steps.push(`mkdir -p ${quote(`${CFG}/${em.core}`)} || exit 1`, writeFile(files.game, setOpt(text.game ?? baseText, set)));
+    } else if (isRa) {
+      if (!em.core) throw new UserError(`${em.so} is not a RetroArch core.`);
+      const template = text.folder ?? text.core ?? "";
+      const content = applyOptValues(text.game, template, values, catalogue);
+      steps.push(`mkdir -p ${quote(`${CFG}/${em.core}`)} || exit 1`, writeFile(files.game, content));
     }
   }
   if (gov) steps.push(writeFile(files.gameGov, `${gov}\n`));
@@ -339,7 +495,47 @@ export async function saveTuning(body: Record<string, unknown>) {
   const { out, err } = await runCommand(`mkdir -p ${quote(`${CONTENT}/${em.folder.name}`)} || exit 1\n${steps.join("\n")}\nsync\necho OK`, 30_000);
   if (!out.includes("OK")) throw new UserError(`Saving on the handheld failed${err ? `: ${err.trim()}` : "."}`);
   cache = null;
-  say("green", "TUNING", `Saved tuning for ${em.folder.name}/${String(body.file)}${p ? ` (${p.name})` : ""}${gov ? `, governor ${gov}` : ""}.`);
+  say("green", "TUNING", `Saved tuning for ${em.folder.name}/${String(body.file)}${p ? ` (${p.name})` : em.core ? ` (${em.core})` : ""}${gov ? `, governor ${gov}` : ""}.`);
+  return { ok: true, changed: true };
+}
+
+export async function saveFolderOptions(body: Record<string, unknown>) {
+  const data = await load();
+  if (!data) throw new UserError("Connect the handheld over Wi-Fi with SSH on to edit core options.");
+  const folderName = String(body.folder ?? "");
+  const folder = data.folders.find((f) => f.name === folderName);
+  if (!folder?.core) throw new UserError(`${folderName} does not start a RetroArch core.`);
+  const scope = body.scope === "core" ? "core" : "folder";
+  const optDir = await readCoreOptDir(folder.core);
+  const fileName = scope === "core" ? `${folder.core}.opt` : `${folderName}.opt`;
+  const path = `${CFG}/${folder.core}/${fileName}`;
+  const p = profileFor(folder.so, folder.core);
+  const catalogue = buildCatalogue(p?.kind === "retroarch" ? p : null, Object.values(optDir));
+  const own = allOptValues(optDir[fileName]);
+  const values = checkCatalogueValues(catalogue, (body.values ?? {}) as Record<string, unknown>, own);
+  const template = scope === "folder" ? (optDir[`${folder.core}.opt`] ?? "") : "";
+  const content = applyOptValues(optDir[fileName], template, values, catalogue);
+  const { out, err } = await runCommand(`mkdir -p ${quote(`${CFG}/${folder.core}`)} || exit 1\n${writeFile(path, content)}\nsync\necho OK`, 30_000);
+  if (!out.includes("OK")) throw new UserError(`Saving on the handheld failed${err ? `: ${err.trim()}` : "."}`);
+  cache = null;
+  const what = scope === "core" ? `${folder.core} (every folder)` : `${folderName}`;
+  say("green", "TUNING", content ? `Saved core options for ${what}.` : `Cleared core options for ${what}.`);
+  return { ok: true, changed: true };
+}
+
+export async function resetFolderOptions(body: Record<string, unknown>) {
+  const data = await load();
+  if (!data) throw new UserError("Connect the handheld over Wi-Fi with SSH on to edit core options.");
+  const folderName = String(body.folder ?? "");
+  const folder = data.folders.find((f) => f.name === folderName);
+  if (!folder?.core) throw new UserError(`${folderName} does not start a RetroArch core.`);
+  const scope = body.scope === "core" ? "core" : "folder";
+  const fileName = scope === "core" ? `${folder.core}.opt` : `${folderName}.opt`;
+  const path = `${CFG}/${folder.core}/${fileName}`;
+  const { code } = await runCommand(`[ -f ${quote(path)} ] && rm -f ${quote(path)} && sync; echo OK`, 20_000);
+  if (code !== 0) throw new UserError("The handheld could not remove the options file.");
+  cache = null;
+  say("yellow", "TUNING", `Removed ${fileName}; ${scope === "core" ? "folders using " + folder.core : folderName} use defaults again.`);
   return { ok: true, changed: true };
 }
 

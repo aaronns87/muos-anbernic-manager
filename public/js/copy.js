@@ -171,6 +171,7 @@ const T = {
   /** Job ids the user collapsed; multi-file lists start expanded. */
   closed: new Set(), files: new Map(), loading: new Set(),
 };
+app.transfers = T;
 
 const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
 const unit = (j) => (j.kind === "art" || j.kind === "artsend" ? "image" : "file");
@@ -310,7 +311,11 @@ function renderDock() {
   }
   dock.hidden = !T.shown;
   document.body.classList.toggle("has-dock", T.shown);
-  if (!T.shown) { T.pastSig = ""; return; }
+  if (!T.shown) {
+    T.pastSig = "";
+    document.body.style.setProperty("--dock-h", "0px");
+    return;
+  }
   dock.classList.toggle("min", T.min);
   const run = T.active.find((j) => j.state === "running");
   const waiting = T.active.filter((j) => j !== run);
@@ -340,6 +345,7 @@ export function toggleDock() {
   if (T.shown) T.min = false;
   store.set("dockMin", T.min);
   renderDock();
+  renderStatusbar();
 }
 
 export function bindCopy() {
@@ -355,7 +361,7 @@ export function bindCopy() {
     if (!el) return;
     const action = el.dataset.dock, id = el.dataset.id ? Number(el.dataset.id) : undefined;
     if (action === "min") { T.min = !T.min; store.set("dockMin", T.min); renderDock(); return; }
-    if (action === "close") { T.shown = false; renderDock(); return; }
+    if (action === "close") { T.shown = false; renderDock(); renderStatusbar(); return; }
     if (action === "files") {
       if (!T.closed.delete(id)) T.closed.add(id);
       T.pastSig = "";

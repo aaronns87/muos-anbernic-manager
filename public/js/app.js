@@ -17,7 +17,7 @@ import { showSsh } from "./ssh.js";
 import { showSettings } from "./settings.js";
 import { bindSystem, showSystem, watchSystemJob } from "./system.js";
 import { bindAddGames } from "./add-games.js";
-import { showHandheld } from "./handheld.js";
+import { showDevice } from "./device-section.js";
 import { showApps, countApps } from "./apps.js";
 import { showEmulation } from "./emulation.js";
 import { openHelp, showWiki } from "./wiki.js";
@@ -32,7 +32,7 @@ import "./combo.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
-  handheld: ["Device Settings", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
+  handheld: ["Device", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
   ssh: ["SSH", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
 };
 
@@ -49,7 +49,7 @@ function showSection() {
   if (s !== "games" && app.selecting) setSelecting(false);
   renderDevice();
   if (s === "games") { render(); autoRescan(); }
-  if (s === "handheld") showHandheld();
+  if (s === "handheld") showDevice();
   if (s === "emulation") showEmulation();
   if (s === "apps") showApps();
   if (s === "play") showPlay();

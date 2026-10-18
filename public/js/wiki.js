@@ -13,7 +13,7 @@ const ARTICLES = [
     ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
-      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device Settings, Themes,
+      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device, Themes,
       Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
       (Settings, Wiki) is about the manager itself.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
@@ -58,7 +58,7 @@ const ARTICLES = [
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
-      <tr><td>Install or uninstall apps, Device Settings, Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
@@ -134,8 +134,9 @@ const ARTICLES = [
       <li><b>Details</b>: the database facts, the file (size, date, CRC32, path), the library check result, the BIOS files the system
       needs, and for arcade games the parent or clone set. <b>Rename</b> on the file row changes the name in <code>Roms/</code>
       (same extension) and renames matching artwork and your own description when present.</li>
-      <li><b>Handheld</b>: the core and who set it, play time (total, launches, average session, first and last played, cores used),
-      collections and save files. <b>Read again</b> refreshes it.</li>
+      <li><b>Handheld</b>: the core and who set it, <b>Core options</b> (same as Menu+X on the handheld) when the game is on the device and starts a RetroArch core or PPSSPP,
+      play time (total, launches, average session, first and last played, cores used), collections and save files.
+      <b>Open Game Tuning</b> opens the full page with presets; <b>Read again</b> refreshes device data.</li>
       <li><b>Related</b>: other versions, the arcade family, the same series, more from the developer and more of the genre. Opening one
       adds a <b>Back</b> link.</li></ul>
       <p>Drop an image on the artwork, or use <b>Replace artwork</b>, to change the box art. <b>Show in Finder</b> (Explorer on Windows)
@@ -204,13 +205,21 @@ const ARTICLES = [
           <i>Newer than GitHub</i> means your copy came from somewhere else with its own numbering; nothing to do.</li>
       </ul>`],
   ]],
-  ["handheld", "sliders", "Device Settings", "handheld", "Change the handheld's MustardOS settings from here.", [
-    ["What it is", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
-      changed over Wi-Fi with SSH.</p>`],
-    ["Changing settings", `<p>Change as many options as you like; they are collected and written together when you save. Each option says when the change takes
-      effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.</p>`],
-    ["Undo", `<p><b>Undo last save</b> puts back the values from before your last save.</p>`],
-    ["Finding an option", `<p>Use the search box. <b>Advanced</b> shows options most people never need.</p>`],
+  ["handheld", "sliders", "Device", "handheld", "MustardOS settings, Controls and Benchmark on the handheld over SSH.", [
+    ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
+      <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
+    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
+      changed over Wi-Fi with SSH. Change as many as you like; they are written together when you save. Each option says when the change takes
+      effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
+      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.</p>`],
+    ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
+      MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
+      You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).
+      Close games before calibrating. Per-game RetroArch remaps stay under Emulation / Game Tuning / Menu+X.</p>`],
+    ["Benchmark", `<p>Pick <b>Connectivity</b> (SSH latency, free space, uptime, battery), <b>Storage speed</b> (timed write/read of a temporary
+      32&nbsp;MB file on SD1 and TF2), and/or <b>CPU and thermal</b> (loads all cores for up to 20 seconds while sampling usage and temperature).
+      <b>Run selected</b> or <b>Run all</b>; <b>Stop</b> aborts a long run. Storage files live under <code>.muos-bench/</code> and are deleted afterwards.
+      The CPU test asks for confirmation and will not start if the battery is below 15%.</p>`],
   ]],
   ["themes", "palette", "Themes", "themes", "Browse MustardOS themes, design your own, and install and apply them on the handheld.", [
     ["Browse", `<p>Lists the themes from the MustardOS theme library (<a href="https://theme.muos.dev" target="_blank" rel="noopener">theme.muos.dev</a>),
@@ -289,16 +298,19 @@ const ARTICLES = [
         <li><b>No core</b>: nothing in MustardOS runs these games, such as PolyGame Master 2 and OpenBOR.</li>
       </ul>
       <p>The list needs the handheld over Wi-Fi with Secure Shell on, like the Cores tab.</p>`],
-    ["RetroArch", `<p>Most systems run in RetroArch. This tab sets its picture and play options per ROM folder, without opening RetroArch's menu on the handheld:
-      aspect ratio, integer scaling, smoothing, shader, overlay (screen border) and its opacity, rewind and the FPS counter.</p>
+    ["RetroArch", `<p>Most systems run in RetroArch. This tab sets picture, play and Menu+X-style core options per ROM folder, without opening RetroArch on the handheld.</p>
       <ul>
-        <li><b>Defaults</b> shows what every folder uses unless it has its own options.</li>
-        <li><b>Only &lt;folder&gt;</b> saves options for that ROM folder. <b>Every folder using &lt;core&gt;</b> saves them for the core, so all folders that use
+        <li><b>Picture and play</b>: aspect ratio, integer scaling, smoothing, shader, overlay (screen border) and its opacity, rewind and the FPS counter.
+          Written as RetroArch <code>.cfg</code> overrides.</li>
+        <li><b>Core options</b>: the same Menu+X core options as on the handheld (<code>.opt</code> files under <code>info/config/&lt;core&gt;/</code>).
+          The list comes from options already on the device, with curated labels for known cores. Filter when the list is long.</li>
+        <li><b>Defaults</b> at the top shows what every folder uses for picture and play unless it has its own options.</li>
+        <li><b>Only &lt;folder&gt;</b> saves for that ROM folder. <b>Every folder using &lt;core&gt;</b> saves for the core, so all folders that use
           it change together (for example GB and GBC with Gambatte). Options for a single folder win over options for the core.</li>
-        <li><b>Default</b> in a list means "not set here", and shows what applies instead. <b>Back to defaults</b> clears everything for that scope.</li>
-        <li>The options are written as RetroArch override files on the handheld; changes apply the next time a game starts. Folders whose core is not
-          part of RetroArch (PSP, ScummVM, ports) are listed separately.</li>
-      </ul>`],
+        <li><b>Default</b> in a list means "not set here", and shows what applies instead. <b>Back to defaults</b> clears that scope's file.</li>
+        <li>Changes apply the next time a game starts. Folders whose core is not part of RetroArch (standalone PSP, ScummVM, ports) are listed separately.</li>
+      </ul>
+      <p>Per-game core options also live in the game viewer's <b>Handheld</b> tab and on the <b>Game Tuning</b> page.</p>`],
     ["Library check: verify dumps", `<p>A game file is a <i>dump</i>: a copy of the original cartridge. The No-Intro project keeps a list of known good dumps.
       <b>Check</b> compares each of your files with that list. Nothing is changed; zip files are read without unpacking.</p>
       <ul>
@@ -361,25 +373,30 @@ const ARTICLES = [
   ]],
   ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings, cheats and CPU governor.", [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
-      Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own settings without changing any other game.
-      It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.</p>`],
+      Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own Menu+X-style core options and CPU governor
+      without changing any other game. It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.
+      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.</p>`],
     ["Pick a game", `<p>The list on the left shows your library. Open the system list and type a few letters to narrow it (arrow keys and Enter work
-      too); systems with emulator settings come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
+      too); systems with curated presets come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
       The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
       <ul>
+        <li><b>Any RetroArch core</b>: the full Menu+X option catalogue for that core, built from <code>.opt</code> files on the handheld
+          (plus curated labels for known cores such as Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation and Flycast).</li>
         <li><b>PSP</b>: PPSSPP, standalone or the RetroArch core. Standalone PPSSPP keeps settings under the disc ID (like <code>ULUS10391</code>),
           read from the ISO, CSO or PBP file. For CHD files, type the ID; PPSSPP shows it under Game settings &rsaquo; Game info.</li>
-        <li><b>N64</b>: Mupen64Plus-Next. <b>PlayStation</b>: PCSX-ReARMed, SwanStation, DuckStation. <b>Dreamcast, NAOMI, Atomiswave</b>: Flycast.</li>
-        <li><b>Every game</b>: its own CPU governor. For emulators with no per-game settings (for example the standalone N64 and Dreamcast emulators)
-          this is the only option; switch the game to one of the cores above in Emulation &rsaquo; Cores for more.</li>
+        <li><b>Every game</b>: its own CPU governor. Standalone emulators that are not RetroArch only offer the governor unless you switch the game
+          to a RetroArch core in Emulation &rsaquo; Cores.</li>
       </ul>
-      <p>A game does not have to be on the handheld yet: settings saved now apply once you copy it.</p>`],
-    ["Presets and recommendations", `<p><b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you. Known heavy games get a
-      recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting point for your handheld's
-      chip: play a few minutes, then adjust. Every setting says whether it buys <i>Speed</i>, <i>Looks</i> or both, and what it costs.</p>
+      <p>A game does not have to be on the handheld yet: settings saved now apply once you copy it. Creating a per-game <code>.opt</code> for the first
+      time copies from the folder or core template when one exists.</p>`],
+    ["Presets and recommendations", `<p>For cores with curated profiles, <b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you.
+      Known heavy games get a recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting
+      point for your handheld's chip: play a few minutes, then adjust. Curated settings say whether they buy <i>Speed</i>, <i>Looks</i> or both.
+      Other cores show the full device catalogue without presets. The Assistant can suggest the same starting point when a game is open, and can
+      point you to Libretro docs/forums and Reddit (<b>r/RetroArch</b>, <b>r/SBCGaming</b>, <b>r/muOS</b>) to search for community tips by game and core name.</p>
       <p><i>Default</i> means the value the game uses today, from its folder's or core's options, or from PPSSPP's own settings.</p>`],
     ["Save and undo", `<p><b>Save to handheld</b> writes the game's own settings file. It starts as a copy of what the game used before, so only the
-      settings you changed differ; PPSSPP's buttons are kept too. <b>Back to folder settings</b> removes the game's own file and governor again. For
+      settings you changed differ; PPSSPP's buttons are kept too. <b>Use folder settings</b> removes the game's own file and governor again. For
       standalone PPSSPP that also removes settings made for the game in PPSSPP's own menu.</p>
       <p>Files on the handheld: <code>info/config/&lt;core&gt;/&lt;game&gt;.opt</code> for RetroArch cores,
       <code>emulator/ppsspp/.config/ppsspp/PSP/SYSTEM/&lt;disc ID&gt;_ppsspp.ini</code> for PPSSPP, and <code>info/content/&lt;folder&gt;/&lt;game&gt;.gov</code>
@@ -416,14 +433,18 @@ const ARTICLES = [
     ["Be careful", `<p>Commands run as the administrator (root) of the handheld. A wrong command can delete files or stop MustardOS from starting.</p>`],
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
+    ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
+      title describes the tab you are on.</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
-    ["Behaviour and looks", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
-      the date and clock format, and the size uploaded artwork is saved at. <b>Assistant</b> is where you paste a free chat API key if you want the in-app help chat.</p>`],
-    ["Game data and cache", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
+    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
+      the date and clock format, and the size uploaded artwork is saved at.</p>`],
+    ["Assistant", `<p>Paste a free chat API key, pick a provider and model, optionally edit the system prompt, and open the read-only
+      <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
+    ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
       ROM check results. They are fetched or worked out again when needed.</p>`],
-    ["History and resets", `<p>Start some things over:</p>
+    ["Resets", `<p>Start some things over:</p>
       <ul>
         <li><b>Activity log</b> clears Recent activity on Overview.</li>
         <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. The connection,
@@ -431,7 +452,7 @@ const ARTICLES = [
         <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
           handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>
       </ul>`],
-    ["Factory reset", `<p>The red panel at the bottom starts the manager over as if it had just been installed. It moves to the Trash:</p>
+    ["Factory reset", `<p>The red panel on the <b>Resets</b> tab starts the manager over as if it had just been installed. It moves to the Trash:</p>
       <ul>
         <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups and themes;</li>
         <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, assistant API keys, downloaded game data and
@@ -449,8 +470,15 @@ const ARTICLES = [
       hide it with the panel's close control. The manager never ships a shared key: you bring your own (BYOK).</p>
       <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
         <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
+    ["System prompt", `<p>Under ${path("Settings", "Assistant")}, <b>Edit prompt</b> opens a dialog with the instructions sent with every message
+      (before the knowledge base, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
+      on the settings page; changing it can weaken grounding, walkthrough refusal and other built-in limits, so keep the default unless you
+      know what you need. You can edit the prompt before you paste an API key.</p>`],
+    ["Knowledge base", `<p><b>View knowledge base</b> on the Assistant tab opens a read-only modal with the guide the chat uses for manager UI,
+      connections and limits. It is not this Wiki and cannot be edited in the app. Live library matches and connection status are added
+      per message and are not part of that file.</p>`],
     ["What it is good at", `<ul>
-      <li>How the manager works, using the same help text as this Wiki for the page you are on.</li>
+      <li>How the manager works, using the assistant knowledge base (and the section for the page you are on).</li>
       <li>What is in your <code>Roms/</code> library (systems, genres, titles) and LaunchBox descriptions when game data is downloaded.</li>
       <li>Describing a game you have open, or recommending titles from your library.</li>
       <li>Connection status (card reader, USB, Wi-Fi / SSH) without sending passwords.</li>
@@ -459,7 +487,7 @@ const ARTICLES = [
       <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
       <li>Format cards, wipe disks or change the handheld. Use System Tools and the other sections for that.</li>
     </ul>`],
-    ["Free API keys", `<p>Under ${path("Settings", "Assistant")} pick a provider and paste a key:</p>
+    ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
       <ul>
         <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
           Free-tier chat models are <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and

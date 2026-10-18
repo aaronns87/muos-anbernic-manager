@@ -57,7 +57,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Checks and updates | `checks.ts` (No-Intro verify, duplicates, PlayStation disc layouts via `games/disc-layout.ts`), `games/chd.ts` (detect `chdman`, convert cue/m3u → CHD), `games/disc-fix.ts` (inspect/extract zip/7z, Fix wizard), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld), `manager-update.ts` (the manager's own version and self-update) |
 | BIOS | `bios.ts` (ensures workspace `bios/`, catalogue from the handheld, local MD5 check, upload, **Fix names**, send over SSH) |
 | System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH), `system/flash-helper.ts` (runs as root to write a card) |
-| Assistant (BYOK chat) | `chat.ts` (`.cache/chat.json` key, Groq/Gemini/OpenRouter, context from `docs/assistant-wiki.json` + library + connection); UI `public/js/chat.js` (FAB + dock, Markdown replies) |
+| Assistant (BYOK chat) | `chat.ts` (`.cache/chat.json` key, Groq/Gemini/OpenRouter, context from `docs/assistant-knowledge.md` + library + connection; `GET /api/chat/knowledge`); UI `public/js/chat.js` (FAB + dock, Markdown replies), Settings read-only knowledge modal |
 | What's new | `whats-new.ts` (`.cache/seen-version` vs `VERSION`, parse `CHANGELOG.md`); UI `public/js/whats-new.js` |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
 | Helpers | `util.ts` (`inside`, `safePart`, `exists`, `listDir`, ...), `tar.ts`, `errors.ts` |

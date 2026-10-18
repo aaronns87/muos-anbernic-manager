@@ -11,7 +11,9 @@ import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, 
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
 import { retroarchJson, saveRetroarch } from "./retroarch.ts";
 import { cheatFile, cheatsGame, removeCheats, saveCheats } from "./tuning/cheats.ts";
-import { gameTuning, resetTuning, saveTuning, tuningJson } from "./tuning/tuning.ts";
+import {
+  folderOptions, gameTuning, resetFolderOptions, resetTuning, saveFolderOptions, saveTuning, tuningJson,
+} from "./tuning/tuning.ts";
 import { applyTheme, deleteTheme, deviceThemePreview, installTheme, themePreview, themesJson } from "./themes.ts";
 import {
   convertFont, createTheme, designerFile, designerJson, designerTheme, duplicateTheme, importTheme, installDesigned, packageTheme,
@@ -25,6 +27,10 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
+import {
+  controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
+} from "./device/controls.ts";
 import { attachTerminal, deviceStats, forgetHostKey, power, saveSshSettings, SshError, sshStatus } from "./device/ssh.ts";
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "./device/muos-settings.ts";
 import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.ts";
@@ -54,7 +60,7 @@ import { biosJson, deleteBios, fixBiosNames, sendBios, uploadBios } from "./bios
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
-import { chatSettingsPublic, runChat, saveChatSettings } from "./chat.ts";
+import { chatKnowledgePublic, chatSettingsPublic, runChat, saveChatSettings } from "./chat.ts";
 import { createShortcut } from "./shortcut.ts";
 import { managerStatus, restartManager, startedAt, updateManager } from "./manager-update.ts";
 import { dismissWhatsNew, whatsNewStatus } from "./whats-new.ts";
@@ -103,6 +109,9 @@ const routes: Record<string, Handler> = {
   "GET /api/tuning/game": (q) => gameTuning(q),
   "POST /api/tuning/save": (_, body) => saveTuning(body),
   "POST /api/tuning/reset": (_, body) => resetTuning(body),
+  "GET /api/tuning/folder-options": (q) => folderOptions(q),
+  "POST /api/tuning/folder-options": (_, body) => saveFolderOptions(body),
+  "POST /api/tuning/folder-options/reset": (_, body) => resetFolderOptions(body),
   "GET /api/cheats/game": (q) => cheatsGame(q),
   "GET /api/cheats/file": (q) => cheatFile(q),
   "POST /api/cheats/save": (_, body) => saveCheats(body),
@@ -198,6 +207,7 @@ const routes: Record<string, Handler> = {
   "GET /api/settings": () => settingsJson(),
   "GET /api/chat/settings": () => chatSettingsPublic(),
   "POST /api/chat/settings": (_, body) => saveChatSettings(body),
+  "GET /api/chat/knowledge": () => chatKnowledgePublic(),
   "POST /api/chat": (_, body) => runChat(body),
   "GET /api/manager": (q) => managerStatus(q.get("refresh") === "1"),
   "POST /api/manager/update": () => updateManager(),
@@ -349,6 +359,14 @@ const routes: Record<string, Handler> = {
   "GET /api/handheld/settings": () => handheldSettings(),
   "POST /api/handheld/settings": (_, body) => saveHandheldSettings(body),
   "POST /api/handheld/settings/undo": () => undoHandheldSettings(),
+  "GET /api/handheld/benchmark": () => benchmarkStatus(),
+  "POST /api/handheld/benchmark": (_, body) => startBenchmark(body),
+  "POST /api/handheld/benchmark/stop": () => stopBenchmark(),
+  "GET /api/controls": () => controlsSnapshot(),
+  "GET /api/controls/state": (q) => controlsState(q),
+  "GET /api/controls/joycal": () => readJoycal(),
+  "POST /api/controls/joycal": (_, body) => saveJoycal(body),
+  "POST /api/controls/calibrate": (_, body) => runCalibrate(body),
   "POST /api/ssh/power": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     await power(String(body.action ?? ""));

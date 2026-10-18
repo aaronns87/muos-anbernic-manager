@@ -38,9 +38,9 @@
       <a class="section-link" href="#apps" data-section="apps" title="Apps (5)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
         <span class="nav-label">Apps</span> <span class="nav-count" id="apps-count"></span></a>
-      <a class="section-link" href="#handheld" data-section="handheld" title="Device Settings (6)">
+      <a class="section-link" href="#handheld" data-section="handheld" title="Device (6)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
-        <span class="nav-label">Device Settings</span></a>
+        <span class="nav-label">Device</span></a>
       <a class="section-link" href="#themes" data-section="themes" title="Themes (7)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/><circle cx="17" cy="11" r="1"/></svg>
         <span class="nav-label">Themes</span></a>
@@ -90,7 +90,10 @@
         <div><p id="hh-sub">MustardOS settings on the handheld, changed over SSH</p></div>
         <div class="page-actions" id="hh-actions"></div>
       </header>
+      <nav class="tabs" id="hh-tabs" role="tablist" aria-label="Device"></nav>
       <div id="handheld"></div>
+      <div id="hh-controls" hidden></div>
+      <div id="hh-bench" hidden></div>
       <div class="hh-bar" id="hh-bar" hidden></div>
     </section>
     <section class="view" id="view-games" hidden>
@@ -256,6 +259,7 @@
       <header class="page-head">
         <div><p id="settings-sub">Where the manager finds your games, and how it behaves</p></div>
       </header>
+      <nav class="tabs" id="settings-tabs" role="tablist" aria-label="Settings"></nav>
       <div id="settings"></div>
     </section>
     <section class="view" id="view-wiki" hidden>
@@ -396,6 +400,37 @@
     <div class="dialog-actions">
       <button class="btn" id="c-cancel">Cancel</button>
       <button class="btn primary" id="c-ok">OK</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="chat-prompt" class="chat-prompt" aria-labelledby="chat-prompt-title">
+  <div class="t-body">
+    <h2 id="chat-prompt-title">System prompt</h2>
+    <div class="notice warn" id="chat-prompt-warn">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span><b>Changing this can affect the assistant.</b> A custom prompt may weaken grounding in the knowledge base and library,
+      walkthrough refusal, and other built-in limits. Keep the default unless you know what you need.</span>
+    </div>
+    <label class="chat-prompt-field">
+      <span class="muted-note">Instructions sent with every message (before live context). Empty and save to use the built-in default.</span>
+      <textarea class="control mono" id="chat-prompt-text" rows="16" maxlength="12000" spellcheck="true" aria-label="System prompt"></textarea>
+    </label>
+    <div class="dialog-actions">
+      <button class="btn ghost" id="chat-prompt-reset" type="button">Revert to default</button>
+      <span class="grow"></span>
+      <button class="btn" id="chat-prompt-cancel" type="button">Cancel</button>
+      <button class="btn primary" id="chat-prompt-save" type="button">Save prompt</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="chat-knowledge" class="chat-prompt chat-knowledge" aria-labelledby="chat-knowledge-title">
+  <div class="t-body">
+    <h2 id="chat-knowledge-title">Assistant knowledge base</h2>
+    <p class="muted-note">Read-only guide the assistant uses for manager UI, connections and limits. Live library and connection status are added per message and are not listed here.</p>
+    <div class="chat-knowledge-body chat-md" id="chat-knowledge-body" tabindex="0"></div>
+    <div class="dialog-actions">
+      <span class="grow"></span>
+      <button class="btn primary" id="chat-knowledge-close" type="button">Close</button>
     </div>
   </div>
 </dialog>

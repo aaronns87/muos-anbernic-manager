@@ -1,4 +1,4 @@
-// Device Settings: the MustardOS options from the handheld's own Settings screens, changed over SSH. Edits are
+// Device › Settings: the MustardOS options from the handheld's own Settings screens, changed over SSH. Edits are
 // collected on the page and written together; each save can be undone.
 
 import { $, api, esc, icon, osVersion, plural, toast } from "./core.js";
@@ -18,6 +18,17 @@ export function showHandheld() {
   if (!H.bound) bind();
   if (!H.data && !H.loading) load();
   render();
+}
+
+/** Redraw when already on the Settings tab (connection changes). */
+export function renderHandheld() {
+  if ($("handheld") && !$("handheld").hidden) render();
+}
+
+export function clearHandheldBar() {
+  const bar = $("hh-bar");
+  if (bar) { bar.hidden = true; bar.innerHTML = ""; }
+  document.body.classList.remove("has-hh-bar");
 }
 
 async function load() {

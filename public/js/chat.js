@@ -1,6 +1,6 @@
 // Assistant chat dock: opens only when a BYOK API key is configured in Settings.
 
-import { $, api, esc, formatTime, icon, section, syncSpinnerPhase, toast } from "./core.js";
+import { $, api, esc, formatTime, icon, modelInfo, section, syncSpinnerPhase, toast } from "./core.js";
 import { openViewerGame } from "./game-view.js";
 
 let onConfigured = () => {};
@@ -23,13 +23,25 @@ const TIPS = [
   ["Clear", "The Clear button next to Send wipes this conversation."],
 ];
 
+/** Inline markdown within one line/paragraph (bold must close on the same line). */
 function mdInline(s) {
-  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  s = s.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
   s = s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   s = s.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  // Models often leave stray ** from broken bold; strip leftovers so they do not show.
+  s = s.replace(/\*\*/g, "");
   return s;
+}
+
+function tableFromRows(rows) {
+  if (rows.length < 2 || rows[0].length < 2) return "";
+  const cols = rows[0].length;
+  if (rows.some((r) => r.length !== cols)) return "";
+  const th = rows[0].map((h) => `<th>${mdInline(h)}</th>`).join("");
+  const trs = rows.slice(1).map((row) => `<tr>${row.map((c) => `<td>${mdInline(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="chat-table"><table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
 function mdTableHtml(block) {
@@ -37,37 +49,19 @@ function mdTableHtml(block) {
   if (lines.length < 2) return "";
   const isRow = (l) => /^\|?.+\|/.test(l) && l.includes("|");
   const isSep = (l) => /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(l);
-  if (!isRow(lines[0]) || !isSep(lines[1])) return "";
-  const cells = (line) => line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
-  const align = (spec) => {
-    const t = spec.replace(/\s/g, "");
-    if (/^:-+:$/.test(t)) return "center";
-    if (/^-+:$/.test(t)) return "right";
-    if (/^:-+$/.test(t)) return "left";
-    return "";
-  };
-  const heads = cells(lines[0]);
-  const aligns = cells(lines[1]).map(align);
-  const body = lines.slice(2).filter(isRow).map(cells);
-  if (!heads.length || body.some((r) => r.length !== heads.length && r.length < 2)) {
-    /* still render; pad short rows */
+  if (isRow(lines[0]) && isSep(lines[1])) {
+    const cells = (line) => line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+    return tableFromRows([cells(lines[0]), ...lines.slice(2).filter(isRow).map(cells)]);
   }
-  const th = heads.map((h, i) => {
-    const a = aligns[i] ? ` style="text-align:${aligns[i]}"` : "";
-    return `<th${a}>${mdInline(h)}</th>`;
-  }).join("");
-  const trs = body.map((row) => {
-    const tds = heads.map((_, i) => {
-      const a = aligns[i] ? ` style="text-align:${aligns[i]}"` : "";
-      return `<td${a}>${mdInline(row[i] ?? "")}</td>`;
-    }).join("");
-    return `<tr>${tds}</tr>`;
-  }).join("");
-  return `<div class="chat-table"><table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table></div>`;
+  // Tab-separated "tables" models often emit instead of pipe markdown.
+  if (lines.every((l) => l.includes("\t")) && lines[0].split("\t").length >= 2) {
+    return tableFromRows(lines.map((l) => l.split("\t").map((c) => c.trim())));
+  }
+  return "";
 }
 
-/** Safe subset of Markdown for assistant replies (escape first, then light formatting). */
-function mdHtml(src) {
+/** Safe subset of Markdown for assistant replies and the knowledge-base viewer. */
+export function mdHtml(src) {
   const slots = [];
   const park = (html) => {
     slots.push(html);
@@ -79,15 +73,22 @@ function mdHtml(src) {
   s = s.replace(/`([^`\n]+)`/g, (_, code) => park(`<code class="chat-code">${code}</code>`));
   s = s.replace(/^#{1,2}\s+(.+)$/gm, "<h3>$1</h3>");
   s = s.replace(/^#{3,6}\s+(.+)$/gm, "<h4>$1</h4>");
+  // Fake headings models write as **Title** or an unclosed **Title on its own line.
+  s = s.replace(/^\*\*([^*\n]+)\*\*\s*$/gm, "<h3>$1</h3>");
+  s = s.replace(/^\*\*([^*\n]+?)\s*$/gm, "<h3>$1</h3>");
   s = s.replace(/((?:^|\n)(?:\|.+\|(?:\n|$))+)/g, (block) => {
     const html = mdTableHtml(block);
     return html ? `\n${park(html)}\n` : block;
   });
+  s = s.replace(/((?:^|\n)(?:[^\n\t]*\t[^\n]*(?:\n|$)){2,})/g, (block) => {
+    const html = mdTableHtml(block);
+    return html ? `\n${park(html)}\n` : block;
+  });
   s = mdInline(s);
-  s = s.replace(/((?:^|\n)(?:[-*•]\s+.+(?:\n|$))+)/g, (block) => {
+  s = s.replace(/((?:^|\n)(?:[-**]\s+.+(?:\n|$))+)/g, (block) => {
     const lines = block.replace(/^\n/, "").trimEnd().split("\n");
-    if (!lines.every((l) => /^[-*•]\s+/.test(l))) return block;
-    return `\n<ul>${lines.map((l) => `<li>${l.replace(/^[-*•]\s+/, "")}</li>`).join("")}</ul>\n`;
+    if (!lines.every((l) => /^[-**]\s+/.test(l))) return block;
+    return `\n<ul>${lines.map((l) => `<li>${l.replace(/^[-**]\s+/, "")}</li>`).join("")}</ul>\n`;
   });
   s = s.replace(/((?:^|\n)(?:\d+\.\s+.+(?:\n|$))+)/g, (block) => {
     const lines = block.replace(/^\n/, "").trimEnd().split("\n");
@@ -277,6 +278,7 @@ async function sendMessage(text, { aboutGame = false } = {}) {
       messages: C.messages.map((m) => ({ role: m.role, content: m.content })),
       section: section(),
       gameKey: aboutGame || gameKey() ? gameKey() : "",
+      deviceId: modelInfo().device?.id || "",
     });
     C.messages.push({ role: "assistant", content: r.reply, at: Date.now() });
   } catch (error) {

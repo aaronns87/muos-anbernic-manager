@@ -13,7 +13,7 @@ import { artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-imag
 import { consoleIcon } from "./consoles.js";
 import { portsSection } from "./ports.js";
 import { openFreeScummvm } from "./free-scummvm.js";
-import { bindGameView, enrichViewer } from "./game-view.js";
+import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -472,8 +472,6 @@ export function openViewer(index) {
   $("v-art").innerHTML = g.i ? `<img src="${g.i}" alt="">` : `<span class="ph">${esc(initial(g.t))}</span>`;
   $("v-sys").innerHTML = `<span class="code" style="--accent:${sys.accent}">${esc(sys.code)}</span> ${esc(sys.name)}`;
   $("v-title").textContent = g.t;
-  $("v-transfer").hidden = !canCopy(sys);
-  $("v-transfer-label").textContent = `Transfer to ${devName()}`;
   $("v-delete").hidden = EXCLUDED.has(sys.code);
   const openArt = $("v-open-art");
   openArt.style.display = g.i ? "" : "none";
@@ -1191,8 +1189,15 @@ export function bindGames() {
   }, true);
 
   $("v-transfer").addEventListener("click", () => {
+    if ($("v-transfer").disabled) return;
     const [si, g] = app.visible[app.current];
-    startPlan([keyOf(app.data.systems[si], g)], `${g.t} (${app.data.systems[si].code}/${g.f})`);
+    const sys = app.data.systems[si];
+    if (isOnCard(sys, g)) {
+      toast(`Already on ${devName()}`, 2500);
+      syncTransferButton();
+      return;
+    }
+    startPlan([keyOf(sys, g)], `${g.t} (${sys.code}/${g.f})`);
   });
   $("v-delete").addEventListener("click", openRemove);
   bindGameView({ open: openViewer, reload: reloadGame });
