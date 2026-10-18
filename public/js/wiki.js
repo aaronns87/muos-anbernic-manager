@@ -388,7 +388,8 @@ const ARTICLES = [
     ["Presets and recommendations", `<p>For cores with curated profiles, <b>Fastest</b>, <b>Balanced</b> and <b>Best looking</b> fill in the settings for you.
       Known heavy games get a recommendation with a short reason, for example Fastest with the performance governor for God of War. It is a starting
       point for your handheld's chip: play a few minutes, then adjust. Curated settings say whether they buy <i>Speed</i>, <i>Looks</i> or both.
-      Other cores show the full device catalogue without presets.</p>
+      Other cores show the full device catalogue without presets. The Assistant can suggest the same starting point when a game is open, and can
+      point you to Libretro docs/forums and Reddit (<b>r/RetroArch</b>, <b>r/SBCGaming</b>, <b>r/muOS</b>) to search for community tips by game and core name.</p>
       <p><i>Default</i> means the value the game uses today, from its folder's or core's options, or from PPSSPP's own settings.</p>`],
     ["Save and undo", `<p><b>Save to handheld</b> writes the game's own settings file. It starts as a copy of what the game used before, so only the
       settings you changed differ; PPSSPP's buttons are kept too. <b>Use folder settings</b> removes the game's own file and governor again. For

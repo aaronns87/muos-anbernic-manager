@@ -40,6 +40,9 @@ version.
 
 ### Changed
 
+- **Assistant Game Tuning tips.** Default prompt and knowledge base guide performance questions toward Game Tuning
+  presets/recommendations (and inject the matched tip when a game is open). For community per-game RetroArch settings,
+  the assistant points to Libretro docs/forums and Reddit (r/RetroArch, r/SBCGaming, r/muOS) rather than inventing keys.
 - **Device Settings** is renamed **Device**, with **Settings** (MustardOS options) and **Benchmark** tabs.
 - **Settings tabs.** Settings is split into Folders, Behaviour, Assistant, Data and Resets, with a short blurb for each
   tab and clearer panel intros.

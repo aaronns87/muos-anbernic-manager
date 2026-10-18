@@ -230,6 +230,15 @@ Pick system then game (Tuned badge). Any RetroArch core: full `.opt` catalogue f
 
 Presets Fastest / Balanced / Best looking and recommendations for profiled cores; other cores show the device catalogue without presets. Save to handheld; Use folder settings. Paths: `info/config/<core>/<game>.opt`, PPSSPP `.../SYSTEM/<discID>_ppsspp.ini`, governor `info/content/<folder>/<game>.gov`.
 
+**Recommendations**: for known heavy/light PSP and N64 titles (and system fallbacks for PS / Dreamcast), Game Tuning shows a starting preset and note. Prefer that over inventing option keys. The Assistant also gets the matched tip when a game is open in the viewer.
+
+**Finding settings online**: there is no single official per-game RetroArch database. Point people to search the game title plus the core name (PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP, Gambatte, etc.):
+- Libretro docs for what each core option means: https://docs.libretro.com/
+- Libretro forums (core threads and overrides): https://forums.libretro.com/
+- Reddit r/RetroArch and r/SBCGaming (handheld performance tips)
+- Reddit r/muOS for MustardOS-specific advice
+Map community tips onto options that exist in Game Tuning / Core options; do not invent keys. Apply under Game Tuning or the game viewer Handheld tab.
+
 **Cheats**: tick and Save cheats. RetroArch from libretro DB by filename; PPSSPP from MustardOS or DB by disc ID. Apply cheats after game load may need enabling (MustardOS default off). Remove cheats deletes RA .cht. Close game before saving cheats; cheats can break saves.
 
 ## system - System Tools

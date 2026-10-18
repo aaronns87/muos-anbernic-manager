@@ -10,6 +10,7 @@ import { sshStatus } from "./device/ssh.ts";
 import { findCards, withTarget } from "./device/target.ts";
 import { UserError } from "./errors.ts";
 import { getLibrary, type Game, type Library, type System } from "./games/library.ts";
+import { RECOMMENDATIONS, type Recommendation } from "./tuning/profiles.ts";
 
 const human = (n: number) => {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -41,6 +42,8 @@ Rules:
 - Prefer facts from the CONTEXT block over your own memory. CONTEXT includes the manager knowledge base — treat it as ground truth for UI paths, tabs and connections. If context is missing, say so briefly.
 - Help with the manager UI, connections (card reader / USB / Wi-Fi), TF2/SD cards, copying games, artwork, apps, themes, and the user's Roms library.
 - For retro game recommendations, descriptions, genres and related titles, use LaunchBox metadata and library hits in CONTEXT.
+- For RetroArch / PPSSPP performance or "best settings" for a game: prefer Game Tuning tips in CONTEXT (presets Fastest / Balanced / Best looking, and any matched recommendation). Tell the user to apply them under Game Tuning or the game viewer Handheld tab (Core options). Do not invent Menu+X option keys that are not in CONTEXT; if unsure, say to open Game Tuning and try the recommended preset.
+- You cannot search the web. If the user wants community per-game RetroArch tips, point them to the sites listed under finding settings in the knowledge base (Libretro docs/forums, Reddit r/RetroArch and r/SBCGaming, r/muOS for MustardOS). Suggest searching the game title plus the core name (e.g. PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP).
 - Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
 - Do NOT invent buttons, tabs or menus that are not in the knowledge base.
 - You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
@@ -318,6 +321,54 @@ function scoreGame(sys: System, g: Game, meta: Library["meta"], tokens: string[]
   return score;
 }
 
+const PRESET_LABEL: Record<string, string> = { speed: "Fastest", balanced: "Balanced", quality: "Best looking" };
+
+/** Profile ids that Game Tuning recommendations may apply to for a ROM folder code. */
+const FOLDER_PROFILES: Record<string, string[]> = {
+  PSP: ["ppsspp", "ppsspp-lr"],
+  N64: ["mupen64plus"],
+  PS: ["pcsx-rearmed", "swanstation", "duckstation"],
+  DC: ["flycast"],
+  NAOMI: ["flycast"],
+  ATOMISWAVE: ["flycast"],
+};
+
+function matchRecommendation(title: string, profiles: string[] | null): Recommendation | null {
+  const name = title.toLowerCase();
+  for (const r of RECOMMENDATIONS) {
+    if (profiles && !r.profiles.some((p) => profiles.includes(p))) continue;
+    if (r.match) {
+      if (!new RegExp(r.match, "i").test(name)) continue;
+    } else if (!profiles) {
+      continue;
+    }
+    return r;
+  }
+  return null;
+}
+
+function tuningHintsBlock(title: string, folderCode: string): string {
+  const profiles = FOLDER_PROFILES[folderCode] || null;
+  const rec = matchRecommendation(title, profiles);
+  const lines = [
+    `### Game Tuning tips`,
+    `Apply under Game Tuning or the game viewer Handheld > Core options (Wi-Fi + SSH). Presets: Fastest, Balanced, Best looking (profiled cores). CPU governor is separate.`,
+  ];
+  if (rec) {
+    const preset = PRESET_LABEL[rec.preset] || rec.preset;
+    lines.push(
+      `Matched recommendation for "${title}": use preset ${preset}`
+      + (rec.gov ? ` with the ${rec.gov} governor` : "")
+      + ` (${rec.profiles.join(", ")}). Note: ${rec.note}`,
+    );
+  } else if (profiles) {
+    lines.push(`No title-specific recommendation; for ${folderCode} start from Balanced (or Fastest for Dreamcast/Flycast) in Game Tuning, then adjust.`);
+  } else {
+    lines.push(`No curated preset for this system; use Menu+X / Core options from the handheld catalogue, or community tips (see knowledge: finding settings).`);
+  }
+  return lines.join("\n");
+}
+
 function libraryBlock(lib: Library, userText: string, gameKey: string): string {
   const lines: string[] = [
     `## Library`,
@@ -335,6 +386,7 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
         lines.push(`LaunchBox: ${m.n}${m.y ? ` (${m.y})` : ""}; genre: ${m.g || " -"}; developer: ${m.dev || " -"}; publisher: ${m.pub || " -"}${m.r != null ? `; rating ${m.r}` : ""}.`);
         if (m.d) lines.push(`Description: ${m.d.slice(0, 900)}${m.d.length > 900 ? "..." : ""}`);
       }
+      lines.push(tuningHintsBlock(g.t, sys.code));
     }
   }
   const tokens = userText.toLowerCase().replace(/[^a-z0-9+#.\s-]/g, " ").split(/\s+/).filter((t) => t.length > 1);
