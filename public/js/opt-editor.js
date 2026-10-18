@@ -40,7 +40,7 @@ export function optRowHtml(s, draftVal, base, { disabled = false, dataKey = "opt
     const opts = [...s.options];
     if (d && !opts.some(([o]) => o === d)) opts.push([d, `${d} (on the handheld)`]);
     control = `<select class="control${d ? " active" : ""}" data-${dataKey}="${esc(s.key)}"${disabled ? " disabled" : ""}>
-      <option value="">Default: ${esc(optionLabel(s, inh) || "—")}</option>
+      <option value="">Default: ${esc(optionLabel(s, inh) || "-")}</option>
       ${opts.map(([v, l]) => `<option value="${esc(v)}"${d === v ? " selected" : ""}>${esc(l)}</option>`).join("")}
     </select>`;
   } else {

@@ -201,7 +201,7 @@ export async function startChdConvert(body: Record<string, unknown>) {
     running: true, started: Date.now(), finished: 0, done: 0, total: files.length, current: "",
     error: "", converted: 0, failed: [], trashed: 0,
   });
-  say("cyan", "CHD", `Converting ${files.length} PlayStation sheet${files.length === 1 ? "" : "s"}…`);
+  say("cyan", "CHD", `Converting ${files.length} PlayStation sheet${files.length === 1 ? "" : "s"}...`);
 
   void (async () => {
     try {

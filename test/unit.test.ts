@@ -15,6 +15,7 @@ import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
 import { collectionItem, fnv1a, romOf } from "../src/play.ts";
+import { parseInputDevices, pickStickDevice, pickButtonDevice } from "../src/device/controls.ts";
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
@@ -797,4 +798,55 @@ test("CHD helpers: eligibility, trash file set, install help, and chdman probe s
   assert.equal(typeof tool.present, "boolean");
   assert.equal(typeof tool.path, "string");
   assert.equal(typeof tool.version, "string");
+});
+
+test("parseInputDevices finds stick event nodes", () => {
+  const text = `I: Bus=0000 Vendor=0001 Product=0001 Version=0001
+N: Name="muOS Gamepad"
+P: Phys=
+S: Sysfs=/devices/virtual/input/input0
+U: Uniq=
+H: Handlers=event0 js0
+B: PROP=0
+B: EV=b
+B: KEY=7fff0000 0 0 0 0
+B: ABS=3
+`;
+  const list = parseInputDevices(text);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].path, "/dev/input/event0");
+  assert.deepEqual(list[0].abs, [0, 1]);
+  assert.equal(list[0].role, "mixed");
+  assert.ok(list[0].score > 0);
+});
+
+test("parseInputDevices prefers gamepad over muOS-Keys for sticks", () => {
+  const text = `I: Bus=0000 Vendor=0001 Product=0001 Version=0001
+N: Name="muOS-Keys"
+P: Phys=
+S: Sysfs=/devices/virtual/input/input1
+U: Uniq=
+H: Handlers=event1
+B: PROP=0
+B: EV=3
+B: KEY=1fffff ffffffff ffffffff ffffffff
+
+I: Bus=0000 Vendor=0001 Product=0002 Version=0001
+N: Name="muOS Gamepad"
+P: Phys=
+S: Sysfs=/devices/virtual/input/input0
+U: Uniq=
+H: Handlers=event0 js0
+B: PROP=0
+B: EV=b
+B: KEY=7fff0000 0 0 0 0
+B: ABS=1b
+`;
+  const list = parseInputDevices(text);
+  const stick = pickStickDevice(list);
+  const buttons = pickButtonDevice(list, stick);
+  assert.equal(stick?.path, "/dev/input/event0");
+  assert.equal(stick?.name, "muOS Gamepad");
+  assert.ok(buttons);
+  assert.notEqual(list[0]?.name, "muOS-Keys");
 });

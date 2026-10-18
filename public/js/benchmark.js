@@ -1,4 +1,4 @@
-// Device › Benchmark: connectivity, storage speed and a short CPU/thermal load over SSH.
+// Device > Benchmark: connectivity, storage speed and a short CPU/thermal load over SSH.
 
 import { $, api, esc, human, icon, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
@@ -56,7 +56,7 @@ export function renderBenchmark() {
     <button class="btn primary" data-bench="run-selected"${busy ? " disabled" : ""}>${icon("play")}<span>Run selected</span></button>
     <button class="btn" data-bench="run-all"${busy ? " disabled" : ""}>${icon("layers")}<span>Run all</span></button>
     <button class="btn danger" data-bench="stop"${running() ? "" : " disabled"}>${icon("stop")}<span>Stop</span></button>
-    ${busy ? `<span class="muted-note"><span class="spinner sm"></span> Working…</span>` : ""}
+    ${busy ? `<span class="muted-note"><span class="spinner sm"></span> Working...</span>` : ""}
   </div>`;
   box.innerHTML = `<div class="hh-bench">
     <section class="panel full">
@@ -76,7 +76,7 @@ function statusPanel(run) {
   if (!run || run.state === "idle") {
     return `<section class="panel full"><h2>Status</h2><p class="muted-note">Pick tests and press <b>Run selected</b> or <b>Run all</b>.</p></section>`;
   }
-  const label = run.state === "running" ? `Running${run.current ? ` · ${esc(run.current)}` : ""}`
+  const label = run.state === "running" ? `Running${run.current ? `  -  ${esc(run.current)}` : ""}`
     : run.state === "error" ? "Finished with errors"
     : "Finished";
   const pill = run.state === "running" ? "warn" : run.state === "error" ? "bad" : "ok";
@@ -110,14 +110,14 @@ function connectHtml(c) {
   if (!c.ok) return `<div class="hh-bench-card"><h3>Connectivity</h3><p class="notice err">${esc(c.error || "Failed")}</p></div>`;
   const stores = (c.storage || []).map((s) =>
     `<li><b>${esc(s.name)}</b> ${human(s.free)} free of ${human(s.total)}</li>`).join("") || "<li>No SD1/TF2 mounts reported</li>";
-  const load = (c.load || []).map((n) => n.toFixed(2)).join(" · ") || "—";
-  const batt = c.battery ? `${c.battery.percent}% (${esc(c.battery.status)})` : "—";
-  const up = c.uptime ? `${Math.floor(c.uptime / 3600)}h ${Math.floor((c.uptime % 3600) / 60)}m` : "—";
+  const load = (c.load || []).map((n) => n.toFixed(2)).join(", ") || "-";
+  const batt = c.battery ? `${c.battery.percent}% (${esc(c.battery.status)})` : "-";
+  const up = c.uptime ? `${Math.floor(c.uptime / 3600)}h ${Math.floor((c.uptime % 3600) / 60)}m` : "-";
   return `<div class="hh-bench-card"><h3>Connectivity</h3>
     <dl class="kv">
-      <dt>SSH latency</dt><dd>${c.latencyMs != null ? `${c.latencyMs} ms` : "—"}</dd>
-      <dt>Host</dt><dd>${esc(c.host || "—")}${c.ip ? ` · ${esc(c.ip)}` : ""}</dd>
-      <dt>Hostname</dt><dd>${esc(c.hostname || "—")}</dd>
+      <dt>SSH latency</dt><dd>${c.latencyMs != null ? `${c.latencyMs} ms` : "-"}</dd>
+      <dt>Host</dt><dd>${esc(c.host || "-")}${c.ip ? ` (${esc(c.ip)})` : ""}</dd>
+      <dt>Hostname</dt><dd>${esc(c.hostname || "-")}</dd>
       <dt>Uptime</dt><dd>${esc(up)}</dd>
       <dt>Load</dt><dd>${esc(load)}</dd>
       <dt>Battery</dt><dd>${esc(batt)}</dd>
@@ -129,7 +129,7 @@ function storageHtml(rows) {
   const body = rows.map((r) => {
     if (r.skipped) return `<tr><td>${esc(r.name)}</td><td colspan="2">${esc(r.skipped)}</td></tr>`;
     if (r.error) return `<tr><td>${esc(r.name)}</td><td colspan="2" class="err">${esc(r.error)}</td></tr>`;
-    return `<tr><td>${esc(r.name)}</td><td>${r.writeMBps != null ? `${r.writeMBps} MB/s` : "—"}</td><td>${r.readMBps != null ? `${r.readMBps} MB/s` : "—"}</td></tr>`;
+    return `<tr><td>${esc(r.name)}</td><td>${r.writeMBps != null ? `${r.writeMBps} MB/s` : "-"}</td><td>${r.readMBps != null ? `${r.readMBps} MB/s` : "-"}</td></tr>`;
   }).join("");
   return `<div class="hh-bench-card"><h3>Storage speed</h3>
     <table class="hh-bench-table"><thead><tr><th>Card</th><th>Write</th><th>Read</th></tr></thead><tbody>${body}</tbody></table></div>`;
@@ -140,9 +140,9 @@ function cpuHtml(c) {
   return `<div class="hh-bench-card"><h3>CPU and thermal</h3>
     <dl class="kv">
       <dt>Duration</dt><dd>${(c.durationMs / 1000).toFixed(1)} s${c.stopped ? " (stopped)" : ""}</dd>
-      <dt>Peak CPU</dt><dd>${c.peakCpu != null ? `${c.peakCpu}%` : "—"}</dd>
-      <dt>Average CPU</dt><dd>${c.avgCpu != null ? `${c.avgCpu}%` : "—"}</dd>
-      <dt>Peak temperature</dt><dd>${c.peakTemp != null ? `${c.peakTemp.toFixed(1)} °C` : "—"}</dd>
+      <dt>Peak CPU</dt><dd>${c.peakCpu != null ? `${c.peakCpu}%` : "-"}</dd>
+      <dt>Average CPU</dt><dd>${c.avgCpu != null ? `${c.avgCpu}%` : "-"}</dd>
+      <dt>Peak temperature</dt><dd>${c.peakTemp != null ? `${c.peakTemp.toFixed(1)} C` : "-"}</dd>
       <dt>Samples</dt><dd>${(c.samples || []).length}</dd>
     </dl></div>`;
 }
@@ -180,7 +180,7 @@ async function start(tests) {
 async function stop() {
   try {
     B.run = await api("handheld/benchmark/stop", {});
-    toast("Stopping…", 2000);
+    toast("Stopping...", 2000);
   } catch (error) {
     toast(error.message, 3500);
   }

@@ -111,7 +111,7 @@ const maxTemp = (temps: { c: number }[]) => {
 async function runConnect(phase: Phase): Promise<void> {
   phase.state = "running";
   run.current = "connect";
-  note("Checking SSH and reading device status…", phase);
+  note("Checking SSH and reading device status...", phase);
   const t0 = Date.now();
   try {
     const status = await sshStatus();
@@ -134,7 +134,7 @@ async function runConnect(phase: Phase): Promise<void> {
         .filter((s) => s.mount === "/mnt/mmc" || s.mount === "/mnt/sdcard")
         .map((s) => ({ name: s.name, mount: s.mount, free: s.free, total: s.total })),
     };
-    note(`SSH ok in ${latencyMs} ms · ${stats.hostname || status.host}${stats.ip ? ` (${stats.ip})` : ""}`, phase);
+    note(`SSH ok in ${latencyMs} ms  -  ${stats.hostname || status.host}${stats.ip ? ` (${stats.ip})` : ""}`, phase);
     phase.state = "done";
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -165,30 +165,35 @@ async function speedOne(mount: string, name: string, free: number, phase: Phase)
   }
   const dir = `${mount}/${BENCH_DIR}`;
   const file = `${dir}/${FILE_NAME}`;
+  // BusyBox `date` has no %N; time with /proc/uptime (seconds, fractional).
   const script = [
     `mkdir -p '${dir}'`,
     `rm -f '${file}'`,
-    `START=$(date +%s%N)`,
+    `W0=$(awk '{print $1}' /proc/uptime)`,
     `dd if=/dev/zero of='${file}' bs=1M count=${SIZE_MB} conv=fsync 2>/dev/null || dd if=/dev/zero of='${file}' bs=1M count=${SIZE_MB} 2>/dev/null`,
     `sync`,
-    `END=$(date +%s%N)`,
-    `echo WRITE:$((END-START))`,
-    `START=$(date +%s%N)`,
+    `W1=$(awk '{print $1}' /proc/uptime)`,
+    `echo WRITE:$W0:$W1`,
+    `R0=$(awk '{print $1}' /proc/uptime)`,
     `dd if='${file}' of=/dev/null bs=1M 2>/dev/null`,
-    `END=$(date +%s%N)`,
-    `echo READ:$((END-START))`,
+    `R1=$(awk '{print $1}' /proc/uptime)`,
+    `echo READ:$R0:$R1`,
     `rm -f '${file}'`,
     `rmdir '${dir}' 2>/dev/null || true`,
   ].join("; ");
-  note(`${name}: writing and reading ${SIZE_MB} MB…`, phase);
+  note(`${name}: writing and reading ${SIZE_MB} MB...`, phase);
   try {
     const { out, err, code } = await runCommand(`sh -c ${JSON.stringify(script)}`, 60_000);
     if (code && code !== 0) throw new UserError(err.trim() || `Storage test failed on ${name} (exit ${code}).`);
-    const writeNs = Number(/WRITE:(\d+)/.exec(out)?.[1] || 0);
-    const readNs = Number(/READ:(\d+)/.exec(out)?.[1] || 0);
-    const mbps = (ns: number) => (ns > 0 ? Math.round((SIZE_MB / (ns / 1e9)) * 10) / 10 : null);
-    const writeMBps = mbps(writeNs), readMBps = mbps(readNs);
-    note(`${name}: write ${writeMBps ?? "?"} MB/s · read ${readMBps ?? "?"} MB/s`, phase);
+    const span = (kind: string) => {
+      const m = new RegExp(`${kind}:([0-9.]+):([0-9.]+)`).exec(out);
+      if (!m) return 0;
+      const sec = Number(m[2]) - Number(m[1]);
+      return Number.isFinite(sec) && sec > 0 ? sec : 0;
+    };
+    const mbps = (sec: number) => (sec > 0 ? Math.round((SIZE_MB / sec) * 10) / 10 : null);
+    const writeMBps = mbps(span("WRITE")), readMBps = mbps(span("READ"));
+    note(`${name}: write ${writeMBps ?? "?"} MB/s, read ${readMBps ?? "?"} MB/s`, phase);
     return { mount, name, writeMBps, readMBps };
   } catch (error) {
     await runCommand(`rm -f '${file}'; rmdir '${dir}' 2>/dev/null || true`, 8_000).catch(() => {});
@@ -201,7 +206,7 @@ async function speedOne(mount: string, name: string, free: number, phase: Phase)
 async function runStorage(phase: Phase): Promise<void> {
   phase.state = "running";
   run.current = "storage";
-  note("Measuring storage write/read speed…", phase);
+  note("Measuring storage write/read speed...", phase);
   const targets = await mountedTargets();
   if (!targets.length) {
     phase.storage = [];
@@ -229,8 +234,8 @@ async function killStress(): Promise<void> {
   run.stressPid = "";
   const parts = [
     "pkill -f muos-bench-cpu 2>/dev/null",
-    "killall yes 2>/dev/null",
-    pid ? `kill -TERM ${pid} 2>/dev/null; kill -KILL ${pid} 2>/dev/null` : "",
+    pid ? `kill -TERM -${pid} 2>/dev/null; kill -KILL -${pid} 2>/dev/null; kill -TERM ${pid} 2>/dev/null; kill -KILL ${pid} 2>/dev/null` : "",
+    "rm -f /tmp/muos-bench-cpu.pid",
     "true",
   ].filter(Boolean);
   await runCommand(parts.join("; "), 8_000).catch(() => {});
@@ -239,7 +244,7 @@ async function killStress(): Promise<void> {
 async function runCpu(phase: Phase): Promise<void> {
   phase.state = "running";
   run.current = "cpu";
-  note(`Loading CPUs for up to ${CPU_SECONDS} seconds…`, phase);
+  note(`Loading CPUs for up to ${CPU_SECONDS} seconds...`, phase);
   const before = await deviceStats();
   if (before.battery && before.battery.percent > 0 && before.battery.percent < 15) {
     const message = `Battery is at ${before.battery.percent}%. Charge above 15% before a CPU test.`;
@@ -248,17 +253,23 @@ async function runCpu(phase: Phase): Promise<void> {
     note(message, phase);
     throw new UserError(message);
   }
-  // Background shell owns yes workers; marker string lets Stop pkill the group.
+  // BusyBox-safe workers (no `yes`/`nproc`): setsid so SSH close does not kill them.
+  // Do not put `;` after `&` (ash: unexpected ";").
   const start = await runCommand(
     [
-      "pkill -f muos-bench-cpu 2>/dev/null; true",
-      `( sh -c 'echo muos-bench-cpu >/dev/null; n=$(nproc 2>/dev/null || echo 4); i=0; while [ "$i" -lt "$n" ]; do yes >/dev/null & i=$((i+1)); done; wait' ) >/dev/null 2>&1 & echo $!`,
+      "pkill -f muos-bench-cpu 2>/dev/null || true",
+      "rm -f /tmp/muos-bench-cpu.pid",
+      "setsid sh -c 'echo muos-bench-cpu >/dev/null; echo $$ >/tmp/muos-bench-cpu.pid; n=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 4); i=0; while [ \"$i\" -lt \"$n\" ]; do while true; do :; done & i=$((i+1)); done; wait' </dev/null >/dev/null 2>&1 & sleep 1",
+      "cat /tmp/muos-bench-cpu.pid 2>/dev/null || echo @fail",
     ].join("; "),
-    8_000,
+    12_000,
   );
-  const pid = (start.out.trim().match(/\d+/g) || []).pop() || "";
-  if (!pid) {
-    const message = "Could not start the CPU load on the handheld.";
+  const pid = (/^\d+$/m.exec(start.out.trim()) || [])[0] || "";
+  if (!pid || start.out.includes("@fail")) {
+    const detail = start.err.trim() || start.out.trim().slice(0, 200);
+    const message = detail
+      ? `Could not start the CPU load on the handheld. ${detail}`
+      : "Could not start the CPU load on the handheld.";
     phase.cpu = { durationMs: 0, peakCpu: null, avgCpu: null, peakTemp: null, samples: [], stopped: false, error: message };
     phase.state = "error";
     note(message, phase);
@@ -281,7 +292,7 @@ async function runCpu(phase: Phase): Promise<void> {
           temp: maxTemp(s.temps || []),
         });
         const last = samples[samples.length - 1];
-        note(`CPU ${last.cpu ?? "?"}% · ${last.mhz || "?"} MHz · ${last.temp != null ? `${last.temp.toFixed(1)} °C` : "no temp"} · ${last.governor || "governor?"}`, phase);
+        note(`CPU ${last.cpu ?? "?"}% / ${last.mhz || "?"} MHz / ${last.temp != null ? `${last.temp.toFixed(1)} C` : "no temp"} / ${last.governor || "governor?"}`, phase);
       } catch (error) {
         note(error instanceof Error ? error.message : String(error), phase);
       }
@@ -304,7 +315,7 @@ async function runCpu(phase: Phase): Promise<void> {
   note(
     run.stopRequested
       ? `CPU test stopped after ${(durationMs / 1000).toFixed(1)} s.`
-      : `CPU test finished · peak ${phase.cpu.peakCpu ?? "?"}% · peak ${phase.cpu.peakTemp != null ? `${phase.cpu.peakTemp.toFixed(1)} °C` : "temp n/a"}.`,
+      : `CPU test finished: peak ${phase.cpu.peakCpu ?? "?"}% / peak ${phase.cpu.peakTemp != null ? `${phase.cpu.peakTemp.toFixed(1)} C` : "temp n/a"}.`,
     phase,
   );
 }
@@ -376,7 +387,7 @@ export function startBenchmark(body: Record<string, unknown>) {
 export async function stopBenchmark() {
   if (run.state !== "running") return publicRun();
   run.stopRequested = true;
-  note("Stop requested…");
+  note("Stop requested...");
   await killStress();
   await chain.catch(() => {});
   return publicRun();

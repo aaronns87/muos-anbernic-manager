@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Full RetroArch Menu+X options, Device Benchmark, Settings tabs |
+| [Unreleased](#unreleased) | | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
 | [1.2.2](#122---2026-10-15) | 2026-10-15 | Transfers panel with a queue, history and per-file progress |
@@ -25,6 +25,9 @@ version.
 
 ### Added
 
+- **Device › Controls.** Third Device tab: live analog stick pads and button lights over SSH, a guided
+  `joycal` calibration wizard (experimental MustardOS tool) with review/apply of `joycal.json`, manual JSON edit, and
+  system input settings (menu stick navigation, D-pad swap, rumble). Close games before calibrating.
 - **Full RetroArch core options (Menu+X parity).** Emulation → RetroArch keeps picture and play (`.cfg`) and adds a
   searchable **Core options** block (`.opt`) per folder or core, built from options on the handheld with curated labels
   for known cores. Game Tuning shows the full catalogue for any RetroArch core (presets still for profiled ones). The
@@ -40,10 +43,12 @@ version.
 
 ### Changed
 
+- **Assistant knows the selected handheld.** Each chat turn includes the Overview model (name, chip, screen, Wi-Fi) in
+  CONTEXT so answers can match that device; falls back to the Wi-Fi-detected board when needed.
 - **Assistant Game Tuning tips.** Default prompt and knowledge base guide performance questions toward Game Tuning
   presets/recommendations (and inject the matched tip when a game is open). For community per-game RetroArch settings,
   the assistant points to Libretro docs/forums and Reddit (r/RetroArch, r/SBCGaming, r/muOS) rather than inventing keys.
-- **Device Settings** is renamed **Device**, with **Settings** (MustardOS options) and **Benchmark** tabs.
+- **Device Settings** is renamed **Device**, with **Settings**, **Controls** and **Benchmark** tabs.
 - **Settings tabs.** Settings is split into Folders, Behaviour, Assistant, Data and Resets, with a short blurb for each
   tab and clearer panel intros.
 - Wiki, README and assistant knowledge updated for Menu+X core options, Settings tabs, Device/Benchmark and the Assistant
@@ -52,6 +57,14 @@ version.
 
 ### Fixed
 
+- UI text that showed as diamond question marks (invalid Latin-1 bytes in JS/TS served as UTF-8), including Benchmark
+  separators and several other recently edited scripts; CPU Benchmark stress no longer depends on BusyBox `yes`.
+- Device Controls defaults to the gamepad/joystick input node (not muOS-Keys), samples face buttons from a Keys node when
+  needed, and maps Nintendo-style A/B labels. Benchmark storage timing uses `/proc/uptime` (BusyBox has no `date %N`);
+  CPU load start no longer puts `;` after `&` (BusyBox ash syntax error).
+- Assistant chat Markdown: treat `**Title` / `**Title**` lines as headings, render tab-separated tables, keep bold
+  on one line, and strip leftover `**` so broken model markup does not show raw asterisks. Prompt asks for pipe
+  tables and closed bold.
 - Assistant panel no longer sits under the top bar after Transfers was opened: closing Transfers clears its height
   offset, and the chat dock only lifts for Transfers while that panel is open.
 - Top-bar **Show Transfers** stays available after finished transfers are cleared (it no longer required history to appear).

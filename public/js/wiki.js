@@ -58,7 +58,7 @@ const ARTICLES = [
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
-      <tr><td>Install or uninstall apps, Device (settings and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
@@ -205,13 +205,17 @@ const ARTICLES = [
           <i>Newer than GitHub</i> means your copy came from somewhere else with its own numbering; nothing to do.</li>
       </ul>`],
   ]],
-  ["handheld", "sliders", "Device", "handheld", "MustardOS settings and a Benchmark suite on the handheld over SSH.", [
-    ["The tabs", `<p><b>Settings</b> is the MustardOS options (same as before). <b>Benchmark</b> runs connectivity, storage and a short CPU load to
-      troubleshoot the handheld. Both need Wi-Fi with Secure Shell on.</p>`],
+  ["handheld", "sliders", "Device", "handheld", "MustardOS settings, Controls and Benchmark on the handheld over SSH.", [
+    ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
+      <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
     ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
       changed over Wi-Fi with SSH. Change as many as you like; they are written together when you save. Each option says when the change takes
       effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
       <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.</p>`],
+    ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
+      MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
+      You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).
+      Close games before calibrating. Per-game RetroArch remaps stay under Emulation / Game Tuning / Menu+X.</p>`],
     ["Benchmark", `<p>Pick <b>Connectivity</b> (SSH latency, free space, uptime, battery), <b>Storage speed</b> (timed write/read of a temporary
       32&nbsp;MB file on SD1 and TF2), and/or <b>CPU and thermal</b> (loads all cores for up to 20 seconds while sampling usage and temperature).
       <b>Run selected</b> or <b>Run all</b>; <b>Stop</b> aborts a long run. Storage files live under <code>.muos-bench/</code> and are deleted afterwards.

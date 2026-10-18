@@ -44,7 +44,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 | --- | --- |
 | Copy games, artwork, packages; Files | Card reader, USB or Wi-Fi |
 | Play time, Recently played, Collections | USB or Wi-Fi (live on SD1 inside handheld) |
-| Install/uninstall apps, Device (settings + benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH | Wi-Fi with Secure Shell on |
+| Install/uninstall apps, Device (settings + controls + benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH | Wi-Fi with Secure Shell on |
 | Install MustardOS or wipe a card in a reader | Card reader |
 | Set up TF2 / Reset card on TF2 | Card reader, or Wi-Fi with SSH |
 | Library check, Updates, App market downloads, adding to Roms/ | This computer only |
@@ -156,11 +156,15 @@ MustardOS site + GitHub. Check now. MustardOS: newest release vs handheld; point
 
 ## handheld - Device
 
-Sidebar **Device** (was Device Settings). Both tabs need Wi-Fi + Secure Shell.
+Sidebar **Device** (was Device Settings). Tabs need Wi-Fi + Secure Shell.
 
 ### Settings tab
 
 Same options as handheld Configuration screens (General, Power, Interface, Customisation, ...). Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options.
+
+### Controls tab
+
+Live analog stick pads and button lights sampled over SSH. **Calibrate analogs** runs MustardOS experimental `joycal` (rest, then circles), review/apply `/opt/muos/share/conf/joycal.json`, or edit/remove that file. Input settings: menu stick navigation, D-pad swap, rumble. Close games before calibrating. Per-game RetroArch remaps stay in Emulation / Game Tuning / Menu+X.
 
 ### Benchmark tab
 
@@ -328,7 +332,7 @@ Free keys: Groq console.groq.com (`openai/gpt-oss-20b` default, `openai/gpt-oss-
 
 ### Good at
 
-Manager UI from this knowledge base + current section; Roms library and LaunchBox when included; open-game description / library recommendations; connection status without passwords.
+Manager UI from this knowledge base + current section; selected handheld model (name, chip, screen, Wi-Fi); Roms library and LaunchBox when included; open-game description / library recommendations / Game Tuning tip; connection status without passwords.
 
 ### Must not
 

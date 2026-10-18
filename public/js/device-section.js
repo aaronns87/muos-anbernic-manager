@@ -1,11 +1,13 @@
-// Device section: Settings (MustardOS options) and Benchmark tabs.
+// Device section: Settings, Controls and Benchmark tabs.
 
 import { $, icon, store } from "./core.js";
 import { showHandheld, renderHandheld, clearHandheldBar } from "./handheld.js";
 import { showBenchmark, renderBenchmark } from "./benchmark.js";
+import { showControls, renderControls, hideControls } from "./controls.js";
 
 const TABS = [
   ["settings", "sliders", "Settings", "MustardOS settings on the handheld, changed over SSH"],
+  ["controls", "gamepad", "Controls", "Live sticks, analog calibration and system input settings over SSH"],
   ["benchmark", "gauge", "Benchmark", "Connectivity, storage speed and a short CPU load over Wi-Fi with SSH"],
 ];
 
@@ -34,16 +36,22 @@ export function showDevice() {
   $("hh-sub").textContent = sub;
   $("hh-actions").innerHTML = "";
   const settings = id === "settings";
+  const controls = id === "controls";
   $("handheld").hidden = !settings;
-  $("hh-bench").hidden = settings;
+  $("hh-controls").hidden = !controls;
+  $("hh-bench").hidden = id !== "benchmark";
   if (!settings) clearHandheldBar();
+  if (!controls) hideControls();
   if (settings) showHandheld();
+  else if (controls) showControls();
   else showBenchmark();
 }
 
 /** Redraws the open Device tab when the connection changes. */
 export function renderDeviceSection() {
   if (!bound) return;
-  if (current()[0] === "settings") renderHandheld();
+  const id = current()[0];
+  if (id === "settings") renderHandheld();
+  else if (id === "controls") renderControls();
   else renderBenchmark();
 }

@@ -9,7 +9,9 @@ import { wifiStatus } from "./device/sftp.ts";
 import { sshStatus } from "./device/ssh.ts";
 import { findCards, withTarget } from "./device/target.ts";
 import { UserError } from "./errors.ts";
+import { byId, screenText } from "./devices.ts";
 import { getLibrary, type Game, type Library, type System } from "./games/library.ts";
+import { wifiModel } from "./device/model.ts";
 import { RECOMMENDATIONS, type Recommendation } from "./tuning/profiles.ts";
 
 const human = (n: number) => {
@@ -48,6 +50,9 @@ Rules:
 - Do NOT invent buttons, tabs or menus that are not in the knowledge base.
 - You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
 - Keep answers concise and practical. Use plain language.
+- When CONTEXT names a selected handheld, tailor performance, screen, Wi-Fi and Game Tuning advice to that model (chip, screen size, Wi-Fi or not). Do not assume a different handheld.
+- Format with simple Markdown the UI can render: short ## headings, bullet or numbered lists, **bold** only for short phrases on one line (always close **), and pipe tables (| col | col |) with a separator row. Do not use tab-separated tables or leave unmatched ** markers.
+- Game Tuning and Core options save only when the user clicks Save (they are not applied automatically).
 - Never ask for or repeat API keys or passwords.`;
 
 const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
@@ -268,6 +273,40 @@ function knowledgeBlock(section: string, sections: Record<string, KnowledgeSecti
   return parts.join("\n\n");
 }
 
+/** Selected handheld from the UI (deviceId), else the model detected on Wi-Fi when reachable. */
+async function handheldBlock(deviceId: string, wifiReachable: boolean): Promise<string> {
+  let d = byId(String(deviceId || "").trim());
+  let via = d ? "selected in the manager" : "";
+  if (!d && wifiReachable) {
+    const found = await wifiModel(true).catch(() => null);
+    if (found?.id) {
+      d = byId(found.id);
+      via = `detected over ${found.via}`;
+    } else if (found?.board) {
+      return [
+        "## Handheld",
+        `Board: ${found.board} (not in the manager's device list; detected over ${found.via}).`,
+        "Tailor advice to this board when discussing performance, screen and features.",
+      ].join("\n");
+    }
+  }
+  if (!d) {
+    return [
+      "## Handheld",
+      "No handheld model selected yet. Ask which Anbernic/TrimUI model they use if performance advice depends on it.",
+    ].join("\n");
+  }
+  const screen = `${d.inches % 1 ? d.inches : d.inches.toFixed(1)}" ${screenText(d)}`;
+  return [
+    "## Handheld",
+    `Selected model: ${d.name} (${d.id}), ${d.maker}; ${via || "selected in the manager"}.`,
+    `Chip: ${d.chip}; GPU: ${d.gpu}; RAM: ${d.ram / 1024} GB; screen: ${screen}; form: ${d.form}`
+      + `${d.sticks ? `, ${d.sticks} analog stick${d.sticks === 1 ? "" : "s"}` : ", no analog sticks"}`
+      + `; Wi-Fi: ${d.wifi ? "yes" : "no"}; card slots: ${d.slots}.`,
+    "Tailor performance, Game Tuning, PortMaster and connection advice to this handheld.",
+  ].join("\n");
+}
+
 async function connectionBlock(): Promise<string> {
   const lines: string[] = ["## Connection"];
   try {
@@ -417,10 +456,14 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
   return lines.join("\n");
 }
 
-async function buildContext(section: string, userText: string, gameKey: string, opts: ChatSettings): Promise<string> {
+async function buildContext(
+  section: string, userText: string, gameKey: string, opts: ChatSettings, deviceId: string,
+): Promise<string> {
   const { sections } = await loadKnowledge();
   const parts = [knowledgeBlock(section || "start", sections)];
   if (opts.includeConnection) parts.push(await connectionBlock());
+  const wifiReachable = !!(await wifiStatus().catch(() => null))?.reachable;
+  parts.push(await handheldBlock(deviceId, wifiReachable));
   if (opts.includeLibrary) {
     try {
       parts.push(libraryBlock(await getLibrary(), userText, gameKey));
@@ -461,7 +504,8 @@ export async function runChat(body: Record<string, unknown>) {
   if (!lastUser) throw new UserError("Type a message first.");
   const section = String(body.section ?? "").trim();
   const gameKey = String(body.gameKey ?? "").trim();
-  const context = await buildContext(section, lastUser.content, gameKey, s);
+  const deviceId = String(body.deviceId ?? "").trim();
+  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId);
   const payload = {
     model: s.model,
     temperature: s.temperature,

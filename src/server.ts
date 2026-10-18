@@ -28,6 +28,9 @@ import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
+import {
+  controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
+} from "./device/controls.ts";
 import { attachTerminal, deviceStats, forgetHostKey, power, saveSshSettings, SshError, sshStatus } from "./device/ssh.ts";
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "./device/muos-settings.ts";
 import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.ts";
@@ -359,6 +362,11 @@ const routes: Record<string, Handler> = {
   "GET /api/handheld/benchmark": () => benchmarkStatus(),
   "POST /api/handheld/benchmark": (_, body) => startBenchmark(body),
   "POST /api/handheld/benchmark/stop": () => stopBenchmark(),
+  "GET /api/controls": () => controlsSnapshot(),
+  "GET /api/controls/state": (q) => controlsState(q),
+  "GET /api/controls/joycal": () => readJoycal(),
+  "POST /api/controls/joycal": (_, body) => saveJoycal(body),
+  "POST /api/controls/calibrate": (_, body) => runCalibrate(body),
   "POST /api/ssh/power": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     await power(String(body.action ?? ""));

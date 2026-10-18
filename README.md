@@ -57,7 +57,8 @@ per-session token. Nothing is uploaded anywhere.
 **Handheld**
 - **Apps**: an app market of popular MustardOS apps with screenshots and release notes, picking the package for your
   handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
-- **Device**: change MustardOS settings from the computer, and run connectivity, storage and short CPU benchmarks over SSH.
+- **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run
+  connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
@@ -124,7 +125,7 @@ per-session token. Nothing is uploaded anywhere.
 <p align="center"><em>Apps: the app market with screenshots and release notes, picking the right package for your handheld.</em></p>
 
 <p align="center"><img src="docs/screenshots/handheld.jpg" width="100%" alt="Device"></p>
-<p align="center"><em>Device: Settings (MustardOS options) and Benchmark (connectivity, storage, CPU) over Wi-Fi with SSH.</em></p>
+<p align="center"><em>Device: Settings, Controls (live sticks and calibration) and Benchmark over Wi-Fi with SSH.</em></p>
 
 <p align="center"><img src="docs/screenshots/settings.jpg" width="100%" alt="Settings Assistant"></p>
 <p align="center"><em>Settings → Assistant: bring-your-own-key chat, Edit prompt and View knowledge base.</em></p>
