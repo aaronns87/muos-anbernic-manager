@@ -333,7 +333,8 @@ the tests and type check first, and keep changes that write to the handheld behi
 - [CHANGELOG.md](CHANGELOG.md): release notes and version history; add user-visible changes under **Unreleased**.
 - [docs/architecture.md](docs/architecture.md): module map, request flow, device access and the MustardOS paths used.
 - [AGENTS.md](AGENTS.md): short guide for coding agents; Cursor also picks up the rules in `.cursor/rules/` and the
-  task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing).
+  task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing). Codex uses copied rules
+  in `.codex/rules/` through `AGENTS.md` and copied skills in `.agents/skills/`. Keep both sets in sync.
 
 ## Credits
 
