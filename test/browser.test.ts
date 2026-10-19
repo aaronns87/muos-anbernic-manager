@@ -107,6 +107,7 @@ after(async () => {
 
 async function visit(width: number) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: width < 700 });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: width < 700 });
   const problems: string[] = [];
   const check = async (where: string) => {
     await new Promise((r) => setTimeout(r, 300));
@@ -134,7 +135,11 @@ async function visit(width: number) {
 }
 
 test("every section and Emulation tab renders without errors on desktop and phone", { skip: !CHROME && "Chrome not found" }, async () => {
-  const problems = [...(await visit(1440)), ...(await visit(420)), ...(await visit(390))];
+  const problems = [];
+  for (const width of [1440, 1024, 768, 420, 390, 320]) problems.push(...await visit(width));
+  await cdp.eval(`document.documentElement.dataset.theme = "light"`);
+  problems.push(...await visit(1440), ...await visit(390));
+  await cdp.eval(`document.documentElement.dataset.theme = "dark"`);
   assert.deepEqual(errors(), [], "script errors in the page");
   assert.deepEqual(problems, []);
 });
@@ -168,6 +173,52 @@ test("sidebar order and number keys follow the sections", { skip: !CHROME && "Ch
     await cdp.eval(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "${key}", bubbles: true }))`);
     await cdp.until(`location.hash === "#${want}"`);
   }
+});
+
+test("shared tabs support keyboard navigation and Settings folders use a desktop grid", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.eval(`location.hash = "#settings"`);
+  await cdp.until(`!!document.querySelector(".set-folders-grid")`);
+  assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.set-folders-grid')).gridTemplateColumns.split(' ').length >= 2`));
+  for (const [key, expected] of [["ArrowRight", "behaviour"], ["End", "resets"], ["ArrowRight", "folders"], ["ArrowLeft", "resets"], ["Home", "folders"]]) {
+    await cdp.eval(`(() => { const tab = document.querySelector('#settings-tabs [aria-selected="true"]'); tab.focus(); tab.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', bubbles: true })); })()`);
+    await cdp.until(`document.activeElement?.dataset.settingsTab === "${expected}"`);
+    assert.equal(await cdp.eval<number>(`[...document.querySelectorAll('#settings-tabs [role="tab"]')].filter(t=>t.tabIndex === 0).length`), 1);
+  }
+  assert.equal(await cdp.eval<string>(`document.querySelector('.section-link[aria-current="page"]').dataset.section`), "settings");
+  await cdp.eval(`document.querySelector('[data-skip-content]').click()`);
+  assert.equal(await cdp.eval<string>(`document.activeElement.id`), "main-content");
+  assert.equal(await cdp.eval<string>(`location.hash`), "#settings");
+});
+
+test("phone filters retain selections across collapse and resize and connection details stay available", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 900, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await cdp.eval(`location.hash = "#games"`);
+  await cdp.until(`!document.getElementById('filters-toggle').hidden`);
+  assert.ok(await cdp.eval<boolean>(`document.getElementById('filters-toggle').getBoundingClientRect().height >= 44`), "phone controls have a 44px touch target");
+  assert.equal(await cdp.eval<boolean>(`document.getElementById('games-filters').hidden`), true);
+  await cdp.eval(`document.getElementById('filters-toggle').click()`);
+  await cdp.until(`!document.getElementById('games-filters').hidden`);
+  await cdp.eval(`(() => { const art=document.getElementById('art'); art.value='without'; art.dispatchEvent(new Event('change',{bubbles:true})); })()`);
+  assert.match(await cdp.eval<string>(`document.getElementById('filters-toggle').textContent`), /Filters \(1\)/);
+  await cdp.eval(`document.getElementById('filters-toggle').click()`);
+  assert.equal(await cdp.eval<boolean>(`document.getElementById('games-filters').hidden`), true);
+  assert.equal(await cdp.eval<string>(`getComputedStyle(document.getElementById('side-device')).display`), "none");
+  await cdp.eval(`document.querySelector('[data-conn-panel]').click()`);
+  await cdp.until(`!document.getElementById('sb-conn-panel').hidden`);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#sb-conn-panel .mode-pick [data-mode]').length`), 3);
+  await cdp.eval(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.until(`document.getElementById('filters-toggle').hidden && !document.getElementById('games-filters').hidden`);
+  assert.equal(await cdp.eval<string>(`document.getElementById('art').value`), "without");
+  await cdp.eval(`document.querySelector('[data-clear-filters]').click()`);
+  assert.equal(await cdp.eval<string>(`document.getElementById('filters-toggle').textContent.trim()`), "Filters");
+  const measured = await cdp.eval<number[]>(`[parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sb')),document.querySelector('.statusbar').getBoundingClientRect().height]`);
+  assert.ok(Math.abs(measured[0] - measured[1]) <= 1);
+  assert.deepEqual(errors(), []);
 });
 
 test("Files preserves edits made during a save and previews workspace folders", { skip: !CHROME && "Chrome not found" }, async () => {
@@ -276,5 +327,33 @@ test("help button opens the current section's wiki article in a dialog", { skip:
   assert.deepEqual(await shown(), ["help-games"]);
   await cdp.eval(`document.getElementById("help-close").click()`);
   await cdp.until(`!document.getElementById("help").open && location.hash === "#games"`);
+  assert.deepEqual(errors(), []);
+});
+
+test("major tabbed screens and Help fit a touch phone, with reduced motion respected", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  const overflows: string[] = [];
+  for (const [section, id] of [["settings", "settings-tabs"], ["handheld", "hh-tabs"], ["themes", "th-tabs"], ["play", "play-tabs"], ["artwork", "art-tabs"]]) {
+    await cdp.eval(`location.hash = "#${section}"`);
+    await cdp.until(`!!document.querySelector('#${id} [role="tab"]')`);
+    const count = await cdp.eval<number>(`document.querySelectorAll('#${id} [role="tab"]').length`);
+    for (let i = 0; i < count; i++) {
+      await cdp.eval(`document.querySelectorAll('#${id} [role="tab"]')[${i}].click()`);
+      await cdp.until(`document.querySelectorAll('#${id} [role="tab"]')[${i}].getAttribute('aria-selected') === 'true'`);
+      await new Promise((r) => setTimeout(r, 250));
+      const width = await cdp.eval<number>(`document.documentElement.scrollWidth`);
+      if (width > 391) overflows.push(`${section} tab ${i}: ${width}px`);
+    }
+  }
+  assert.deepEqual(overflows, []);
+  await cdp.eval(`document.querySelector('[data-help]').click()`);
+  await cdp.until(`document.getElementById('help').open`);
+  assert.ok(await cdp.eval<boolean>(`(() => { const r=document.getElementById('help').getBoundingClientRect(); return r.left>=0 && r.right<=390 && r.height<=844; })()`));
+  await cdp.eval(`document.getElementById('help-close').click(); location.hash='#games'`);
+  await cdp.until(`!document.getElementById('view-games').hidden && !!document.querySelector('.game')`);
+  assert.ok(await cdp.eval<boolean>(`parseFloat(getComputedStyle(document.querySelector('.game')).transitionDuration) < 0.001`));
+  await cdp.send("Emulation.setEmulatedMedia", { features: [] });
   assert.deepEqual(errors(), []);
 });

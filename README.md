@@ -79,6 +79,8 @@ per-session token. Nothing is uploaded anywhere.
   the cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
 
 **Tools**
+- **Interface**: consistent dark and light layouts, responsive folder cards, compact phone navigation and game filters,
+  keyboard tab navigation, visible focus indicators and reduced-motion support.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
   Install needs a card reader; Set up TF2 and Reset card can also run over Wi-Fi/SSH on the handheld's TF2 without
   touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).

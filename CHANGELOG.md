@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Artwork refresh, safer saves and file operations, phone layout fixes |
+| [Unreleased](#unreleased) | | Shared UI polish, responsive layouts, safer saves and file operations, artwork refresh |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
@@ -23,6 +23,17 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Changed
+
+- Shared interface polish: clearer panel headings, neutral charcoal and light surfaces, consistent spacing and controls,
+  and a narrower sidebar with more room for content. Settings folders use a responsive card grid.
+- On phones, Games filters and card size sit behind a Filters button that shows the active filter count. The duplicated
+  sidebar device card is hidden; connection settings remain in the top-bar status panel. Toolbars no longer cover the
+  game list while scrolling, and shared buttons have larger touch targets.
+- Tabs support Left/Right, Home and End with keyboard focus kept on the active tab. Added Skip to content, current-page
+  navigation labels, reduced-motion support and sticky spacing that follows the actual header height.
+- Connection help and FAT32 transfer warnings now point to System Tools instead of an obsolete script name.
 
 ### Fixed
 

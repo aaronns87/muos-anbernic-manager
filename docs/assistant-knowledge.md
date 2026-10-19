@@ -52,6 +52,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 ### Top bar
 
 - **Connection chip** - Live links, Check/Connect/Disconnect, Wi-Fi help when offline.
+- On phones, the chip's panel replaces the duplicate sidebar device card; connection choices remain available there.
 - **Transfers** - Show Transfers / Hide Transfers. Queue, history, per-file progress. Shown when there is transfer state.
 - **Assistant** - Opens/hides chat dock after API key saved (same as mustard button bottom-right).
 - Version / Update / What's new as above.
@@ -68,6 +69,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 - `1`-`9`: first nine sidebar sections (Overview to Files); `0`: Wiki.
 - `?`: help for current page. `[`: fold sidebar.
 - Games: `/` search, `S` select mode, arrows in game viewer.
+- Tab bars: Left/Right to change tabs, Home/End for first/last. Tab to Skip to content to bypass navigation.
 
 ## overview - Overview
 
@@ -86,6 +88,7 @@ Every game under `Roms/<SYSTEM>/`, grouped by system, with box art and LaunchBox
 ### Finding and selecting
 
 Search matches titles, file names, regions, systems. Filters: platform, genre, year. **Roms/ library** vs **On TF2** switches computer vs handheld card. **Select** (or `S`) then Transfer, Trash, or delete from TF2.
+On phones, **Filters** reveals filters and the card-size slider and shows the active filter count. Hiding it keeps the selections. Wider screens always show the filters.
 
 ### Copying and Transfers
 

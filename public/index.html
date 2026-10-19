@@ -12,6 +12,7 @@
 <script type="module" src="/js/app.js"></script>
 </head>
 <body>
+<a class="skip-link" href="#main-content" data-skip-content>Skip to content</a>
 <div class="app">
   <aside>
     <div class="brand">
@@ -73,7 +74,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
       <span class="nav-label">Collapse</span></button>
   </aside>
-  <main>
+  <main id="main-content" tabindex="-1">
     <header class="statusbar">
       <h1 id="sb-title">Overview</h1>
       <div class="sb-status" id="sb-status"></div>
@@ -108,13 +109,16 @@
         <div class="tool-row">
           <div class="search">
             <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="q" type="search" placeholder="Search games, files, regions or systems" autocomplete="off" spellcheck="false">
+            <input id="q" type="search" aria-label="Search games, files, regions or systems" placeholder="Search games, files, regions or systems" autocomplete="off" spellcheck="false">
             <kbd>/</kbd>
           </div>
           <div class="segmented where" id="where" role="group" aria-label="Show" hidden>
             <button data-where="library" class="on">Roms/ library</button>
             <button data-where="device" id="where-device">On TF2</button>
           </div>
+          <button class="btn filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="games-filters" hidden>
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span>Filters</span>
+          </button>
           <button class="btn" id="select-mode" title="Pick games for bulk actions (S)" aria-pressed="false">
             <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg>
             <span>Select</span>
@@ -129,7 +133,7 @@
             <label class="size-range" title="Card size"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg><input id="card-size" type="range" min="130" max="300" step="10" aria-label="Card size"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="4"/></svg></label>
           </div>
         </div>
-        <div class="tool-row filters">
+        <div class="tool-row filters" id="games-filters">
           <div class="plat" id="plat" hidden>
             <button class="plat-step" data-plat-step="-1" title="Previous platform" aria-label="Previous platform"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
             <button class="plat-cur" id="plat-cur" aria-haspopup="true" aria-expanded="false"></button>

@@ -14,6 +14,7 @@ import { consoleIcon } from "./consoles.js";
 import { portsSection } from "./ports.js";
 import { openFreeScummvm } from "./free-scummvm.js";
 import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
+import { syncGameFilters } from "./ui.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -265,6 +266,7 @@ const pickBox = (on) => `<span class="pick" role="checkbox" aria-checked="${on}"
 const sysPick = (code) => `<button class="sys-pick" data-pick-sys="${esc(code)}" title="Select every shown game in this system" aria-label="Select system">${icon("check")}</button>`;
 
 export function render() {
+  syncGameFilters();
   if (!app.data) {
     $("games-list").innerHTML = app.libraryError
       ? `<div class="dev-note"><div class="notice err">${esc(app.libraryError)}</div><button class="btn" data-lib="retry">${icon("refresh")}<span>Try again</span></button></div>`

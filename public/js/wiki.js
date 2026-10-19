@@ -69,6 +69,8 @@ const ARTICLES = [
       <li>Anything that changes the handheld or erases a card asks you first and says what will happen.</li>
     </ul>`],
     ["Keyboard shortcuts", `<ul>
+      <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
+      or Home/End for the first or last tab.</li>
       <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Files); <kbd>0</kbd> opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on.</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
@@ -78,7 +80,8 @@ const ARTICLES = [
   ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
       games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
-      The top-bar chip opens the connection panel; Overview remains the full connection page.</p>`],
+      The top-bar chip opens the connection panel; Overview remains the full connection page. On phones this panel replaces
+      the sidebar's device card, with connection choices, status and Wi-Fi settings in one place.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
       when the handheld reconnects; <b>Find on network</b> searches for it again.</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
@@ -90,7 +93,9 @@ const ARTICLES = [
       database. The controls next to the search box switch between grid and list view, show <b>Empty systems</b> (folders with no games yet),
       expand or collapse every system, and make the cards bigger or smaller with the slider.</p>`],
     ["Finding games", `<p>Type in the search box to match titles, file names, regions such as <i>Japan</i>, or systems. The filters narrow the list by
-      platform, genre and year. <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
+      platform, genre and year. On phones, <b>Filters</b> opens these controls and the card-size slider; the button shows how many filters are active.
+      Collapsing filters keeps your choices, and on a wider screen they are always shown.
+      <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
       handheld, move them to the Trash, or delete them from the handheld's card.</p>`],
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
@@ -441,7 +446,8 @@ const ARTICLES = [
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
       title describes the tab you are on.</p>`],
-    ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
+    ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
+      and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],

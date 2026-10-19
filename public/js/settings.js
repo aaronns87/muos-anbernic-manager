@@ -194,12 +194,12 @@ function romsPanel(d) {
 
 function otherFoldersPanel(d) {
   const block = (which, title, note) => `<div class="set-folder"><div class="set-folder-head"><b>${title}</b><small>${note}</small></div>${folderBox(d, which)}</div>`;
-  return panel("full", "Other folders",
+  return panel("full", "Other folders", `<div class="set-folders-grid">` +
     block("apps", "Apps", "MustardOS apps and updates (.muxapp, .muxupd, .muxzip) waiting to go to the handheld. By default the apps folder next to Roms.")
     + block("os", "OS images", "MustardOS card images (.img, .img.gz) for System Tools. Images one folder down are found too. By default the os folder next to Roms.")
     + block("bios", "BIOS", "BIOS files the emulators need (PlayStation, Sega CD, Neo Geo&hellip;), ready to send to the handheld. By default the bios folder next to Roms.")
     + block("backups", "Save backups", "Backups of the handheld's saves and save states. By default the backups folder next to Roms.")
-    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. By default the themes folder next to Roms."));
+    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. By default the themes folder next to Roms.") + `</div>`);
 }
 
 function crumbs(b) {

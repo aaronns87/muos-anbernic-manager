@@ -59,7 +59,7 @@ function renderPlan() {
     parts.push(`<small style="color:var(--muted)">Skipped ${plan.skipped.map(esc).join(", ")}: stock Anbernic firmware files that MustardOS does not run.</small>`);
   }
   if (plan.too_big.length) {
-    parts.push(`<div class="notice err">${esc(plan.too_big[0])} is 4 GB or larger, which FAT32 cannot store. Reformat TF2 as exFAT with setup-device.sh.</div>`);
+    parts.push(`<div class="notice err">${esc(plan.too_big[0])} is 4 GB or larger, which FAT32 cannot store. Use <a href="#system">System Tools</a> to set up TF2 as exFAT. Formatting erases the card; back up its files first.</div>`);
   }
   parts.push(`<div id="t-space"></div>`);
   $("t-plan").innerHTML = parts.join("");

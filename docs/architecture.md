@@ -73,6 +73,8 @@ of DOM and Node APIs.
 - `core.js`: `$`, `api(path, body)` (adds the token, throws `Error(message)` on 4xx/5xx), `esc`, `icon`,
   `ICONS`, `store` (localStorage `manager.*`), `app` (shared state), `toast`, `plural`, `human`, model helpers.
 - `combo.js`: filterable dropdowns for `<input data-combo="key">` (choices from `comboItems`) and long `<select data-combo>` lists.
+- `ui.js`: shared keyboard tab navigation, skip-to-content, responsive Games filters, and measured header height
+  for sticky offsets. `games.js` calls `syncGameFilters()` when filters change through a library action.
 - `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`).
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
   (+ `updates.js`), `handheld.js`, `themes.js` (Designer tab: `theme-designer.js` editor and preview, `theme-assets.js` file panels, `theme-preview.js` canvas renderer, `theme-schema.js` every scheme setting), `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
