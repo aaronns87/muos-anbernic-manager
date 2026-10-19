@@ -89,6 +89,7 @@ before(async () => {
   cdp.attach(sessionId);
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem("manager.mode", JSON.stringify("card"));` });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: `${srv.base}/?token=${srv.token}#overview` });
   await cdp.until(`document.readyState === "complete" && !!document.querySelector('a[href="#games"]')`);
@@ -133,7 +134,7 @@ async function visit(width: number) {
 }
 
 test("every section and Emulation tab renders without errors on desktop and phone", { skip: !CHROME && "Chrome not found" }, async () => {
-  const problems = [...(await visit(1440)), ...(await visit(420))];
+  const problems = [...(await visit(1440)), ...(await visit(420)), ...(await visit(390))];
   assert.deepEqual(errors(), [], "script errors in the page");
   assert.deepEqual(problems, []);
 });
@@ -169,7 +170,7 @@ test("sidebar order and number keys follow the sections", { skip: !CHROME && "Ch
   }
 });
 
-test("Files opens folders and previews text files from the workspace", { skip: !CHROME && "Chrome not found" }, async () => {
+test("Files preserves edits made during a save and previews workspace folders", { skip: !CHROME && "Chrome not found" }, async () => {
   fs.writeFileSync(path.join(srv.root, "readme.txt"), "hello from the workspace\n");
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.eval(`location.hash = "#files"`);
@@ -177,12 +178,72 @@ test("Files opens folders and previews text files from the workspace", { skip: !
   await cdp.eval(`document.querySelector('.fx-row[data-name="readme.txt"] [data-fx="open"]').click()`);
   await cdp.until(`document.getElementById("fileview").open && document.getElementById("fv-text")?.value.includes("hello")`);
   assert.equal(await cdp.eval<boolean>(`document.getElementById("fv-save").hidden`), false);
+  await cdp.eval(`(() => {
+    window.__fileFetch = window.fetch;
+    window.fetch = (url, init) => String(url) === "/api/files/write"
+      ? new Promise((resolve, reject) => { window.__releaseWrite = () => window.__fileFetch(url, init).then(resolve, reject); })
+      : window.__fileFetch(url, init);
+    const input = document.getElementById("fv-text");
+    input.value = "first edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("fv-save").click();
+    input.value = "newer edit";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  })()`);
+  await cdp.until(`typeof window.__releaseWrite === "function"`);
+  await cdp.eval(`window.__releaseWrite()`);
+  await cdp.until(`!document.getElementById("fv-save").disabled && document.getElementById("fv-note").textContent === "Not saved"`);
+  assert.equal(fs.readFileSync(path.join(srv.root, "readme.txt"), "utf8"), "first edit");
+  await cdp.eval(`document.getElementById("fv-done").click()`);
+  await cdp.until(`document.getElementById("confirm").open`);
+  await cdp.eval(`document.getElementById("c-cancel").click(); window.fetch = window.__fileFetch; document.getElementById("fv-save").click()`);
+  await cdp.until(`document.getElementById("fv-note").textContent.startsWith("Saved")`);
+  assert.equal(fs.readFileSync(path.join(srv.root, "readme.txt"), "utf8"), "newer edit");
   await cdp.eval(`document.getElementById("fv-done").click()`);
   await cdp.until(`!document.getElementById("fileview").open`);
   await cdp.eval(`document.querySelector('.fx-row[data-name="Roms"] [data-fx="open"]').click()`);
   await cdp.until(`!!document.querySelector('.fx-row[data-name="GB"]')`);
   assert.match(await cdp.eval<string>(`document.querySelector('.fx-pane[data-side="local"] .fx-crumbs').innerText`), /Workspace\s*\/\s*Roms/);
   assert.match(await cdp.eval<string>(`document.querySelector('.fx-pane[data-side="device"]').innerText`), /Handheld/i);
+  assert.deepEqual(errors(), []);
+});
+
+test("Designer keeps failed edits until Retry succeeds and blocks switching and export", { skip: !CHROME && "Chrome not found" }, async () => {
+  for (const name of ["Autosave A", "Autosave B"]) {
+    const made = await srv.api("designer/create", { name, from: "blank", res: ["640x480"] });
+    assert.equal(made.status, 200, JSON.stringify(made.json));
+  }
+  await cdp.eval(`location.hash = "#themes"`);
+  await cdp.until(`!!document.querySelector('[data-th-tab="designer"]')`);
+  await cdp.eval(`document.querySelector('[data-th-tab="designer"]').click()`);
+  await cdp.until(`!!document.querySelector('#dz input[type="color"][data-q]')`);
+  await cdp.eval(`(() => {
+    window.__designerFetch = window.fetch;
+    window.__failScheme = true;
+    window.__packageRequests = 0;
+    window.fetch = (url, init) => {
+      if (String(url).startsWith("/api/designer/package")) window.__packageRequests++;
+      if (String(url) === "/api/designer/scheme" && window.__failScheme)
+        return Promise.resolve(new Response(JSON.stringify({ error: "Simulated write failure" }), { status: 507, headers: { "Content-Type": "application/json" } }));
+      return window.__designerFetch(url, init);
+    };
+    const input = document.querySelector('#dz input[type="color"][data-q]');
+    input.value = "#123456";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  })()`);
+  await cdp.until(`!!document.querySelector('[data-dz="retry"]')`);
+  await cdp.eval(`(() => { const pick = document.querySelector('[data-dz-theme]'); pick.value = "Autosave B"; pick.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await cdp.until(`document.querySelector('[data-dz-theme]').value === "Autosave A" && !!document.querySelector('[data-dz="retry"]')`);
+  await cdp.eval(`document.querySelector('[data-dz="export"]').click()`);
+  await cdp.until(`document.getElementById("toast").textContent.includes("not saved")`);
+  assert.equal(await cdp.eval<number>(`window.__packageRequests`), 0);
+  const file = path.join(srv.root, "themes", "Autosave A", "scheme", "global.ini");
+  assert.doesNotMatch(fs.readFileSync(file, "utf8"), /123456/);
+  await cdp.eval(`window.__failScheme = false; document.querySelector('[data-dz="retry"]').click()`);
+  await cdp.until(`document.getElementById("dz-status").textContent.includes("Saved in")`);
+  assert.match(fs.readFileSync(file, "utf8"), /123456/);
+  await cdp.eval(`window.fetch = window.__designerFetch; (() => { const pick = document.querySelector('[data-dz-theme]'); pick.value = "Autosave B"; pick.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await cdp.until(`document.querySelector('[data-dz-theme]').value === "Autosave B" && document.getElementById("dz-status").textContent.includes("Saved in")`);
   assert.deepEqual(errors(), []);
 });
 

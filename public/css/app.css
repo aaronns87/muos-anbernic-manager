@@ -1934,7 +1934,11 @@ body.in-ssh #view-ssh { flex: 1; min-height: 0; display: flex; flex-direction: c
   .sections::-webkit-scrollbar { display: none; }
   .section-link { flex: none; }
   .sb-clock .sb-date { display: none; }
-  #sb-title { min-width: 0; }
+  .statusbar { height: auto; min-height: var(--sb); flex-wrap: wrap; gap: 8px; padding-top: 6px; padding-bottom: 6px; }
+  .sb-status { min-width: 0; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  .sb-item { padding-left: 6px; padding-right: 6px; }
+  .sb-job.idle span, .sb-chat span { display: none; }
+  #sb-title { min-width: 0; flex: 1 1 100px; }
   #sb-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .set-path { flex-wrap: wrap; row-gap: 8px; }
   .set-path code { flex-basis: calc(100% - 46px); white-space: normal; word-break: break-all; }
@@ -2538,6 +2542,8 @@ body.has-hh-bar #view-handheld { padding-bottom: 90px; }
 @media (max-width: 720px) {
   #emu-tabs .i { display: none; }
   #emu-tabs button { padding-left: 11px; padding-right: 11px; }
+  .chk-switch { max-width: 100%; height: auto; flex-wrap: wrap; }
+  .chk-switch button { min-height: 28px; flex: 1 1 auto; justify-content: center; }
   .chk-sys-head { flex-wrap: wrap; }
   .chk-sys-head .chk-chips { order: 3; flex-basis: 100%; justify-content: flex-start; }
   .chk-game, .chk-dup { flex-wrap: wrap; }

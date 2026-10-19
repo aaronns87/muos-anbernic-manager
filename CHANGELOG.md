@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Games library refreshes after scraping artwork |
+| [Unreleased](#unreleased) | | Artwork refresh, safer saves and file operations, phone layout fixes |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
@@ -26,6 +26,13 @@ version.
 
 ### Fixed
 
+- Renaming games or files no longer overwrites a different file whose name differs only by letter case.
+- Files keeps edits made while a save is running marked as unsaved, and ignores save results from a closed preview.
+- Theme Designer keeps failed autosaves available for Retry and blocks switching themes, exporting or installing
+  until those edits have saved. Closing the page warns about unsaved edits.
+- Deleting a folder from the handheld includes hidden files and folders instead of stopping after a partial deletion.
+- The top bar fits phone widths, with compact Transfers and Assistant controls and wrapping when needed.
+- Comparing games before a transfer no longer changes timestamps on the card.
 - After **Artwork › Scrape** saves images, the Games library updates without a full page reload (cards get the new art
   immediately, and opening Games forces a quiet rescan when needed).
 

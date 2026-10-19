@@ -377,7 +377,6 @@ export async function makePlan(t: Target, targets: unknown[]) {
     }
     const remotePath = t.roms.localPath?.([ROMS_DIR, ...remoteRel.split("/")]);
     if (onCard && remotePath && entry.size === st.size && (await sameFile(src, remotePath))) {
-      await fsp.utimes(remotePath, st.atime, st.mtime);
       plan.identical.push(rel);
     } else {
       plan.different.push({ rel, src, size: st.size });

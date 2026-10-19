@@ -259,6 +259,10 @@ async function copy(side) {
 
 const V = { side: "", path: [], text: "", dirty: false, saving: false };
 
+addEventListener("beforeunload", (e) => {
+  if (V.dirty || V.saving) e.preventDefault();
+});
+
 async function preview(side, name) {
   const dialog = $("fileview"), parts = [...F[side].path, name], kind = kindOf({ name });
   Object.assign(V, { side, path: parts, text: "", dirty: false, saving: false, editable: false, token: null });
@@ -293,27 +297,36 @@ async function preview(side, name) {
 }
 
 async function saveFile() {
+  if (V.saving) return;
+  const token = V.token, side = V.side;
   const text = $("fv-text").value;
   V.saving = true;
   $("fv-save").disabled = true;
   $("fv-note").textContent = "Saving\u2026";
   try {
     await api("files/write", { side: V.side, root: F[V.side].root, path: V.path.join("/"), volume: volume(), text });
+    if (V.token !== token) return;
     V.text = text;
-    V.dirty = false;
-    $("fv-note").textContent = `Saved \u00b7 ${human(new Blob([text]).size)}`;
-    load(V.side);
+    V.dirty = $("fv-text").value !== text;
+    $("fv-note").textContent = V.dirty ? "Not saved" : `Saved \u00b7 ${human(new Blob([text]).size)}`;
+    load(side);
   } catch (error) {
+    if (V.token !== token) return;
     $("fv-note").textContent = "";
-    $("fv-save").disabled = false;
     toast(error.message, 4500);
+  } finally {
+    if (V.token === token) {
+      V.saving = false;
+      $("fv-save").disabled = !V.dirty;
+    }
   }
-  V.saving = false;
 }
 
 async function closePreview() {
   if (V.dirty && !(await confirmBox({ title: "Throw away your changes?", html: `<p>${esc(V.path.at(-1))} has changes that are not saved.</p>`, ok: "Throw away", danger: true }))) return;
   V.dirty = false;
+  V.saving = false;
+  V.token = null;
   $("fileview").close();
 }
 

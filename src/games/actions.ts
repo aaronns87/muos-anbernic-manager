@@ -8,7 +8,7 @@ import { UserError } from "../errors.ts";
 import { requireIdle } from "../jobs.ts";
 import { say } from "../log.ts";
 import { platform } from "../platform/index.ts";
-import { inside, isFile, listDir, safePart, splitName, TEXT_DIR } from "../util.ts";
+import { inside, isFile, listDir, renameAvailable, safePart, splitName, TEXT_DIR } from "../util.ts";
 import { deleteDeviceTree, deviceFolder, isRunner, scummFolder } from "./engines.ts";
 import { rescanInBackground } from "./library.ts";
 
@@ -66,11 +66,6 @@ export async function deleteGame(body: Record<string, unknown>) {
   return { trashed, device: removed, art: artRemoved };
 }
 
-async function freeOrSame(from: string, to: string): Promise<boolean> {
-  if (from.toLowerCase() === to.toLowerCase()) return true;
-  return !(await isFile(to));
-}
-
 /** Renames a game file in Roms/ (same extension), and matching artwork / description when present. */
 export async function renameGame(body: Record<string, unknown>) {
   const [system, name] = gamePath(body);
@@ -97,7 +92,7 @@ export async function renameGame(body: Record<string, unknown>) {
 
   const dest = path.join(ctx.roms, system, destName);
   if (!inside(ctx.roms, dest)) throw new UserError("Invalid path.");
-  if (!(await freeOrSame(src, dest))) throw new UserError(`${destName} already exists in ${system}.`);
+  if (!(await renameAvailable(src, dest))) throw new UserError(`${destName} already exists in ${system}.`);
 
   await fsp.rename(src, dest);
 
@@ -110,7 +105,7 @@ export async function renameGame(body: Record<string, unknown>) {
     if (!IMAGE_EXTS.has(imageExt) || imageStem.toLowerCase() !== oldStem.toLowerCase()) continue;
     const from = path.join(imgs, image.name);
     const toPath = path.join(imgs, `${newStem}.${imageExt}`);
-    if (!(await freeOrSame(from, toPath))) continue;
+    if (!(await renameAvailable(from, toPath))) continue;
     await fsp.rename(from, toPath).catch(() => {});
     artRenamed++;
   }
@@ -122,7 +117,7 @@ export async function renameGame(body: Record<string, unknown>) {
     if (e !== "txt" || stem.toLowerCase() !== oldStem.toLowerCase()) continue;
     const from = path.join(textDir, entry.name);
     const toPath = path.join(textDir, `${newStem}.txt`);
-    if (!(await freeOrSame(from, toPath))) break;
+    if (!(await renameAvailable(from, toPath))) break;
     await fsp.rename(from, toPath).catch(() => {});
     textRenamed = true;
     break;

@@ -321,7 +321,14 @@ export class SftpFs implements DeviceFs {
 
   async rename(parts: string[], name: string): Promise<void> {
     const to = [...parts.slice(0, -1), name];
-    if ((await this.stat(to)) && parts[parts.length - 1].toLowerCase() !== name.toLowerCase()) throw new UserError(`${name} already exists there.`);
+    const from = parts[parts.length - 1];
+    if (from === name) return;
+    if (await this.stat(to)) {
+      const entries = await this.list(parts.slice(0, -1), true);
+      const same = from.toLowerCase() === name.toLowerCase()
+        && entries?.some((e) => e.name === from) && !entries.some((e) => e.name === name);
+      if (!same) throw new UserError(`${name} already exists there.`);
+    }
     await run((cb) => this.sftp.rename(this.full(parts), this.full(to), cb));
   }
 

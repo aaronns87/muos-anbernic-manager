@@ -53,6 +53,20 @@ export async function exists(p: string): Promise<boolean> {
   }
 }
 
+/** A case-only rename may resolve to the source on case-insensitive volumes. */
+export async function renameAvailable(from: string, to: string): Promise<boolean> {
+  let dest: fs.Stats;
+  try {
+    dest = await fsp.lstat(to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    throw error;
+  }
+  if (from.toLowerCase() !== to.toLowerCase()) return false;
+  const source = await fsp.lstat(from);
+  return source.dev === dest.dev && source.ino === dest.ino;
+}
+
 export async function isFile(p: string): Promise<boolean> {
   try {
     return (await fsp.stat(p)).isFile();

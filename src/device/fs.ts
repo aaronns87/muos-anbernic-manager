@@ -1,8 +1,8 @@
-import fs from "node:fs";
+import type fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { Cancelled, UserError } from "../errors.ts";
-import { CHUNK, removeQuietly, sameFile } from "../util.ts";
+import { CHUNK, removeQuietly, renameAvailable, sameFile } from "../util.ts";
 
 export interface Entry {
   name: string;
@@ -101,7 +101,7 @@ export class CardFs implements DeviceFs {
 
   async rename(parts: string[], name: string): Promise<void> {
     const from = this.localPath(parts), to = path.join(path.dirname(from), name);
-    if (fs.existsSync(to) && from.toLowerCase() !== to.toLowerCase()) throw new UserError(`${name} already exists there.`);
+    if (!(await renameAvailable(from, to))) throw new UserError(`${name} already exists there.`);
     await fsp.rename(from, to);
     await removeQuietly(path.join(path.dirname(from), "._" + parts[parts.length - 1]));
   }

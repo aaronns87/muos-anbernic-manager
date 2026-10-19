@@ -94,7 +94,8 @@ const ARTICLES = [
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
       handheld, move them to the Trash, or delete them from the handheld's card.</p>`],
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
-      active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
+      active. Comparing first does not change files or their timestamps on the card; nothing is written until you confirm the transfer.
+      A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
       and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
       A copy of several games shows each file expanded by default (you can hide them): every game with its own progress while it
@@ -233,7 +234,9 @@ const ARTICLES = [
       <b>Apply</b> switches to it; the bin button deletes it from the handheld. The active theme cannot be deleted, and deleting is permanent.</p>`],
     ["Designer", `<p>Makes your own themes on this computer, kept in the <b>themes</b> folder (one folder per theme, the same layout as
       <code>MUOS/theme</code>; move it in Settings). Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
-      one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.</p>
+      one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.
+      If saving fails, your edits stay in the editor: press <b>Retry</b>. Switching themes, exporting and installing wait until the edits save.
+      Closing the page warns you if changes are still unsaved.</p>
       <p>The preview on the right draws the main menu, Explore, Configuration, a settings list, pop-ups, the keyboard, the passcode wheel, the charging
       screen and the boot logo from the theme's settings and pictures, at each screen size and colour variant. Click any part to open its settings.</p>
       <p><b>Quick style</b> sets many colours at once from a palette or six colour roles, plus roundness, items per page, bar heights and a list or grid
@@ -364,12 +367,15 @@ const ARTICLES = [
       Transfers panel like game copies: they can wait in line behind another copy, and can be stopped.</p>`],
     ["Rename, new folder, delete", `<ul>
       <li>The buttons above each list make a new folder, rename the one picked item, or delete the picked items.</li>
-      <li>On this computer, deleting moves things to the Trash. On the handheld it is permanent, including everything inside a folder.</li>
+      <li>On this computer, deleting moves things to the Trash. On the handheld it is permanent, including hidden files and folders inside a folder.</li>
+      <li>Renaming will not replace a different existing file, even when only the letter case differs.</li>
       <li>Renaming on the handheld is not possible over USB; use Wi-Fi or a card reader.</li>
       <li>SD1's <code>MUOS</code> folder holds MustardOS itself. The manager warns you before you change anything there.</li>
     </ul>`],
     ["Preview and edit", `<p>Click a file name to open it. Pictures are shown; text and config files (<code>.cfg</code>, <code>.ini</code>, <code>.json</code>,
-      <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.</p>`],
+      <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.
+      If you keep typing while it saves, the newer changes stay marked <b>Not saved</b>; press Save again to keep them.
+      Closing the editor or page warns you about unsaved changes.</p>`],
   ]],
   ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings, cheats and CPU governor.", [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
