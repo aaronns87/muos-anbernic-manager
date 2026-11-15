@@ -3,7 +3,7 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { ctx } from "./context.ts";
-import { imageDevice } from "./devices.ts";
+import { byId, imageDevice } from "./devices.ts";
 import { UserError } from "./errors.ts";
 import { platform } from "./platform/index.ts";
 import { hashLines, importOsImage } from "./system/image.ts";
@@ -202,6 +202,50 @@ export async function osLibraryJson(query?: URLSearchParams) {
           ? { changes: note.changes, notes: note.notes, important: note.important }
           : null,
         downloads: { ...links, ...officialLinks },
+      };
+    }),
+  };
+}
+
+/** Catalogue releases for the OS market modal: notes, host links, and whether a local folder already exists. */
+export async function osMarketJson(query?: URLSearchParams) {
+  const device = /^[a-z0-9-]{3,40}$/.test(query?.get("device") || "") ? query!.get("device")! : "";
+  const refresh = query?.get("refresh") === "1";
+  const { data, error } = await loadMustardCatalogue(device, refresh);
+  const local = await listOsReleases();
+  const localVers = new Set(local.filter((r) => !r.unsorted && r.version).map((r) => r.version));
+  const official = device && data?.images[device] ? data.images[device] : null;
+  const officialVer = official ? versionIn(official.name.replace(/^MustardOS_[^_]+_/, "")) : "";
+  const info = device ? byId(device) : null;
+  const deviceName = info ? `${info.maker} ${info.name.replace(/^TrimUI /, "")}` : device || "";
+
+  const image = official
+    ? { name: official.name, hash: official.hash, links: official.links, version: officialVer }
+    : null;
+
+  return {
+    device,
+    deviceName,
+    checked: data?.fetched || 0,
+    error,
+    image,
+    releases: (data?.releases || []).map((r) => {
+      const deviceMatch = !!(officialVer && r.ver === officialVer);
+      return {
+        ver: r.ver,
+        code: r.code,
+        type: r.type,
+        changes: r.changes,
+        notes: r.notes,
+        important: r.important,
+        links: r.links || {},
+        updateLinks: r.updateLinks || {},
+        local: localVers.has(r.ver),
+        deviceMatch,
+        deviceLinks: deviceMatch ? (official?.links || {}) : {},
+        deviceImage: deviceMatch && official
+          ? { name: official.name, hash: official.hash }
+          : null,
       };
     }),
   };

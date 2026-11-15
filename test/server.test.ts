@@ -219,6 +219,23 @@ test("GET /api/os lists mustardos release folders in the workspace", async () =>
   assert.equal((await api("os/remove", { kind: "image", path: path.join(root, "..", "etc") })).status, 400);
 });
 
+test("GET /api/os/market returns catalogue shape for a handheld", async () => {
+  const { status, json } = await api("os/market?device=rg40xx-h");
+  assert.equal(status, 200);
+  assert.equal(json.device, "rg40xx-h");
+  assert.ok(typeof json.deviceName === "string");
+  assert.ok(Array.isArray(json.releases));
+  assert.ok("image" in json);
+  assert.ok("checked" in json);
+  assert.ok("error" in json);
+  for (const r of json.releases) {
+    assert.ok(r.ver);
+    assert.ok("local" in r);
+    assert.ok("deviceMatch" in r);
+    assert.ok(r.links && typeof r.links === "object");
+  }
+});
+
 test("every front-end module parses", () => {
   const dir = path.join(manager, "public", "js");
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
@@ -234,7 +251,7 @@ test("index.html has the elements the Emulation and Apps views render into", () 
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder", "main-content", "filters-toggle", "games-filters",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
-    "view-os", "os", "os-sub", "os-actions", "os-count",
+    "view-os", "os", "os-sub", "os-actions", "os-count", "osmarket", "om-title", "om-main", "om-foot", "om-close",
     "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }

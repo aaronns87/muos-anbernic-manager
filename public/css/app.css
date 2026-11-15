@@ -2986,6 +2986,13 @@ dialog.help[open] { display: flex; flex-direction: column; }
 .os-note-list { margin: 0 0 10px; padding-left: 18px; max-height: 220px; overflow: auto; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 .os-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .os-empty { min-height: 280px; border: 1px dashed var(--line-2); border-radius: 12px; }
+.os-loading { min-height: 180px; justify-content: center; }
+.os-market-help { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.os-market-help .panel-actions { flex: none; }
+.os-market-card .os-market-shot { cursor: default; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--mustard) 22%, var(--panel-2)), var(--panel-2) 70%); }
+.os-market-card .os-market-shot .i { width: 36px; height: 36px; color: var(--mustard); stroke-width: 1.6; }
+.os-market-notes { grid-column: 1 / -1; padding: 0 12px 12px; }
+.os-market-notes .os-note-list { max-height: 160px; }
 @media (max-width: 900px) {
   .os-layout { grid-template-columns: 1fr; }
   .os-cards { max-height: none; flex-direction: row; overflow-x: auto; padding-bottom: 4px; }

@@ -140,7 +140,7 @@ Tabs: **Sync** (copy missing either way); **Roms/ library** (coverage per system
 
 ## os - OS
 
-Library section after Artwork. Local MustardOS disk images under `os/`, grouped by `mustardos_<version>/` (loose root images = Unsorted). Add image (pick `.img`/`.img.gz` + SHA256 → same import as System Tools). Remove image or whole release → Trash. Show OS folder. Release notes from MustardOS site catalogue when version matches; official GoFile/Mega links open externally (no in-app multi-GB download). Install opens System Tools → Install MustardOS with that image. Writing a card still only from System Tools + card reader.
+Library section after Artwork. Shows a spinner while reading `os/` and the MustardOS catalogue. Local disk images grouped by `mustardos_<version>/` (loose root images = Unsorted). **OS market** modal: catalogue releases for the selected handheld; GoFile/Mega/Filen open in the browser; after opening a host, a helper reminds you to **Add image** when the download finishes (no in-app multi-GB fetch). Add image (pick `.img`/`.img.gz` + SHA256 → same import as System Tools). Remove image or whole release → Trash. Show OS folder. Release notes from MustardOS site catalogue when version matches. Install opens System Tools → Install MustardOS with that image. Writing a card still only from System Tools + card reader.
 
 ## apps - Apps
 

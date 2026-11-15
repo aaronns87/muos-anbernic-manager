@@ -183,16 +183,20 @@ const ARTICLES = [
       is set in Settings under <b>Uploaded artwork size</b>.</p>`],
   ]],
   ["os", "sd", "OS", "os", "MustardOS disk images on this computer, grouped by release, ready to install from System Tools.", [
-    ["What you see", `<p>Each card is a release folder under <code>os/mustardos_&lt;version&gt;/</code> (for example <code>mustardos_2606.0</code>),
-      with the images inside it, their sizes and whether a matching line exists in that folder's <code>hash.txt</code>.
-      Loose images at the root of <code>os/</code> appear under <b>Unsorted</b>. When the handheld is connected over SSH, the release that matches
-      its running build is marked <b>On handheld</b>.</p>`],
+    ["What you see", `<p>While the folder and MustardOS catalogue are read, a spinner appears in the page. Then each card is a release folder under
+      <code>os/mustardos_&lt;version&gt;/</code> (for example <code>mustardos_2606.0</code>), with the images inside it, their sizes and whether a matching
+      line exists in that folder's <code>hash.txt</code>. Loose images at the root of <code>os/</code> appear under <b>Unsorted</b>. When the handheld is
+      connected over SSH, the release that matches its running build is marked <b>On handheld</b>. Use <b>OS market</b> to browse official downloads
+      for the selected handheld.</p>`],
+    ["OS market", `<p><b>OS market</b> lists recent MustardOS releases for the selected handheld from the official catalogue.
+      <b>GoFile</b>, <b>Mega</b> and <b>Filen</b> open the host page in your browser (images are multi‑gigabyte, so the manager does not fetch them itself).
+      After a download starts, the modal shows a short reminder to use <b>Add image</b> when the file finishes. The release that matches this
+      handheld's current official image is marked and offers the device-specific links; older releases open the shared release folder.</p>`],
     ["Add and remove", `<p><b>Add image</b> picks a downloaded <code>.img</code> / <code>.img.gz</code> and its SHA256 file, then saves them into the
       version folder (the same flow as System Tools &rsaquo; Add image to OS folder). <b>Remove image</b> or <b>Remove release</b> moves files to the
       Trash on this computer. <b>Show OS folder</b> opens the folder in the file manager.</p>`],
     ["Release notes and downloads", `<p>When the version matches a release from the MustardOS site catalogue, the detail panel shows its changes and notes.
-      Official download links (GoFile, Mega, and so on) open in the browser; the manager does not download multi‑gigabyte images itself.
-      After you download there, use <b>Add image</b>.</p>`],
+      Official download links also appear there; prefer <b>OS market</b> when browsing what is available for your handheld.</p>`],
     ["Install", `<p><b>Install</b> on an image (or <b>Install this image</b>) opens System Tools &rsaquo; Install MustardOS with that file selected.
       Writing to a card still happens only from System Tools with the card in a reader.</p>`],
   ]],

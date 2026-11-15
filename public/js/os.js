@@ -9,20 +9,29 @@ const O = {
   selected: "",
   bound: false,
   importing: false,
+  loading: false,
 };
 
 const HEX = /^[0-9a-f]{64}$/;
 
 export function showOs() {
   if (!O.bound) bindOs();
+  render();
   load();
 }
 
+const deviceId = () => model()?.id || "";
+
 export function countOs() {
-  api(`os?device=${encodeURIComponent(model())}`).then((d) => {
+  api(`os?device=${encodeURIComponent(deviceId())}`).then((d) => {
     if (!O.data) O.data = d;
     paintCount(d);
   }).catch(() => {});
+}
+
+/** Used by the OS market helper after opening a host download page. */
+export async function startAddImage() {
+  await addImage();
 }
 
 export function reloadOs() {
@@ -37,15 +46,19 @@ function paintCount(d = O.data) {
 }
 
 async function load(refresh = false) {
+  O.loading = true;
+  if (!O.data) render();
   try {
-    O.data = await api(`os?device=${encodeURIComponent(model())}${refresh ? "&refresh=1" : ""}`);
+    O.data = await api(`os?device=${encodeURIComponent(deviceId())}${refresh ? "&refresh=1" : ""}`);
     O.error = "";
     if (O.selected && !O.data.releases.some((r) => r.id === O.selected)) O.selected = "";
     if (!O.selected && O.data.releases.length) O.selected = O.data.releases[0].id;
   } catch (error) {
     O.error = error.message;
   }
+  O.loading = false;
   render();
+  if ($("osmarket")?.open) import("./os-market.js").then((m) => m.renderOsMarket()).catch(() => {});
 }
 
 function selected() {
@@ -57,14 +70,15 @@ function render() {
   if (!root) return;
   paintCount();
   $("os-actions").innerHTML = `
-    <button class="btn" data-os="refresh" title="Read the OS images folder again">${icon("refresh")}<span>Refresh</span></button>
+    <button class="btn" data-os="refresh" title="Read the OS images folder again"${O.loading ? " disabled" : ""}>${O.loading ? `<span class="spinner sm"></span>` : icon("refresh")}<span>Refresh</span></button>
     ${O.data?.available ? `<button class="btn" data-os="reveal-folder">${icon("external")}<span>Show OS folder</span></button>` : ""}
-    <button class="btn primary" data-os="add"${O.importing ? " disabled" : ""}>${icon("plus")}<span>Add image&hellip;</span></button>`;
+    <button class="btn" data-os="add"${O.importing || O.loading ? " disabled" : ""}>${icon("plus")}<span>Add image&hellip;</span></button>
+    <button class="btn primary" data-os="market" title="Browse MustardOS releases for this handheld">${icon("grid")}<span>OS market</span></button>`;
 
   if (!O.data) {
-    root.innerHTML = O.error
+    root.innerHTML = O.error && !O.loading
       ? `<div class="notice err">${esc(O.error)}</div>`
-      : `<div class="planning"><span class="spinner"></span> Reading the OS images folder&hellip;</div>`;
+      : `<div class="planning os-loading"><span class="spinner"></span> Reading the OS images folder&hellip;</div>`;
     return;
   }
 
@@ -76,9 +90,12 @@ function render() {
 
   if (!O.data.releases.length) {
     root.innerHTML = `<div class="empty-state os-empty">${icon("sd")}
-      <p><b>No MustardOS images yet.</b> Add a downloaded <code>.img</code> or <code>.img.gz</code> with its SHA256;
-        the manager stores it under <code>os/mustardos_&lt;version&gt;/</code>.</p>
-      <div class="panel-actions"><button class="btn primary" data-os="add">${icon("plus")}<span>Add MustardOS image&hellip;</span></button></div>
+      <p><b>No MustardOS images yet.</b> Browse the OS market for your handheld, download from the official host,
+        then Add image so the manager stores it under <code>os/mustardos_&lt;version&gt;/</code>.</p>
+      <div class="panel-actions">
+        <button class="btn primary" data-os="market">${icon("grid")}<span>OS market</span></button>
+        <button class="btn" data-os="add">${icon("plus")}<span>Add MustardOS image&hellip;</span></button>
+      </div>
     </div>`;
     return;
   }
@@ -163,7 +180,7 @@ function detail(r) {
 }
 
 function labelLink(k) {
-  const map = { gofile: "GoFile", mega: "Mega", torrent: "Torrent", archive: "Archive", github: "GitHub" };
+  const map = { gofile: "GoFile", mega: "Mega", filen: "Filen", torrent: "Torrent", archive: "Archive", github: "GitHub" };
   return map[String(k).toLowerCase()] || k;
 }
 
@@ -251,6 +268,7 @@ export function bindOs() {
       if (what === "select") { O.selected = el.dataset.id; render(); return; }
       if (what === "refresh") { el.disabled = true; await load(true); return; }
       if (what === "add") { addImage(); return; }
+      if (what === "market") { const { openOsMarket } = await import("./os-market.js"); openOsMarket(); return; }
       if (what === "reveal-folder") { await api("os/reveal", { which: "os" }); return; }
       if (what === "reveal") { await api("os/reveal", { path: el.dataset.path }); return; }
       if (what === "remove-image") { remove("image", el.dataset.path, el.dataset.name); return; }

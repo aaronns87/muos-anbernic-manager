@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Appearance settings, OS library section, responsive navigation, unified connection setup |
+| [Unreleased](#unreleased) | | Appearance settings, OS library and OS market, responsive navigation, unified connection setup |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -38,9 +38,12 @@ version.
 - Library **OS** section (after Artwork): lists local MustardOS release folders under `os/`, add/remove images, show folder,
   release notes from the MustardOS catalogue when the version matches, official download links (external only), and
   Install that opens System Tools with the image selected.
+- OS **OS market** modal: MustardOS catalogue releases for the selected handheld, with GoFile/Mega/Filen host buttons and an
+  Add-image helper after opening a download (no in-app multi-GB fetch).
 
 ### Changed
 
+- Library **OS** shows a loading spinner in the content area while the release list and catalogue are fetched.
 - Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
 - Smaller screens use a dismissible navigation drawer and compact header, leaving more room for the current task.
   The drawer supports keyboard focus containment, Escape to close and focus restoration. Games keeps secondary

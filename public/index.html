@@ -248,7 +248,7 @@
         <div><p id="os-sub">MustardOS disk images kept for installs, grouped by release</p></div>
         <div class="page-actions" id="os-actions"></div>
       </header>
-      <div id="os"></div>
+      <div id="os"><div class="planning os-loading"><span class="spinner"></span> Reading the OS images folder&hellip;</div></div>
     </section>
     <section class="view" id="view-apps" hidden>
       <header class="page-head">
@@ -558,6 +558,17 @@
     </header>
     <div class="ag-main pm-main" id="am-main"></div>
     <footer class="ag-foot" id="am-foot"></footer>
+  </div>
+</dialog>
+<dialog id="osmarket" class="ag pm" aria-labelledby="om-title">
+  <div class="ag-shell">
+    <header class="ag-head">
+      <span class="ag-head-ico"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 7v3M12 7v3M15 9v1"/></svg></span>
+      <div><h2 id="om-title">OS market</h2><p>MustardOS releases for your handheld. Open the official download page, then Add image when the file finishes.</p></div>
+      <button class="icon-btn ag-x" id="om-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </header>
+    <div class="ag-main pm-main" id="om-main"></div>
+    <footer class="ag-foot" id="om-foot"></footer>
   </div>
 </dialog>
 <dialog id="appview" class="fv thv pmv" aria-labelledby="amv-title">
