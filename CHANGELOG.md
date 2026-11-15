@@ -51,7 +51,7 @@ version.
 ### Changed
 
 - Install MustardOS clears the start of the card (old MBR/GPT) after authorize and before writing, so leftover volumes cannot remount mid-flash (avoids macOS EPERM from `eraseDisk Free Space`).
-- Install MustardOS no longer asks you to type the disk id; the Install button opens an Are you sure confirmation instead (Set up TF2 / Reset card still use typed confirmation).
+- System Tools (Install MustardOS, Set up TF2, Reset card — card reader or Wi-Fi) no longer ask you to type a disk id or `TF2`; each Start button opens an Are you sure confirmation instead.
 - Install MustardOS uses real `sudo -A` (graphical askpass) to write the card — osascript “administrator privileges” cannot open `/dev/rdisk*` on modern macOS; same approach as balenaEtcher.
 - Install MustardOS reports live write and verify progress (chunked elevated `flash-card.sh`), keeps the raw device open so macOS remounts cannot stall mid-flash, and Cancel stops write/verify within about a second.
 - Install MustardOS can skip read-back verification (checkbox before install, or Skip verify while it runs). Verify uses 4 MiB reads again so it is not stuck at ~1 MB/s.
@@ -81,7 +81,7 @@ version.
 - Settings simplifies folder controls with shortened path displays, expandable full paths and Copy path actions.
   Colours and style groups Softer style separately from layout density and zoom.
 - System Tools highlights the next prerequisite and puts the full checklist in expandable details, while preserving
-  target information, erase warnings, typed confirmation and the second confirmation.
+  target information, erase warnings and a single Are you sure confirmation modal.
 
 ### Fixed
 

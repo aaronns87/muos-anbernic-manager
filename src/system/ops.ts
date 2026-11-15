@@ -139,7 +139,8 @@ export async function startSystemJob(body: Record<string, unknown>) {
   let next: SystemJob;
 
   if (viaWifi) {
-    if (String(body.confirm ?? "").trim() !== wifiTf2Confirm) throw new UserError(`Type ${wifiTf2Confirm} to confirm.`);
+    // Confirm token is filled by the UI after the Are you sure modal (same pattern as Install).
+    if (String(body.confirm ?? "").trim() !== wifiTf2Confirm) throw new UserError("Confirm the TF2 erase in the dialog first.");
     const info = await wifiTf2Status(true);
     if (!info.ready) throw new UserError(info.reason || "TF2 is not ready over Wi-Fi.");
     card = wifiTf2Card(info);
@@ -155,7 +156,7 @@ export async function startSystemJob(body: Record<string, unknown>) {
     }
   } else {
     card = await requireCard(String(body.disk ?? ""));
-    if (String(body.confirm ?? "").trim() !== card.id) throw new UserError(`Type ${card.id} to confirm.`);
+    if (String(body.confirm ?? "").trim() !== card.id) throw new UserError("Confirm the card erase in the dialog first.");
     if (op === "install") {
       const image = await inspectImage(String(body.image ?? ""));
       if (image.bytes > card.size) throw new UserError(`The image unpacks to ${(image.bytes / 1e9).toFixed(1)} GB and ${card.id} holds ${(card.size / 1e9).toFixed(1)} GB.`);

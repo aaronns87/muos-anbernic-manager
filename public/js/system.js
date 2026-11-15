@@ -31,7 +31,7 @@ const S = {
   skipVerify: store.get("sysSkipVerify", false),
   importing: false, pendingImage: "",
   name: "SD_CARD", fs: "FAT32",
-  confirm: "", starting: false, sig: "", timer: 0, jobTimer: 0,
+  starting: false, sig: "", timer: 0, jobTimer: 0,
   /** Last job stage fingerprint — used to refresh the card layout when a step finishes. */
   jobStages: "", cardRefresh: false,
 };
@@ -45,8 +45,6 @@ const wifiTab = () => S.tab === "tf2" || S.tab === "reset";
 const usingWifi = () => wifiTab() && S.target === "wifi";
 const wifiReady = () => !!S.wifiTf2?.ready;
 const preferWifi = () => wifiTab() && S.target === "card" && !card() && wifiReady();
-const confirmNeed = () => (usingWifi() ? "TF2" : card()?.id || "");
-
 /** The capacity printed on the card (64 GB) from the byte count diskutil reports. */
 function nominal(bytes) {
   for (const gb of [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]) {
@@ -297,7 +295,6 @@ function checks() {
       const n = cleanName();
       list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
     }
-    list.push({ ok: wifiReady() && S.confirm.trim() === "TF2", text: "Type TF2 to confirm" });
     return list;
   }
   const c = card(), list = [{ ok: !!c, text: c ? `SD card ${c.id} detected` : "Insert an SD card" }];
@@ -312,8 +309,6 @@ function checks() {
     const n = cleanName();
     list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
   }
-  // Install uses the Are you sure modal instead of typing the disk id.
-  if (S.tab !== "install") list.push({ ok: !!c && S.confirm.trim() === c.id, text: c ? `Type ${c.id} to confirm` : "Confirm the card" });
   return list;
 }
 
@@ -328,7 +323,6 @@ function goPanel() {
   const targetSub = wifi
     ? (wifiReady() ? `${w.host}${w.size ? ` · ${nominal(w.size)}` : ""}` : "Connect over Wi-Fi")
     : (c ? `${nominal(c.size)} · ${c.role.label}` : "Insert one");
-  const need = confirmNeed();
   const loses = !wifi && c
     ? (c.partitions.length ? `${plural(c.partitions.length, "partition")}${c.partitions.some((p) => p.volume) ? ` (${c.partitions.filter((p) => p.volume).map((p) => p.volume).join(", ")})` : ""}` : "everything on it")
     : "";
@@ -339,6 +333,11 @@ function goPanel() {
       <button class="${!wifi ? "on" : ""}" aria-pressed="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
       <button class="${wifi ? "on" : ""}" aria-pressed="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
     </div>` : "";
+  const hint = S.tab === "install"
+    ? `${icon("lock")}You will confirm once more, then macOS asks for your login password (sudo) to write the card.`
+    : wifi
+      ? `${icon("lock")}You will confirm once more. ${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
+      : `${icon("lock")}You will confirm once more. Uses diskutil; takes under a minute.`;
   return `<aside class="panel sys-go">
     <h2>${icon(op.icon)}${op.name}</h2>
     ${targets}
@@ -350,12 +349,8 @@ function goPanel() {
     <p class="sys-next-step" id="sys-next-step" aria-live="polite">${esc(nextStep())}</p>
     <details class="sys-prerequisites"><summary>Review safety checks</summary><ul class="go-checks" id="sys-checks">${checkList()}</ul></details>
     ${warn}
-    ${S.tab === "install" ? "" : `<label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
-      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>`}
     <button class="btn danger-solid go-btn" id="sys-go" data-sys="start" ${ready() ? "" : "disabled"}>${S.starting ? `<span class="spinner sm"></span>Starting` : `${icon(op.icon)}${op.button}`}</button>
-    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}You will confirm once more, then macOS asks for your login password (sudo) to write the card.`
-      : wifi ? `${icon("info")}${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
-      : `${icon("info")}Uses diskutil; takes under a minute.`}</p>
+    <p class="hint go-hint">${hint}</p>
   </aside>`;
 }
 
@@ -514,7 +509,6 @@ async function loadCards() {
   ]);
   renderCard();
   if (sig !== S.sig) {
-    if (S.sig) S.confirm = "";
     S.sig = sig;
     renderBody();
   }
@@ -680,7 +674,7 @@ export function forgetImages() {
 
 export function showSystem() {
   const tab = store.get("sysTab", "install");
-  if (TABS.some(([id]) => id === tab) && S.tab !== tab) { S.tab = tab; S.confirm = ""; }
+  if (TABS.some(([id]) => id === tab) && S.tab !== tab) S.tab = tab;
   renderCard();
   renderBody();
   loadCards();
@@ -702,29 +696,31 @@ async function start() {
   const wifi = usingWifi();
   const c = card();
   if (!wifi && !c) return;
-  const confirmToken = wifi ? S.confirm.trim() : (S.tab === "install" ? c.id : S.confirm.trim());
+  // Server still expects a confirm token; the modal is the user confirmation (same as Install).
+  const confirmToken = wifi ? "TF2" : c.id;
   const body = wifi
     ? { op: S.tab, via: "wifi", confirm: confirmToken }
     : { op: S.tab, disk: c.id, confirm: confirmToken };
   if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked, skipVerify: !!S.skipVerify });
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
-  const ok = await confirmBox({
-    title: S.tab === "install" ? "Install MustardOS on this card?" : `${op.button}?`,
-    html: wifi
-      ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
-      : S.tab === "install"
-        ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b> to <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}).</p>
-           <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>
-           ${S.skipVerify ? "<p class=\"muted-note\">Read-back verification is skipped for this install.</p>" : ""}`
-        : `<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
-    ok: op.button, danger: true,
-  });
+  const title = S.tab === "install" ? "Install MustardOS on this card?"
+    : S.tab === "tf2" ? (wifi ? "Set up TF2 over Wi-Fi?" : `Set up TF2 on ${c.id}?`)
+    : (wifi ? "Reset TF2 over Wi-Fi?" : `Reset ${c.id}?`);
+  const html = wifi
+    ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
+    : S.tab === "install"
+      ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b> to <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}).</p>
+         <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>
+         ${S.skipVerify ? "<p class=\"muted-note\">Read-back verification is skipped for this install.</p>" : ""}`
+      : S.tab === "tf2"
+        ? `<p>Formats <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) as exFAT named <b>TF2</b> and creates the ROMS folders. <b>Everything on that card is erased.</b> This can't be undone.</p>`
+        : `<p>Formats <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>. <b>Everything on that card is erased</b>; the volume is left empty (no ROMS folders). This can't be undone.</p>`;
+  const ok = await confirmBox({ title, html, ok: op.button, danger: true });
   if (!ok) return;
   S.starting = true;
   refreshGo();
   try {
     setJob(await api("system/start", body));
-    S.confirm = "";
   } catch (error) {
     toast(error.message, 4000);
   }
@@ -736,7 +732,6 @@ async function act(el) {
   const what = el.dataset.sys;
   if (what === "tab") {
     S.tab = el.dataset.tab;
-    S.confirm = "";
     store.set("sysTab", S.tab);
     setTabRoute("system", S.tab);
     if (preferWifi()) {
@@ -749,13 +744,12 @@ async function act(el) {
   }
   if (what === "target") {
     S.target = el.dataset.target === "wifi" ? "wifi" : "card";
-    S.confirm = "";
     store.set("sysTf2Target", S.target);
     renderCard();
     renderBody();
     return;
   }
-  if (what === "disk") { S.disk = el.dataset.disk; S.confirm = ""; renderCard(); renderBody(); return; }
+  if (what === "disk") { S.disk = el.dataset.disk; renderCard(); renderBody(); return; }
   if (what === "refresh") { el.disabled = true; await loadCards(); return; }
   if (what === "use-image") { if (el.dataset.path !== S.path) useImage(el.dataset.path); return; }
   if (what === "check-image") { useImage($("sys-path").value); return; }
@@ -813,8 +807,7 @@ export function bindSystem() {
   });
   view.addEventListener("input", (e) => {
     const id = e.target.id;
-    if (id === "sys-confirm") S.confirm = e.target.value;
-    else if (id === "sys-path") {
+    if (id === "sys-path") {
       S.path = e.target.value;
       if (S.image && S.path.trim() !== S.image.path) {
         S.image = null;
