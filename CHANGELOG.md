@@ -12,7 +12,8 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
+| [Unreleased](#unreleased) | | |
+| [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -24,6 +25,8 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-11-15
 
 ### Added
 
@@ -406,7 +409,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.6...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.0...changes/unreleased
+[1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
 [1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6
 [1.2.5]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.5
 [1.2.4]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.4
