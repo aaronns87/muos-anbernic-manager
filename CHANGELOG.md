@@ -55,7 +55,7 @@ version.
 - Install MustardOS uses real `sudo -A` (graphical askpass) to write the card — osascript “administrator privileges” cannot open `/dev/rdisk*` on modern macOS; same approach as balenaEtcher.
 - Install MustardOS reports live write and verify progress (chunked elevated `flash-card.sh`), keeps the raw device open so macOS remounts cannot stall mid-flash, and Cancel stops write/verify within about a second.
 - Install MustardOS can skip read-back verification (checkbox before install, or Skip verify while it runs). Verify uses 4 MiB reads again so it is not stuck at ~1 MB/s.
-- Install verify no longer runs `diskutil`/`sync` between write and read-back (that remounted MustardOS and caused false “read-back does not match” failures). The write stream is hashed as it goes, then the card is read back immediately.
+- Install verify no longer runs `diskutil`/`sync` between write and read-back (that remounted MustardOS and caused false “read-back does not match” failures). Write and read-back use one elevated Python process (`flash-io.py`) on the same raw FD with `F_FULLFSYNC`, while a watchdog force-unmounts any volumes that appear mid-flash.
 - During an install, the SD card panel refreshes after each step so the partition map stays current (not during write/verify — diskutil then can remount volumes and corrupt the flash).
 - Model picker shows a silhouette for each handheld body (horizontal, vertical, or clamshell).
 - App market package ranking prefers assets tagged with the handheld's numeric MustardOS version (e.g. 2606.0 / 2606_0), not only codename tokens.
