@@ -34,6 +34,7 @@ export const KNOWN: Known[] = [
   { repo: "KyleJamesWalker/AmberDAV", title: "AmberDAV", category: "Online", desc: "WebDAV file server: open the handheld's files from a computer over Wi-Fi.", needs: ["wifi"] },
   { repo: "nvcuong1312/hotspotmuos", title: "Wi-Fi Hotspot", category: "Online", desc: "Turns the handheld into a Wi-Fi hotspot.", needs: ["wifi"] },
   { repo: "escal8tor/MuFin", title: "MuFin", category: "Media", desc: "Jellyfin client: browse and watch your Jellyfin media on the handheld.", needs: ["wifi"] },
+  { repo: "PapaZolaRis/MustardTube", title: "MustardTube", category: "Media", desc: "YouTube and Internet Radio for H700 Anbernic handhelds on MustardOS Andromeda.", needs: ["wifi"] },
   { repo: "pocketkode/pocketkode-radio", title: "PocketKode Radio", category: "Media", desc: "Internet radio and podcasts, with the screen off to save battery.", needs: ["wifi"] },
   { repo: "atalaygrgn/XMPlayer", title: "XMPlayer", category: "Media", desc: "Music and video player with a familiar media-centre interface." },
   { repo: "pcorbel/storiies", title: "Storiies", category: "Media", desc: "Simple, kid-friendly MP3 player." },

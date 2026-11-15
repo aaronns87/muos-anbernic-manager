@@ -55,7 +55,7 @@ per-session token. Nothing is uploaded anywhere.
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
-- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk and Dolphin Rt:Core) with
+- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk, Dolphin Rt:Core and MustardTube) with
   screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
   and `.muxupd` updates, and check for new MustardOS releases.
 - **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run

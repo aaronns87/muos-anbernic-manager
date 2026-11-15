@@ -487,6 +487,7 @@ test("app market: packages are ranked for the handheld's maker and MustardOS rel
   assert.equal(dolphin[0].fit, "best");
   assert.equal(rankAssets(dolphin, "Anbernic", "JACARANDA")[0].fit, "other");
   assert.ok(KNOWN.some((k) => k.repo === "SilverCrow2323/dolphin-rt-core"));
+  assert.ok(KNOWN.some((k) => k.repo === "PapaZolaRis/MustardTube"));
   assert.equal(new Set(KNOWN.map((k) => k.repo.toLowerCase())).size, KNOWN.length);
 });
 

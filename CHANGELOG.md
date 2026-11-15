@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Appearance settings, OS library and OS market, responsive navigation, unified connection setup |
+| [Unreleased](#unreleased) | | Appearance settings, OS library and OS market, MustardTube in the app market, responsive navigation, unified connection setup |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -27,6 +27,7 @@ version.
 
 ### Added
 
+- App market: [MustardTube](https://github.com/PapaZolaRis/MustardTube) (YouTube and Internet Radio for H700 on Andromeda).
 - Settings **Appearance** tab (after Behaviour): colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember), custom schemes via Create new
   (modal with dark/light colours and a live preview), zoom including 50% and 65%, Softer style (pastel accents, airier spacing, tinted selection,
   gentler controls), compact layout, theme, digital or analog top-bar clock, and date controls, with reset to default. Choices stay in this browser.

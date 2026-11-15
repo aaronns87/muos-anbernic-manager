@@ -204,8 +204,8 @@ const ARTICLES = [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
       They sit in your <code>apps</code> folder; the <b>App market</b>, <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
     ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps and packages, such as Scrappy, Artie, Grout, Bluetooth,
-      Void Desk and Dolphin Rt:Core (GameCube/Wii for H700 handhelds), with screenshots, GitHub stars, the latest release notes and links to each
-      project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
+      Void Desk, Dolphin Rt:Core (GameCube/Wii for H700 handhelds) and MustardTube (YouTube and Internet Radio on Andromeda), with screenshots,
+      GitHub stars, the latest release notes and links to each project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
       <ul>
         <li><b>Runs on the &hellip;</b> hides apps that cannot work on your handheld model, for example apps that need Wi-Fi on a model without it.
           Badges warn about the rest: <i>Made for</i> another handheld, <i>No longer developed</i>, or a <i>Pre-release</i>.</li>
