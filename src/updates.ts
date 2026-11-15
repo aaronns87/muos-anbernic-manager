@@ -75,7 +75,8 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-const versionIn = (name: string) => /v?(\d+(?:\.\d+)+)/i.exec(name)?.[1] || "";
+/** Version digits from a MustardOS image or tag name, e.g. 2601.1 from MustardOS_…_2601.1_…. */
+export const versionIn = (name: string) => /v?(\d+(?:\.\d+)+)/i.exec(name)?.[1] || "";
 const strip = (html: string) => String(html || "").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
 
 // ---------------------------------------------------------------- fetching
@@ -157,6 +158,11 @@ async function loadRemote(device: string, refresh: boolean): Promise<{ data: Rem
   } catch (error) {
     return { data: remote, error: (error as Error).message };
   }
+}
+
+/** Cached MustardOS release list (and optional per-device image links); used by Updates and the OS library. */
+export function loadMustardCatalogue(device = "", refresh = false) {
+  return loadRemote(device, refresh);
 }
 
 // ---------------------------------------------------------------- local state

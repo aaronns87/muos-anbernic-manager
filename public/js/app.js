@@ -19,6 +19,7 @@ import { bindSystem, showSystem, watchSystemJob } from "./system.js";
 import { bindAddGames } from "./add-games.js";
 import { showDevice } from "./device-section.js";
 import { showApps, countApps } from "./apps.js";
+import { bindOs, showOs, countOs } from "./os.js";
 import { showEmulation } from "./emulation.js";
 import { openHelp, showWiki } from "./wiki.js";
 import { showFiles } from "./files.js";
@@ -33,7 +34,7 @@ import "./combo.js";
 import { bindUi } from "./ui.js";
 
 const TITLES = {
-  overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play activity", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
+  overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play activity", "clock"], artwork: ["Artwork", "image"], os: ["OS", "sd"], apps: ["Apps", "package"],
   handheld: ["Device", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
   ssh: ["Terminal", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
 };
@@ -90,6 +91,7 @@ async function showSection() {
   }
   if (s === "handheld") showDevice();
   if (s === "emulation") showEmulation();
+  if (s === "os") showOs();
   if (s === "apps") showApps();
   if (s === "play") showPlay();
   if (s === "files") showFiles();
@@ -219,6 +221,7 @@ bindWhatsNew();
 bindArtwork();
 bindArtworkView();
 bindSystem();
+bindOs();
 bindAddGames();
 showSection();
 
@@ -234,6 +237,7 @@ if (!TOKEN) {
   checkWizard().then(() => checkWhatsNew());
   startManagerChecks();
   if (section() !== "apps") countApps();
+  if (section() !== "os") countOs();
   poll();
   watchSystemJob();
   setTimeout(watchDevices, 5000);

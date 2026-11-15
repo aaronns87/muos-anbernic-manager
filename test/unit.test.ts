@@ -40,6 +40,8 @@ import { cheatCandidates, parseCht, parsePpssppCheats, ppssppIni, retroarchName,
 import zlib from "node:zlib";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
+import { hashLines, importOsImage, osReleaseFolder } from "../src/system/image.ts";
+import { listOsReleases, parseOsReleaseFolder } from "../src/os-library.ts";
 import { inside, safePart, splitName } from "../src/util.ts";
 import { parseChangelog, releasesSince } from "../src/whats-new.ts";
 
@@ -146,6 +148,64 @@ test("versionOfBuild finds a point release from the build id in an image name", 
   assert.equal(versionOfBuild("1a2b3c4d", names), "2601.0");
   assert.equal(versionOfBuild("deadbeef", names), "");
   assert.equal(versionOfBuild("", names), "");
+});
+
+test("osReleaseFolder and hashLines follow the os/mustardos_<ver>/hash.txt layout", () => {
+  assert.equal(osReleaseFolder("MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz"), "mustardos_2601.1");
+  assert.equal(osReleaseFolder("MustardOS_TUI-BRICK_2606.0_ANDROMEDA-db2a3bd0.img"), "mustardos_2606.0");
+  assert.throws(() => osReleaseFolder("random.img.gz"), /version/);
+  assert.deepEqual(hashLines(`
+# comment
+b52c3b7c7d12549d606dcb06ef5e88dd1569112a5495f1e6914e9fdcbca6468a  MustardOS_RG40XX-H_2601.1_X.img.gz
+not-a-hash  skip.me
+fe4100637e4a968a72e119b2ceb32be3ddc5a019068b2cf14238f6e7e4eafe34 *MustardOS_RG28XX-H_2601.1_X.img.gz
+`), [
+    { value: "b52c3b7c7d12549d606dcb06ef5e88dd1569112a5495f1e6914e9fdcbca6468a", name: "MustardOS_RG40XX-H_2601.1_X.img.gz" },
+    { value: "fe4100637e4a968a72e119b2ceb32be3ddc5a019068b2cf14238f6e7e4eafe34", name: "MustardOS_RG28XX-H_2601.1_X.img.gz" },
+  ]);
+});
+
+test("importOsImage copies into os/mustardos_<ver>/ and merges hash.txt", async (t) => {
+  const root = tmp(t);
+  setRoot(root);
+  await createWorkspace();
+  const src = path.join(root, "Downloads");
+  fs.mkdirSync(src);
+  const name = "MustardOS_RG40XX-H_2606.0_ANDROMEDA-db2a3bd0.img.gz";
+  const image = path.join(src, name);
+  const hash = "a".repeat(64);
+  fs.writeFileSync(image, "fake-image");
+  fs.writeFileSync(path.join(src, "hash.txt"), `${hash}  ${name}\n${"b".repeat(64)}  MustardOS_RG28XX-H_2606.0_ANDROMEDA-db2a3bd0.img.gz\n`);
+  const saved = await importOsImage({ image, hashFile: path.join(src, "hash.txt") });
+  assert.equal(saved.folder, "mustardos_2606.0");
+  assert.equal(saved.path, path.join(ctx.os, "mustardos_2606.0", name));
+  assert.ok(fs.existsSync(saved.path));
+  assert.ok(fs.existsSync(image), "original download stays when copied from outside os/");
+  const lines = fs.readFileSync(path.join(ctx.os, "mustardos_2606.0", "hash.txt"), "utf8");
+  assert.match(lines, new RegExp(`${hash}  ${name}`));
+  assert.match(lines, /MustardOS_RG28XX-H_2606\.0_ANDROMEDA-db2a3bd0\.img\.gz/);
+});
+
+test("listOsReleases groups mustardos_<ver> folders and loose root images", async (t) => {
+  assert.equal(parseOsReleaseFolder("mustardos_2601.1"), "2601.1");
+  assert.equal(parseOsReleaseFolder("other"), null);
+  const root = tmp(t);
+  setRoot(root);
+  await createWorkspace();
+  const ver = path.join(ctx.os, "mustardos_2601.1");
+  fs.mkdirSync(ver);
+  const img = "MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz";
+  fs.writeFileSync(path.join(ver, img), "x");
+  fs.writeFileSync(path.join(ver, "hash.txt"), `${"c".repeat(64)}  ${img}\n`);
+  fs.writeFileSync(path.join(ctx.os, "MustardOS_RG28XX-H_2600.0_OLD.img.gz"), "loose");
+  const list = await listOsReleases();
+  assert.equal(list.length, 2);
+  assert.equal(list[0].version, "2601.1");
+  assert.equal(list[0].images.length, 1);
+  assert.equal(list[0].images[0].hashOk, true);
+  assert.equal(list[0].images[0].deviceId, "rg40xx-h");
+  assert.equal(list[1].unsorted, true);
+  assert.equal(list[1].images.length, 1);
 });
 
 test("parseYaml reads the MustardOS release files", () => {

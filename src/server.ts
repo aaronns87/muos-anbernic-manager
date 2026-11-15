@@ -47,7 +47,8 @@ import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from
 import { libraryJson, rescanLibrary } from "./games/library.ts";
 import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
-import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
+import { hashFromFile, importOsImage, inspectImage, workspaceImages } from "./system/image.ts";
+import { osLibraryJson, removeOsPath, revealOsPath } from "./os-library.ts";
 import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
@@ -323,6 +324,11 @@ const routes: Record<string, Handler> = {
   "GET /api/system/images": async () => ({ images: await workspaceImages(), tf2: { top: TF2_TOP, systems: tf2Systems() } }),
   "POST /api/system/inspect": (_, body) => inspectImage(String(body.path ?? "")),
   "POST /api/system/hash-file": (_, body) => hashFromFile(String(body.path ?? ""), String(body.image ?? "")),
+  "POST /api/system/import-image": (_, body) => importOsImage(body),
+  "GET /api/os": (query) => osLibraryJson(query),
+  "POST /api/os/import": (_, body) => importOsImage(body),
+  "POST /api/os/remove": (_, body) => removeOsPath(body),
+  "POST /api/os/reveal": (_, body) => revealOsPath(body),
   "POST /api/system/pick": async (_, body) => {
     if (!platform.pickFile) throw new UserError("This system has no file picker; type the path instead.");
     const hash = body.kind === "hash";

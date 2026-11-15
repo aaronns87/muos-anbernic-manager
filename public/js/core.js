@@ -11,7 +11,7 @@ export const ACCENTS = {
 };
 export const EXCLUDED = new Set(["APPS", "PORTS"]);
 export const ART_KINDS = [["box", "Box art"], ["preview", "Screenshot"], ["splash", "Splash"]];
-export const SECTIONS = ["overview", "games", "play", "artwork", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
+export const SECTIONS = ["overview", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
 /** The section each number key opens: 1 to 9 in order, 0 for the Wiki. */
 export const sectionForKey = (k) => (k === "0" ? "wiki" : SECTIONS[+k - 1]);
 

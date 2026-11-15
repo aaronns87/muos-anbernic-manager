@@ -27,7 +27,8 @@ const S = {
   /** "card" = card reader, "wifi" = handheld over SSH. Used on the TF2 and Reset tabs. */
   target: store.get("sysTf2Target", "card"),
   path: "", image: null, imageError: "", inspecting: false,
-  hash: "", hashSource: "", hashError: "", unchecked: false,
+  hash: "", hashSource: "", hashFile: "", hashError: "", unchecked: false,
+  importing: false, pendingImage: "",
   name: "SD_CARD", fs: "FAT32",
   confirm: "", starting: false, sig: "", timer: 0, jobTimer: 0,
 };
@@ -190,14 +191,23 @@ function installForm() {
       ${modelNotice(im.name)}
     </div>`;
   }
+  const inLibrary = im && /(?:^|\/)mustardos_\d+(?:\.\d+)+\//i.test(im.path.replace(/\\/g, "/"));
+  const saveBtn = im && !S.imageError && !inLibrary
+    ? `<button class="btn" data-sys="import-save" ${S.importing || S.inspecting ? "disabled" : ""} title="Copy into the OS images folder as mustardos_&lt;version&gt;/">${icon("download")}<span>${S.importing ? "Saving&hellip;" : "Save into OS folder"}</span></button>`
+    : "";
   const imageStep = step(1, "Disk image", im && !S.imageError ? "done" : "", im ? `<span class="ss-aside">${im.kind === "gz" ? ".img.gz" : ".img"}</span>` : "", `
     ${list}
     <div class="field-row">
       <input class="control mono grow" id="sys-path" placeholder="/path/to/MustardOS_….img.gz" value="${esc(S.path)}" spellcheck="false" autocomplete="off">
       <button class="btn" data-sys="pick-image">${icon("folder")}Choose&hellip;</button>
       <button class="btn" data-sys="check-image" ${S.inspecting ? "disabled" : ""}>Check</button>
+      ${saveBtn}
     </div>
-    <p class="hint">A MustardOS <code>.img</code> or <code>.img.gz</code>. Compressed images unpack while writing, no extra disk space needed.</p>
+    <p class="hint">A MustardOS <code>.img</code> or <code>.img.gz</code>. Compressed images unpack while writing, no extra disk space needed.
+      Use <b>Add image to OS folder</b> to keep a download under <code>os/mustardos_&lt;version&gt;/</code> with its <code>hash.txt</code>.</p>
+    <div class="panel-actions">
+      <button class="btn" data-sys="import-add" ${S.importing ? "disabled" : ""}>${icon("plus")}<span>${S.importing ? "Adding&hellip;" : "Add image to OS folder"}</span></button>
+    </div>
     ${status}`);
   const h = hashState();
   const hashStep = step(2, "Checksum", h.cls === "ok" ? "done" : "", `<span class="ss-aside">SHA256</span>`, `
@@ -477,6 +487,7 @@ async function useImage(path, draw = true) {
   S.image = null;
   S.imageError = "";
   S.hashError = "";
+  S.hashFile = "";
   if (!path) { renderBody(); return; }
   S.inspecting = true;
   const seq = S.inspectSeq = (S.inspectSeq || 0) + 1;
@@ -492,6 +503,73 @@ async function useImage(path, draw = true) {
     S.imageError = error.message;
   }
   S.inspecting = false;
+  renderBody();
+}
+
+/** Guess os/mustardos_<ver>/ from a MustardOS_DEVICE_VER_… file name. */
+function releaseFolderHint(name) {
+  const after = String(name || "").replace(/^MustardOS_[^_]+_/i, "");
+  const ver = /v?(\d+(?:\.\d+)+)/i.exec(after)?.[1];
+  return ver ? `mustardos_${ver}` : "";
+}
+
+async function ensureHashForImport() {
+  if (HEX.test(cleanHash())) return true;
+  if (!S.image) return false;
+  toast("Choose the hash.txt or .sha256 file for this image", 2800);
+  const r = await api("system/pick", { kind: "hash", start: S.image.path });
+  if (!r.path) return false;
+  const found = await api("system/hash-file", { path: r.path, image: S.image.path });
+  S.hash = found.value;
+  S.hashSource = found.source;
+  S.hashFile = r.path;
+  S.hashError = "";
+  return true;
+}
+
+async function importImage(fromPicker) {
+  if (S.importing || running()) return;
+  try {
+    if (fromPicker) {
+      const r = await api("system/pick", { kind: "image", start: S.image?.path || S.path || "" });
+      if (!r.path) return;
+      await useImage(r.path);
+      if (!S.image || S.imageError) return;
+    } else if (!S.image || S.imageError) {
+      toast("Choose a MustardOS image first", 2600);
+      return;
+    }
+    if (!(await ensureHashForImport())) {
+      if (!HEX.test(cleanHash())) toast("A SHA256 is required to save into the OS images folder", 3200);
+      renderBody();
+      return;
+    }
+    const folder = releaseFolderHint(S.image.name) || "mustardos_<version>";
+    const ok = await confirmBox({
+      title: "Add image to OS folder?",
+      html: `<p>Saves <b>${esc(S.image.name)}</b> into <code>os/${esc(folder)}/</code> with a <code>hash.txt</code> entry (same layout as your other MustardOS releases).</p>
+        <p class="muted-note">${/\/os\//i.test(S.image.path.replace(/\\/g, "/")) && !new RegExp(`/${folder}/`, "i").test(S.image.path.replace(/\\/g, "/"))
+          ? "The file is already under the OS images folder, so it will be moved into the version folder."
+          : "The image is copied; the original download stays where it is."}</p>`,
+      ok: "Save into OS folder",
+    });
+    if (!ok) return;
+    S.importing = true;
+    renderBody();
+    const saved = await api("system/import-image", {
+      image: S.image.path,
+      hash: cleanHash(),
+      hashFile: S.hashFile || undefined,
+    });
+    S.hashFile = "";
+    toast(`Saved in os/${saved.folder}/`, 2800);
+    import("./os.js").then((m) => m.reloadOs()).catch(() => {});
+    await loadImages();
+    await useImage(saved.path);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  S.importing = false;
   renderBody();
 }
 
@@ -544,6 +622,12 @@ export function showSystem() {
   renderBody();
   loadCards();
   if (!S.images) loadImages();
+  const pending = S.pendingImage || store.get("sysPendingImage", "");
+  if (pending) {
+    S.pendingImage = "";
+    store.set("sysPendingImage", "");
+    useImage(pending);
+  }
   schedule();
 }
 
@@ -607,6 +691,8 @@ async function act(el) {
   if (what === "refresh") { el.disabled = true; await loadCards(); return; }
   if (what === "use-image") { if (el.dataset.path !== S.path) useImage(el.dataset.path); return; }
   if (what === "check-image") { useImage($("sys-path").value); return; }
+  if (what === "import-add") { importImage(true); return; }
+  if (what === "import-save") { importImage(false); return; }
   if (what === "fs") {
     S.fs = el.dataset.fs;
     renderBody();
@@ -624,6 +710,7 @@ async function act(el) {
       const found = await api("system/hash-file", { path: r.path, image: S.image.path });
       S.hash = found.value;
       S.hashSource = found.source;
+      S.hashFile = r.path;
       S.hashError = "";
       renderBody();
     } else if (what === "eject") {
@@ -668,6 +755,7 @@ export function bindSystem() {
     else if (id === "sys-hash") {
       S.hash = e.target.value;
       S.hashSource = "";
+      S.hashFile = "";
       S.hashError = "";
       const h = hashState();
       e.target.closest(".hash-field").className = `hash-field ${h.cls}`;

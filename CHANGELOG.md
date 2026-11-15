@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | Appearance settings, OS library section, responsive navigation, unified connection setup |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -28,21 +28,48 @@ version.
 ### Added
 
 - Settings **Appearance** tab (after Behaviour): colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember), custom schemes via Create new
-  (modal with dark/light colours and a live preview), zoom including 50% and 65%, Soft UX (pastel accents, airier spacing, tinted selection,
+  (modal with dark/light colours and a live preview), zoom including 50% and 65%, Softer style (pastel accents, airier spacing, tinted selection,
   gentler controls), compact layout, theme, digital or analog top-bar clock, and date controls, with reset to default. Choices stay in this browser.
+- Direct tab links for Settings, Emulation, Device, Themes, Play activity, System Tools and Artwork. Browser Back and
+  Forward restore the selected tab, and game details link directly to the relevant Emulation tab.
+- Custom colour schemes show live contrast guidance for page, panel, secondary and button text in dark and light modes.
+- System Tools → Install MustardOS: **Add image to OS folder** saves a downloaded MustardOS image and its SHA256 into
+  `os/mustardos_<version>/` with `hash.txt`, matching the existing release layout.
+- Library **OS** section (after Artwork): lists local MustardOS release folders under `os/`, add/remove images, show folder,
+  release notes from the MustardOS catalogue when the version matches, official download links (external only), and
+  Install that opens System Tools with the image selected.
 
 ### Changed
 
 - Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
-- Smaller screens use a navigation drawer and compact header, leaving more room for the current task. Section tabs
-  have direct links, keyboard navigation and screen-reader connections to their content.
-- Connection setup groups file access and remote controls in one panel without leaving the current section.
-  Offline Overview offers local library tasks; Apps, Saves and Game Tuning have shorter, actionable setup guidance.
-- Files uses switchable panes on phones and shows the copy destination. Save and theme action errors stay visible
-  with recovery actions. Themes prioritizes previews while offline; advanced Designer targets are tucked away.
+- Smaller screens use a dismissible navigation drawer and compact header, leaving more room for the current task.
+  The drawer supports keyboard focus containment, Escape to close and focus restoration. Games keeps secondary
+  library controls inside Filters on phones.
+- Navigation labels now read **Play activity** and **Terminal**. Shared tabs and secondary actions have quieter styling;
+  tabs identify their content panels for screen readers, and selectable controls expose their selected state.
+- Connection setup groups file access and remote controls in one panel without leaving the current section. Remote
+  controls include inline SSH settings and distinguish saved settings from a successful sign-in.
+- Offline Overview prioritizes Browse games, Find artwork and Check library, with a compact connection banner and
+  fewer unavailable device cards. Apps, Saves and Game Tuning have shorter, actionable setup guidance.
 - Apps consistently leads with App market and offers Import packages as a secondary action. Apps and Saves keep
-  full folder paths in expandable details. Settings simplifies folder controls and separates density from visual style;
-  custom palettes show contrast guidance. System Tools highlights the next prerequisite while retaining erase safeguards.
+  full folder paths in expandable details, with direct links to folder settings.
+- Files uses switchable This computer and Handheld panes on phones while preserving selections and locations.
+  Copy actions show the destination and confirm both source and destination; Rename has a visible text label.
+- Themes prioritizes previews while offline and offers Connect to install from the preview. Theme Designer defaults
+  to the selected handheld's screen size and groups screen and version targets under Advanced details.
+- Settings simplifies folder controls with shortened path displays, expandable full paths and Copy path actions.
+  Colours and style groups Softer style separately from layout density and zoom.
+- System Tools highlights the next prerequisite and puts the full checklist in expandable details, while preserving
+  target information, erase warnings, typed confirmation and the second confirmation.
+
+### Fixed
+
+- Failed file saves keep the edited content and show a persistent Retry save action. File and theme action failures
+  remain visible until dismissed or retried, and theme creation failures preserve the selected options.
+- Leaving Theme Designer, including through browser history, waits for pending edits to save. Failed saves keep the
+  Designer open with unsaved work available for recovery.
+- Connection settings preserve typed values and keyboard focus after errors or panel updates. File-access fields no
+  longer overwrite SSH host, port or username fields when the shared panel redraws.
 
 ## [1.2.6] - 2026-11-15
 

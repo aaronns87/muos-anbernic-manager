@@ -9,7 +9,8 @@ import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 import { ctx } from "../context.ts";
 import { UserError } from "../errors.ts";
-import { CHUNK, isFile, listDir } from "../util.ts";
+import { say } from "../log.ts";
+import { CHUNK, inside, isFile, listDir } from "../util.ts";
 
 export class Cancelled extends Error {}
 
@@ -153,6 +154,103 @@ export async function inspectImage(file: string): Promise<ImageInfo> {
   const layout = parseLayout(await readHead(file, kind, 128 * 1024));
   if (kind === "raw" && fileSize !== layout.bytes) throw new UserError("The file size does not match the disk image length. It is truncated or has trailing data.");
   return { path: file, name: path.basename(file), kind, fileSize, ...layout, hash: await findHash(file) };
+}
+
+/** Release folder for a MustardOS image name: mustardos_2601.1 from MustardOS_RG40XX-H_2601.1_….img.gz. */
+export function osReleaseFolder(imageName: string): string {
+  const afterDevice = String(imageName || "").replace(/^MustardOS_[^_]+_/i, "");
+  const ver = /v?(\d+(?:\.\d+)+)/i.exec(afterDevice)?.[1];
+  if (!ver) {
+    throw new UserError("The file name needs a MustardOS version, for example MustardOS_RG40XX-H_2601.1_….img.gz, so the manager knows which folder to use.");
+  }
+  return `mustardos_${ver}`;
+}
+
+/** Parse every "<sha256>  <name>" line from a hash list. */
+export function hashLines(text: string): { value: string; name: string }[] {
+  const out: { value: string; name: string }[] = [];
+  for (let line of String(text || "").split("\n")) {
+    line = line.replace(/#.*/, "").replace(/\r$/, "").trim();
+    if (!line) continue;
+    const [first, ...rest] = line.split(/\s+/);
+    const value = normalizeHash(first);
+    if (!isSha256(value)) continue;
+    const name = path.basename(rest.join(" ").replace(/^\*/, "").replace(/^\.\//, ""));
+    if (name) out.push({ value, name });
+  }
+  return out;
+}
+
+async function writeHashTxt(file: string, lines: { value: string; name: string }[]) {
+  const byName = new Map<string, string>();
+  for (const row of lines) byName.set(row.name, row.value);
+  const body = [...byName.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, value]) => `${value}  ${name}`).join("\n") + (byName.size ? "\n" : "");
+  await fsp.writeFile(file, body, "utf8");
+}
+
+/**
+ * Copies (or moves, when already under the OS images folder) a MustardOS image into os/mustardos_<version>/
+ * and merges its SHA256 into that folder's hash.txt, matching the layout used for other releases.
+ */
+export async function importOsImage(body: Record<string, unknown>) {
+  const image = String(body.image ?? "");
+  if (!image || !path.isAbsolute(image)) throw new UserError("Pick a MustardOS .img or .img.gz file.");
+  if (!(await isFile(image))) throw new UserError(`Image not found: ${image}`);
+  kindOf(image);
+  const name = path.basename(image);
+  const folder = osReleaseFolder(name);
+  if (!/^mustardos_\d+(?:\.\d+)+$/.test(folder)) throw new UserError("That MustardOS version does not look safe for a folder name.");
+  const destDir = path.join(ctx.os, folder);
+  const destImage = path.join(destDir, name);
+  if (!inside(ctx.os, destImage)) throw new UserError("That path is outside the OS images folder.");
+
+  let hashValue = normalizeHash(String(body.hash ?? ""));
+  const hashFile = String(body.hashFile ?? "");
+  let extraLines: { value: string; name: string }[] = [];
+  if (hashFile) {
+    if (!path.isAbsolute(hashFile) || !(await isFile(hashFile))) throw new UserError("Hash file not found.");
+    if ((await fsp.stat(hashFile)).size > 1024 * 1024) throw new UserError("That file is too large to be a hash list.");
+    const text = await fsp.readFile(hashFile, "utf8");
+    extraLines = hashLines(text);
+    if (!hashValue) {
+      hashValue = hashFromText(text, name, true);
+      if (!hashValue) throw new UserError(`No SHA256 for ${name} in ${path.basename(hashFile)}.`);
+    }
+  }
+  if (!hashValue) {
+    const found = await findHash(image);
+    if (found) hashValue = found.value;
+  }
+  if (!hashValue) throw new UserError("Add a SHA256 (paste it or choose a hash.txt / .sha256 file) before saving into the OS images folder.");
+  if (!isSha256(hashValue)) throw new UserError("A SHA256 is 64 hex characters (0-9, a-f).");
+
+  await fsp.mkdir(ctx.os, { recursive: true });
+  await fsp.mkdir(destDir, { recursive: true });
+
+  let moved = false;
+  if (path.resolve(image) !== path.resolve(destImage)) {
+    if (await isFile(destImage)) throw new UserError(`${name} is already in ${folder}. Remove it first, or pick another image.`);
+    if (inside(ctx.os, image)) {
+      await fsp.rename(image, destImage);
+      moved = true;
+    } else {
+      await fsp.copyFile(image, destImage);
+    }
+  }
+
+  const hashPath = path.join(destDir, "hash.txt");
+  const existing = (await isFile(hashPath)) ? hashLines(await fsp.readFile(hashPath, "utf8")) : [];
+  await writeHashTxt(hashPath, [...existing, ...extraLines, { value: hashValue, name }]);
+
+  say("green", "OS IMAGE", `${name} ${moved ? "moved" : "saved"} in ${folder}/.`);
+  return {
+    folder,
+    path: destImage,
+    relative: path.join(folder, name),
+    hash: hashValue,
+    hashFile: "hash.txt",
+    moved,
+  };
 }
 
 /** .img and .img.gz files in the OS images folder (os/ by default) and one level below it. */

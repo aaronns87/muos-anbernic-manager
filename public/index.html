@@ -37,20 +37,23 @@
       <a class="section-link" href="#artwork" data-section="artwork" title="Artwork (4)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
         <span class="nav-label">Artwork</span> <span class="nav-count" id="art-count"></span></a>
+      <a class="section-link" href="#os" data-section="os" title="OS (5)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M9 7v3M12 7v3M15 9v1"/></svg>
+        <span class="nav-label">OS</span> <span class="nav-count" id="os-count"></span></a>
       <div class="nav-group">Handheld</div>
-      <a class="section-link" href="#apps" data-section="apps" title="Apps (5)">
+      <a class="section-link" href="#apps" data-section="apps" title="Apps (6)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
         <span class="nav-label">Apps</span> <span class="nav-count" id="apps-count"></span></a>
-      <a class="section-link" href="#handheld" data-section="handheld" title="Device (6)">
+      <a class="section-link" href="#handheld" data-section="handheld" title="Device (7)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
         <span class="nav-label">Device</span></a>
-      <a class="section-link" href="#themes" data-section="themes" title="Themes (7)">
+      <a class="section-link" href="#themes" data-section="themes" title="Themes (8)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/><circle cx="17" cy="11" r="1"/></svg>
         <span class="nav-label">Themes</span></a>
-      <a class="section-link" href="#emulation" data-section="emulation" title="Emulation (8)">
+      <a class="section-link" href="#emulation" data-section="emulation" title="Emulation (9)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><path d="M15 13h.01M18 11h.01"/></svg>
         <span class="nav-label">Emulation</span></a>
-      <a class="section-link" href="#files" data-section="files" title="Files (9)">
+      <a class="section-link" href="#files" data-section="files" title="Files">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <span class="nav-label">Files</span></a>
       <a class="section-link" href="#tuning" data-section="tuning" title="Game Tuning">
@@ -239,6 +242,13 @@
       <div class="art-kpis" id="art-kpis"></div>
       <nav class="tabs art-tabs" id="art-tabs" role="tablist" aria-label="Artwork tools"></nav>
       <div class="ov-grid" id="artwork"></div>
+    </section>
+    <section class="view" id="view-os" hidden>
+      <header class="page-head">
+        <div><p id="os-sub">MustardOS disk images kept for installs, grouped by release</p></div>
+        <div class="page-actions" id="os-actions"></div>
+      </header>
+      <div id="os"></div>
     </section>
     <section class="view" id="view-apps" hidden>
       <header class="page-head">

@@ -7,6 +7,7 @@ import { invalidateLocal } from "./art-local.js";
 import { artMax, confirmBox, maxSides } from "./art-images.js";
 import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
+import { reloadOs } from "./os.js";
 import { openWizard } from "./wizard.js";
 import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
@@ -543,7 +544,7 @@ async function useOtherFolder(which, target) {
     s.data = await api("settings", { [which]: target });
     s.browse = null;
     app.overview.workspace = null;
-    if (which === "os") forgetImages();
+    if (which === "os") { forgetImages(); reloadOs(); }
     const f = s.data.folders[which];
     const k = KINDS[which];
     toast(`${k.name[0].toUpperCase() + k.name.slice(1)} set: ${plural(f.count, k.unit)}`, 2600);

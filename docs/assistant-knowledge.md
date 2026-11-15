@@ -10,7 +10,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 
 ### Sidebar
 
-- **Library** - Games, Play, Artwork
+- **Library** - Games, Play, Artwork, OS
 - **Handheld** - Apps, Device, Themes, Emulation, Files, Game Tuning
 - **Tools** - System Tools, SSH
 - **Manager** - Settings, Wiki (chat opens from the top bar or mustard button after an API key is saved)
@@ -47,7 +47,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 | Install/uninstall apps, Device (settings + controls + benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH | Wi-Fi with Secure Shell on |
 | Install MustardOS or wipe a card in a reader | Card reader |
 | Set up TF2 / Reset card on TF2 | Card reader, or Wi-Fi with SSH |
-| Library check, Updates, App market downloads, adding to Roms/ | This computer only |
+| Library check, Updates, App market downloads, adding to Roms/, OS library | This computer only |
 
 ### Top bar
 
@@ -137,6 +137,10 @@ Needs USB or Wi-Fi (data on SD1). Games card alone is not enough.
 Pictures next to games in MustardOS menus. Computer: `Roms/<SYSTEM>/Imgs/` named like the game. Handheld: MustardOS catalogue.
 
 Tabs: **Sync** (copy missing either way); **Roms/ library** (coverage per system); **On device**; **Scrape** (download missing from online DBs). Routine: add games, Scrape, Sync. Upload size: Settings > Behaviour > Uploaded artwork size.
+
+## os - OS
+
+Library section after Artwork. Local MustardOS disk images under `os/`, grouped by `mustardos_<version>/` (loose root images = Unsorted). Add image (pick `.img`/`.img.gz` + SHA256 → same import as System Tools). Remove image or whole release → Trash. Show OS folder. Release notes from MustardOS site catalogue when version matches; official GoFile/Mega links open externally (no in-app multi-GB download). Install opens System Tools → Install MustardOS with that image. Writing a card still only from System Tools + card reader.
 
 ## apps - Apps
 
@@ -252,7 +256,7 @@ Map community tips onto options that exist in Game Tuning / Core options; do not
 
 All erase the target - back up saves first (Emulation > Saves). Card reader may ask for password. Only removable cards offered.
 
-**Install MustardOS**: write image from `os/` onto SD1 in reader, verify. Not over Wi-Fi.
+**Install MustardOS**: write image from `os/` onto SD1 in reader, verify. Not over Wi-Fi. **Add image to OS folder** / **Save into OS folder**: copy a downloaded `.img`/`.img.gz` plus SHA256 into `os/mustardos_<version>/` with `hash.txt` (version from the MustardOS file name). Day-to-day management of those releases: Library → OS.
 
 **Set up TF2**: format exFAT named TF2 + ROMS folders. Reader or Over Wi-Fi (`/mnt/sdcard` only; never SD1). One-slot games-on-SD1 cannot use Wi-Fi path.
 

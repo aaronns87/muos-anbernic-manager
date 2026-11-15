@@ -202,6 +202,23 @@ test("static files are served, hidden paths are not", async () => {
   assert.equal((await fetch(`${base}/`)).status, 200);
 });
 
+test("GET /api/os lists mustardos release folders in the workspace", async () => {
+  const ver = path.join(root, "os", "mustardos_2601.1");
+  fs.mkdirSync(ver, { recursive: true });
+  const name = "MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz";
+  fs.writeFileSync(path.join(ver, name), "fake");
+  fs.writeFileSync(path.join(ver, "hash.txt"), `${"d".repeat(64)}  ${name}\n`);
+  const { status, json } = await api("os");
+  assert.equal(status, 200);
+  assert.equal(json.available, true);
+  const rel = json.releases.find((r: { version: string }) => r.version === "2601.1");
+  assert.ok(rel);
+  assert.equal(rel.images.length, 1);
+  assert.equal(rel.images[0].name, name);
+  assert.equal(rel.images[0].hashOk, true);
+  assert.equal((await api("os/remove", { kind: "image", path: path.join(root, "..", "etc") })).status, 400);
+});
+
 test("every front-end module parses", () => {
   const dir = path.join(manager, "public", "js");
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
@@ -217,6 +234,7 @@ test("index.html has the elements the Emulation and Apps views render into", () 
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder", "main-content", "filters-toggle", "games-filters",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
+    "view-os", "os", "os-sub", "os-actions", "os-count",
     "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }

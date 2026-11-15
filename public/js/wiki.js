@@ -13,9 +13,9 @@ const ARTICLES = [
     ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
-      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device, Themes,
-      Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
-      (Settings, Wiki) is about the manager itself.</p>`],
+      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork, OS) is about your games and MustardOS images,
+      <b>Handheld</b> (Apps, Device, Themes, Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards
+      and opens a shell, and <b>Manager</b> (Settings, Wiki) is about the manager itself.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
       on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
       <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
@@ -76,7 +76,7 @@ const ARTICLES = [
     ["Keyboard shortcuts", `<ul>
       <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
       or Home/End for the first or last tab.</li>
-      <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Files); <kbd>0</kbd> opens the Wiki.</li>
+      <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Emulation); <kbd>0</kbd> opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on.</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
@@ -181,6 +181,20 @@ const ARTICLES = [
     </ul>`],
     ["A good routine", `<p>Add games, run <b>Scrape</b> to fill in missing art, then <b>Sync</b> to put it on the handheld. The size pictures are saved at
       is set in Settings under <b>Uploaded artwork size</b>.</p>`],
+  ]],
+  ["os", "sd", "OS", "os", "MustardOS disk images on this computer, grouped by release, ready to install from System Tools.", [
+    ["What you see", `<p>Each card is a release folder under <code>os/mustardos_&lt;version&gt;/</code> (for example <code>mustardos_2606.0</code>),
+      with the images inside it, their sizes and whether a matching line exists in that folder's <code>hash.txt</code>.
+      Loose images at the root of <code>os/</code> appear under <b>Unsorted</b>. When the handheld is connected over SSH, the release that matches
+      its running build is marked <b>On handheld</b>.</p>`],
+    ["Add and remove", `<p><b>Add image</b> picks a downloaded <code>.img</code> / <code>.img.gz</code> and its SHA256 file, then saves them into the
+      version folder (the same flow as System Tools &rsaquo; Add image to OS folder). <b>Remove image</b> or <b>Remove release</b> moves files to the
+      Trash on this computer. <b>Show OS folder</b> opens the folder in the file manager.</p>`],
+    ["Release notes and downloads", `<p>When the version matches a release from the MustardOS site catalogue, the detail panel shows its changes and notes.
+      Official download links (GoFile, Mega, and so on) open in the browser; the manager does not download multi‑gigabyte images itself.
+      After you download there, use <b>Add image</b>.</p>`],
+    ["Install", `<p><b>Install</b> on an image (or <b>Install this image</b>) opens System Tools &rsaquo; Install MustardOS with that file selected.
+      Writing to a card still happens only from System Tools with the card in a reader.</p>`],
   ]],
   ["apps", "package", "Apps", "apps", "Find apps in the App market, install them and updates on the handheld, and keep them current.", [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
@@ -439,7 +453,12 @@ const ARTICLES = [
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
     ["Before you start", `<p><b>Install MustardOS</b> needs the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
       <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Writing from a card reader may ask for your password.</p>`],
-    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>`],
+    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>
+      <p><b>Add image to OS folder</b> (or <b>Save into OS folder</b> after choosing a file elsewhere) copies a downloaded
+      <code>.img</code> / <code>.img.gz</code> and its SHA256 into <code>os/mustardos_&lt;version&gt;/</code> with a <code>hash.txt</code>,
+      the same layout as releases you already keep there. The version comes from the MustardOS file name
+      (for example <code>MustardOS_RG40XX-H_2606.0_…</code> becomes <code>mustardos_2606.0</code>).
+      Manage those releases day to day from the Library &rsaquo; <a href="#os">OS</a> section (list, notes, remove, reveal).</p>`],
     ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the <code>ROMS</code> folders MustardOS expects.
       Use a card in the reader, or pick <b>Over Wi-Fi</b> to format the TF2 card already in the handheld (<code>/mnt/sdcard</code>) over SSH.
       The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path.</p>`],
