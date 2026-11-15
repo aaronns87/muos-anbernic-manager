@@ -1,7 +1,7 @@
 // The device model: the picker under the brand, and the question about a card in a reader, which cannot say which
 // handheld it belongs to. Connected handhelds report their model, so the picker only shows it then.
 
-import { $, app, esc, icon, store, toast, DEVICES, model, modelInfo, cardKey, setCardModel } from "./core.js";
+import { $, app, esc, icon, formIcon, store, toast, DEVICES, model, modelInfo, cardKey, setCardModel } from "./core.js";
 import { byId, screenText } from "./devices.js";
 import { renderDevice } from "./device.js";
 
@@ -16,9 +16,9 @@ export function renderModelPicker() {
   if (!box) return;
   const { device: m, via } = modelInfo(), open = box.classList.contains("open"), locked = detected(via);
   const option = (d) => `<button class="mp-opt${d.id === m.id ? " on" : ""}" role="option" aria-selected="${d.id === m.id}" data-model="${esc(d.id)}"${locked ? " disabled" : ""}>
-      ${icon("handheld")}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span>${d.id === m.id ? icon("check", "mp-check") : ""}</button>`;
+      ${formIcon(d)}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span>${d.id === m.id ? icon("check", "mp-check") : ""}</button>`;
   box.innerHTML = `<button class="mp-btn" aria-haspopup="listbox" aria-expanded="${open}" title="Device model: ${esc(VIA[via])}">
-      <span class="mp-ico">${icon("handheld")}</span>
+      <span class="mp-ico">${formIcon(m)}</span>
       <span class="mp-text"><b>${esc(m.name)}</b><small>${esc(VIA[via])}</small></span>
       ${icon("down", "mp-chev")}
     </button>
@@ -96,7 +96,7 @@ function renderAsk() {
 export function modelGrid(pick, attr) {
   return makers().map((maker) => `<h3 class="sub-head">${esc(maker)}</h3><div class="mask-grid">${DEVICES.filter((d) => d.maker === maker).map((d) =>
     `<button type="button" class="mask-opt${d.id === pick ? " on" : ""}" ${attr}="${esc(d.id)}" aria-pressed="${d.id === pick}">
-      ${icon("handheld")}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span></button>`).join("")}</div>`).join("");
+      ${formIcon(d)}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span></button>`).join("")}</div>`).join("");
 }
 
 $("model-ask")?.addEventListener("click", (e) => {

@@ -4,11 +4,12 @@
 # Homebrew Node must not be in this process chain — macOS often returns EPERM for raw disks from it.
 #
 # Environment: MUOS_DISK MUOS_IMAGE MUOS_KIND MUOS_BYTES MUOS_HASH MUOS_PROGRESS MUOS_CANCEL
+# Optional: MUOS_SKIP MUOS_SKIP_VERIFY
 
 set -euo pipefail
 
-# 1 MiB chunks: live UI progress, and small enough that a remount check stays responsive.
-CHUNK=$((1 * 1024 * 1024))
+# 4 MiB chunks: live progress without the ~1 MB/s tax of 512-byte reads/writes.
+CHUNK=$((4 * 1024 * 1024))
 
 emit() { printf '%s\n' "$1" >>"$MUOS_PROGRESS"; }
 
@@ -39,7 +40,6 @@ cancelled() {
   if [[ -f "$MUOS_CANCEL" ]]; then
     stop_pid "${HELPER_PID:-}"
     exec 3<&- 2>/dev/null || true
-    exec 4>&- 2>/dev/null || true
     exec 8<&- 2>/dev/null || true
     exec 9>&- 2>/dev/null || true
     if [[ "${1:-}" == "verify" ]]; then
@@ -49,10 +49,15 @@ cancelled() {
   fi
 }
 
+skip_verify() {
+  [[ "${MUOS_SKIP_VERIFY:-0}" == "1" || -f "${MUOS_SKIP:-}" ]]
+}
+
 [[ "$(/usr/bin/id -u)" -eq 0 ]] || fail "The installer is not running as administrator. Enter your macOS password when asked."
 [[ "${MUOS_DISK}" =~ ^disk[0-9]+$ ]] || fail "Refusing an unusual disk identifier."
 [[ -f "$MUOS_IMAGE" ]] || fail "The disk image is missing."
 [[ "$MUOS_BYTES" -gt 0 ]] || fail "The image length is invalid."
+(( MUOS_BYTES % 512 == 0 )) || fail "The image length is not a whole number of sectors."
 
 RDEV="/dev/r${MUOS_DISK}"
 BDEV="/dev/${MUOS_DISK}"
@@ -71,15 +76,6 @@ pick_dev() {
     if can_write "$d"; then DEV="$d"; return 0; fi
   done
   return 1
-}
-
-# After the image's partition table lands, DiskArbitration may remount slices and
-# break a fresh open of rdisk. Unmount, then keep writing through the held FD.
-ensure_unmounted() {
-  if [[ "$(mounted_slices)" -ne 0 ]]; then
-    unmount
-    [[ "$(mounted_slices)" -eq 0 ]] || fail "Part of ${MUOS_DISK} remounted during the write. Install again."
-  fi
 }
 
 unmount
@@ -103,29 +99,26 @@ cancelled
 /bin/sync
 unmount
 [[ "$(mounted_slices)" -eq 0 ]] || fail "Part of ${MUOS_DISK} remounted after clearing. Nothing was written."
-# Device node can change after erase; pick again.
 pick_dev || fail "Could not reopen ${MUOS_DISK} after clearing (Operation not permitted)."
 emit '{"stage":"prepare","done":1,"total":1}'
 
 # --- write ---
-# Hold the raw device open for the whole image. Re-opening after the first few MB
-# fails once macOS sees the new partition table and mounts MustardOS (offset 4 MiB).
-# Progress is emitted per chunk — macOS dd status=progress does not flush to a file.
+# Hold rdisk open for the whole image. Never call diskutil until AFTER verify — sync/unmount
+# here lets DiskArbitration mount MustardOS and dirty sectors, so read-back falsely fails.
 emit "{\"stage\":\"write\",\"done\":0,\"total\":${MUOS_BYTES}}"
 cancelled
 
 FIFO=$(/usr/bin/mktemp -u -t muos-wfifo)
 BUF=$(/usr/bin/mktemp -t muos-wbuf)
-HASH_OUT=$(/usr/bin/mktemp -t muos-hash)
-DD_ERR=$(/usr/bin/mktemp -t muos-dderr)
+HASH_WRITE=$(/usr/bin/mktemp -t muos-hash-w)
+HASH_READ=$(/usr/bin/mktemp -t muos-hash-r)
 /usr/bin/mkfifo "$FIFO"
 cleanup() {
   stop_pid "${HELPER_PID:-}"
   exec 3<&- 2>/dev/null || true
-  exec 4>&- 2>/dev/null || true
   exec 8<&- 2>/dev/null || true
   exec 9>&- 2>/dev/null || true
-  /bin/rm -f "$FIFO" "$BUF" "$HASH_OUT" "$DD_ERR" "${HASH_FIFO:-}"
+  /bin/rm -f "$FIFO" "$BUF" "$HASH_WRITE" "$HASH_READ"
 }
 trap cleanup EXIT
 
@@ -138,81 +131,131 @@ HELPER_PID=$!
 exec 3<"$FIFO"
 
 unmount
-# Exclusive write handle for the entire transfer (sequential; no seek/reopen).
 exec 9>"$DEV" || fail "Could not open ${DEV} for writing (Operation not permitted)."
 
-DONE=0
-while (( DONE < MUOS_BYTES )); do
-  cancelled
-  ensure_unmounted
-  N=$(( MUOS_BYTES - DONE ))
-  (( N > CHUNK )) && N=$CHUNK
-  /usr/bin/head -c "$N" <&3 >"$BUF" || true
-  GOT=$(/usr/bin/stat -f%z "$BUF" 2>/dev/null || echo 0)
-  if [[ "$GOT" -eq 0 ]]; then
-    fail "The image ended after ${DONE} of ${MUOS_BYTES} bytes. Nothing further was written."
+# Write chunks to the device and hash the same bytes. head -c / cat are byte-exact;
+# dd bs=N count=1 can short-transfer on raw devices and still exit 0.
+set +e
+(
+  set +e
+  DONE=0
+  while (( DONE < MUOS_BYTES )); do
+    if [[ -f "$MUOS_CANCEL" ]]; then exit 3; fi
+    N=$(( MUOS_BYTES - DONE ))
+    (( N > CHUNK )) && N=$CHUNK
+    /usr/bin/head -c "$N" <&3 >"$BUF" || true
+    GOT=$(/usr/bin/stat -f%z "$BUF" 2>/dev/null || echo 0)
+    if [[ "$GOT" -eq 0 ]]; then
+      echo "short-image at ${DONE}" >&2
+      exit 2
+    fi
+    if ! /bin/cat "$BUF" >&9; then
+      echo "write-failed at ${DONE}" >&2
+      exit 1
+    fi
+    /bin/cat "$BUF" || exit 1
+    DONE=$(( DONE + GOT ))
+    printf '%s\n' "{\"stage\":\"write\",\"done\":${DONE},\"total\":${MUOS_BYTES}}" >>"$MUOS_PROGRESS"
+    if (( GOT < N )); then
+      break
+    fi
+  done
+  if (( DONE < MUOS_BYTES )); then
+    echo "short-write ${DONE}/${MUOS_BYTES}" >&2
+    exit 2
   fi
-  # Write this chunk to the already-open device FD (same as one long dd of=).
-  if ! /bin/dd if="$BUF" of=/dev/fd/9 bs="$GOT" count=1 status=none 2>"$DD_ERR"; then
-    fail "Writing to the card failed at offset ${DONE}. $(/usr/bin/tr '\n' ' ' <"$DD_ERR" | /usr/bin/tail -c 200)"
-  fi
-  DONE=$(( DONE + GOT ))
-  emit "{\"stage\":\"write\",\"done\":${DONE},\"total\":${MUOS_BYTES}}"
-  if (( GOT < N )); then
-    break
-  fi
-done
-exec 9>&-
+  exit 0
+) | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}' >"$HASH_WRITE"
+WRITE_PIPE_EC=${PIPESTATUS[0]}
+set -e
+
 exec 3<&-
 stop_pid "$HELPER_PID"
 HELPER_PID=""
 
-(( DONE >= MUOS_BYTES )) || fail "Only wrote ${DONE} of ${MUOS_BYTES} bytes to the card."
+if [[ "$WRITE_PIPE_EC" -eq 3 ]]; then
+  exec 9>&-
+  fail "Cancelled. The card is incomplete; install again before using it."
+fi
+[[ "$WRITE_PIPE_EC" -eq 0 ]] || fail "Writing to the card failed (exit ${WRITE_PIPE_EC})."
 
-/bin/sync
+WRITE_GOT=$(/bin/cat "$HASH_WRITE" 2>/dev/null || true)
+[[ -n "$WRITE_GOT" ]] || fail "Could not hash the data while writing."
+if [[ "$WRITE_GOT" != "$MUOS_HASH" ]]; then
+  exec 9>&-
+  fail "The bytes sent to the card do not match the image (got ${WRITE_GOT:0:12}…, want ${MUOS_HASH:0:12}…). Install again."
+fi
+
 emit "{\"stage\":\"write\",\"done\":${MUOS_BYTES},\"total\":${MUOS_BYTES}}"
-ensure_unmounted
+
+# Flush this fd to the card without diskutil (sync/unmount remounts MustardOS and dirties sectors).
+if [[ -x /usr/bin/python3 ]]; then
+  /usr/bin/python3 -c 'import fcntl,os; fcntl.fcntl(9, getattr(fcntl,"F_FULLFSYNC",51))' 2>/dev/null \
+    || /usr/bin/python3 -c 'import os; os.fsync(9)' 2>/dev/null \
+    || /bin/sync
+else
+  /bin/sync
+fi
+
+# Close write and open read back-to-back — no unmount in between.
+exec 9>&-
+exec 8<"$DEV" || fail "Could not open ${DEV} for read-back."
+
+if skip_verify; then
+  exec 8<&-
+  unmount
+  emit '{"stage":"verify","done":0,"total":0,"skipped":true}'
+  emit '{"stage":"done"}'
+  exit 0
+fi
 
 # --- verify ---
 emit "{\"stage\":\"verify\",\"done\":0,\"total\":${MUOS_BYTES}}"
 cancelled verify
 
-HASH_FIFO=$(/usr/bin/mktemp -u -t muos-hfifo)
-/usr/bin/mkfifo "$HASH_FIFO"
-
-(/usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}' >"$HASH_OUT") <"$HASH_FIFO" &
-HELPER_PID=$!
-exec 4>"$HASH_FIFO"
-# Hold a read FD so verify does not reopen/skip after remounts.
-unmount
-exec 8<"$DEV" || fail "Could not open ${DEV} for read-back."
-
-DONE=0
-while (( DONE < MUOS_BYTES )); do
-  cancelled verify
-  ensure_unmounted
-  N=$(( MUOS_BYTES - DONE ))
-  (( N > CHUNK )) && N=$CHUNK
-  if ! /bin/dd if=/dev/fd/8 bs="$N" count=1 status=none 2>"$DD_ERR" >&4; then
-    fail "Could not read the card back for verification at offset ${DONE}. $(/usr/bin/tr '\n' ' ' <"$DD_ERR" | /usr/bin/tail -c 200)"
-  fi
-  DONE=$(( DONE + N ))
-  emit "{\"stage\":\"verify\",\"done\":${DONE},\"total\":${MUOS_BYTES}}"
-done
-exec 8<&-
-exec 4>&-
 set +e
-wait "$HELPER_PID"
-HASH_EC=$?
+(
+  set +e
+  DONE=0
+  while (( DONE < MUOS_BYTES )); do
+    if [[ -f "$MUOS_CANCEL" ]]; then exit 3; fi
+    if [[ "${MUOS_SKIP_VERIFY:-0}" == "1" || -f "${MUOS_SKIP:-}" ]]; then exit 4; fi
+    N=$(( MUOS_BYTES - DONE ))
+    (( N > CHUNK )) && N=$CHUNK
+    # head -c reads exactly N bytes (or fails) — unlike dd bs=N count=1 on rdisk.
+    if ! /usr/bin/head -c "$N" <&8; then
+      echo "read-failed at ${DONE}" >&2
+      exit 1
+    fi
+    DONE=$(( DONE + N ))
+    printf '%s\n' "{\"stage\":\"verify\",\"done\":${DONE},\"total\":${MUOS_BYTES}}" >>"$MUOS_PROGRESS"
+  done
+  exit 0
+) | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}' >"$HASH_READ"
+VERIFY_PIPE_EC=${PIPESTATUS[0]}
 set -e
-HELPER_PID=""
 
-cancelled verify
+exec 8<&-
+
+if [[ "$VERIFY_PIPE_EC" -eq 3 ]]; then
+  fail "Cancelled before the read-back finished. The card was written but not verified."
+fi
+if [[ "$VERIFY_PIPE_EC" -eq 4 ]]; then
+  unmount
+  emit '{"stage":"verify","done":0,"total":0,"skipped":true}'
+  emit '{"stage":"done"}'
+  exit 0
+fi
+[[ "$VERIFY_PIPE_EC" -eq 0 ]] || fail "Could not read the card back for verification (exit ${VERIFY_PIPE_EC})."
+
+READ_GOT=$(/bin/cat "$HASH_READ" 2>/dev/null || true)
+[[ -n "$READ_GOT" ]] || fail "Could not read the card back for verification."
 emit "{\"stage\":\"verify\",\"done\":${MUOS_BYTES},\"total\":${MUOS_BYTES}}"
 
-GOT=$(/bin/cat "$HASH_OUT" 2>/dev/null || true)
-[[ "$HASH_EC" -eq 0 && -n "$GOT" ]] || fail "Could not read the card back for verification."
-[[ "$GOT" == "$MUOS_HASH" ]] || fail "Read-back does not match the image. Try another card reader or card, and do not boot this card."
+if [[ "$READ_GOT" != "$MUOS_HASH" ]]; then
+  fail "Read-back does not match the image (wrote ${WRITE_GOT:0:12}… ok, read ${READ_GOT:0:12}…, want ${MUOS_HASH:0:12}…). Try another card reader or card, and do not boot this card."
+fi
 
+unmount
 emit '{"stage":"done"}'
 exit 0

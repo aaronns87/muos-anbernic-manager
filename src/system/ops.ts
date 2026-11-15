@@ -54,6 +54,7 @@ class SystemJob {
   finished = 0;
   cancelled = false;
   onCancel: () => void = () => {};
+  onSkipVerify: () => void = () => {};
 
   constructor(op: Op, card: SystemCard, title: string, stages: [string, string][]) {
     this.op = op;
@@ -106,6 +107,12 @@ export function cancelSystemJob(): void {
   job.onCancel();
 }
 
+/** Skip read-back while verify is running (write already finished). */
+export function skipSystemVerify(): void {
+  if (!job || job.state !== "running") return;
+  job.onSkipVerify();
+}
+
 export function dismissSystemJob(): void {
   if (job && job.state !== "running") job = null;
 }
@@ -156,9 +163,10 @@ export async function startSystemJob(body: Record<string, unknown>) {
       if (expected && !isSha256(expected)) throw new UserError("The checksum must be a 64 character SHA256.");
       if (!expected && image.hash) [expected, source] = [image.hash.value, image.hash.source];
       if (!expected && image.kind === "gz" && body.allowUnchecked !== true) throw new UserError("Add the SHA256 for this archive, or confirm installing without one.");
+      const skipVerify = body.skipVerify === true;
       next = new SystemJob(op, card, `Install ${image.name}`, [["check", "Check image"], ["auth", "Authorize"], ["prepare", "Prepare card"], ["write", "Write"], ["verify", "Verify"], ["eject", "Eject"]]);
-      next.result = { image: image.name, bytes: image.bytes, hashSource: expected ? source : "" };
-      work = (j) => install(j, image, expected, source);
+      next.result = { image: image.name, bytes: image.bytes, hashSource: expected ? source : "", skipVerify };
+      work = (j) => install(j, image, expected, source, skipVerify);
     } else if (op === "tf2") {
       next = new SystemJob(op, card, "Set up TF2", [["erase", "Erase"], ["mount", "Mount"], ["folders", "Create folders"]]);
       work = (j) => setupTf2(j);
@@ -270,7 +278,7 @@ async function reset(j: SystemJob, fs: "FAT32" | "ExFAT", name: string): Promise
 
 const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
-async function install(j: SystemJob, image: ImageInfo, expected: string, source: string): Promise<void> {
+async function install(j: SystemJob, image: ImageInfo, expected: string, source: string, skipVerify: boolean): Promise<void> {
   const check = j.begin("check", "Hashing and unpacking the image", image.fileSize);
   const { fileHash, payloadHash } = await fullCheck(image, (n) => { check.done = n; }, () => j.cancelled);
   if (expected && fileHash !== expected) throw new UserError(`The SHA256 does not match ${source}. The download is damaged or this is a different file. Expected ${expected.slice(0, 12)}…, got ${fileHash.slice(0, 12)}….`);
@@ -283,7 +291,7 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
   // opens return EPERM even for root. The flash script clears the partition map instead.
   try {
     auth.detail = "Waiting for your password";
-    const progress = path.join(dir, "progress.jsonl"), cancel = path.join(dir, "cancel");
+    const progress = path.join(dir, "progress.jsonl"), cancel = path.join(dir, "cancel"), skip = path.join(dir, "skip-verify");
     const logFile = path.join(dir, "helper.log");
     await fsp.writeFile(progress, "");
     await fsp.writeFile(logFile, "");
@@ -302,6 +310,8 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
       `export MUOS_HASH=${shellQuote(payloadHash)}`,
       `export MUOS_PROGRESS=${shellQuote(progress)}`,
       `export MUOS_CANCEL=${shellQuote(cancel)}`,
+      `export MUOS_SKIP=${shellQuote(skip)}`,
+      `export MUOS_SKIP_VERIFY=${skipVerify ? "1" : "0"}`,
       "",
     ].join("\n"));
     const inner = `set -a; . ${shellQuote(envFile)}; set +a; /bin/bash ${shellQuote(flashSh)} >> ${shellQuote(logFile)} 2>&1`;
@@ -320,9 +330,10 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
         try { child.kill("SIGTERM"); } catch { /* already exited */ }
       }
     };
+    j.onSkipVerify = () => { void fsp.writeFile(skip, "1").catch(() => {}); };
     const exited = new Promise<number>((resolve) => child.on("close", (code) => resolve(code ?? 1)));
 
-    let offset = 0, failure = "", finished = false;
+    let offset = 0, failure = "", finished = false, verifySkipped = skipVerify;
     const pump = async () => {
       const text = await fsp.readFile(progress, "utf8");
       const fresh = text.slice(offset);
@@ -330,7 +341,7 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
       if (end < 0) return;
       offset += end + 1;
       for (const line of fresh.slice(0, end).split("\n")) {
-        let msg: { stage?: string; done?: number; total?: number; error?: string };
+        let msg: { stage?: string; done?: number; total?: number; error?: string; skipped?: boolean };
         try { msg = JSON.parse(line); } catch { continue; }
         if (msg.error) failure = msg.error;
         if (msg.stage === "prepare" || msg.stage === "write" || msg.stage === "verify") {
@@ -338,13 +349,22 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
           if (j.stage("auth").state === "run") j.end("auth", "Administrator access granted");
           if (msg.stage === "write" && j.stage("prepare").state === "run") j.end("prepare", "Old partition map cleared");
           if (msg.stage === "verify" && j.stage("write").state === "run") j.end("write", "Every byte written");
+          if (msg.skipped && msg.stage === "verify") {
+            verifySkipped = true;
+            const s = j.stage("verify");
+            if (s.state === "wait") j.begin("verify", "Skipped", 0);
+            s.state = "skip";
+            s.detail = "Read-back skipped";
+            s.finished = Date.now();
+            continue;
+          }
           const s = j.stage(msg.stage);
-          if (s.state !== "run") {
+          if (s.state !== "run" && s.state !== "skip") {
             const detail = msg.stage === "prepare" ? "Clearing the old partition map"
               : msg.stage === "write" ? `Writing to /dev/r${j.card.id}` : "Reading the card back";
             j.begin(msg.stage, detail, msg.total ?? (msg.stage === "prepare" ? 1 : image.bytes));
           }
-          s.done = msg.done ?? 0;
+          if (s.state === "run") s.done = msg.done ?? 0;
         }
         if (msg.stage === "done") finished = true;
       }
@@ -366,7 +386,19 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
       const detail = failure || logTail || sudoErr.trim() || `The write stopped (exit ${code}).`;
       throw new UserError(detail);
     }
-    j.end("verify", "Read-back SHA256 matches the image");
+    if (verifySkipped) {
+      const s = j.stage("verify");
+      if (s.state !== "skip") {
+        if (s.state === "wait") j.begin("verify", "Skipped", 0);
+        s.state = "skip";
+        s.detail = "Read-back skipped";
+        s.finished = Date.now();
+      }
+      j.result = { ...j.result, readback: "skipped" };
+    } else {
+      j.end("verify", "Read-back SHA256 matches the image");
+      j.result = { ...j.result, readback: true };
+    }
   } finally {
     await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
   }

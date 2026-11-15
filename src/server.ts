@@ -49,7 +49,7 @@ import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, p
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, importOsImage, inspectImage, workspaceImages } from "./system/image.ts";
 import { osLibraryJson, osMarketJson, removeOsPath, revealOsPath } from "./os-library.ts";
-import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
+import { cancelSystemJob, dismissSystemJob, skipSystemVerify, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { workspaceInfo } from "./workspace.ts";
@@ -347,6 +347,10 @@ const routes: Record<string, Handler> = {
   "GET /api/system/job": () => ({ job: systemJob() }),
   "POST /api/system/cancel": () => {
     cancelSystemJob();
+    return { ok: true };
+  },
+  "POST /api/system/skip-verify": () => {
+    skipSystemVerify();
     return { ok: true };
   },
   "POST /api/system/dismiss": () => {

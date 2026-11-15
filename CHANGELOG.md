@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda 2606 support (Device Settings, .muxbak, themes), Appearance settings, OS library and OS market, MustardTube, responsive navigation |
+| [Unreleased](#unreleased) | | Andromeda 2606 support, macOS Install MustardOS flash rewrite (live progress, skip verify, remount-safe), OS library/market, MustardTube, Appearance |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -54,7 +54,10 @@ version.
 - Install MustardOS no longer asks you to type the disk id; the Install button opens an Are you sure confirmation instead (Set up TF2 / Reset card still use typed confirmation).
 - Install MustardOS uses real `sudo -A` (graphical askpass) to write the card — osascript “administrator privileges” cannot open `/dev/rdisk*` on modern macOS; same approach as balenaEtcher.
 - Install MustardOS reports live write and verify progress (chunked elevated `flash-card.sh`), keeps the raw device open so macOS remounts cannot stall mid-flash, and Cancel stops write/verify within about a second.
-- During an install, the SD card panel refreshes after each step so the partition map stays current.
+- Install MustardOS can skip read-back verification (checkbox before install, or Skip verify while it runs). Verify uses 4 MiB reads again so it is not stuck at ~1 MB/s.
+- Install verify no longer runs `diskutil`/`sync` between write and read-back (that remounted MustardOS and caused false “read-back does not match” failures). The write stream is hashed as it goes, then the card is read back immediately.
+- During an install, the SD card panel refreshes after each step so the partition map stays current (not during write/verify — diskutil then can remount volumes and corrupt the flash).
+- Model picker shows a silhouette for each handheld body (horizontal, vertical, or clamshell).
 - App market package ranking prefers assets tagged with the handheld's numeric MustardOS version (e.g. 2606.0 / 2606_0), not only codename tokens.
 - JAVA / FreeJ2ME notes: Andromeda uses the FreeJ2ME core in Pickles; older builds still use Extra Cores / external launchers.
 - Set up TF2 labels `BACKUP` as legacy and notes that Andromeda device backups are `.muxbak` files in `ARCHIVE`.

@@ -36,7 +36,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 - USB: handheld reports model name.
 - Wi-Fi: read from MustardOS (SFTP or SSH).
 - Card reader: card cannot say; SD1 play records often can; otherwise ask once and remember. Change next to Handheld in Overview asks again.
-- Nothing connected: model picker under the logo. While connected, reported model cannot be changed.
+- Nothing connected: model picker under the logo (each model shows a horizontal / vertical / clamshell silhouette). While connected, reported model cannot be changed.
 
 ### What needs which connection
 
@@ -262,7 +262,7 @@ Map community tips onto options that exist in Game Tuning / Core options; do not
 
 All erase the target - back up saves first (Emulation > Saves). Card reader may ask for password. Only removable cards offered.
 
-**Install MustardOS**: write image from `os/` onto SD1 in reader, verify. Not over Wi-Fi. Button enabled when checks pass; confirmation modal (no typing the disk id). After authorize, clears the start of the card (old MBR/GPT) before writing so leftover volumes cannot remount mid-flash. **Add image to OS folder** / **Save into OS folder**: copy a downloaded `.img`/`.img.gz` plus SHA256 into `os/mustardos_<version>/` with `hash.txt` (version from the MustardOS file name). Day-to-day management of those releases: Library → OS. Set up TF2 / Reset card still require typing the disk id or `TF2`.
+**Install MustardOS**: write image from `os/` onto SD1 in reader. Not over Wi-Fi. Button enabled when checks pass; confirmation modal (no typing the disk id). On macOS, sudo askpass elevates `scripts/lib/flash-card.sh` (same idea as balenaEtcher — osascript admin cannot open `/dev/rdisk*`). Stages: check → authorize → prepare (clear old MBR/GPT) → write → verify → eject. Live write/verify progress; Cancel during those stages; optional skip verify (checkbox before install, or Skip verify while verifying). Card panel refreshes after steps except during write/verify (diskutil then can remount and corrupt the flash). **Add image to OS folder** / **Save into OS folder**: copy a downloaded `.img`/`.img.gz` plus SHA256 into `os/mustardos_<version>/` with `hash.txt` (version from the MustardOS file name). Day-to-day management of those releases: Library → OS. Set up TF2 / Reset card still require typing the disk id or `TF2`.
 
 **Set up TF2**: format exFAT named TF2 + ROMS folders. Reader or Over Wi-Fi (`/mnt/sdcard` only; never SD1). One-slot games-on-SD1 cannot use Wi-Fi path.
 

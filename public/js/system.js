@@ -28,6 +28,7 @@ const S = {
   target: store.get("sysTf2Target", "card"),
   path: "", image: null, imageError: "", inspecting: false,
   hash: "", hashSource: "", hashFile: "", hashError: "", unchecked: false,
+  skipVerify: store.get("sysSkipVerify", false),
   importing: false, pendingImage: "",
   name: "SD_CARD", fs: "FAT32",
   confirm: "", starting: false, sig: "", timer: 0, jobTimer: 0,
@@ -225,7 +226,12 @@ function installForm() {
 function hashState() {
   const v = cleanHash(), gz = S.image?.kind === "gz";
   if (S.hashError) return { cls: "bad", text: S.hashError };
-  if (!v) return gz ? { cls: "warn", text: "No checksum. A damaged download can't be caught before writing." } : { cls: "", text: "Optional for a raw .img. The card is read back and compared with the image either way." };
+  if (!v) {
+    if (gz) return { cls: "warn", text: "No checksum. A damaged download can't be caught before writing." };
+    return { cls: "", text: S.skipVerify
+      ? "Optional for a raw .img. Read-back verification is off for this install."
+      : "Optional for a raw .img. After writing, the card is read back and compared with the image." };
+  }
   if (!HEX.test(v)) return { cls: "bad", text: `A SHA256 is 64 hex characters (0-9, a-f); this has ${v.length}.` };
   const from = S.hashSource ? `From ${S.hashSource}.` : "Entered by hand.";
   return { cls: "ok", text: `${from} The image is hashed before writing and must match.` };
@@ -234,7 +240,8 @@ function hashState() {
 function hashNote(h) {
   const gz = S.image?.kind === "gz" && !HEX.test(cleanHash());
   return `<div class="hash-note ${h.cls}">${icon(h.cls === "ok" ? "shield" : h.cls === "bad" ? "x" : "info")}<span>${esc(h.text)}</span></div>
-    ${gz ? `<label class="check-row"><input type="checkbox" id="sys-unchecked" ${S.unchecked ? "checked" : ""}> Install without a checksum</label>` : ""}`;
+    ${gz ? `<label class="check-row"><input type="checkbox" id="sys-unchecked" ${S.unchecked ? "checked" : ""}> Install without a checksum</label>` : ""}
+    <label class="check-row"><input type="checkbox" id="sys-skip-verify" ${S.skipVerify ? "checked" : ""}> Skip read-back verification (faster; does not check the card was written correctly)</label>`;
 }
 
 function tf2Form() {
@@ -373,7 +380,7 @@ function refreshGo() {
 function decorate(job) {
   const total = job.stages.reduce((n, s) => n + (WEIGHTS[s.id] || 5), 0);
   const done = job.stages.reduce((n, s) => {
-    const part = s.state === "done" ? 1 : s.state === "skip" ? 0 : s.total ? Math.min(1, s.done / s.total) : 0;
+    const part = s.state === "done" || s.state === "skip" ? 1 : s.total ? Math.min(1, s.done / s.total) : 0;
     return n + (WEIGHTS[s.id] || 5) * part;
   }, 0);
   const percent = job.state === "done" ? 100 : Math.min(99, Math.floor((done / total) * 100));
@@ -406,8 +413,9 @@ function jobView(j) {
   if (j.state === "failed") outcome = `<div class="job-result bad">${icon("alert")}<div><b>${esc(cur ? `${cur.label} failed` : "Failed")}</b><p>${esc(j.error || "Something went wrong.")}</p>${j.op === "install" ? "<p>The card may be half written. Run the install again, or reset it before using it.</p>" : ""}</div></div>`;
   if (j.state === "cancelled") outcome = `<div class="job-result warn">${icon("x")}<div><b>Stopped</b><p>${esc(j.error || "Cancelled before finishing.")}</p>${j.op === "install" ? "<p>The card is only partly written and won't boot. Install again or reset it.</p>" : ""}</div></div>`;
   const cancellable = j.state === "running" && j.op === "install" && ["check", "auth", "prepare", "write", "verify"].includes(cur?.id);
+  const skippable = j.state === "running" && j.op === "install" && cur?.id === "verify";
   const actions = j.state === "running"
-    ? cancellable ? `<button class="btn danger" data-sys="cancel">${icon("x")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`
+    ? `${skippable ? `<button class="btn" data-sys="skip-verify">${icon("arrow")}Skip verify</button>` : ""}${cancellable ? `<button class="btn danger" data-sys="cancel">${icon("x")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`}`
     : `<button class="btn primary" data-sys="dismiss">${icon("check")}${j.state === "done" ? "Done" : "Back"}</button>`;
   return `<section class="panel sys-job st-${j.state}">
     <div class="job-top">
@@ -426,9 +434,16 @@ function jobView(j) {
 
 function doneText(j) {
   const r = j.result || {};
-  if (j.op === "install") return `<b>MustardOS is on ${esc(j.disk)}${r.verified ? " and verified" : ""}.</b>
-    <p>The card was read back and matches the image${r.hashSource ? `, and the image matched ${esc(r.hashSource)}` : ""}. It's ejected and safe to pull out.</p>
+  if (j.op === "install") {
+    const check = r.readback === true
+      ? `The card was read back and matches the image${r.hashSource ? `, and the image matched ${esc(r.hashSource)}` : ""}.`
+      : r.readback === "skipped"
+        ? `Read-back was skipped${r.hashSource ? `; the image file matched ${esc(r.hashSource)}` : ""}.`
+        : (r.hashSource ? `The image matched ${esc(r.hashSource)}.` : "");
+    return `<b>MustardOS is on ${esc(j.disk)}${r.readback === true ? " and verified" : r.readback === "skipped" ? " (read-back skipped)" : r.verified ? " and the image checksum matched" : ""}.</b>
+    <p>${check} It's ejected and safe to pull out.</p>
     <ol class="job-next"><li>Put it in the handheld's <b>TF1</b> slot, the one muOS boots from.</li><li>Turn it on. The first boot sets up the card and can sit on <i>Factory Reset</i> for 5–10 minutes.</li><li>Then come back to Overview and connect over Wi-Fi.</li></ol>`;
+  }
   if (j.op === "tf2") {
     if (r.via === "wifi") {
       return `<b>TF2 on the handheld is ready at <code>${esc(r.mount || "/mnt/sdcard")}</code>.</b><p>${plural(r.systems || 0, "system folder")} under ROMS. Copy games over Wi-Fi, USB or a card reader. SD1 was not touched.</p>`;
@@ -624,8 +639,9 @@ function setJob(job) {
     S.jobStages = "";
     setTimeout(loadCards, 600);
   } else if (job?.state === "running" && stagesChanged) {
-    // prepare / write / verify / eject each change what diskutil reports — refresh the panel.
-    void refreshCardDuringJob();
+    // diskutil during write/verify can remount MustardOS volumes and dirty sectors mid-flash.
+    const cur = (job.stages || []).find((s) => s.state === "run");
+    if (!cur || (cur.id !== "write" && cur.id !== "verify")) void refreshCardDuringJob();
   }
   if (!job) S.jobStages = "";
   renderStatusbar();
@@ -690,7 +706,7 @@ async function start() {
   const body = wifi
     ? { op: S.tab, via: "wifi", confirm: confirmToken }
     : { op: S.tab, disk: c.id, confirm: confirmToken };
-  if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked });
+  if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked, skipVerify: !!S.skipVerify });
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
   const ok = await confirmBox({
     title: S.tab === "install" ? "Install MustardOS on this card?" : `${op.button}?`,
@@ -698,7 +714,8 @@ async function start() {
       ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
       : S.tab === "install"
         ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b> to <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}).</p>
-           <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>`
+           <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>
+           ${S.skipVerify ? "<p class=\"muted-note\">Read-back verification is skipped for this install.</p>" : ""}`
         : `<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
     ok: op.button, danger: true,
   });
@@ -772,6 +789,9 @@ async function act(el) {
     } else if (what === "cancel") {
       el.disabled = true;
       await api("system/cancel", {});
+    } else if (what === "skip-verify") {
+      el.disabled = true;
+      await api("system/skip-verify", {});
     } else if (what === "dismiss") {
       await api("system/dismiss", {});
       app.sysJob = null;
@@ -824,6 +844,14 @@ export function bindSystem() {
   });
   view.addEventListener("change", (e) => {
     if (e.target.id === "sys-unchecked") { S.unchecked = e.target.checked; refreshGo(); }
+    if (e.target.id === "sys-skip-verify") {
+      S.skipVerify = e.target.checked;
+      store.set("sysSkipVerify", S.skipVerify);
+      const h = hashState();
+      const note = $("sys-hash-state");
+      if (note) note.innerHTML = hashNote(h);
+      refreshGo();
+    }
   });
   view.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.id === "sys-path") useImage(e.target.value);

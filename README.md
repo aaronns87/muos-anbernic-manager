@@ -274,8 +274,9 @@ for SSH) are filled in; **Find on network** looks for the handheld's address.
   artwork and a description.
 - **Copy to the handheld**: select games and use **Transfer**, or compare the library with the device on the Overview page.
 - **Artwork**: the Artwork page shows what is missing; **Scrape** fetches it, sized for your screen.
-- **Install MustardOS**: put a release image (`.img.gz`) in `os/` or download it from the Apps page, then use
-  **System Tools** with the card in a card reader. **Set up TF2** and **Reset card** there can also format the games card over Wi-Fi.
+- **Install MustardOS**: put a release image (`.img.gz`) in `os/` (or Library → OS / OS market), then use **System Tools** with
+  the card in a card reader. Confirm once, enter your macOS password when asked, and watch write/verify progress. You can skip
+  read-back verification if you want a faster finish. **Set up TF2** and **Reset card** can also format the games card over Wi-Fi.
 
 Every page has a **?** button that opens its Wiki article.
 
@@ -312,6 +313,10 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
   that change the handheld also need Secure Shell.
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
   under the logo so the manager knows.
+- **Install MustardOS fails with “Operation not permitted” on macOS**: enter your password when asked (sudo). If it still
+  fails, grant Full Disk Access to Terminal (or the app that launched the manager), unplug the card, and try again.
+- **Install verify says the read-back does not match**: try again; leave the card alone during write/verify. You can skip
+  verification for a faster finish if you trust the write, then boot-test on the handheld.
 - **Start over**: `./muos-anbernic-manager/installer.sh --clean-cache` (or `installer.cmd --clean-cache` on Windows)
   moves the cache aside (Wi-Fi logins, downloads and settings) and shows the setup wizard on the next start. To also
   clear your games and the other workspace folders, use **Settings > Factory reset**: it moves everything to the Trash,

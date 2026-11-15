@@ -45,6 +45,9 @@ export function deviceFor(board) {
 /** "640 x 480" with a proper times sign. */
 export const screenText = (d) => `${d.screen[0]} \u00d7 ${d.screen[1]}`;
 
+/** Icon name in core.js PATHS for this body's silhouette. */
+export const formIconName = (d) => (d?.form === "vertical" ? "handheld-v" : d?.form === "clamshell" ? "handheld-sp" : "handheld");
+
 const FORMS = { horizontal: "Horizontal", vertical: "Vertical", clamshell: "Clamshell" };
 const STICKS = ["D-pad, no analog sticks", "D-pad and one analog stick", "D-pad and two analog sticks"];
 

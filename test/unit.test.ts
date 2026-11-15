@@ -22,7 +22,7 @@ import {
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
-import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../public/js/devices.js";
+import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import { githubRepo } from "../src/manager-update.ts";
@@ -413,6 +413,11 @@ test("devices: board names, PortMaster capabilities and image names", () => {
   assert.equal(imageDevice("MustardOS_TUI-BRICK_2601.1_X.img")?.id, "tui-brick");
   assert.equal(imageDevice("random.img"), null);
   assert.ok(specs(byId("tui-brick")!).some(([k, v]) => k === "Cards" && /One microSD/.test(v)));
+  assert.equal(formIconName(byId("rg40xx-h")), "handheld");
+  assert.equal(formIconName(byId("rg35xx-plus")), "handheld-v");
+  assert.equal(formIconName(byId("rg35xx-sp")), "handheld-sp");
+  assert.equal(formIconName(null), "handheld");
+  for (const d of DEVICES) assert.ok(["handheld", "handheld-v", "handheld-sp"].includes(formIconName(d)), d.id);
 });
 
 test("a clean cache starts the setup wizard, and the workspace gets its folders without touching files", async (t) => {

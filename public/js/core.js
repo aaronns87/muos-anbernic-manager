@@ -1,6 +1,6 @@
 // Shared state, helpers and the API client for the manager app.
 
-import { DEVICES, DEFAULT_DEVICE, byId, deviceFor } from "./devices.js";
+import { DEVICES, DEFAULT_DEVICE, byId, deviceFor, formIconName } from "./devices.js";
 
 export const $ = (id) => document.getElementById(id);
 
@@ -80,6 +80,8 @@ const PATHS = {
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   sd: '<path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M10 7v3M13 7v3M16 9v1"/>',
   handheld: '<rect x="2" y="5" width="20" height="14" rx="3.5"/><rect x="7.5" y="8" width="9" height="8" rx="1"/><path d="M4.5 12h1.5M5.25 11.25v1.5"/><circle cx="19" cy="11" r=".6"/><circle cx="19" cy="13.5" r=".6"/>',
+  "handheld-v": '<rect x="5.5" y="1.5" width="13" height="21" rx="3.5"/><rect x="7.5" y="4" width="9" height="7" rx="1"/><path d="M8 15.5h2.5M9.25 14.25v2.5"/><circle cx="14.5" cy="15.5" r=".6"/><circle cx="16.5" cy="17.5" r=".6"/>',
+  "handheld-sp": '<path d="M4 2h16a2 2 0 0 1 2 2v6.5H2V4a2 2 0 0 1 2-2Z"/><rect x="5.5" y="4" width="13" height="5" rx="1"/><path d="M2 12.5h20"/><path d="M2 13.5v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5Z"/><path d="M6 17h2.5M7.25 15.75v2.5"/><circle cx="16.5" cy="17" r=".6"/>',
   cable: '<path d="M7 2v4M12 2v4M17 2v4"/><path d="M5 6h14v4a7 7 0 0 1-14 0Z"/><path d="M12 17v5"/>',
   wifi: '<path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5 12a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/>',
   battery: '<rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 11v2"/>',
@@ -111,6 +113,9 @@ const PATHS = {
 /** An inline icon; sizes come from CSS (.i, or the button it sits in). */
 export const icon = (name, cls = "") =>
   `<svg class="i${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name] || ""}</svg>`;
+
+/** Silhouette for a handheld's body: horizontal, vertical, or clamshell (SP). */
+export const formIcon = (d, cls = "") => icon(formIconName(d), cls);
 
 export const ICONS = {
   up: icon("transfer"),
