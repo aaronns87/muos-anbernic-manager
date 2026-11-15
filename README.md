@@ -55,8 +55,9 @@ per-session token. Nothing is uploaded anywhere.
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
-- **Apps**: an app market of popular MustardOS apps with screenshots and release notes, picking the package for your
-  handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
+- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk and Dolphin Rt:Core) with
+  screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
+  and `.muxupd` updates, and check for new MustardOS releases.
 - **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run
   connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.

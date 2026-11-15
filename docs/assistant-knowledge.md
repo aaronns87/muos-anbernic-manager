@@ -144,7 +144,7 @@ Packages: `.muxapp` apps, `.muxupd` updates/add-ons, `.muxzip` bundles. Live in 
 
 ### App market
 
-Popular apps (Scrappy, Artie, Grout, Bluetooth, ...) with screenshots, stars, notes, GitHub links. Filter to what runs on the model; badges for wrong handheld, abandoned, pre-release. **Get** downloads the right package for model/MustardOS. Send or Send and install. Reinstall from About. List refreshes every 12h; Refresh forces. Apps are third-party - read the page before install.
+Popular apps and packages (Scrappy, Artie, Grout, Bluetooth, Void Desk, Dolphin Rt:Core for GameCube/Wii on H700, ...) with screenshots, stars, notes, GitHub links. Filter to what runs on the model; badges for wrong handheld, abandoned, pre-release. **Get** downloads the right package for model/MustardOS release (Banana through Andromeda). Send or Send and install. Reinstall from About. Some packages still need a separate binary after install (Dolphin Rt:Core: put `dolphin` in `/opt/muos/share/emulator/dolphin/`). List refreshes every 12h; Refresh forces. Apps are third-party - read the page before install.
 
 ### Send then install
 

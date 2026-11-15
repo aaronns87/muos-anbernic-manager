@@ -180,18 +180,20 @@ const ARTICLES = [
   ["apps", "package", "Apps", "apps", "Find apps in the App market, install them and updates on the handheld, and keep them current.", [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
       They sit in your <code>apps</code> folder; the <b>App market</b>, <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
-    ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps, such as Scrappy, Artie, Grout and Bluetooth, with
-      screenshots, GitHub stars, the latest release notes and links to each app's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
+    ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps and packages, such as Scrappy, Artie, Grout, Bluetooth,
+      Void Desk and Dolphin Rt:Core (GameCube/Wii for H700 handhelds), with screenshots, GitHub stars, the latest release notes and links to each
+      project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
       <ul>
         <li><b>Runs on the &hellip;</b> hides apps that cannot work on your handheld model, for example apps that need Wi-Fi on a model without it.
           Badges warn about the rest: <i>Made for</i> another handheld, <i>No longer developed</i>, or a <i>Pre-release</i>.</li>
         <li><b>Get</b> downloads the package that suits your handheld into the <code>apps</code> folder. Many apps publish one package per handheld
-          maker or MustardOS release; the manager picks the right one, and matches the MustardOS release once the handheld is connected over SSH.
-          <b>About</b> lists every package in the release if you want a different one.</li>
+          maker or MustardOS release (Banana through Andromeda); the manager picks the right one, and matches the MustardOS release once the handheld
+          is connected over SSH. <b>About</b> lists every package in the release if you want a different one.</li>
         <li>Then <b>Send</b> it, or <b>Send and install</b> over Wi-Fi, as described below. Apps already on the handheld show <i>Installed</i>;
           <b>Reinstall</b> in About replaces the app with the package in your <code>apps</code> folder, for example to update it.</li>
       </ul>
       <p>The apps come from their makers' GitHub releases and are not checked by MustardOS, so read an app's page before installing it.
+        Some packages (for example Dolphin Rt:Core) still need a separate binary or extra steps after install; the release notes explain that.
         The list is checked again every 12 hours; <b>Refresh</b> checks now.</p>`],
     ["Send, then install", `<ol>
       <li><b>Send</b> copies a package into the handheld's <code>ARCHIVE</code> folder. It shows under <b>Waiting in ARCHIVE</b>.</li>
