@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda 2606 support, macOS Install MustardOS flash rewrite (live progress, skip verify, remount-safe), OS library/market, MustardTube, Appearance |
+| [Unreleased](#unreleased) | | Andromeda 2606, OS library/market, MustardTube, Appearance, System Tools confirm modals + remount-safe macOS install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |

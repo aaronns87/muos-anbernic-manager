@@ -50,6 +50,8 @@ per-session token. Nothing is uploaded anywhere.
   artwork, or **rename the ROM file** from Details (matching artwork and descriptions rename with it).
 - **Artwork**: fetch box art, screenshots and descriptions for every game (libretro thumbnails, LaunchBox Games Database),
   in the size your handheld's screen needs, and sync them to the device.
+- **OS**: local MustardOS release folders under `os/mustardos_<version>/`, add or remove images, release notes, and
+  **OS market** for official downloads (GoFile/Mega/Filen open in the browser). **Install** opens System Tools with that image.
 - **Play**: play time, recently played games and collections from the handheld.
 - **ScummVM and ports**: ScummVM games with their data folders, a list of classic adventures released for free with
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
@@ -58,19 +60,20 @@ per-session token. Nothing is uploaded anywhere.
 - **Apps**: an app market of popular MustardOS apps and packages (including Void Desk, Dolphin Rt:Core and MustardTube) with
   screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
   and `.muxupd` updates, and check for new MustardOS releases.
-- **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run
-  connectivity, storage and short CPU benchmarks over SSH.
+- **Device**: change MustardOS settings from the computer (Jacaranda and Andromeda catalogues when those configs exist),
+  calibrate analogs and watch live sticks (Controls), and run connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
   Failed autosaves keep your edits in the editor with **Retry**; switching themes, exporting and installing wait until they save.
-- **Emulation**: back up and restore saves and save states, check BIOS files in the workspace `bios/` folder (**Fix
-  names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit
-  RetroArch picture/play and Menu+X **core options** per folder, and run a health check of your library (verify dumps,
-  duplicates, and PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and
-  **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can
-  run, and why a system is missing when it cannot.
+- **Emulation**: back up and restore saves and save states (including Andromeda **`.muxbak`** device backups in
+  `ARCHIVE` when `backup.sh` is present), check BIOS files in the workspace `bios/` folder (**Fix names** corrects
+  casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit RetroArch picture/play
+  and Menu+X **core options** per folder, and run a health check of your library (verify dumps, duplicates, and
+  PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD**
+  when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can run, and why a
+  system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
   Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
 - **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
@@ -85,8 +88,10 @@ per-session token. Nothing is uploaded anywhere.
   The shared Connection panel separates file transfers from remote controls; setup stays beside the current task.
   Overview offers library tasks while offline, and Files uses switchable computer/handheld panes on phones.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
-  Install needs a card reader; Set up TF2 and Reset card can also run over Wi-Fi/SSH on the handheld's TF2 without
-  touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
+  Each action asks for an Are you sure confirmation (no typing a disk name). Install needs a card reader: live write/verify
+  progress on macOS (sudo password), optional skip verify, and Cancel during write/verify. Set up TF2 and Reset card can
+  also run over Wi-Fi/SSH on the handheld's TF2 without touching SD1 (setup: exFAT named TF2 with ROMS folders; reset:
+  FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
 - **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
@@ -276,7 +281,8 @@ for SSH) are filled in; **Find on network** looks for the handheld's address.
 - **Artwork**: the Artwork page shows what is missing; **Scrape** fetches it, sized for your screen.
 - **Install MustardOS**: put a release image (`.img.gz`) in `os/` (or Library → OS / OS market), then use **System Tools** with
   the card in a card reader. Confirm once, enter your macOS password when asked, and watch write/verify progress. You can skip
-  read-back verification if you want a faster finish. **Set up TF2** and **Reset card** can also format the games card over Wi-Fi.
+  read-back verification if you want a faster finish.
+- **Set up TF2 / Reset card**: same confirmation modal; use a card in the reader or **Over Wi-Fi** on the handheld's TF2 slot.
 
 Every page has a **?** button that opens its Wiki article.
 
@@ -295,8 +301,9 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
   and the manager says so before it does it.
 - **Settings > Factory reset** asks you to type RESET, then moves the game library, the other workspace folders and the
   manager's cache to the Trash.
-- Anything that changes the handheld or erases a card asks first and explains what will happen. System Tools only offers
-  removable cards, never internal disks.
+- Anything that changes the handheld or erases a card asks first and explains what will happen (System Tools uses a
+  confirmation dialog; Factory reset still requires typing RESET). System Tools only offers removable cards, never
+  internal disks.
 - Logins for Wi-Fi and SSH are stored in `muos-anbernic-manager/.cache/` on your computer only (file mode 600).
 - The web interface listens on `127.0.0.1` only and needs the token from the URL the manager opens.
 
