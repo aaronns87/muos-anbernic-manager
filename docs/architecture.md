@@ -51,12 +51,13 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | Games library | `games/library.ts` (scan, in-memory library), `games/systems.ts` (ROM folders), `games/metadata.ts` (mamenames, LaunchBox index), `games/add.ts`, `games/actions.ts` (delete), `games/engines.ts` (ScummVM folders), `games/free-scummvm.ts` |
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |
 | Artwork | `artwork.ts` (Roms/Imgs <-> device catalogue), `artwork-tools.ts`, `scrape.ts` (thumbnails.libretro.com) |
-| Device access | `device/target.ts` (which device; `withTarget`), `device/fs.ts` (`DeviceFs`, `CardFs`), `device/mtp.ts` (libmtp via koffi), `device/sftp.ts` (`SftpFs`, Wi-Fi), `device/ssh.ts` (`runCommand`, terminal, stats, power), `device/model.ts`, `device/content.ts`, `device/muos-settings.ts`, `catalogue.ts` (MustardOS layout constants) |
+| Device access | `device/target.ts` (which device; `withTarget`), `device/fs.ts` (`DeviceFs`, `CardFs`), `device/mtp.ts` (libmtp via koffi), `device/sftp.ts` (`SftpFs`, Wi-Fi), `device/ssh.ts` (`runCommand`, terminal, stats, power), `device/model.ts`, `device/content.ts`, `device/muos-settings.ts` (Jacaranda / Andromeda catalogues), `device/muxbak.ts` (Andromeda `.muxbak` backups), `catalogue.ts` (MustardOS layout constants) |
 | Theme Designer | `theme-designer.ts` (themes in `ctx.themes`: scheme files, uploads checked by kind, fonts via `lv_font_conv`, create/import/rename/duplicate, `.muxthm` packing, install through `themes.ts`), `zip.ts` (zip writer, safe unzip) |
 | Handheld features over SSH | `apps.ts`, `themes.ts`, `ports.ts`, `cores.ts`, `retroarch.ts`, `bios.ts`, `saves.ts`, `play.ts`, `tuning/` (Game Tuning: `profiles.ts` settings and presets, `disc-id.ts` PSP disc IDs, `tuning.ts` per-game files, `cheats.ts` libretro cheat database and per-game cheat files) |
 | Checks and updates | `checks.ts` (No-Intro verify, duplicates, PlayStation disc layouts via `games/disc-layout.ts`), `games/chd.ts` (detect `chdman`, convert cue/m3u → CHD), `games/disc-fix.ts` (inspect/extract zip/7z, Fix wizard), `updates.ts` (MustardOS releases, app releases), `app-market.ts` (curated apps from GitHub release feeds, ranked for the chosen handheld and MustardOS release including Andromeda), `manager-update.ts` (the manager's own version and self-update) |
 | BIOS | `bios.ts` (ensures workspace `bios/`, catalogue from the handheld, local MD5 check, upload, **Fix names**, send over SSH) |
-| System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH), `system/flash-helper.ts` (runs as root to write a card) |
+| OS library | `os-library.ts` (list/remove under `os/mustardos_<ver>/`, notes from updates catalogue, market JSON); UI `public/js/os.js`, `os-market.js` |
+| System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH); macOS install elevates `scripts/lib/flash-card.sh` via `sudo -A` + `sudo-askpass.sh`, then `flash-io.py` for write/verify with a remount watchdog (legacy `system/flash-helper.ts` kept for reference) |
 | Assistant (BYOK chat) | `chat.ts` (`.cache/chat.json` key, Groq/Gemini/OpenRouter, context from `docs/assistant-knowledge.md` + library + connection; `GET /api/chat/knowledge`); UI `public/js/chat.js` (FAB + dock, Markdown replies), Settings read-only knowledge modal |
 | What's new | `whats-new.ts` (`.cache/seen-version` vs `VERSION`, parse `CHANGELOG.md`); UI `public/js/whats-new.js` |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
@@ -73,9 +74,13 @@ of DOM and Node APIs.
 - `core.js`: `$`, `api(path, body)` (adds the token, throws `Error(message)` on 4xx/5xx), `esc`, `icon`,
   `ICONS`, `store` (localStorage `manager.*`), `app` (shared state), `toast`, `plural`, `human`, model helpers.
 - `combo.js`: filterable dropdowns for `<input data-combo="key">` (choices from `comboItems`) and long `<select data-combo>` lists.
-- `ui.js`: shared keyboard tab navigation, skip-to-content, responsive Games filters, and measured header height
+- Section tabs use `#section/tab` routes, allowing direct links and browser history within a section.
+- `ui.js`: shared keyboard tab navigation and tab-panel semantics, skip-to-content, responsive Games filters, and measured header height
   for sticky offsets. `games.js` calls `syncGameFilters()` when filters change through a library action.
-- `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`).
+- `device.js`: connection state, mode (`card` / `usb` / `wifi`), the status bar (`renderStatusbar`), and shared
+  Connection setup for file access and SSH remote controls. Delegated `data-connect` actions open setup in place.
+- On smaller screens, navigation becomes a dismissible drawer with focus handling; Files switches between its
+  computer and handheld panes while retaining both locations for transfers.
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
   (+ `updates.js`), `handheld.js`, `themes.js` (Designer tab: `theme-designer.js` editor and preview, `theme-assets.js` file panels, `theme-preview.js` canvas renderer, `theme-schema.js` every scheme setting), `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
   `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `wiki.js`, `chat.js` (assistant dock).
@@ -95,8 +100,8 @@ The handheld runs MustardOS. The manager reaches it three ways, chosen by the us
 | --- | --- | --- |
 | Card reader | `CardFs` on the mounted TF2 card (or SD1 on one-slot models); `system/cards.ts` for raw disks | files, games, artwork; System Tools (install, TF2, reset) |
 | Wi-Fi SSH | `runCommand` / `storage.sh` on the handheld | System Tools Set up TF2 and Reset card (never SD1) |
-| USB (MTP) | `device/mtp.ts` via libmtp; vendor `0x1d6b`, product `0x0100` | files, games, artwork, play data |
-| Wi-Fi | `device/sftp.ts` (SFTPGo, port 2022, `muos`/`muos`) and `device/ssh.ts` (port 22, `root`/`root`) | everything; SSH is needed for apps, themes, ports, settings, cores, saves, BIOS |
+| USB (MTP) | `device/mtp.ts` via libmtp; vendor `0x1d6b`, product `0x0100` (MTP). Product `0x0110` is Andromeda Device Link (`usblink0`); not used for file transfer | files, games, artwork, play data |
+| Wi-Fi | `device/sftp.ts` (port 2022, `muos`/`muos`; Andromeda Dropbear Primary/Secondary Storage → SD1/SD2, older SFTPGo SD1/SD2) and `device/ssh.ts` (port 22, `root`/`root`) | everything; SSH is needed for apps, themes, ports, settings, cores, saves, BIOS |
 
 `withTarget(volume, (t) => ...)` gives a `Target`: `t.roms` (where ROMs go), `t.arts` (artwork
 catalogues, preferred first), `t.all` (every readable storage by label). All three implement `DeviceFs`.

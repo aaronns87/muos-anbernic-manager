@@ -175,8 +175,10 @@ function gameKey() {
 function emptyState() {
   return `<div class="chat-empty">
       <div class="chat-empty-ico">${icon("chat")}</div>
-      <b>Ask the assistant</b>
-      <p>Help with the manager, your library, or a retro game. For walkthroughs, ask where to look online.</p>
+      <div class="chat-empty-copy">
+        <b>Ready</b>
+        <p>Ask about the manager, your library, or a game. For walkthroughs, ask where to look online.</p>
+      </div>
     </div>`;
 }
 
@@ -206,10 +208,11 @@ function ensureShell(dock) {
         <div class="chat-log" id="chat-log"></div>
         <form class="chat-compose" id="chat-form">
           <label class="chat-field">
-            <textarea class="control" id="chat-input" rows="2" placeholder="Ask about the manager or your games&hellip;" maxlength="2000" aria-label="Message"></textarea>
+            <textarea class="control" id="chat-input" rows="2" placeholder="Message&hellip;" maxlength="2000" aria-label="Message"></textarea>
           </label>
           <div class="chat-actions">
             <button type="button" class="btn small ghost chat-clear" id="chat-clear" data-chat="clear" hidden title="Clear this conversation">${icon("eraser")}<span>Clear</span></button>
+            <span class="grow"></span>
             <button type="submit" class="btn small primary" id="chat-send">${icon("send")}<span>Send</span></button>
           </div>
         </form>

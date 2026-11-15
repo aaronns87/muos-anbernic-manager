@@ -90,6 +90,20 @@ export async function forgetHostKey(): Promise<void> {
   await closeControl();
 }
 
+/** Opens SSH briefly to verify address, password and host key (trusts on first use). */
+export async function probeSignIn(): Promise<Record<string, unknown>> {
+  const { client, fingerprint, trustedNow } = await connect();
+  client.end();
+  await closeControl();
+  return { ...(await sshStatus()), ok: true, fingerprint, trustedNow, signedIn: true };
+}
+
+/** Drops the stored host key and signs in so the key answering now is trusted (after a MustardOS reinstall). */
+export async function trustHostKey(): Promise<Record<string, unknown>> {
+  await forgetHostKey();
+  return probeSignIn();
+}
+
 let lastCheck = { key: "", at: 0, banner: "" };
 
 export async function sshStatus() {

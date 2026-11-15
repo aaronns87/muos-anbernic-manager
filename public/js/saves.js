@@ -1,9 +1,13 @@
 // Saves tab: back up the handheld's saves and save states over SSH, and put them back from a backup.
+// On Andromeda, also list / create / download / restore .muxbak device backups in ARCHIVE.
 
 import { $, api, esc, formatDate, formatTime, human, icon, plural, setKeepingScroll, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
-const S = { data: null, error: "", loading: false, work: "", open: "", contents: {}, picked: new Set(), wifi: undefined };
+const S = {
+  data: null, error: "", loading: false, work: "", open: "", contents: {}, picked: new Set(), wifi: undefined,
+  muxbak: null, muxSections: null, muxDest: "SD1", muxMerge: true, muxPoll: 0,
+};
 const KINDS = { file: "Saves", state: "Save states", drastic: "DraStic (NDS)", "drastic-legacy": "DraStic (NDS)", game: "Game data", pico8: "PICO-8" };
 
 export function showSaves() {
@@ -21,11 +25,16 @@ async function load() {
   S.loading = true;
   render();
   try {
-    S.data = await api("saves");
+    const [saves, mux] = await Promise.all([api("saves"), api("muxbak").catch(() => null)]);
+    S.data = saves;
+    S.muxbak = mux;
+    if (mux?.destinations?.length && !mux.destinations.includes(S.muxDest)) S.muxDest = mux.destinations[0];
+    if (mux?.sections && S.muxSections === null) S.muxSections = new Set(mux.sections.map(([id]) => id));
     S.error = "";
     if (S.open && !S.data.backups.some((b) => b.name === S.open)) S.open = "";
     const newest = S.data.backups.find((b) => !b.error);
     if (newest) await contents(newest.name);
+    if (mux?.creating || mux?.restoring?.running) pollMux();
   } catch (error) {
     S.error = error.message;
   }
@@ -87,8 +96,10 @@ function render() {
     root.innerHTML = S.error ? `<div class="notice err">${esc(S.error)}</div>` : `<div class="planning"><span class="spinner"></span> Reading the backups and asking the handheld&hellip;</div>`;
     return;
   }
-  $("emu-sub").innerHTML = `${plural(d.backups.length, "save backup")} in <code title="${esc(d.folder)}">${esc(d.folder)}</code> &middot; change it in Settings`;
-  setKeepingScroll(root, `<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
+  const muxNote = S.muxbak?.supported ? " Device backups (.muxbak) use ARCHIVE on Andromeda." : "";
+  $("emu-sub").textContent = `${plural(d.backups.length, "save backup")} on this computer (save games only).${muxNote}`;
+  const locationOpen = root.querySelector(".sv-location")?.open;
+  setKeepingScroll(root, `<details class="sv-location"${locationOpen ? " open" : ""}><summary>Backup folder</summary><code>${esc(d.folder)}</code><a href="#settings/folders">Change in Settings</a></details>${muxbakPanel()}<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
 }
 
 function backupHint() {
@@ -103,7 +114,7 @@ function backupsPanel() {
   if (!list.length) {
     return `<section class="panel apps-main"><h2>${icon("save")}Backups</h2>
       <div class="empty-state apps-empty">${icon("save")}<p><b>No backups yet.</b> <b>Back up now</b> copies every save and save state from the handheld
-        into one file in <code>${esc(S.data.folder)}</code>.</p></div></section>`;
+        into a backup on this computer.</p></div></section>`;
   }
   const onDevice = deviceMap(), latest = list.find((b) => !b.error);
   const rows = list.map((b) => {
@@ -132,9 +143,9 @@ function backupsPanel() {
       ${open ? fileList(b, files, onDevice) : ""}
     </div>`;
   }).join("");
-  return `<section class="panel apps-main"><h2>${icon("save")}Backups <small>${list.length}</small></h2>
-    <p class="muted-note">Restoring puts a backup's files back on the handheld. Files that are not in the backup stay as they are, and the handheld's
-      current saves are backed up first.</p>
+  return `<section class="panel apps-main"><h2>${icon("save")}Save games <small>${list.length}</small></h2>
+    <p class="muted-note">Tar.gz copies of saves and save states on this computer. Restoring puts those files back on the handheld; other files stay,
+      and the handheld's current saves are backed up first.</p>
     <div class="app-list">${rows}</div></section>`;
 }
 
@@ -166,10 +177,11 @@ function devicePanel() {
   const head = `<h2>${icon("handheld")}On the handheld${d?.reachable ? ` <small>${esc(d.host)}</small>` : ""}<span class="grow"></span>
     ${S.loading ? `<span class="spinner sm"></span>` : ""}</h2>`;
   if (S.data.deviceError) return `<section class="panel apps-side">${head}<div class="notice err">${esc(S.data.deviceError)}</div>
-    <div class="panel-actions"><button class="btn small" data-sv="refresh">${icon("refresh")}<span>Try again</span></button><a class="btn small ghost" href="#ssh">SSH settings</a></div></section>`;
+    <div class="panel-actions"><button class="btn small" data-sv="refresh">${icon("refresh")}<span>Try again</span></button><button class="btn small ghost" data-connect="ssh">Connection settings</button></div></section>`;
   if (!d.reachable) {
     return `<section class="panel apps-side">${head}
-      <div class="notice">Backing up and restoring saves needs SSH over Wi-Fi. On the handheld turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>, then check the <a href="#ssh">SSH</a> section.</div></section>`;
+      <p class="muted-note">Connect remote controls over Wi-Fi to back up and restore saves. Your existing backups remain available on this computer.</p>
+      <div class="panel-actions"><button class="btn" data-connect="ssh">Set up remote controls</button></div></section>`;
   }
   if (!d.files.length) {
     return `<section class="panel apps-side">${head}
@@ -197,6 +209,119 @@ function devicePanel() {
       <div><b>${esc(name)}</b><small>${[g.saves && plural(g.saves, "save"), g.states && plural(g.states, "state"), g.other && plural(g.other, "file")].filter(Boolean).join(" \u00b7 ")}
         &middot; ${esc(formatDate(new Date(g.newest * 1000), "long"))}</small></div></div>`).join("")}</div>
   </section>`;
+}
+
+// ---------------------------------------------------------------- Andromeda .muxbak
+
+function muxbakPanel() {
+  const m = S.muxbak;
+  if (!m?.supported) return "";
+  const busy = S.work.startsWith("mux") || m.creating || m.restoring?.running;
+  const destOpts = (m.destinations || []).map((d) => `<option value="${esc(d)}"${d === S.muxDest ? " selected" : ""}>${d === "SD2" ? "SD2 (TF2)" : d}</option>`).join("");
+  const sections = (m.sections || []).map(([id, label]) => {
+    const on = S.muxSections?.has(id);
+    return `<label class="sv-file mux-sec"><input type="checkbox" data-mux-sec="${esc(id)}"${on ? " checked" : ""}><span class="sv-name"><b>${esc(label)}</b></span></label>`;
+  }).join("");
+  const rows = (m.files || []).map((f) => `<div class="app-row">
+      <span class="app-ico t-app">${icon("package")}</span>
+      <div class="app-main">
+        <b title="${esc(f.path)}">${esc(f.name)}</b>
+        <small>${human(f.size)} &middot; ${esc(f.storage || "?")} &middot; ${esc(when(f.mtime * 1000))}</small>
+      </div>
+      <div class="app-actions">
+        <button class="btn small" data-sv="mux-dl" data-path="${esc(f.path)}"${busy ? " disabled" : ""}>${S.work === "mux-dl:" + f.path ? `<span class="spinner sm"></span>` : icon("download")}<span>Download</span></button>
+        <button class="btn small" data-sv="mux-restore" data-path="${esc(f.path)}"${busy ? " disabled" : ""}>${S.work === "mux-restore:" + f.path ? `<span class="spinner sm"></span><span>Restoring&hellip;</span>` : `${icon("restore")}<span>Restore</span>`}</button>
+      </div>
+    </div>`).join("");
+  const status = m.creating || S.work === "mux-create" ? `<div class="notice"><span class="spinner sm"></span> Creating device backup on the handheld&hellip;</div>`
+    : m.restoring?.running || S.work.startsWith("mux-restore") ? `<div class="notice"><span class="spinner sm"></span> Restoring ${esc(m.restoring?.name || "backup")} on the handheld&hellip;</div>` : "";
+  return `<section class="panel" style="margin-bottom:1rem">
+    <h2>${icon("package")}Device backups <small>.muxbak</small></h2>
+    <p class="muted-note">Andromeda backups live in <code>ARCHIVE</code> on the handheld (same as Archive Manager). Restoring replaces the matching sections on the device.
+      Save-game tar.gz backups below stay on this computer and only cover saves.</p>
+    ${status}
+    <div class="mux-create" style="margin:0.75rem 0">
+      <div class="sub-head">Create on the handheld</div>
+      <label class="field"><span>Destination</span>
+        <select class="control" data-sv="mux-dest"${busy ? " disabled" : ""}>${destOpts || `<option value="SD1">SD1</option>`}</select></label>
+      <label class="field" style="margin-top:0.4rem"><span><input type="checkbox" data-sv="mux-merge"${S.muxMerge ? " checked" : ""}${busy ? " disabled" : ""}> One merged .muxbak</span></label>
+      <div class="sv-file-list" style="max-height:12rem;margin:0.5rem 0">${sections}</div>
+      <button class="btn primary" data-sv="mux-create"${busy ? " disabled" : ""}>${S.work === "mux-create" ? `<span class="spinner sm"></span><span>Starting&hellip;</span>` : `${icon("download")}<span>Create .muxbak</span>`}</button>
+    </div>
+    <div class="app-list">${rows || `<p class="muted-note">No .muxbak files in ARCHIVE yet.</p>`}</div>
+  </section>`;
+}
+
+function pollMux() {
+  clearTimeout(S.muxPoll);
+  S.muxPoll = setTimeout(async () => {
+    try {
+      const m = await api("muxbak");
+      S.muxbak = m;
+      render();
+      if (m.creating || m.restoring?.running) pollMux();
+      else if (S.work.startsWith("mux")) { S.work = ""; render(); }
+    } catch { /* keep last */ }
+  }, 2000);
+}
+
+async function muxCreate() {
+  const sections = [...(S.muxSections || [])];
+  if (!sections.length) { toast("Pick at least one section", 3000); return; }
+  const ok = await confirmBox({
+    title: "Create a device backup?",
+    html: `<p>Runs MustardOS Backup on the handheld and writes a <code>.muxbak</code> into <code>ARCHIVE</code> on <b>${esc(S.muxDest === "SD2" ? "SD2 (TF2)" : S.muxDest)}</b>.
+      The menu may close briefly while it runs.</p>
+      <p>${plural(sections.length, "section")}${S.muxMerge ? ", merged into one file" : ", one file each"}.</p>`,
+    ok: "Create backup",
+  });
+  if (!ok) return;
+  S.work = "mux-create";
+  render();
+  try {
+    await api("muxbak/create", { destination: S.muxDest, merge: S.muxMerge, sections });
+    toast("Backup started on the handheld", 2600);
+    pollMux();
+  } catch (error) {
+    toast(error.message, 4500);
+    S.work = "";
+  }
+  render();
+}
+
+async function muxDownload(filePath) {
+  S.work = "mux-dl:" + filePath;
+  render();
+  try {
+    const r = await api("muxbak/download", { path: filePath });
+    toast(`Downloaded ${r.name}`, 2600);
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  S.work = "";
+  render();
+}
+
+async function muxRestore(filePath) {
+  const name = filePath.split("/").pop();
+  const ok = await confirmBox({
+    title: "Restore this device backup?",
+    html: `<p>Restores <b>${esc(name)}</b> through Archive Manager on the handheld. Matching sections on the device are <b>replaced</b>.
+      This is not the same as restoring a save-game tar.gz on this computer.</p>`,
+    ok: "Restore on handheld", danger: true,
+  });
+  if (!ok) return;
+  S.work = "mux-restore:" + filePath;
+  render();
+  try {
+    await api("muxbak/restore", { path: filePath });
+    toast("Restore started on the handheld", 2600);
+    pollMux();
+  } catch (error) {
+    toast(error.message, 4500);
+    S.work = "";
+  }
+  render();
 }
 
 // ---------------------------------------------------------------- actions
@@ -275,7 +400,7 @@ export function bindSaves(view) {
   view.addEventListener("click", (e) => {
     const el = e.target.closest("[data-sv]");
     if (!el || el.disabled) return;
-    const { sv, name } = el.dataset;
+    const { sv, name, path: filePath } = el.dataset;
     if (sv === "refresh") load();
     else if (sv === "reveal") api("settings/reveal", { which: "backups" }).catch((error) => toast(error.message, 3000));
     else if (sv === "backup") backup();
@@ -285,11 +410,25 @@ export function bindSaves(view) {
     else if (sv === "trash") trash(name);
     else if (sv === "all") { for (const f of S.contents[name] || []) S.picked.add(f.path); render(); }
     else if (sv === "none") { S.picked.clear(); render(); }
+    else if (sv === "mux-create") muxCreate();
+    else if (sv === "mux-dl") muxDownload(filePath);
+    else if (sv === "mux-restore") muxRestore(filePath);
   });
   view.addEventListener("change", (e) => {
-    const p = e.target.dataset?.svPick;
-    if (p === undefined) return;
-    if (e.target.checked) S.picked.add(p); else S.picked.delete(p);
-    render();
+    const t = e.target;
+    const p = t.dataset?.svPick;
+    if (p !== undefined) {
+      if (t.checked) S.picked.add(p); else S.picked.delete(p);
+      render();
+      return;
+    }
+    const sec = t.dataset?.muxSec;
+    if (sec !== undefined) {
+      if (!S.muxSections) S.muxSections = new Set();
+      if (t.checked) S.muxSections.add(sec); else S.muxSections.delete(sec);
+      return;
+    }
+    if (t.dataset?.sv === "mux-dest") { S.muxDest = t.value; return; }
+    if (t.dataset?.sv === "mux-merge") { S.muxMerge = t.checked; }
   });
 }

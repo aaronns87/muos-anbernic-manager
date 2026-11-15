@@ -69,6 +69,7 @@ function ago(seconds) {
 
 function devicePanel(conn) {
   const c = app.device.target, h = app.device.handheld, o = app.overview, live = isLive(conn);
+  if (!live) return `<section class="panel ov-connect"><div><h2>${icon("plug")} ${esc(conn.title)}</h2><p class="muted-note">Keep working with your local library, or connect to manage the handheld.</p></div><button class="btn" data-connect="files">${icon("plug")} Set up connection</button></section>`;
   const head = `<div class="conn-head"><div class="conn-icon">${conn.icon}</div><div class="conn-text">
     <h3>${esc(conn.title)}${conn.code ? ` <span class="code">${esc(conn.code)}</span>` : ""}</h3>
     <p>${conn.state === "checking" ? `${ICONS.spin} ` : ""}${esc(live ? conn.tip || conn.sub : conn.sub)}</p></div>
@@ -183,7 +184,7 @@ function libraryPanel() {
       <span class="bar-track"><i style="width:${Math.max(3, Math.round((s.games.length / max) * 100))}%"></i></span>
       <b>${s.games.length.toLocaleString()}</b></button>`).join("")}</div>
     <div class="cat-chips">${Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<span>${esc(c)} <b>${n.toLocaleString()}</b></span>`).join("")}</div>
-    <div class="muted-note">Scanned ${esc(scanWhen(app.data.generated))} from <code>${esc(app.data.roms || "Roms/")}</code>. Games rescans whenever you open it.</div>`,
+    <div class="muted-note">Scanned ${esc(scanWhen(app.data.generated))}. Games rescans whenever you open it. <a href="#settings/folders">Library folder settings</a>.</div>`,
     `<button class="btn" data-go="games">${icon("arrow")}<span>Open library</span></button>`, "folder");
 }
 
@@ -229,27 +230,37 @@ function hardwarePanel() {
   return panel("half", `${esc(m.maker)} ${esc(m.name)}`, kv(specs(m).map(([k, v]) => [k, esc(v)])), "", "chip");
 }
 
+function localTasksPanel() {
+  return panel("ov-local", "Keep building your library", `<p class="muted-note">Your workspace is ready to use without a handheld. Connect when you want to transfer games or manage the device.</p>
+    <div class="ov-local-actions">
+      <button class="btn primary" data-go="games">${icon("folder")}<span>Browse games</span></button>
+      <button class="btn" data-go="art-scrape">${icon("image")}<span>Find artwork</span></button>
+      <a class="btn ghost" href="#emulation/checks">${icon("check")}<span>Check library</span></a>
+    </div>`, "", "folder");
+}
+
 export function renderOverview() {
   if (!$("overview") || section() !== "overview") return;
   const conn = connection();
+  const live = isLive(conn);
+  $("overview").classList.toggle("ov-offline", !live);
   const typed = [...$("overview").querySelectorAll(".wifi-form input")].map((i) => [i.id, i.value]);
   const focused = document.activeElement && document.activeElement.closest(".wifi-form") ? document.activeElement.id : "";
   const open = !!$("overview").querySelector(".wifi-settings[open]");
   $("overview").innerHTML = [
-    devicePanel(conn), syncPanel(conn),
-    libraryPanel(), onDevicePanel(conn),
+    devicePanel(conn), live ? syncPanel(conn) : localTasksPanel(),
+    libraryPanel(), live ? onDevicePanel(conn) : "",
     recentPanel(), artworkPanel(),
-    workspacePanel(), hardwarePanel(),
+    workspacePanel(), live ? hardwarePanel() : "",
     activityPanel()
   ].join("");
   for (const [id, value] of typed) if ($(id)) $(id).value = value;
   if (open && $("overview").querySelector(".wifi-settings")) $("overview").querySelector(".wifi-settings").open = true;
   if (focused && $(focused)) $(focused).focus();
-  const live = isLive(conn);
   $("ov-sub").textContent = live
     ? `${conn.title} ${conn.state === "wifi" ? "over Wi-Fi" : usbMode() ? "over USB" : "in the card reader"}`
-    : conn.state === "checking" ? `${conn.title}\u2026` : conn.title;
-  $("ov-actions").innerHTML = `<span class="mode-label">Connect with</span>${modePicker()}`;
+    : "Your library and what to do next";
+  $("ov-actions").innerHTML = live ? `<span class="mode-label">Connect with</span>${modePicker()}` : "";
   loadWorkspace();
   loadInfo();
   loadSummary();

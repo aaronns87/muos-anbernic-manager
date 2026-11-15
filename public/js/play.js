@@ -1,6 +1,6 @@
 // Play: what you play on the handheld (MustardOS's play time tracker and history), and its game collections.
 
-import { $, api, app, clock, esc, formatDate, formatTime, icon, initial, isOnCard, plural, store, toast } from "./core.js";
+import { setTabRoute, $, api, app, clock, esc, formatDate, formatTime, handheldVolume, icon, initial, isOnCard, plural, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
 const TABS = [
@@ -11,7 +11,7 @@ const TABS = [
 const P = { play: null, cols: null, error: "", colError: "", loading: false, volume: "", q: "", sort: store.get("playSort", "time"), open: null, add: "", busy: false, bound: false };
 
 const tab = () => TABS.find((t) => t[0] === store.get("playTab", "time")) || TABS[0];
-const volume = () => app.device.target?.id || "";
+const volume = () => handheldVolume();
 
 export function showPlay() {
   if (!P.bound) bind();
@@ -88,7 +88,10 @@ function shell(html) {
 }
 
 function notice() {
-  if (!volume()) return `<div class="notice">Connect the handheld over USB or Wi-Fi to see what you play. <a href="#overview">Connection</a></div>`;
+  if (!volume()) {
+    return `<div class="notice">Connect the handheld over USB or Wi-Fi to see what you play.
+      <button type="button" class="link-btn" data-connect="files">Connection</button></div>`;
+  }
   return "";
 }
 
@@ -255,7 +258,7 @@ function bind() {
   const view = $("view-play");
   view.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-pl-tab]");
-    if (t) { store.set("playTab", t.dataset.plTab); return render(); }
+    if (t) { store.set("playTab", t.dataset.plTab); setTabRoute("play", t.dataset.plTab); return render(); }
     const el = e.target.closest("[data-pl]");
     if (!el || el.disabled) return;
     const { pl, path } = el.dataset;

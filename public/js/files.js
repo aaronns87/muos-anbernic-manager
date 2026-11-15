@@ -10,7 +10,7 @@ const TEXT = new Set(["txt", "ini", "cfg", "conf", "json", "log", "xml", "opt", 
 const SIDES = { local: "This computer", device: "Handheld" };
 
 const pane = () => ({ root: "", path: [], entries: null, loading: false, error: "", sel: new Set(), seq: 0 });
-const F = { roots: null, rootsError: "", volume: "", local: pane(), device: pane(), busy: false, bound: false, view: null };
+const F = { roots: null, rootsError: "", volume: "", local: pane(), device: pane(), busy: false, bound: false, view: null, active: "local", error: "" };
 
 const ext = (n) => (n.includes(".") ? n.split(".").pop().toLowerCase() : "");
 const kindOf = (e) => (e.folder ? "folder" : IMAGE.has(ext(e.name)) ? "image" : TEXT.has(ext(e.name)) || !ext(e.name) ? "text" : "");
@@ -100,7 +100,9 @@ function render() {
       : `<div class="planning"><span class="spinner"></span> Reading folders&hellip;</div>`;
     return;
   }
-  setKeepingScroll(root, `<div class="fx">${paneHtml("local")}${paneHtml("device")}</div>`, ".fx-list");
+  setKeepingScroll(root, `${F.error ? `<div class="notice err" role="alert">${esc(F.error)} <button class="btn small" data-fx="dismiss-error">Dismiss</button></div>` : ""}
+    <div class="fx-switch" aria-label="File location">${Object.entries(SIDES).map(([side, label]) => `<button class="btn${F.active === side ? " primary" : ""}" data-fx="switch" data-side="${side}" aria-pressed="${F.active === side}">${esc(label)}${F[side].sel.size ? ` (${F[side].sel.size} selected)` : ""}</button>`).join("")}</div>
+    <div class="fx" data-active="${F.active}">${paneHtml("local")}${paneHtml("device")}</div>`, ".fx-list");
 }
 
 function paneHtml(side) {
@@ -112,14 +114,14 @@ function paneHtml(side) {
   </div>`;
   if (side === "device" && !roots.length) {
     const why = F.roots.deviceError || (volume() ? "The handheld shows no storage." : "Connect the handheld over USB or Wi-Fi, or put a card in a card reader.");
-    return `<section class="panel fx-pane" data-side="device">${head}<div class="fx-empty"><div class="notice">${esc(why)}</div><a class="btn small" href="#overview">Connection</a></div></section>`;
+    return `<section class="panel fx-pane" data-side="device">${head}<div class="fx-empty"><div class="notice">${esc(why)}</div><button class="btn small" data-connect="files">Connect handheld</button></div></section>`;
   }
   const n = p.sel.size, busy = F.busy || p.loading;
   const tools = `<div class="fx-tools">
     <button class="btn icon small" data-fx="up" data-side="${side}" title="Up one folder"${p.path.length && !busy ? "" : " disabled"}>${icon("down", "fx-up")}</button>
     <button class="btn icon small" data-fx="refresh" data-side="${side}" title="Read the folder again"${busy ? " disabled" : ""}>${icon("refresh")}</button>
-    <button class="btn icon small" data-fx="mkdir" data-side="${side}" title="New folder"${busy ? " disabled" : ""}>${icon("plus")}</button>
-    <button class="btn icon small" data-fx="rename" data-side="${side}" title="${side === "device" && !canRename() ? "Renaming is not possible over USB" : "Rename"}"${n === 1 && !busy && (side === "local" || canRename()) ? "" : " disabled"}>${icon("file")}</button>
+    <button class="btn icon small" data-fx="mkdir" data-side="${side}" aria-label="New folder" title="New folder"${busy ? " disabled" : ""}>${icon("plus")}</button>
+    <button class="btn small" data-fx="rename" data-side="${side}" aria-label="Rename selected item" title="${side === "device" && !canRename() ? "Renaming is not possible over USB" : "Rename"}"${n === 1 && !busy && (side === "local" || canRename()) ? "" : " disabled"}>${icon("file")}<span>Rename</span></button>
     <button class="btn icon small danger" data-fx="delete" data-side="${side}" title="${side === "local" ? "Move to the Trash" : "Delete from the handheld"}"${n && !busy ? "" : " disabled"}>${icon("trash")}</button>
     <span class="grow"></span>
     <button class="btn small${n ? " primary" : ""}" data-fx="copy" data-side="${side}"${n && !busy && F.roots.device.length && F[other(side)].root ? "" : " disabled"}>
@@ -139,7 +141,7 @@ function paneHtml(side) {
     ${p.loading ? `<span class="spinner sm"></span>` : ""}
     ${system(side) ? `<span class="fx-warn">${icon("alert")}MustardOS's own files</span>` : ""}
   </div>` : "";
-  return `<section class="panel fx-pane" data-side="${side}">${head}${crumbs}${tools}<div class="fx-list" role="list">${list}</div>${foot}</section>`;
+  return `<section class="panel fx-pane" data-side="${side}">${head}${crumbs}${tools}${F[other(side)].root ? `<div class="fx-destination"><span>Copy destination: <b>${esc(SIDES[other(side)])} / ${esc(where(other(side)))}</b></span><button class="btn small" data-fx="switch" data-side="${other(side)}">Choose folder</button></div>` : ""}<div class="fx-list" role="list">${list}</div>${foot}</section>`;
 }
 
 function row(side, e) {
@@ -172,7 +174,8 @@ async function askName(title, value, ok) {
 async function run(fn) {
   F.busy = true;
   render();
-  try { await fn(); } catch (error) { toast(error.message, 4500); }
+  F.error = "";
+  try { await fn(); } catch (error) { F.error = error.message; toast(error.message, 4500); }
   F.busy = false;
   render();
 }
@@ -229,7 +232,8 @@ async function copy(side) {
   let plan;
   F.busy = true;
   render();
-  try { plan = await api("files/copy", { ...req, check: true }); } catch (error) { toast(error.message, 4500); }
+  F.error = "";
+  try { plan = await api("files/copy", { ...req, check: true }); } catch (error) { F.error = error.message; toast(error.message, 4500); }
   F.busy = false;
   render();
   if (!plan) return;
@@ -237,7 +241,7 @@ async function copy(side) {
   if (short) return toast(`There is not enough free space: ${human(plan.bytes)} needed, ${human(plan.free)} free on ${where(to)}.`, 6000);
   const ok = await confirmBox({
     title: side === "local" ? "Copy to the handheld?" : "Copy to this computer?",
-    html: `<p>${plural(plan.files, "file")} (${human(plan.bytes)}) from <b>${esc(where(side))}</b> to <b>${esc(where(to))}</b>.</p>
+    html: `<p>${plural(plan.files, "file")} (${human(plan.bytes)})</p><dl class="fx-review"><dt>From ${esc(SIDES[side])}</dt><dd>${esc(where(side))}</dd><dt>To ${esc(SIDES[to])}</dt><dd>${esc(where(to))}</dd></dl>
       ${plan.free ? `<p class="muted-note">${human(plan.free)} free there.</p>` : ""}
       ${plan.existing.length ? `<div class="notice">${plural(plan.existing.length, "item")} already ${plan.existing.length === 1 ? "exists" : "exist"} there: ${esc(plan.existing.slice(0, 6).join(", "))}${plan.existing.length > 6 ? ", &hellip;" : ""}</div>
         <label class="chk-bulk"><input type="checkbox" id="fx-replace"> Replace ${plan.existing.length === 1 ? "it" : "them"}; otherwise ${plan.existing.length === 1 ? "it is" : "they are"} skipped</label>` : ""}`,
@@ -251,13 +255,15 @@ async function copy(side) {
     jobStarted(r.job);
     render();
   } catch (error) {
+    F.error = error.message;
+    render();
     toast(error.message, 4500);
   }
 }
 
 // ---------------------------------------------------------------- preview and editing
 
-const V = { side: "", path: [], text: "", dirty: false, saving: false };
+const V = { side: "", path: [], text: "", dirty: false, saving: false, error: "" };
 
 addEventListener("beforeunload", (e) => {
   if (V.dirty || V.saving) e.preventDefault();
@@ -265,7 +271,7 @@ addEventListener("beforeunload", (e) => {
 
 async function preview(side, name) {
   const dialog = $("fileview"), parts = [...F[side].path, name], kind = kindOf({ name });
-  Object.assign(V, { side, path: parts, text: "", dirty: false, saving: false, editable: false, token: null });
+  Object.assign(V, { side, path: parts, text: "", dirty: false, saving: false, editable: false, token: null, error: "" });
   $("fv-title").textContent = name;
   $("fv-where").textContent = `${SIDES[side]} \u00b7 ${where(side)}`;
   $("fv-save").hidden = true;
@@ -286,7 +292,7 @@ async function preview(side, name) {
     V.text = r.text;
     V.editable = r.editable;
     box.innerHTML = `${system(side) ? `<div class="notice">This is a MustardOS file. A mistake here can stop the handheld from starting.</div>` : ""}
-      <textarea class="fv-text" id="fv-text" spellcheck="false"${r.editable ? "" : " readonly"}></textarea>`;
+      <div class="notice err fx-save-error" role="alert" hidden></div><textarea class="fv-text" aria-label="File contents" id="fv-text" spellcheck="false"${r.editable ? "" : " readonly"}></textarea>`;
     $("fv-text").value = r.text;
     $("fv-note").textContent = human(r.size);
     $("fv-save").hidden = !r.editable;
@@ -301,6 +307,8 @@ async function saveFile() {
   const token = V.token, side = V.side;
   const text = $("fv-text").value;
   V.saving = true;
+  V.error = "";
+  document.querySelector(".fx-save-error").hidden = true;
   $("fv-save").disabled = true;
   $("fv-note").textContent = "Saving\u2026";
   try {
@@ -312,8 +320,11 @@ async function saveFile() {
     load(side);
   } catch (error) {
     if (V.token !== token) return;
-    $("fv-note").textContent = "";
-    toast(error.message, 4500);
+    V.error = error.message;
+    $("fv-note").textContent = "Not saved";
+    const notice = document.querySelector(".fx-save-error");
+    notice.hidden = false;
+    notice.innerHTML = `${esc(error.message)} Your edits are still here. <button class="btn small" data-fx-retry-save>Retry save</button>`;
   } finally {
     if (V.token === token) {
       V.saving = false;
@@ -344,6 +355,15 @@ function bind() {
       return render();
     }
     if (!el || el.disabled) return;
+    if (el.dataset.fx === "dismiss-error") { F.error = ""; return render(); }
+    if (el.dataset.fx === "switch") {
+      F.active = el.dataset.side;
+      render();
+      const pane = view.querySelector(`.fx-pane[data-side="${F.active}"]`);
+      pane?.querySelector("select")?.focus({ preventScroll: true });
+      pane?.scrollIntoView({ block: "nearest" });
+      return;
+    }
     if (el.dataset.fx === "roots") return void loadRoots();
     const side = el.dataset.side || rowEl?.dataset.side, act = el.dataset.fx;
     if (act === "pick") {
@@ -379,6 +399,7 @@ function bind() {
   $("fv-close").addEventListener("click", closePreview);
   $("fv-done").addEventListener("click", closePreview);
   $("fv-save").addEventListener("click", saveFile);
+  $("fileview").addEventListener("click", (e) => { if (e.target.closest("[data-fx-retry-save]")) saveFile(); });
   $("fileview").addEventListener("cancel", (e) => { if (V.dirty) { e.preventDefault(); closePreview(); } });
   $("fileview").addEventListener("input", (e) => {
     if (e.target.id !== "fv-text") return;

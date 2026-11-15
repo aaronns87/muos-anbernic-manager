@@ -1,6 +1,6 @@
 // Device section: Settings, Controls and Benchmark tabs.
 
-import { $, icon, store } from "./core.js";
+import { setTabRoute, $, icon, store } from "./core.js";
 import { showHandheld, renderHandheld, clearHandheldBar } from "./handheld.js";
 import { showBenchmark, renderBenchmark } from "./benchmark.js";
 import { showControls, renderControls, hideControls } from "./controls.js";
@@ -27,7 +27,7 @@ export function showDevice() {
     $("hh-tabs").addEventListener("click", (e) => {
       const b = e.target.closest("[data-hh-tab]");
       if (!b || b.classList.contains("on")) return;
-      store.set("handheldTab", b.dataset.hhTab);
+      store.set("handheldTab", b.dataset.hhTab); setTabRoute("handheld", b.dataset.hhTab);
       showDevice();
     });
   }

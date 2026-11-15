@@ -257,7 +257,7 @@ function results() {
 
 function intro() {
   return `<section class="panel tune-intro">
-    <h2>${icon("bolt")}Game Tuning</h2>
+    <h2>${icon("bolt")}Choose a game to tune</h2>
     <p>Pick a game to give it its own emulator settings: faster for heavy games, sharper for light ones, plus cheats. They are saved on the handheld and apply the next time the game starts.</p>
     <ul class="tune-points">
       <li><b>PSP</b> PPSSPP, standalone and RetroArch</li>
@@ -272,9 +272,10 @@ function intro() {
 
 function editor() {
   if (!T.data.reachable) {
-    return `<section class="panel"><h2>${icon("bolt")}Game Tuning</h2>
-      <div class="notice">Game Tuning saves settings on the handheld. Connect it over Wi-Fi and turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>,
-        then check the <a href="#ssh">SSH</a> section.</div></section>${intro()}`;
+    return `<section class="panel tune-intro"><h2>${icon("wifi")}Connect to tune your games</h2>
+      <p class="muted-note">Give each game its own emulator settings, cheats and CPU speed. Changes are saved on the handheld for its next launch.</p>
+      <div class="notice">Turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b> on the handheld, then connect over Wi-Fi.</div>
+      <div class="panel-actions"><button class="btn primary" data-connect="ssh">${icon("wifi")}<span>Set up remote controls</span></button></div></section>`;
   }
   if (!T.pick) return intro();
   if (T.gameLoading && !T.game) return `<section class="panel"><div class="planning"><span class="spinner"></span> Reading the game's settings&hellip;</div></section>`;

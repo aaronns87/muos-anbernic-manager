@@ -1,6 +1,7 @@
 // The connection to the handheld: a TF2 card in a reader, or the handheld over USB (MTP).
 
-import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
+import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, trustSshHostKey, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
+import { confirmBox } from "./art-images.js";
 import { chatConfigured } from "./chat.js";
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
@@ -30,6 +31,32 @@ export function deviceCounts() {
   const copyable = app.data ? app.data.systems.filter((s) => !EXCLUDED.has(s.code)).reduce((a, s) => a + s.games.length, 0) : 0;
   const present = Object.values(app.device.files).filter((s) => s !== "changed").length;
   return { copyable, present };
+}
+
+/** True when the handheld looks like Andromeda (or Device Link), so USB help uses the Wi-Fi → Device Settings path. */
+function isAndromedaOs() {
+  if (app.device.handheld?.function === "Link") return true;
+  const v = String(app.overview?.info?.identity?.version || "");
+  if (/ANDROMEDA/i.test(v) || /^2606([._]|$)/.test(v)) return true;
+  if (/JACARANDA/i.test(v)) return false;
+  return true;
+}
+
+/** Andromeda: USB Function is often missing on-device — set MTP over SSH from Device Settings after Wi-Fi. */
+function andromedaUsbSteps() {
+  return [
+    "On the handheld: Configuration \u203a Connectivity \u203a Device Link \u203a turn USB Cable off (Status may say it is looking for another device).",
+    "Enable Wi-Fi and Configuration \u203a Connectivity \u203a Web Services \u203a Secure Shell (and Secure File Transfer if you want file copies over Wi-Fi).",
+    "In this manager: connect over Wi-Fi, open Device \u203a Settings \u203a Advanced, set USB function to MTP, and turn off USB Cable (Device Link) if it is listed. Andromeda often does not show USB Function on the handheld menus.",
+    "Unplug the USB cable, plug it in again, then press Check again.",
+  ];
+}
+
+function classicUsbSteps() {
+  return [
+    "On the handheld open Configuration \u203a Advanced Settings \u203a USB Function and set it to MTP.",
+    "Connect it to this computer with a USB-C data cable, then press Check again.",
+  ];
 }
 
 /**
@@ -67,7 +94,7 @@ export function connection() {
         sub: "Enter the handheld's address",
         steps: [
           ...noWifi,
-          "On the handheld open Configuration \u203a Web Services and enable SFTP + Filebrowser.",
+          "On the handheld open Configuration \u203a Connectivity \u203a Web Services and enable Secure File Transfer (Andromeda), or SFTP + Filebrowser on older MustardOS.",
           "Join the same Wi-Fi network as this computer. Configuration \u203a Wi-Fi Network shows the handheld's IP address.",
           "Enter that address below, or press Find on network."
         ] };
@@ -77,7 +104,7 @@ export function connection() {
       steps: [
         ...noWifi,
         "Wake the handheld. It drops Wi-Fi while it sleeps.",
-        "Check that Configuration \u203a Web Services \u203a SFTP + Filebrowser is enabled.",
+        "Check that Secure File Transfer (Andromeda) or SFTP + Filebrowser is enabled under Configuration \u203a Connectivity \u203a Web Services.",
         "Check its address in Configuration \u203a Wi-Fi Network, as it can change. Find on network looks for it."
       ] };
   }
@@ -106,17 +133,23 @@ export function connection() {
         steps: [`Install it: ${LIBMTP[d.platform] || "install libmtp"}.`, "Then press Check again."] };
     }
     if (h) {
+      if (h.function === "Link") {
+        return { state: "link", cls: "warn", icon: ICONS.usb, title: `${h.name} is in Device Link mode`,
+          sub: "USB Cable / usblink0 is on — that joins two MustardOS handhelds, not this computer",
+          steps: andromedaUsbSteps() };
+      }
       return { state: "nomtp", cls: "warn", icon: ICONS.usb, title: `${h.name} is not in MTP mode`,
-        sub: `Connected as ${h.function || "an unknown USB function"}`,
-        steps: ["On the handheld open Configuration \u203a Advanced Settings \u203a USB Function.", "Set it to MTP, then press Check again."] };
+        sub: `Connected as ${h.function || "an unknown USB function"}${h.usb_id ? ` (${h.usb_id})` : ""}`,
+        steps: isAndromedaOs() ? andromedaUsbSteps() : [
+          "If Device Link / USB Cable is on (Connectivity), turn it off — it pauses MTP.",
+          ...classicUsbSteps(),
+        ] };
     }
     return { state: "none", cls: "", icon: ICONS.usb, title: "Handheld not connected",
       sub: "Connect the handheld with a USB cable",
       steps: [
-        "On the handheld open Configuration \u203a Advanced Settings \u203a USB Function and set it to MTP.",
-        "Connect it to this computer with a USB-C data cable.",
-        "Then press Check again.",
-        "Still not found? Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while starting, its USB port can come up in the wrong mode."
+        ...(isAndromedaOs() ? andromedaUsbSteps() : classicUsbSteps()),
+        "Still not found? Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while starting, its USB port can come up in the wrong mode.",
       ] };
   }
   const usb = c.mode === "usb", wifi = c.mode === "wifi", handheld = usb || wifi;
@@ -181,6 +214,7 @@ function linkStatusRows() {
   else if (h && h.released) usbStatus = "Disconnected";
   else if (h && h.mtp && !h.ready) usbStatus = "Waiting for computer";
   else if (h && h.mtp) usbStatus = "Needs libmtp";
+  else if (h && h.function === "Link") usbStatus = "Device Link (not MTP)";
   else if (h) usbStatus = "Not in MTP mode";
 
   let wifiStatus = "Needs setup";
@@ -194,10 +228,40 @@ function linkStatusRows() {
   }
 
   return [
-    { mode: "usb", ico: "cable", label: "USB", status: usbStatus, live: links.usb, primary: primary === "usb" },
+    { mode: "usb", ico: "cable", label: "USB cable", status: usbStatus, live: links.usb, primary: primary === "usb" },
     { mode: "wifi", ico: "wifi", label: "Wi-Fi", status: wifiStatus, live: links.wifi, primary: primary === "wifi" },
     { mode: "card", ico: "sd", label: "Card reader", status: cardStatus, live: links.card, primary: primary === "card" }
   ];
+}
+
+/** Selectable transfer paths: one control that sets the primary mode and shows live status. */
+function pathPicker() {
+  const dis = busy() ? " disabled" : "";
+  return `<div class="sb-conn-paths" role="radiogroup" aria-label="Transfer path">${linkStatusRows().map((row) => `
+    <button type="button" role="radio" class="sb-conn-path${row.live ? " live" : ""}${row.primary ? " on" : ""}"
+      data-device="mode" data-mode="${row.mode}" aria-checked="${row.primary}"${dis}
+      title="${row.primary ? "Primary path for copies" : `Use ${esc(row.label)} for copies`}">
+      <span class="sb-conn-path-ico">${icon(row.ico)}</span>
+      <span class="sb-conn-path-text">
+        <b>${esc(row.label)}</b>
+        <small>${esc(row.status)}</small>
+      </span>
+      ${row.primary ? `<span class="sb-conn-path-badge">Primary</span>` : ""}
+    </button>`).join("")}</div>`;
+}
+
+function connHelpBlock(conn) {
+  const andromedaUsb = app.ui.mode === "usb" && isAndromedaOs();
+  const steps = andromedaUsb ? (conn.steps.length ? conn.steps : andromedaUsbSteps()) : conn.steps;
+  if (!steps.length) return "";
+  const open = !liveLinks()[app.ui.mode === "card" ? "card" : app.ui.mode] || ["link", "nomtp", "none", "wifisetup", "wifioff"].includes(conn.state);
+  return `<details class="conn-help"${open ? " open" : ""}>
+    <summary>${andromedaUsb ? "Andromeda USB (MTP) help" : "Connection help"}</summary>
+    <ol class="steps">${steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
+    ${andromedaUsb
+      ? `<p class="muted-note"><a href="#handheld" data-conn-overview>Open Device Settings</a> (needs Wi-Fi + SSH) to set USB function to MTP when the handheld menu does not show it.</p>`
+      : ""}
+  </details>`;
 }
 
 /** The handheld's SFTPGo web file manager, or "" before an address is set. */
@@ -294,6 +358,79 @@ export function renderSideDevice() {
 }
 
 let connPanelOpen = false;
+let connTab = "files", connReturn = null, remoteStatus = null, remoteError = null, remoteBusy = false;
+
+function setRemoteError(error) {
+  remoteError = error ? { message: error.message || String(error), code: error.code || "", fingerprint: error.fingerprint || "" } : null;
+}
+
+async function readRemoteStatus({ probe = false } = {}) {
+  if (remoteBusy) return;
+  remoteBusy = true;
+  setRemoteError(null);
+  paintConnPanel();
+  try {
+    remoteStatus = await api(probe ? "ssh/probe" : "ssh/status", probe ? {} : undefined);
+  } catch (error) {
+    setRemoteError(error);
+    if (!remoteStatus) try { remoteStatus = await api("ssh/status"); } catch { /* keep null */ }
+  }
+  remoteBusy = false;
+  if (connPanelOpen) paintConnPanel();
+}
+
+async function forgetOrTrustHostKey(trust) {
+  if (remoteBusy) return;
+  if (!trust && !(await confirmBox({
+    title: "Forget the host key?",
+    html: "<p>The next connection trusts whatever key answers on that address. Only do this after reinstalling MustardOS.</p>",
+    ok: "Forget", danger: true,
+  }))) return;
+  remoteBusy = true;
+  setRemoteError(null);
+  paintConnPanel();
+  try {
+    remoteStatus = trust ? await trustSshHostKey() : await api("ssh/forget-key", {});
+    toast(trust ? "Trusted the handheld's new host key." : "Forgot the host key. Test sign-in to trust the key it shows now.", 3500);
+  } catch (error) {
+    setRemoteError(error);
+  }
+  remoteBusy = false;
+  if (connPanelOpen) paintConnPanel();
+}
+
+function remoteHostKeyBlock(s) {
+  const e = remoteError;
+  if (e?.code === "hostkey") {
+    return `<div class="notice err" role="alert"><div>${esc(e.message)}${e.fingerprint ? `<br><small>New key: <code>${esc(e.fingerprint)}</code></small>` : ""}</div>
+      <div class="alert-actions"><button class="btn sm primary" type="button" data-conn-trust ${remoteBusy ? "disabled" : ""}>Trust the new key</button></div></div>`;
+  }
+  const err = e ? `<div class="notice err" role="alert">${esc(e.message)}</div>` : "";
+  const key = s?.fingerprint
+    ? `<p class="muted-note">Host key <code class="fp" title="${esc(s.fingerprint)}">${esc(s.fingerprint)}</code>
+        <button class="link-btn" type="button" data-conn-forget title="Forget this key; the next connection trusts whatever key the handheld shows">Forget</button></p>`
+    : s?.configured ? `<p class="muted-note">Host key will be trusted on the first successful sign-in.</p>` : "";
+  return err + key;
+}
+
+function remoteSetup() {
+  const s = remoteStatus;
+  const signedIn = s?.signedIn;
+  const statusNote = remoteBusy ? "Checking SSH…"
+    : signedIn ? "Signed in over SSH."
+    : s?.reachable ? "SSH is answering. Use Test sign-in to check the password and host key."
+    : "SSH is not available yet.";
+  return `<p class="muted-note">Apps, saves, themes and device settings use Secure Shell (SSH). On the handheld, turn on Configuration &gt; Connectivity &gt; Web Services &gt; Secure Shell.</p>
+    <div class="sb-conn-remote-status"><p class="muted-note">${statusNote}</p>${remoteHostKeyBlock(s)}</div>
+    ${s ? `<form class="conn-remote-form">
+      <label>Handheld address<input class="control" name="host" value="${esc(s.hostSetting || "")}" placeholder="${esc(s.host ? `Same as file connection (${s.host})` : "192.168.0.32")}" autocomplete="off"></label>
+      <div class="conn-form-row"><label>Port<input class="control" name="port" value="${s.port}" inputmode="numeric" required></label><label>User<input class="control" name="user" value="${esc(s.user)}" autocomplete="off" required></label></div>
+      <label>Password<input class="control" name="password" type="password" placeholder="Keep saved sign-in" autocomplete="new-password"></label>
+      <p class="muted-note">MustardOS normally uses root / root. Leave the password blank to keep the current password or SSH agent sign-in. After reinstalling MustardOS, Trust the new host key when asked.</p>
+      <div class="panel-actions"><button class="btn primary" ${remoteBusy ? "disabled" : ""}>Save settings</button><button class="btn" type="button" data-conn-check ${remoteBusy ? "disabled" : ""}>Test sign-in</button></div>
+    </form>` : `<button class="btn" data-conn-check ${remoteBusy ? "disabled" : ""}>Test sign-in</button>`}
+    <a href="#ssh" data-conn-overview class="sb-conn-overview">Advanced sign-in and terminal</a>`;
+}
 
 function ensureConnPanel() {
   let el = $("sb-conn-panel");
@@ -313,7 +450,7 @@ function positionConnPanel() {
   const panel = $("sb-conn-panel");
   if (!btn || !panel || panel.hidden) return;
   const r = btn.getBoundingClientRect();
-  const width = Math.min(380, window.innerWidth - 16);
+  const width = Math.min(420, window.innerWidth - 16);
   let left = r.right - width;
   if (left < 8) left = 8;
   panel.style.top = `${Math.round(r.bottom + 6)}px`;
@@ -328,53 +465,130 @@ function paintConnPanel() {
     document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "false");
     return;
   }
+  const typed = [...panel.querySelectorAll("input")].map(el => [(el.closest(".conn-remote-form") ? "ssh:" : "files:") + (el.name || el.dataset.wifi || el.id), el.value]);
+  const focused = panel.contains(document.activeElement) ? document.activeElement : null;
+  const focusMode = focused?.matches("[data-device=mode][data-mode]") ? focused.dataset.mode : "";
+  const focusAction = focused?.matches("[data-conn-close]") ? "[data-conn-close]"
+    : focused?.matches("[data-conn-tab]") ? `[data-conn-tab="${focused.dataset.connTab}"]`
+    : focused?.matches("[data-conn-check]") ? "[data-conn-check]"
+    : focused?.matches("[data-conn-trust]") ? "[data-conn-trust]"
+    : focused?.matches("[data-conn-forget]") ? "[data-conn-forget]"
+    : focused?.matches(".conn-remote-form button:not([type])") ? ".conn-remote-form button:not([type])" : "";
+  const focusKey = focused && (focused.closest(".conn-remote-form") ? "ssh:" : "files:") + (focused.name || focused.dataset.wifi || focused.id);
   const conn = connection(), w = app.device.wifi || {};
-  const rows = linkStatusRows().map((row) =>
-    `<li class="sb-conn-link${row.live ? " live" : ""}${row.primary ? " primary" : ""}">
-      <span class="sb-conn-link-ico">${icon(row.ico)}</span>
-      <span class="sb-conn-link-text"><b>${esc(row.label)}${row.primary ? " · primary" : ""}</b><small>${esc(row.status)}</small></span>
-    </li>`).join("");
   const showWifi = app.ui.mode === "wifi" || !w.configured;
+  const primaryLabel = ({ usb: "USB cable", wifi: "Wi-Fi", card: "Card reader" })[app.ui.mode] || "this path";
+  const actions = deviceButtons(conn);
   panel.innerHTML = `<div class="sb-conn-panel-inner">
-    <div class="sb-conn-section"><span class="mode-label">Connect with</span>${modePicker()}</div>
-    <ul class="sb-conn-links">${rows}</ul>
-    <div class="sb-conn-actions">${deviceButtons(conn)}</div>
-    ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi settings</span>${wifiForm({ ids: false })}</div>` : ""}
-    <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
+    <div class="conn-panel-head"><b>Connection</b><button class="btn small" data-conn-close>Done</button></div>
+    <div class="segmented wide" role="group" aria-label="Connection capability"><button data-conn-tab="files" class="${connTab === "files" ? "on" : ""}" aria-pressed="${connTab === "files"}">Files</button><button data-conn-tab="ssh" class="${connTab === "ssh" ? "on" : ""}" aria-pressed="${connTab === "ssh"}">Remote controls</button></div>
+    <div class="sb-conn-body" ${connTab === "files" ? "" : "hidden"}>
+      <p class="muted-note">Pick how copies reach the handheld. The highlighted path is used for transfers.</p>
+      <div class="sb-conn-section">
+        <span class="mode-label">Transfer path</span>
+        ${pathPicker()}
+      </div>
+      ${actions ? `<div class="sb-conn-actions-block">
+        <span class="mode-label">Actions for ${esc(primaryLabel)}</span>
+        <div class="sb-conn-actions">${actions}</div>
+      </div>` : ""}
+      ${connHelpBlock(conn)}
+      ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi address</span>${wifiForm({ ids: false })}</div>` : ""}
+      <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
+    </div>
+    <div class="sb-conn-body" ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}</div>
   </div>`;
+  for (const input of panel.querySelectorAll("input")) {
+    const key = (input.closest(".conn-remote-form") ? "ssh:" : "files:") + (input.name || input.dataset.wifi || input.id);
+    const saved = typed.find(([k]) => k === key);
+    if (saved) input.value = saved[1];
+    if (focusKey && focusKey === key) input.focus({ preventScroll: true });
+  }
   panel.hidden = false;
+  if (focusMode) panel.querySelector(`[data-device="mode"][data-mode="${focusMode}"]`)?.focus({ preventScroll: true });
+  else if (focusAction) panel.querySelector(focusAction)?.focus({ preventScroll: true });
   document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "true");
   positionConnPanel();
 }
 
-function closeConnPanel() {
+function closeConnPanel(restore = true) {
   if (!connPanelOpen) return;
   connPanelOpen = false;
   paintConnPanel();
+  if (restore) {
+    const current = connReturn?.isConnected && connReturn.getClientRects().length ? connReturn
+      : document.querySelector(`.view:not([hidden]) [data-connect="${connTab}"]`) || document.querySelector("[data-conn-panel]");
+    current?.focus();
+  }
 }
 
-function toggleConnPanel() {
-  connPanelOpen = !connPanelOpen;
+function openConnPanel(tab, trigger) {
+  connReturn = trigger;
+  connTab = tab;
+  connPanelOpen = true;
+  trigger?.closest("dialog[open]")?.close();
   paintConnPanel();
+  $("sb-conn-panel").querySelector("[data-conn-close]").focus();
+  if (tab === "ssh") readRemoteStatus({ probe: true });
+}
+
+function toggleConnPanel(trigger) {
+  if (connPanelOpen) closeConnPanel();
+  else openConnPanel("files", trigger);
 }
 
 document.addEventListener("click", (e) => {
+  const setup = e.target.closest("[data-connect]");
+  if (setup) { e.preventDefault(); openConnPanel(setup.dataset.connect, setup); return; }
+  if (e.target.closest("[data-conn-close]")) { closeConnPanel(); return; }
+  const tab = e.target.closest("[data-conn-tab]");
+  if (tab) {
+    connTab = tab.dataset.connTab;
+    paintConnPanel();
+    $("sb-conn-panel").querySelector(`[data-conn-tab="${connTab}"]`).focus();
+    if (connTab === "ssh") readRemoteStatus({ probe: true });
+    return;
+  }
+  if (e.target.closest("[data-conn-check]")) { readRemoteStatus({ probe: true }); return; }
+  if (e.target.closest("[data-conn-trust]")) { forgetOrTrustHostKey(true); return; }
+  if (e.target.closest("[data-conn-forget]")) { forgetOrTrustHostKey(false); return; }
   if (e.target.closest("[data-conn-panel]")) {
     e.preventDefault();
-    toggleConnPanel();
+    toggleConnPanel(e.target.closest("[data-conn-panel]"));
     return;
   }
   if (e.target.closest("[data-conn-overview]")) {
-    closeConnPanel();
+    closeConnPanel(false);
     return;
   }
-  if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel();
+  if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel(false);
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && connPanelOpen) closeConnPanel();
+  if (e.key === "Escape" && connPanelOpen) { e.preventDefault(); e.stopImmediatePropagation(); closeConnPanel(); }
 });
 
+document.addEventListener("submit", async e => {
+  const form = e.target.closest(".conn-remote-form");
+  if (!form) return;
+  e.preventDefault();
+  if (remoteBusy) return;
+  const fields = Object.fromEntries(new FormData(form));
+  const body = { host: fields.host, port: fields.port, user: fields.user, shell: remoteStatus?.shell || "bash" };
+  if (fields.password) body.password = fields.password;
+  remoteBusy = true;
+  setRemoteError(null);
+  paintConnPanel();
+  try {
+    remoteStatus = await api("ssh/settings", body);
+    const password = $("sb-conn-panel").querySelector('[name="password"]');
+    if (password) password.value = "";
+    toast("Settings saved. Use Test sign-in to verify the password and host key.", 3500);
+  } catch (error) { setRemoteError(error); }
+  remoteBusy = false;
+  if (connPanelOpen) paintConnPanel();
+});
+window.addEventListener("hashchange", () => closeConnPanel(false));
 window.addEventListener("resize", () => { if (connPanelOpen) positionConnPanel(); });
 
 /** Chip label and icons for every live link (primary path stays in the panel). */
@@ -393,6 +607,21 @@ function connChip(conn, links) {
   if (links.wifi) { names.push("Wi-Fi"); icons.push(icon("wifi")); }
   if (links.card) { names.push("Card"); icons.push(icon("sd")); }
   return { state: "on", tip, icons: icons.join(""), label: names.join(" · ") };
+}
+
+/** Minimal analog hands for the top bar when Appearance → Clock style is Analog. */
+function analogClockSvg(now) {
+  const m = now.getMinutes() + now.getSeconds() / 60;
+  const h = (now.getHours() % 12) + m / 60;
+  const hour = h * 30, minute = m * 6;
+  const ticks = [0, 90, 180, 270].map((deg) =>
+    `<line class="tick" x1="16" y1="2.2" x2="16" y2="5.2" transform="rotate(${deg} 16 16)"/>`).join("");
+  return `<svg class="sb-analog" viewBox="0 0 32 32" aria-hidden="true">
+    ${ticks}
+    <line class="hour" x1="16" y1="18" x2="16" y2="8" transform="rotate(${hour.toFixed(2)} 16 16)"/>
+    <line class="minute" x1="16" y1="18.5" x2="16" y2="3.8" transform="rotate(${minute.toFixed(2)} 16 16)"/>
+    <circle class="hub" cx="16" cy="16" r="1.7"/>
+  </svg>`;
 }
 
 /** The top bar's right side, like the MustardOS header: job, connection, battery, clock. */
@@ -427,7 +656,11 @@ export function renderStatusbar() {
   }
   const now = new Date();
   const date = formatDate(now);
-  parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);
+  const tip = now.toLocaleDateString(undefined, { dateStyle: "full" }) + ", " + formatTime(now);
+  const time = app.ui.clockStyle === "analog"
+    ? analogClockSvg(now)
+    : `<b>${esc(formatTime(now))}</b>`;
+  parts.push(`<span class="sb-item sb-clock${app.ui.clockStyle === "analog" ? " analog" : ""}" title="${esc(tip)}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}${time}</span>`);
   parts.push(versionItem());
   parts.push(`<button type="button" class="sb-help" data-help title="Help for this page (?)" aria-label="Help for this page">${icon("help")}</button>`);
   box.innerHTML = parts.join("");
@@ -557,7 +790,7 @@ export function wifiForm({ ids = true } = {}) {
   const found = wifiFound.list
     ? wifiFound.list.length
       ? `<div class="wifi-found">Found: ${wifiFound.list.map((f) => `<button class="btn" data-device="wifi-use" data-host="${esc(f.host)}">${esc(f.host)}</button>`).join("")}</div>`
-      : `<div class="wifi-found nil">Nothing on this network answers on port 2022. Check that the handheld is awake and SFTP + Filebrowser is enabled.</div>`
+      : `<div class="wifi-found nil">Nothing on this network answers on port 2022. Check that the handheld is awake and Secure File Transfer (or SFTP + Filebrowser) is enabled.</div>`
     : "";
   return `<div class="wifi-form">
     <label>Address<input class="control"${id("host")} data-wifi="host" placeholder="192.168.0.32" value="${esc(w.host || "")}" spellcheck="false" autocomplete="off"></label>

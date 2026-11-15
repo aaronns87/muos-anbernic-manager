@@ -18,7 +18,7 @@ const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((p) => p && fs.existsSync(p));
 
-const SECTIONS = ["overview", "games", "play", "artwork", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
+const SECTIONS = ["overview", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
 const TABS = ["saves", "bios", "cores", "retroarch", "checks"];
 
 class Cdp {
@@ -169,9 +169,9 @@ test("Library check shows the Tetris duplicate with the World version suggested"
 test("sidebar order and number keys follow the sections", { skip: !CHROME && "Chrome not found" }, async () => {
   const order = await cdp.eval<string[]>(`[...document.querySelectorAll(".section-link")].map((a) => a.dataset.section)`);
   assert.deepEqual(order, SECTIONS);
-  for (const [key, want] of [["3", "play"], ["7", "themes"], ["8", "emulation"], ["9", "files"], ["0", "wiki"]]) {
+  for (const [key, want] of [["3", "play"], ["5", "os"], ["7", "handheld"], ["8", "themes"], ["9", "emulation"], ["0", "wiki"]]) {
     await cdp.eval(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "${key}", bubbles: true }))`);
-    await cdp.until(`location.hash === "#${want}"`);
+    await cdp.until(`location.hash.split("/")[0] === "#${want}"`);
   }
 });
 
@@ -181,7 +181,7 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   await cdp.eval(`location.hash = "#settings"`);
   await cdp.until(`!!document.querySelector(".set-folders-grid")`);
   assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.set-folders-grid')).gridTemplateColumns.split(' ').length >= 2`));
-  for (const [key, expected] of [["ArrowRight", "behaviour"], ["End", "resets"], ["ArrowRight", "folders"], ["ArrowLeft", "resets"], ["Home", "folders"]]) {
+  for (const [key, expected] of [["ArrowRight", "behaviour"], ["ArrowRight", "appearance"], ["End", "resets"], ["ArrowRight", "folders"], ["ArrowLeft", "resets"], ["Home", "folders"]]) {
     await cdp.eval(`(() => { const tab = document.querySelector('#settings-tabs [aria-selected="true"]'); tab.focus(); tab.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', bubbles: true })); })()`);
     await cdp.until(`document.activeElement?.dataset.settingsTab === "${expected}"`);
     assert.equal(await cdp.eval<number>(`[...document.querySelectorAll('#settings-tabs [role="tab"]')].filter(t=>t.tabIndex === 0).length`), 1);
@@ -189,7 +189,46 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   assert.equal(await cdp.eval<string>(`document.querySelector('.section-link[aria-current="page"]').dataset.section`), "settings");
   await cdp.eval(`document.querySelector('[data-skip-content]').click()`);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "main-content");
-  assert.equal(await cdp.eval<string>(`location.hash`), "#settings");
+  assert.equal(await cdp.eval<string>(`location.hash`), "#settings/folders");
+});
+
+test("Settings Appearance applies colour scheme and zoom", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.eval(`location.hash = "#settings"`);
+  await cdp.until(`!!document.querySelector('#settings-tabs [data-settings-tab="appearance"]')`);
+  await cdp.eval(`document.querySelector('#settings-tabs [data-settings-tab="appearance"]').click()`);
+  await cdp.until(`!!document.querySelector('[data-set-scheme="ocean"]')`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('[data-set-zoom="50"]') && !!document.querySelector('[data-set-zoom="65"]') && !!document.querySelector('[data-set-compact]')`));
+  assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.set-schemes')).gridTemplateColumns.split(' ').length >= 2`));
+  await cdp.eval(`document.querySelector('[data-set-scheme="ocean"]').click()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "ocean"`);
+  await cdp.eval(`document.querySelector('[data-set-zoom="65"]').click()`);
+  await cdp.until(`getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom").trim() === "0.65"`);
+  assert.ok(await cdp.eval<boolean>(`(() => {
+    const root = document.documentElement;
+    const zoom = parseFloat(getComputedStyle(root).getPropertyValue("--ui-zoom")) || 1;
+    const layoutW = root.getBoundingClientRect().width;
+    return zoom < 1 && layoutW > window.innerWidth * 0.9;
+  })()`), "sub-100% zoom still fills the window width");
+  await cdp.eval(`document.querySelector('[data-set-clock-style="analog"]').click()`);
+  await cdp.until(`!!document.querySelector('.sb-clock.analog .sb-analog')`);
+  await cdp.eval(`document.querySelector('[data-set="scheme-new"]').click()`);
+  await cdp.until(`document.getElementById("scheme-edit").open`);
+  await cdp.eval(`(() => {
+    document.getElementById("scheme-edit-name").value = "Test Blue";
+    document.getElementById("scheme-edit-name").dispatchEvent(new Event("input", { bubbles: true }));
+    const accent = document.querySelector('[data-scheme-role="accent"]');
+    accent.value = "#4488ff";
+    accent.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("scheme-edit-save").click();
+  })()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "custom" && !document.getElementById("scheme-edit").open`);
+  assert.match(await cdp.eval<string>(`getComputedStyle(document.documentElement).getPropertyValue("--mustard").trim()`), /#4488ff/i);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('.set-scheme.on [data-set-scheme^="custom-"]')`));
+  await cdp.eval(`document.querySelector('[data-set="appearance-reset"]').click()`);
+  await cdp.until(`document.getElementById("confirm").open`);
+  await cdp.eval(`document.getElementById("c-ok").click()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "mustard" && getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom").trim() === "1" && !document.querySelector('.sb-clock.analog')`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('[data-set-scheme^="custom-"]')`), "custom schemes survive appearance reset");
 });
 
 test("phone filters retain selections across collapse and resize and connection details stay available", { skip: !CHROME && "Chrome not found" }, async () => {
@@ -208,7 +247,7 @@ test("phone filters retain selections across collapse and resize and connection 
   assert.equal(await cdp.eval<string>(`getComputedStyle(document.getElementById('side-device')).display`), "none");
   await cdp.eval(`document.querySelector('[data-conn-panel]').click()`);
   await cdp.until(`!document.getElementById('sb-conn-panel').hidden`);
-  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#sb-conn-panel .mode-pick [data-mode]').length`), 3);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#sb-conn-panel .sb-conn-path[data-mode]').length`), 3);
   await cdp.eval(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
@@ -290,6 +329,8 @@ test("Designer keeps failed edits until Retry succeeds and blocks switching and 
   assert.equal(await cdp.eval<number>(`window.__packageRequests`), 0);
   const file = path.join(srv.root, "themes", "Autosave A", "scheme", "global.ini");
   assert.doesNotMatch(fs.readFileSync(file, "utf8"), /123456/);
+  await cdp.eval(`location.hash = "#themes/browse"`);
+  await cdp.until(`location.hash === "#themes/designer" && !!document.querySelector('[data-dz="retry"]')`);
   await cdp.eval(`window.__failScheme = false; document.querySelector('[data-dz="retry"]').click()`);
   await cdp.until(`document.getElementById("dz-status").textContent.includes("Saved in")`);
   assert.match(fs.readFileSync(file, "utf8"), /123456/);
@@ -355,5 +396,117 @@ test("major tabbed screens and Help fit a touch phone, with reduced motion respe
   await cdp.until(`!document.getElementById('view-games').hidden && !!document.querySelector('.game')`);
   assert.ok(await cdp.eval<boolean>(`parseFloat(getComputedStyle(document.querySelector('.game')).transitionDuration) < 0.001`));
   await cdp.send("Emulation.setEmulatedMedia", { features: [] });
+  assert.deepEqual(errors(), []);
+});
+
+test("mobile menu traps focus, closes with Escape, and leaves room for library content", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await cdp.eval(`location.hash='#games'`);
+  await cdp.until(`!document.getElementById('view-games').hidden`);
+  await cdp.eval(`if (!document.getElementById('games-filters').hidden) document.getElementById('filters-toggle').click()`);
+  assert.ok(await cdp.eval<boolean>(`document.querySelector('#games-list').getBoundingClientRect().top < 400`));
+  await cdp.eval(`document.querySelector('[data-nav-open]').click()`);
+  assert.ok(await cdp.eval<boolean>(`document.getElementById('main-content').inert && !document.getElementById('app-navigation').inert`));
+  assert.equal(await cdp.eval<string>(`document.activeElement.textContent`), "Close menu");
+  await cdp.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true}))`);
+  assert.ok(await cdp.eval<boolean>(`document.getElementById('app-navigation').contains(document.activeElement)`));
+  await cdp.eval(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+  assert.ok(await cdp.eval<boolean>(`!document.getElementById('main-content').inert && document.activeElement.matches('[data-nav-open]')`));
+  await cdp.eval(`document.querySelector('[data-nav-open]').click(); document.querySelector('.section-link[data-section="files"]').click()`);
+  await cdp.until(`location.hash==='#files' && !document.body.classList.contains('nav-visible')`);
+  assert.ok(await cdp.eval<boolean>(`document.getElementById('app-navigation').inert`));
+});
+
+test("direct tab routes restore history and expose labelled panels and choices", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.eval(`location.hash='#settings/appearance'`);
+  await cdp.until(`!!document.querySelector('[data-set-theme]')`);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll('[data-set-theme][aria-pressed="true"]').length`), 1);
+  assert.ok(await cdp.eval<boolean>(`(() => {const tab=document.querySelector('#settings-tabs [aria-selected="true"]');const panel=document.getElementById(tab.getAttribute('aria-controls'));return panel?.getAttribute('role')==='tabpanel' && panel.getAttribute('aria-labelledby')===tab.id})()`));
+  await cdp.eval(`document.querySelector('[data-settings-tab="folders"]').click()`);
+  assert.equal(await cdp.eval<string>(`location.hash`), "#settings/folders");
+  await cdp.eval(`history.back()`);
+  await cdp.until(`location.hash==='#settings/appearance' && document.querySelector('[data-settings-tab="appearance"]').getAttribute('aria-selected')==='true'`);
+  await cdp.eval(`history.forward()`);
+  await cdp.until(`!!document.querySelector('.set-folder-location')`);
+  assert.ok(await cdp.eval<boolean>(`document.querySelector('.set-folder-location code').textContent.includes(${JSON.stringify(srv.root)})`));
+  await cdp.eval(`location.hash='#emulation/checks'`);
+  await cdp.until(`document.querySelector('[data-tab="checks"]')?.getAttribute('aria-selected')==='true'`);
+  await cdp.eval(`location.hash='#artwork/local'`);
+  await cdp.until(`document.querySelector('#art-tabs [data-tab="local"]')?.getAttribute('aria-selected')==='true'`);
+  await cdp.eval(`document.querySelector('#art-tabs [data-tab="sync"]').click()`);
+  await cdp.eval(`history.back()`);
+  await cdp.until(`location.hash==='#artwork/local' && document.querySelector('#art-tabs [data-tab="local"]')?.getAttribute('aria-selected')==='true'`);
+  await cdp.eval(`location.hash='#system/reset'`);
+  await cdp.until(`!!document.querySelector('[data-sys="tab"][data-tab="reset"].on')`);
+  assert.ok(await cdp.eval<boolean>(`document.getElementById('sys-go').disabled && !document.querySelector('.sys-prerequisites').open`));
+});
+
+test("remote connection setup stays in the task and preserves input on a failed save", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.eval(`location.hash='#emulation/saves'`);
+  await cdp.until(`!!document.querySelector('#view-emulation [data-connect="ssh"]')`);
+  await cdp.eval(`(() => {
+    window.__connFetch=window.fetch;window.__connWrites=0;
+    window.fetch=(url,init)=>{
+      if(String(url)==='/api/ssh/status') return Promise.resolve(new Response(JSON.stringify({host:'',hostSetting:'',port:22,user:'root',shell:'sh',configured:false,reachable:false,usesAgent:false}),{headers:{'Content-Type':'application/json'}}));
+      if(String(url)==='/api/ssh/settings'){window.__connWrites++;window.__connBody=JSON.parse(init.body); return Promise.resolve(new Response(JSON.stringify({error:'Simulated connection failure'}),{status:400,headers:{'Content-Type':'application/json'}}));}
+      return window.__connFetch(url,init);
+    };
+    document.querySelector('#view-emulation [data-connect="ssh"]').click();
+  })()`);
+  await cdp.until(`!!document.querySelector('.conn-remote-form')`);
+  assert.equal(await cdp.eval<string>(`location.hash`), "#emulation/saves");
+  assert.ok(await cdp.eval<boolean>(`document.getElementById("sb-conn-panel").contains(document.activeElement)`));
+  await cdp.eval(`document.querySelector('.conn-remote-form [name="host"]').value='test-handheld';document.querySelector('.conn-remote-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`);
+  await cdp.until(`document.getElementById('sb-conn-panel').textContent.includes('Simulated connection failure')`);
+  assert.equal(await cdp.eval<string>(`document.querySelector('.conn-remote-form [name="host"]').value`), "test-handheld");
+  assert.equal(await cdp.eval<number>(`window.__connWrites`), 1);
+  assert.equal(await cdp.eval<string>(`window.__connBody.shell`), "sh");
+  assert.equal(await cdp.eval<string>(`window.__connBody.user`), "root");
+  assert.equal(await cdp.eval<string>(`String(window.__connBody.port)`), "22");
+  await cdp.eval(`document.querySelector('[data-conn-close]').click();window.fetch=window.__connFetch`);
+  assert.ok(await cdp.eval<boolean>(`document.activeElement.matches('[data-connect="ssh"]')`));
+});
+
+test("Files phone selection survives location changes and failed saves can retry", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 900, deviceScaleFactor: 1, mobile: true });
+  await cdp.eval(`location.hash='#files'`);
+  await cdp.until(`!!document.querySelector('[data-fx="switch"][data-side="local"]')`);
+  await cdp.eval(`document.querySelector('[data-fx="switch"][data-side="local"]').click(); document.querySelector('.fx-pane[data-side="local"] [data-fx="crumb"][data-depth="0"]')?.click()`);
+  await cdp.until(`!!document.querySelector('.fx-row[data-name="readme.txt"]')`);
+  await cdp.eval(`document.querySelector('.fx-row[data-name="readme.txt"] [data-fx="pick"]').click(); document.querySelector('[data-fx="switch"][data-side="device"]').click()`);
+  assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.fx-pane[data-side="local"]')).display==='none'`));
+  await cdp.eval(`document.querySelector('[data-fx="switch"][data-side="local"]').click()`);
+  assert.ok(await cdp.eval<boolean>(`document.querySelector('.fx-row[data-name="readme.txt"] [data-fx="pick"]').checked`));
+  await cdp.eval(`document.querySelector('.fx-row[data-name="readme.txt"] [data-fx="open"]').click()`);
+  await cdp.until(`document.getElementById('fv-text')?.value==='newer edit'`);
+  await cdp.eval(`(() => {
+    window.__retryFetch=window.fetch;
+    window.fetch=(url,init)=>String(url)==='/api/files/write'?Promise.resolve(new Response(JSON.stringify({error:'Simulated disk full'}),{status:507,headers:{'Content-Type':'application/json'}})):window.__retryFetch(url,init);
+    const text=document.getElementById('fv-text');text.value='recovered edit';text.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('fv-save').click();
+  })()`);
+  await cdp.until(`!!document.querySelector('[data-fx-retry-save]')`);
+  assert.equal(await cdp.eval<string>(`document.getElementById('fv-text').value`), "recovered edit");
+  await cdp.eval(`window.fetch=window.__retryFetch;document.querySelector('[data-fx-retry-save]').click()`);
+  await cdp.until(`document.getElementById('fv-note').textContent.startsWith('Saved')`);
+  assert.equal(fs.readFileSync(path.join(srv.root, 'readme.txt'), 'utf8'), 'recovered edit');
+  await cdp.eval(`document.getElementById('fv-done').click()`);
+  assert.deepEqual(errors(), []);
+});
+
+test("offline Overview offers local work and Apps uses a consistent primary action", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`location.hash='#overview'`);
+  await cdp.until(`!!document.querySelector('.ov-offline .ov-connect')`);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#overview [data-connect="files"]').length`), 1);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('#overview a[href="#emulation/checks"]')`));
+  assert.doesNotMatch(await cdp.eval<string>(`document.getElementById('overview').innerText`), /Nothing connected/);
+  await cdp.eval(`location.hash='#apps'`);
+  await cdp.until(`!!document.querySelector('.apps-location')`);
+  assert.ok(await cdp.eval<boolean>(`[...document.querySelectorAll('#view-apps [data-ap="market"]')].every(b=>b.classList.contains('primary'))`));
+  assert.ok(await cdp.eval<boolean>(`[...document.querySelectorAll('#view-apps [data-ap="add"]')].every(b=>!b.classList.contains('primary'))`));
+  assert.ok(await cdp.eval<boolean>(`document.querySelector('.apps-location code').textContent.includes(${JSON.stringify(srv.root)})`));
   assert.deepEqual(errors(), []);
 });

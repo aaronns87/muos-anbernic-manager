@@ -5,7 +5,7 @@ import { DEVICES, screenText } from "./devices.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
 const SSH_ON = path("Configuration", "Web Services", "Secure Shell");
-const SFTP_ON = path("Configuration", "Web Services", "SFTP + Filebrowser");
+const SFTP_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure File Transfer")} (Andromeda; older builds: ${path("Configuration", "Web Services", "SFTP + Filebrowser")})`;
 
 /** [id, icon, title, section it explains (or ""), one-line summary, [[heading, html], ...]] */
 const ARTICLES = [
@@ -13,9 +13,9 @@ const ARTICLES = [
     ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
-      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork) is about your games, <b>Handheld</b> (Apps, Device, Themes,
-      Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards and opens a shell, and <b>Manager</b>
-      (Settings, Wiki) is about the manager itself.</p>`],
+      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork, OS) is about your games and MustardOS images,
+      <b>Handheld</b> (Apps, Device, Themes, Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards
+      and opens a shell, and <b>Manager</b> (Settings, Wiki) is about the manager itself.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
       on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
       <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
@@ -36,11 +36,13 @@ const ARTICLES = [
         dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
-      <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>
+      <li><b>USB cable.</b> On Andromeda, turn ${path("Configuration", "Connectivity", "Device Link", "USB Cable")} off, enable Wi-Fi and Secure Shell, then in the manager open Device \u203a Settings \u203a Advanced and set <b>USB function</b> to <b>MTP</b> (that menu is often missing on the handheld). Unplug and replug. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>
-    <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel (switch the primary path for copies, reconnect, or set up Wi-Fi). Game copies still use one primary path at a time.</p>`],
+    <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel.
+      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path.
+      Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
     ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
       artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
       <table class="wiki-table">
@@ -52,12 +54,12 @@ const ARTICLES = [
       <li><b>Wi-Fi:</b> the manager reads the model from MustardOS (over SFTP, or SSH when that is on).</li>
       <li><b>Card reader:</b> a card cannot say which handheld it is from. SD1 often can, from its play time records; otherwise the manager
         asks once and remembers the answer for that card. <b>Change</b> next to <b>Handheld</b> in Overview asks again.</li>
-      <li>With nothing connected, the model picker under the logo decides. While a handheld is connected it shows the reported model and cannot be changed.</li>
+      <li>With nothing connected, the model picker under the logo decides. Each model shows a silhouette for its body (horizontal, vertical or clamshell). While a handheld is connected it shows the reported model and cannot be changed.</li>
     </ul>`],
     ["Which connection each feature needs", `<table class="wiki-table">
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
-      <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
+      <tr><td>Play time, Recently played, Collections</td><td>Any live USB or Wi-Fi link (data on SD1; Card reader as primary is fine)</td></tr>
       <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
@@ -68,16 +70,21 @@ const ARTICLES = [
       <li>Deleting something on the handheld or its card is <b>permanent</b>; there is no Trash there.</li>
       <li>Anything that changes the handheld or erases a card asks you first and says what will happen.</li>
     </ul>`],
+    ["Navigation and connection", `<p>On smaller screens, Menu opens all sections. Close menu or Escape returns to the current task. Play activity shows play history and collections; Terminal contains SSH tools.</p>
+      <p>Section tabs have direct links, such as <a href="#emulation/checks">Library checks</a> and <a href="#settings/appearance">Appearance</a>. Browser Back and Forward return to previous tabs.</p>
+      <p>The connection button opens Files (transfer path cards, Wi-Fi address, Andromeda USB help) or Remote controls (SSH settings, Test sign-in, Trust host key). Setup stays beside your current page.</p>`],
+    ["Layout and recovery", `<p>Apps leads with App market; Import packages adds files you already have. Apps and Saves keep full folder paths in expandable details. Settings separates visual style from density, provides Copy path, and warns about low text contrast in custom palettes.</p>
+      <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Install MustardOS, Set up TF2 and Reset card each ask for a final confirmation modal (Install then uses sudo on macOS). You can skip read-back verification before or during install.</p>`],
     ["Keyboard shortcuts", `<ul>
       <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
       or Home/End for the first or last tab.</li>
-      <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Files); <kbd>0</kbd> opens the Wiki.</li>
+      <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Emulation); <kbd>0</kbd> opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on.</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
     </ul>`],
   ]],
-  ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention.", [
+  ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention. Offline, it offers local library tasks without repeating empty device panels.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
       games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
       The top-bar chip opens the connection panel; Overview remains the full connection page. On phones this panel replaces
@@ -150,6 +157,8 @@ const ARTICLES = [
     ["Deleting a game", `<p>From this computer it goes to the Trash, optionally with its artwork. From the handheld's card it is deleted for good.</p>`],
   ]],
   ["play", "clock", "Play", "play", "Play time, recently played games and collections on the handheld.", [
+    ["Needs a live handheld link", `<p>Play data lives on SD1 inside the handheld, so a games card in a reader is not enough. USB or Wi-Fi must be live
+      (the top bar shows them). Card reader can stay the primary transfer path; Play still uses the live USB or Wi-Fi link.</p>`],
     ["Play time", `<p>MustardOS records how long and how often you play each game while activity tracking is on (it is by default). This tab reads that
       record from SD1 and shows the total time played, the number of games and launches, and a list you can sort by most played, last played,
       most launches or name. Box art comes from your <code>Roms/</code> library when the game is there too.</p>
@@ -177,12 +186,30 @@ const ARTICLES = [
     ["A good routine", `<p>Add games, run <b>Scrape</b> to fill in missing art, then <b>Sync</b> to put it on the handheld. The size pictures are saved at
       is set in Settings under <b>Uploaded artwork size</b>.</p>`],
   ]],
+  ["os", "sd", "OS", "os", "MustardOS disk images on this computer, grouped by release, ready to install from System Tools.", [
+    ["What you see", `<p>While the folder and MustardOS catalogue are read, a spinner appears in the page. Then each card is a release folder under
+      <code>os/mustardos_&lt;version&gt;/</code> (for example <code>mustardos_2606.0</code>), with the images inside it, their sizes and whether a matching
+      line exists in that folder's <code>hash.txt</code>. Loose images at the root of <code>os/</code> appear under <b>Unsorted</b>. When the handheld is
+      connected over SSH, the release that matches its running build is marked <b>On handheld</b>. Use <b>OS market</b> to browse official downloads
+      for the selected handheld.</p>`],
+    ["OS market", `<p><b>OS market</b> lists recent MustardOS releases for the selected handheld from the official catalogue.
+      <b>GoFile</b>, <b>Mega</b> and <b>Filen</b> open the host page in your browser (images are multi‑gigabyte, so the manager does not fetch them itself).
+      After a download starts, the modal shows a short reminder to use <b>Add image</b> when the file finishes. The release that matches this
+      handheld's current official image is marked and offers the device-specific links; older releases open the shared release folder.</p>`],
+    ["Add and remove", `<p><b>Add image</b> picks a downloaded <code>.img</code> / <code>.img.gz</code> and its SHA256 file, then saves them into the
+      version folder (the same flow as System Tools &rsaquo; Add image to OS folder). <b>Remove image</b> or <b>Remove release</b> moves files to the
+      Trash on this computer. <b>Show OS folder</b> opens the folder in the file manager.</p>`],
+    ["Release notes and downloads", `<p>When the version matches a release from the MustardOS site catalogue, the detail panel shows its changes and notes.
+      Official download links also appear there; prefer <b>OS market</b> when browsing what is available for your handheld.</p>`],
+    ["Install", `<p><b>Install</b> on an image (or <b>Install this image</b>) opens System Tools &rsaquo; Install MustardOS with that file selected.
+      Writing to a card still happens only from System Tools with the card in a reader.</p>`],
+  ]],
   ["apps", "package", "Apps", "apps", "Find apps in the App market, install them and updates on the handheld, and keep them current.", [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
       They sit in your <code>apps</code> folder; the <b>App market</b>, <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
     ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps and packages, such as Scrappy, Artie, Grout, Bluetooth,
-      Void Desk and Dolphin Rt:Core (GameCube/Wii for H700 handhelds), with screenshots, GitHub stars, the latest release notes and links to each
-      project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
+      Void Desk, Dolphin Rt:Core (GameCube/Wii for H700 handhelds) and MustardTube (YouTube and Internet Radio on Andromeda), with screenshots,
+      GitHub stars, the latest release notes and links to each project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
       <ul>
         <li><b>Runs on the &hellip;</b> hides apps that cannot work on your handheld model, for example apps that need Wi-Fi on a model without it.
           Badges warn about the rest: <i>Made for</i> another handheld, <i>No longer developed</i>, or a <i>Pre-release</i>.</li>
@@ -217,9 +244,13 @@ const ARTICLES = [
     ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
       <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
     ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
-      changed over Wi-Fi with SSH. Change as many as you like; they are written together when you save. Each option says when the change takes
+      changed over Wi-Fi with SSH. The list adapts to the connected build: Jacaranda keeps the options whose config files exist; Andromeda (2606.0) adds
+      groups such as Bluetooth, screensavers, passcode, web service ports, fonts and storage toggles. A release badge shows MustardOS version and codename.
+      If the handheld's SSH or SFTP ports differ from the manager defaults, <b>Use handheld ports</b> copies them into connection setup.</p>
+      <p>Change as many as you like; they are written together when you save. Each option says when the change takes
       effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
-      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.</p>`],
+      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.
+      Wasabi media and deep Pickles hotkeys stay on the handheld; related config keys can still appear here when the files exist.</p>`],
     ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
       MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
       You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).
@@ -240,7 +271,8 @@ const ARTICLES = [
     ["On the handheld", `<p>Shows every installed theme with its own preview screens, the theme MustardOS version it was made for and its size.
       <b>Apply</b> switches to it; the bin button deletes it from the handheld. The active theme cannot be deleted, and deleting is permanent.</p>`],
     ["Designer", `<p>Makes your own themes on this computer, kept in the <b>themes</b> folder (one folder per theme, the same layout as
-      <code>MUOS/theme</code>; move it in Settings). Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
+      <code>MUOS/theme</code>; move it in Settings). Defaults to MustardOS <b>2606.0 Andromeda</b> (or the connected handheld's version when known),
+      including 720&times;576 and 1920&times;1080 screen sizes. Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
       one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.
       If saving fails, your edits stay in the editor: press <b>Retry</b>. Switching themes, exporting and installing wait until the edits save.
       Closing the page warns you if changes are still unsaved.</p>
@@ -267,11 +299,15 @@ const ARTICLES = [
       the handheld over Wi-Fi with ${SSH_ON}, and MustardOS 2601.0 or newer, which keeps themes as folders.</p>`],
   ]],
   ["emulation", "gamepad", "Emulation", "emulation", "Saves, BIOS files, emulator cores and a health check of your library.", [
-    ["Saves", `<p>Backs up every save game and save state from the handheld into your <code>backups</code> folder, one compressed file per backup.</p>
+    ["Saves", `<p>Two kinds of backup:</p>
       <ul>
-        <li><b>Back up now</b> takes a backup. The handheld panel shows how many files changed since the last one.</li>
-        <li>Open a backup to see its files, compare them with the handheld, and restore all of them or only the ones you tick.</li>
-        <li>Before a restore replaces anything, the manager first backs up what is on the handheld (labelled <i>Before a restore</i>), so a restore can be undone.</li>
+        <li><b>Save games</b> (every MustardOS build): copies saves and save states from the handheld into your <code>backups</code> folder as
+          <code>.tar.gz</code> on this computer. <b>Back up now</b> takes one; open it to compare and restore all or selected files. Before a restore,
+          the manager first backs up what is on the handheld (labelled <i>Before a restore</i>).</li>
+        <li><b>Device backups</b> (Andromeda 2606.0+, when <code>backup.sh</code> is present): <code>.muxbak</code> files in <code>ARCHIVE</code> on the
+          handheld, the same as MustardOS Backup / Archive Manager. List them, download a copy to <code>backups/</code>, create one (sections and
+          destination), or restore on the handheld (replaces matching sections). TF2 still creates a legacy <code>BACKUP</code> folder for older zip
+          backups; Andromeda system backups live under <code>ARCHIVE</code>.</li>
       </ul>`],
     ["BIOS", `<p>Some systems (PlayStation, Sega CD, Game Boy Advance and others) need a BIOS file: a copy of the original console's startup chip.
       Without it, games for that system may not start (PlayStation often shows a black screen).</p>
@@ -365,7 +401,8 @@ const ARTICLES = [
       revision. The others are ticked; untick anything you want to keep, then <b>Move to the Trash</b>. You are warned if every version of a game is ticked.
       Arcade folders are skipped because their clone sets need the parent set.</p>`],
   ]],
-  ["files", "folder", "Files", "files", "Browse this computer and the handheld side by side, copy between them, and edit config files.", [
+  ["files", "folder", "Files", "files", "Browse this computer and the handheld, copy between them, and edit config files.", [
+    ["On a phone", `<p>Switch between This computer and Handheld above the file list. Each side keeps its selected files. Choose folder opens the other side; review the From and To locations before copying. If saving fails, your edits stay in the editor with a Retry save button.</p>`],
     ["Two sides", `<p>The left side is this computer: your workspace, plus the Roms, apps, OS, BIOS and backup folders if Settings points them elsewhere.
       The right side is the handheld: SD1 (MustardOS) and TF2 (games), over the card reader, USB or Wi-Fi. Pick a place in the list at the top of each side,
       click a folder to open it, and use the path or the up arrow to go back.</p>`],
@@ -432,12 +469,22 @@ const ARTICLES = [
   ]],
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
     ["Before you start", `<p><b>Install MustardOS</b> needs the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
-      <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Writing from a card reader may ask for your password.</p>`],
-    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>`],
-    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the <code>ROMS</code> folders MustardOS expects.
+      <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Each one asks for a final confirmation modal (no typing a disk name). Writing from a card reader may ask for your password.</p>`],
+    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader. This cannot run over Wi-Fi.
+      When the safety checks pass, <b>Install MustardOS</b> opens a confirmation. On macOS you then enter your login password (sudo) so the elevated
+      <code>flash-card.sh</code> helper can open the raw disk. Stages: check image → authorize → prepare (clear old partition map) → write → verify → eject.
+      Write and verify show live progress; Cancel stops them within about a second. Tick <b>Skip read-back verification</b> before starting, or press <b>Skip verify</b> while verify runs, if you want to eject sooner (less safe).</p>
+      <p>The card panel refreshes after prepare and after the job ends so you can see the new layout. It does not call diskutil during write or verify, which would remount MustardOS volumes and corrupt the flash.</p>
+      <p><b>Add image to OS folder</b> (or <b>Save into OS folder</b> after choosing a file elsewhere) copies a downloaded
+      <code>.img</code> / <code>.img.gz</code> and its SHA256 into <code>os/mustardos_&lt;version&gt;/</code> with a <code>hash.txt</code>,
+      the same layout as releases you already keep there. The version comes from the MustardOS file name
+      (for example <code>MustardOS_RG40XX-H_2606.0_…</code> becomes <code>mustardos_2606.0</code>).
+      Manage those releases day to day from the Library &rsaquo; <a href="#os">OS</a> section (list, notes, remove, reveal).</p>`],
+    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the folders MustardOS expects (<code>ARCHIVE</code>, legacy <code>BACKUP</code>,
+      <code>ports</code>, <code>ROMS</code>). On Andromeda, device backups are <code>.muxbak</code> files in <code>ARCHIVE</code>; <code>BACKUP</code> remains for older zip backups.
       Use a card in the reader, or pick <b>Over Wi-Fi</b> to format the TF2 card already in the handheld (<code>/mnt/sdcard</code>) over SSH.
-      The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path.</p>`],
-    ["Reset card", `<p>Wipes a card to one empty volume with no system folders. Pick FAT32 or exFAT and a name, on a card in the reader or on the handheld's TF2 over Wi-Fi (SD1 is never touched). Use <b>Set up TF2</b> when you want the ROMS folders too.</p>`],
+      The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path. Starts with a confirmation modal.</p>`],
+    ["Reset card", `<p>Wipes a card to one empty volume with no system folders. Pick FAT32 or exFAT and a name, on a card in the reader or on the handheld's TF2 over Wi-Fi (SD1 is never touched). Starts with a confirmation modal. Use <b>Set up TF2</b> when you want the ROMS folders too.</p>`],
   ]],
   ["ssh", "chip", "SSH", "ssh", "A command line on the handheld, plus a quick look at its system.", [
     ["What it is", `<p>A terminal connected to the handheld over Wi-Fi, for people comfortable with Linux commands. It needs ${SSH_ON} on the handheld.</p>`],
@@ -446,13 +493,20 @@ const ARTICLES = [
     ["Be careful", `<p>Commands run as the administrator (root) of the handheld. A wrong command can delete files or stop MustardOS from starting.</p>`],
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
-    ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
+    ["The tabs", `<p>Settings is split into six tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Appearance</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
       title describes the tab you are on.</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
-    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
-      the date and clock format, and the size uploaded artwork is saved at.</p>`],
+    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Images</b> sets the size
+      uploaded artwork is saved at.</p>`],
+    ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
+      that changes accents and surfaces together. <b>Create new</b> opens an editor with colour pickers and a preview of buttons, panels and text; custom schemes
+      can be edited or deleted later. <b>Density</b> sets zoom (including 50% and 65%), Soft UX (pastel accents, airier spacing, tinted selection and gentler controls),
+      and a compact layout.
+      <b>Clock</b> chooses a digital or analog face in the
+      top bar, the 12/24-hour format for digits, and the date next to it. <b>Reset to default</b> puts theme, zoom, clock and the active scheme back; schemes you
+      created stay. Sorting and open tabs stay.</p>`],
     ["Assistant", `<p>Paste a free chat API key, pick a provider and model, optionally edit the system prompt, and open the read-only
       <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
     ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
@@ -461,7 +515,7 @@ const ARTICLES = [
     ["Resets", `<p>Start some things over:</p>
       <ul>
         <li><b>Activity log</b> clears Recent activity on Overview.</li>
-        <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. The connection,
+        <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, colour scheme, zoom, clock and scraper choices this browser remembers. The connection,
           handheld model and SSH snippets stay.</li>
         <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
           handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>

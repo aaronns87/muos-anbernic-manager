@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -24,6 +25,89 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-11-15
+
+### Added
+
+- Andromeda (2606.0) Device Settings catalogue: Bluetooth, screensavers, passcode, web service ports, fonts/theme options, storage toggles and related keys,
+  shown when those config files exist (Jacaranda keeps its shorter list). Release badge with MustardOS version and codename; **Use handheld ports** syncs
+  SSH/SFTP ports from the device into connection setup.
+- Emulation → Saves: Andromeda **`.muxbak`** device backups in ARCHIVE (list, download to `backups/`, create via `backup.sh`, restore via Archive Manager /
+  `extract.sh`), alongside existing save-game tar.gz backups on this computer.
+- Theme Designer: MustardOS **2606.0 Andromeda** version target (default), plus 720×576 and 1920×1080 resolutions.
+- App market: [MustardTube](https://github.com/PapaZolaRis/MustardTube) (YouTube and Internet Radio for H700 on Andromeda).
+- Settings **Appearance** tab (after Behaviour): colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember), custom schemes via Create new
+  (modal with dark/light colours and a live preview), zoom including 50% and 65%, Softer style (pastel accents, airier spacing, tinted selection,
+  gentler controls), compact layout, theme, digital or analog top-bar clock, and date controls, with reset to default. Choices stay in this browser.
+- Direct tab links for Settings, Emulation, Device, Themes, Play activity, System Tools and Artwork. Browser Back and
+  Forward restore the selected tab, and game details link directly to the relevant Emulation tab.
+- Custom colour schemes show live contrast guidance for page, panel, secondary and button text in dark and light modes.
+- System Tools → Install MustardOS: **Add image to OS folder** saves a downloaded MustardOS image and its SHA256 into
+  `os/mustardos_<version>/` with `hash.txt`, matching the existing release layout.
+- Library **OS** section (after Artwork): lists local MustardOS release folders under `os/`, add/remove images, show folder,
+  release notes from the MustardOS catalogue when the version matches, official download links (external only), and
+  Install that opens System Tools with the image selected.
+- OS **OS market** modal: MustardOS catalogue releases for the selected handheld, with GoFile/Mega/Filen host buttons and an
+  Add-image helper after opening a download (no in-app multi-GB fetch).
+
+### Changed
+
+- Install MustardOS clears the start of the card (old MBR/GPT) after authorize and before writing, so leftover volumes cannot remount mid-flash (avoids macOS EPERM from `eraseDisk Free Space`).
+- System Tools (Install MustardOS, Set up TF2, Reset card — card reader or Wi-Fi) no longer ask you to type a disk id or `TF2`; each Start button opens an Are you sure confirmation instead.
+- Install MustardOS uses real `sudo -A` (graphical askpass) to write the card — osascript “administrator privileges” cannot open `/dev/rdisk*` on modern macOS; same approach as balenaEtcher.
+- Install MustardOS reports live write and verify progress (chunked elevated `flash-card.sh`), keeps the raw device open so macOS remounts cannot stall mid-flash, and Cancel stops write/verify within about a second.
+- Install MustardOS can skip read-back verification (checkbox before install, or Skip verify while it runs). Verify uses 4 MiB reads again so it is not stuck at ~1 MB/s.
+- Install verify no longer runs `diskutil`/`sync` between write and read-back (that remounted MustardOS and caused false “read-back does not match” failures). Write and read-back use one elevated Python process (`flash-io.py`) on the same raw FD with `F_FULLFSYNC`, while a watchdog force-unmounts any volumes that appear mid-flash.
+- During an install, the SD card panel refreshes after each step so the partition map stays current (not during write/verify — diskutil then can remount volumes and corrupt the flash).
+- Model picker shows a silhouette for each handheld body (horizontal, vertical, or clamshell).
+- App market package ranking prefers assets tagged with the handheld's numeric MustardOS version (e.g. 2606.0 / 2606_0), not only codename tokens.
+- JAVA / FreeJ2ME notes: Andromeda uses the FreeJ2ME core in Pickles; older builds still use Extra Cores / external launchers.
+- Set up TF2 labels `BACKUP` as legacy and notes that Andromeda device backups are `.muxbak` files in `ARCHIVE`.
+- Library **OS** shows a loading spinner in the content area while the release list and catalogue are fetched.
+- Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
+- Smaller screens use a dismissible navigation drawer and compact header, leaving more room for the current task.
+  The drawer supports keyboard focus containment, Escape to close and focus restoration. Games keeps secondary
+  library controls inside Filters on phones.
+- Navigation labels now read **Play activity** and **Terminal**. Shared tabs and secondary actions have quieter styling;
+  tabs identify their content panels for screen readers, and selectable controls expose their selected state.
+- Connection setup groups file access and remote controls in one panel without leaving the current section. Remote
+  controls include inline SSH settings and distinguish saved settings from a successful sign-in.
+- Offline Overview prioritizes Browse games, Find artwork and Check library, with a compact connection banner and
+  fewer unavailable device cards. Apps, Saves and Game Tuning have shorter, actionable setup guidance.
+- Apps consistently leads with App market and offers Import packages as a secondary action. Apps and Saves keep
+  full folder paths in expandable details, with direct links to folder settings.
+- Files uses switchable This computer and Handheld panes on phones while preserving selections and locations.
+  Copy actions show the destination and confirm both source and destination; Rename has a visible text label.
+- Themes prioritizes previews while offline and offers Connect to install from the preview. Theme Designer defaults
+  to the selected handheld's screen size and groups screen and version targets under Advanced details.
+- Settings simplifies folder controls with shortened path displays, expandable full paths and Copy path actions.
+  Colours and style groups Softer style separately from layout density and zoom.
+- System Tools highlights the next prerequisite and puts the full checklist in expandable details, while preserving
+  target information, erase warnings and a single Are you sure confirmation modal.
+- Connection panel **Remote controls** can Test sign-in (password + host key) and trust or forget the SSH host key after a
+  MustardOS reinstall; Device Settings and Terminal offer the same Trust action when the key changed.
+- USB cable mode on Andromeda shows spaced **Andromeda USB (MTP) help** in the connection panel: Device Link off → Wi-Fi + SSH →
+  set MTP in Device Settings (often missing on-device) → unplug/replug, with a link to Device Settings.
+- Connection panel Files tab uses selectable **Transfer path** cards (USB / Wi-Fi / Card) instead of a duplicate mode switcher
+  plus status list, with clearer action and help sections.
+
+### Fixed
+
+- Play activity (and game viewer play/collections) uses a live USB or Wi-Fi link even when Card reader is the primary transfer
+  path — no longer shows “Connect the handheld” while USB · Wi-Fi is already up in the top bar.
+- Wi-Fi SFTP recognises Andromeda's **Primary Storage** / **Secondary Storage** folders (Dropbear Secure File Transfer), not only
+  the older SFTPGo **SD1** / **SD2** names — fixes "No SD1 or SD2 folder is visible over SFTP" after updating to Andromeda.
+- After reinstalling MustardOS, a changed SSH host key can be trusted from the connection panel, Terminal, or Device Settings
+  instead of failing with only the mismatch message.
+- USB connection recognises Andromeda **Device Link** (`1d6b:0110` / usblink0) and guides MTP setup through Device Settings when
+  USB Function is not on the handheld menus.
+- Failed file saves keep the edited content and show a persistent Retry save action. File and theme action failures
+  remain visible until dismissed or retried, and theme creation failures preserve the selected options.
+- Leaving Theme Designer, including through browser history, waits for pending edits to save. Failed saves keep the
+  Designer open with unsaved work available for recovery.
+- Connection settings preserve typed values and keyboard focus after errors or panel updates. File-access fields no
+  longer overwrite SSH host, port or username fields when the shared panel redraws.
 
 ## [1.2.6] - 2026-11-15
 
@@ -325,7 +409,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.6...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.0...changes/unreleased
+[1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
 [1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6
 [1.2.5]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.5
 [1.2.4]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.4

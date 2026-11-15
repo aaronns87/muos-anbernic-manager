@@ -13,6 +13,7 @@ import { artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-imag
 import { consoleIcon } from "./consoles.js";
 import { portsSection } from "./ports.js";
 import { openFreeScummvm } from "./free-scummvm.js";
+import { applyColourScheme, applySoftLook, resolveSchemeId } from "./appearance.js";
 import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
 import { syncGameFilters } from "./ui.js";
 
@@ -1076,10 +1077,18 @@ async function deleteDevGame() {
 
 export function applyView() {
   const ui = app.ui;
-  document.documentElement.dataset.theme = ui.theme === "system"
+  const root = document.documentElement;
+  const theme = ui.theme === "system"
     ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
     : ui.theme;
-  document.documentElement.style.setProperty("--card", ui.card + "px");
+  root.dataset.theme = theme;
+  ui.scheme = resolveSchemeId(ui.scheme);
+  applyColourScheme(root, ui.scheme, theme);
+  applySoftLook(root, !!ui.soft, theme);
+  root.style.setProperty("--ui-zoom", String((Number(ui.zoom) || 100) / 100));
+  root.style.setProperty("--card", ui.card + "px");
+  document.body.classList.toggle("compact", !!ui.compact);
+  document.body.classList.toggle("soft", !!ui.soft);
   $("view-grid").classList.toggle("on", ui.view === "grid");
   $("view-list").classList.toggle("on", ui.view === "list");
   $("card-size").value = ui.card;

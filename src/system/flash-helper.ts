@@ -1,10 +1,13 @@
 // Runs as root (started through the macOS administrator prompt) to write a MustardOS image to a card and read it back.
 // Usage: node flash-helper.ts <args.json>. Reports JSON lines to the progress file named in the arguments.
 // Only Node built-ins: this file must not pull in the rest of the manager while running as root.
+// Raw disk I/O goes through /bin/dd — Node's open() on /dev/rdisk* often returns EPERM on recent macOS even as root.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 
 interface Args {
@@ -23,7 +26,8 @@ const args = JSON.parse(fs.readFileSync(process.argv[2], "utf8")) as Args;
 const emit = (line: object) => fs.appendFileSync(args.progress, JSON.stringify(line) + "\n");
 
 function fail(message: string, code = 1): never {
-  emit({ error: message });
+  try { emit({ error: message }); } catch { /* progress file may be gone */ }
+  console.error(message);
   process.exit(code);
 }
 
@@ -46,6 +50,40 @@ function key(xml: string, name: string): string {
   return m ? m[1] ?? m[2] ?? m[3] ?? "" : "";
 }
 
+function why(error: unknown): string {
+  const e = error as NodeJS.ErrnoException & { stderr?: Buffer };
+  if (e?.stderr?.length) return e.stderr.toString().trim() || e.message;
+  return e?.code ? `${e.code}: ${e.message}` : (e?.message || String(error));
+}
+
+const rawPaths = () => [`/dev/r${args.disk}`, `/dev/${args.disk}`];
+
+const mounted = () => execFileSync("mount", { encoding: "utf8" }).split("\n").filter((l) => l.startsWith(`/dev/${args.disk}s`));
+
+function unmount(): void {
+  execFileSync("diskutil", ["unmountDisk", "force", `/dev/${args.disk}`], { stdio: "ignore" });
+}
+
+/** Run /bin/dd; prefer rdisk, fall back to disk. Throws on failure. */
+function dd(ddArgs: string[]): { path: string } {
+  let lastErr = "";
+  for (const dev of rawPaths()) {
+    try {
+      execFileSync("/bin/dd", ddArgs.map((a) => a.replaceAll("%DEV%", dev)), {
+        stdio: ["ignore", "ignore", "pipe"],
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return { path: dev };
+    } catch (error) {
+      lastErr = why(error);
+    }
+  }
+  throw new Error(lastErr || "dd failed on the card.");
+}
+
+if (typeof process.getuid === "function" && process.getuid() !== 0) {
+  fail("The installer is not running as administrator. Enter your macOS password when asked, and try again.");
+}
 if (!/^disk\d+$/.test(args.disk)) fail("Refusing an unusual disk identifier.");
 if (!Number.isSafeInteger(args.bytes) || args.bytes <= 0 || args.bytes % 512) fail("The image length is not whole sectors.");
 
@@ -56,68 +94,120 @@ if (!external) fail(`${args.disk} is not an external removable card. Nothing was
 if (Number(key(info, "TotalSize")) !== args.size) fail(`${args.disk} changed since it was picked. Nothing was written.`);
 if (args.bytes > args.size) fail("The image is larger than the card. Nothing was written.");
 
-execFileSync("diskutil", ["unmountDisk", "force", `/dev/${args.disk}`], { stdio: "ignore" });
-const mounted = () => execFileSync("mount", { encoding: "utf8" }).split("\n").filter((l) => l.startsWith(`/dev/${args.disk}s`));
+unmount();
 if (mounted().length) fail(`Part of ${args.disk} is still mounted. Nothing was written.`);
 
-emit({ stage: "write", done: 0, total: args.bytes });
-const raw = `/dev/r${args.disk}`;
-const buf = Buffer.allocUnsafe(CHUNK);
-const hasher = crypto.createHash("sha256");
-let fill = 0, written = 0;
-const out = fs.openSync(raw, fs.constants.O_WRONLY);
-
-function flush(): void {
-  let off = 0;
-  while (off < fill) off += fs.writeSync(out, buf, off, fill - off, written + off);
-  written += fill;
-  fill = 0;
-  report("write", written);
-}
-
-const file = fs.createReadStream(args.image, { highWaterMark: CHUNK });
-const source: AsyncIterable<Buffer> = args.kind === "gz" ? file.pipe(zlib.createGunzip()) : file;
+// Clear the old MBR/GPT via dd so leftover volumes cannot remount mid-write.
+// Node fs.open on /dev/rdisk* often returns EPERM on recent macOS even as root; /bin/dd works.
+emit({ stage: "prepare", done: 0, total: 1 });
+cancelled();
 try {
-  for await (const chunk of source) {
+  dd(["if=/dev/zero", "of=%DEV%", "bs=1m", "count=10"]);
+} catch (error) {
+  // Card left as Free Space / no content after a prior failed prepare can refuse I/O until reformatted.
+  try {
+    execFileSync("diskutil", ["eraseDisk", "FAT32", "MUOSTEMP", "MBRFormat", `/dev/${args.disk}`], { stdio: "pipe" });
+  } catch (eraseErr) {
+    fail(`Could not clear the old partition map on ${args.disk}: ${why(error)}. Reformatting also failed: ${why(eraseErr)}. Nothing was written.`);
+  }
+  unmount();
+  try {
+    dd(["if=/dev/zero", "of=%DEV%", "bs=1m", "count=10"]);
+  } catch (retryErr) {
+    fail(`Could not clear the old partition map on ${args.disk}: ${why(retryErr)}. Nothing was written.`);
+  }
+}
+execFileSync("sync");
+unmount();
+if (mounted().length) fail(`Part of ${args.disk} remounted after clearing. Nothing was written.`);
+emit({ stage: "prepare", done: 1, total: 1 });
+
+emit({ stage: "write", done: 0, total: args.bytes });
+
+async function writeImage(): Promise<string> {
+  let lastErr = "";
+  for (const dev of rawPaths()) {
     cancelled();
-    let pos = 0;
-    while (pos < chunk.length) {
-      if (written + fill >= args.bytes) fail("The image continues past its backup GPT. Install again with an intact image.");
-      const take = Math.min(chunk.length - pos, CHUNK - fill, args.bytes - written - fill);
-      chunk.copy(buf, fill, pos, pos + take);
-      hasher.update(chunk.subarray(pos, pos + take));
-      fill += take;
-      pos += take;
-      if (fill === CHUNK) flush();
+    const ddProc = spawn("/bin/dd", [`of=${dev}`, `bs=${CHUNK}`, "conv=fsync"], { stdio: ["pipe", "ignore", "pipe"] });
+    let ddErr = "";
+    ddProc.stderr.on("data", (d: Buffer) => { ddErr += d.toString(); });
+    const hasher = crypto.createHash("sha256");
+    let written = 0;
+    const tally = new Transform({
+      transform(chunk, _enc, cb) {
+        try {
+          cancelled();
+          if (written >= args.bytes) { cb(); return; }
+          const take = Math.min(chunk.length, args.bytes - written);
+          const slice = take === chunk.length ? chunk : chunk.subarray(0, take);
+          hasher.update(slice);
+          written += take;
+          report("write", written);
+          cb(null, slice);
+        } catch (error) {
+          cb(error as Error);
+        }
+      },
+    });
+    const file = fs.createReadStream(args.image, { highWaterMark: CHUNK });
+    const source = args.kind === "gz" ? file.pipe(zlib.createGunzip()) : file;
+    try {
+      const done = new Promise<void>((resolve, reject) => {
+        ddProc.on("error", reject);
+        ddProc.on("close", (code) => (code === 0 ? resolve() : reject(new Error(ddErr.trim() || `dd exited ${code}`))));
+      });
+      await pipeline(source, tally, ddProc.stdin!);
+      await done;
+      if (written !== args.bytes) fail(`The image ended early at ${written} of ${args.bytes} bytes. The card is incomplete.`);
+      if (hasher.digest("hex") !== args.payloadHash) fail("The image changed while it was being written. Install again.");
+      report("write", written, true);
+      return dev;
+    } catch (error) {
+      try { ddProc.kill("SIGKILL"); } catch { /* ignore */ }
+      lastErr = why(error);
+      // Try the next device path.
     }
   }
-} catch (error) {
-  fail(`Reading the image failed: ${(error as Error).message}. The card is incomplete.`);
+  fail(`Writing to the card failed: ${lastErr}. Try another reader or card.`);
 }
-if (fill) flush();
-try {
-  fs.fsyncSync(out);
-} catch {}
-fs.closeSync(out);
-execFileSync("sync");
-report("write", written, true);
-if (written !== args.bytes) fail(`The image ended early at ${written} of ${args.bytes} bytes. The card is incomplete.`);
-if (hasher.digest("hex") !== args.payloadHash) fail("The image changed while it was being written. Install again.");
-if (mounted().length) fail("macOS mounted part of the card during the write, so it may have changed. Install again.");
 
-emit({ stage: "verify", done: 0, total: args.bytes });
-const back = crypto.createHash("sha256");
-const input = fs.openSync(raw, fs.constants.O_RDONLY);
-let read = 0;
-while (read < args.bytes) {
-  cancelled(true);
-  const n = fs.readSync(input, buf, 0, Math.min(CHUNK, args.bytes - read), read);
-  if (!n) fail("The card ended before the image did.");
-  back.update(buf.subarray(0, n));
-  read += n;
-  report("verify", read);
+async function verifyImage(dev: string): Promise<void> {
+  emit({ stage: "verify", done: 0, total: args.bytes });
+  const blocks = Math.ceil(args.bytes / CHUNK);
+  const ddProc = spawn("/bin/dd", [`if=${dev}`, `bs=${CHUNK}`, `count=${blocks}`], { stdio: ["ignore", "pipe", "pipe"] });
+  let ddErr = "";
+  ddProc.stderr.on("data", (d: Buffer) => { ddErr += d.toString(); });
+  const back = crypto.createHash("sha256");
+  let read = 0;
+  await new Promise<void>((resolve, reject) => {
+    ddProc.on("error", reject);
+    ddProc.stdout!.on("data", (chunk: Buffer) => {
+      try {
+        cancelled(true);
+        if (read >= args.bytes) return;
+        const take = Math.min(chunk.length, args.bytes - read);
+        back.update(chunk.subarray(0, take));
+        read += take;
+        report("verify", read);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    ddProc.on("close", (code) => {
+      if (code === 0 || read >= args.bytes) resolve();
+      else reject(new Error(ddErr.trim() || `dd exited ${code}`));
+    });
+  });
+  report("verify", read, true);
+  if (read < args.bytes) fail("The card ended before the image did.");
+  if (back.digest("hex") !== args.payloadHash) fail("Read-back does not match the image. Try another card reader or card, and do not boot this card.");
 }
-fs.closeSync(input);
-report("verify", read, true);
-if (back.digest("hex") !== args.payloadHash) fail("Read-back does not match the image. Try another card reader or card, and do not boot this card.");
-emit({ stage: "done" });
+
+writeImage().then(async (dev) => {
+  execFileSync("sync");
+  if (mounted().length) fail("macOS mounted part of the card during the write, so it may have changed. Install again.");
+  await verifyImage(dev);
+  emit({ stage: "done" });
+}).catch((error) => {
+  fail(`Writing to the card failed: ${why(error)}. Try another reader or card.`);
+});

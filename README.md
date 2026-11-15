@@ -50,27 +50,30 @@ per-session token. Nothing is uploaded anywhere.
   artwork, or **rename the ROM file** from Details (matching artwork and descriptions rename with it).
 - **Artwork**: fetch box art, screenshots and descriptions for every game (libretro thumbnails, LaunchBox Games Database),
   in the size your handheld's screen needs, and sync them to the device.
+- **OS**: local MustardOS release folders under `os/mustardos_<version>/`, add or remove images, release notes, and
+  **OS market** for official downloads (GoFile/Mega/Filen open in the browser). **Install** opens System Tools with that image.
 - **Play**: play time, recently played games and collections from the handheld.
 - **ScummVM and ports**: ScummVM games with their data folders, a list of classic adventures released for free with
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
-- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk and Dolphin Rt:Core) with
+- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk, Dolphin Rt:Core and MustardTube) with
   screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
   and `.muxupd` updates, and check for new MustardOS releases.
-- **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run
-  connectivity, storage and short CPU benchmarks over SSH.
+- **Device**: change MustardOS settings from the computer (Jacaranda and Andromeda catalogues when those configs exist),
+  calibrate analogs and watch live sticks (Controls), and run connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
   Failed autosaves keep your edits in the editor with **Retry**; switching themes, exporting and installing wait until they save.
-- **Emulation**: back up and restore saves and save states, check BIOS files in the workspace `bios/` folder (**Fix
-  names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit
-  RetroArch picture/play and Menu+X **core options** per folder, and run a health check of your library (verify dumps,
-  duplicates, and PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and
-  **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can
-  run, and why a system is missing when it cannot.
+- **Emulation**: back up and restore saves and save states (including Andromeda **`.muxbak`** device backups in
+  `ARCHIVE` when `backup.sh` is present), check BIOS files in the workspace `bios/` folder (**Fix names** corrects
+  casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit RetroArch picture/play
+  and Menu+X **core options** per folder, and run a health check of your library (verify dumps, duplicates, and
+  PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD**
+  when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can run, and why a
+  system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
   Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
 - **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
@@ -80,11 +83,15 @@ per-session token. Nothing is uploaded anywhere.
   the cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
 
 **Tools**
-- **Interface**: consistent dark and light layouts, responsive folder cards, compact phone navigation and game filters,
-  keyboard tab navigation, visible focus indicators and reduced-motion support.
+- **Interface**: consistent dark and light layouts, a navigation drawer on smaller screens, compact phone headers and game filters,
+  keyboard tab navigation, visible focus indicators and reduced-motion support. Links remember the active section tab.
+  The shared Connection panel separates file transfers from remote controls; setup stays beside the current task.
+  Overview offers library tasks while offline, and Files uses switchable computer/handheld panes on phones.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
-  Install needs a card reader; Set up TF2 and Reset card can also run over Wi-Fi/SSH on the handheld's TF2 without
-  touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
+  Each action asks for an Are you sure confirmation (no typing a disk name). Install needs a card reader: live write/verify
+  progress on macOS (sudo password), optional skip verify, and Cancel during write/verify. Set up TF2 and Reset card can
+  also run over Wi-Fi/SSH on the handheld's TF2 without touching SD1 (setup: exFAT named TF2 with ROMS folders; reset:
+  FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
 - **Wiki**: built-in help for every page, a glossary and troubleshooting.
 - **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
@@ -97,8 +104,9 @@ per-session token. Nothing is uploaded anywhere.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
   cloned the repository or downloaded the ZIP. After you restart into a new version, a **What's new** dialog lists the
   changes once. See [CHANGELOG.md](CHANGELOG.md) for the full history.
-- **Settings**: five tabs — **Folders**, **Behaviour**, **Assistant** (API key, model, system prompt, view knowledge base),
-  **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Settings**: six tabs — **Folders**, **Behaviour**, **Appearance** (theme, colour schemes, zoom, compact layout, digital or
+  analog clock), **Assistant** (API key, model, system prompt, view knowledge base), **Data** and **Resets** (including factory
+  reset that starts over from the setup wizard).
 
 ## Screenshots
 
@@ -259,11 +267,12 @@ those already on `main` but not yet released.
 | Connection | How | Good for |
 | --- | --- | --- |
 | Card reader | Take the games card (TF2, or the only card on one-slot models) out and put it in the computer. | Copying many games quickly; install MustardOS, set up TF2, wipe a card. |
-| USB cable | On the handheld: **Configuration > Advanced Settings > USB Function > MTP**, then plug it in. | Copying games and artwork; play time. |
-| Wi-Fi | Turn on **Configuration > Web Services > SFTP + Filebrowser** (files) and **Secure Shell** (everything else). | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
+| USB cable | Andromeda: turn **Device Link → USB Cable** off, connect Wi-Fi + SSH, set **Device → Settings → Advanced → USB function → MTP** in this manager (often not on the handheld menus), then unplug/replug. Older builds: **Advanced Settings → USB Function → MTP**. | Copying games and artwork; play time. |
+| Wi-Fi | Turn on **Configuration > Connectivity > Web Services > Secure File Transfer** (Andromeda; older builds: SFTP + Filebrowser) for files, and **Secure Shell** for everything else. | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
 
-Switch between them at the top of the Overview page. The default MustardOS logins (`muos`/`muos` for SFTP, `root`/`root`
-for SSH) are filled in; **Find on network** looks for the handheld's address.
+Switch between them from the top-bar connection chip (**Transfer path** cards for USB / Wi-Fi / Card). Game copies use the
+primary path; Play activity can use any live USB or Wi-Fi link. The default MustardOS logins (`muos`/`muos` for SFTP,
+`root`/`root` for SSH) are filled in; **Find on network** looks for the handheld's address.
 
 ## Usage
 
@@ -271,8 +280,10 @@ for SSH) are filled in; **Find on network** looks for the handheld's address.
   artwork and a description.
 - **Copy to the handheld**: select games and use **Transfer**, or compare the library with the device on the Overview page.
 - **Artwork**: the Artwork page shows what is missing; **Scrape** fetches it, sized for your screen.
-- **Install MustardOS**: put a release image (`.img.gz`) in `os/` or download it from the Apps page, then use
-  **System Tools** with the card in a card reader. **Set up TF2** and **Reset card** there can also format the games card over Wi-Fi.
+- **Install MustardOS**: put a release image (`.img.gz`) in `os/` (or Library → OS / OS market), then use **System Tools** with
+  the card in a card reader. Confirm once, enter your macOS password when asked, and watch write/verify progress. You can skip
+  read-back verification if you want a faster finish.
+- **Set up TF2 / Reset card**: same confirmation modal; use a card in the reader or **Over Wi-Fi** on the handheld's TF2 slot.
 
 Every page has a **?** button that opens its Wiki article.
 
@@ -291,24 +302,36 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
   and the manager says so before it does it.
 - **Settings > Factory reset** asks you to type RESET, then moves the game library, the other workspace folders and the
   manager's cache to the Trash.
-- Anything that changes the handheld or erases a card asks first and explains what will happen. System Tools only offers
-  removable cards, never internal disks.
+- Anything that changes the handheld or erases a card asks first and explains what will happen (System Tools uses a
+  confirmation dialog; Factory reset still requires typing RESET). System Tools only offers removable cards, never
+  internal disks.
 - Logins for Wi-Fi and SSH are stored in `muos-anbernic-manager/.cache/` on your computer only (file mode 600).
 - The web interface listens on `127.0.0.1` only and needs the token from the URL the manager opens.
 
 ## Troubleshooting
 
 - **"Node.js is too old"**: install Node.js 23.6 or newer from [nodejs.org](https://nodejs.org/) or with `brew install node`.
+- **SSH says the host key changed**: normal after reinstalling MustardOS. In the connection panel open **Remote controls** and
+  click **Trust the new key** (or use the same button on Terminal / Device Settings). Only do that if the address is still yours.
+- **USB shows Device Link / usblink0 / “looking for other device”**: that is Andromeda Device Link (USB id `1d6b:0110`),
+  for two MustardOS handhelds — not this computer. Turn **USB Cable** off under **Configuration > Connectivity > Device Link**,
+  connect Wi-Fi + SSH, set **Device → Settings → Advanced → USB function → MTP** in this manager (often missing on the handheld),
+  then unplug and replug. While USB Cable is on, MTP is paused.
 - **USB shows nothing on a Mac**: install `libmtp` (`brew install libmtp`), set the handheld's USB Function to MTP, and quit
   apps that grab MTP devices (Android File Transfer, OpenMTP).
 - **The handheld is not found over USB, often after a restart**: unplug the cable, wait until the handheld has finished
   starting, and plug it in again; plugged in during start-up, its USB port can come up in the wrong mode. On a Mac, unlock
   it and click **Allow** on the accessory prompt (or check **System Settings > Privacy & Security > Allow accessories to
   connect**), and try another cable if it still shows nothing: charge-only cables carry no data.
-- **Wi-Fi does not connect**: check that SFTP + Filebrowser is on and the address under Wi-Fi settings is right; features
+- **Wi-Fi says no Primary Storage / SD1 folder**: Andromeda names cards Primary/Secondary Storage over SFTP; update the manager if you still see that on a current build. Check Secure File Transfer is on (Connectivity → Web Services).
+- **Wi-Fi does not connect**: check that Secure File Transfer (or SFTP + Filebrowser) is on and the address under Wi-Fi settings is right; features
   that change the handheld also need Secure Shell.
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
   under the logo so the manager knows.
+- **Install MustardOS fails with “Operation not permitted” on macOS**: enter your password when asked (sudo). If it still
+  fails, grant Full Disk Access to Terminal (or the app that launched the manager), unplug the card, and try again.
+- **Install verify says the read-back does not match**: try again; leave the card alone during write/verify. You can skip
+  verification for a faster finish if you trust the write, then boot-test on the handheld.
 - **Start over**: `./muos-anbernic-manager/installer.sh --clean-cache` (or `installer.cmd --clean-cache` on Windows)
   moves the cache aside (Wi-Fi logins, downloads and settings) and shows the setup wizard on the next start. To also
   clear your games and the other workspace folders, use **Settings > Factory reset**: it moves everything to the Trash,

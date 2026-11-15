@@ -1,7 +1,7 @@
 // System section: the SD card in a card reader, and the jobs that rewrite it (install MustardOS, set up TF2, reset).
 // Set up TF2 and Reset card also run over Wi-Fi/SSH on the handheld's TF2; install stays card-reader only.
 
-import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model } from "./core.js";
+import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model, setTabRoute } from "./core.js";
 import { imageDevice } from "./devices.js";
 import { renderStatusbar } from "./device.js";
 import { confirmBox } from "./art-images.js";
@@ -17,7 +17,7 @@ const OPS = {
   reset: { name: "Reset card", short: "Erasing", button: "Erase card", icon: "eraser" },
 };
 /** Share of the whole job each stage stands for, so the big ring moves evenly. */
-const WEIGHTS = { check: 22, auth: 1, write: 45, verify: 30, eject: 2, erase: 80, mount: 10, folders: 10 };
+const WEIGHTS = { check: 22, auth: 1, prepare: 4, write: 41, verify: 30, eject: 2, erase: 80, mount: 10, folders: 10 };
 const HEX = /^[0-9a-f]{64}$/;
 const NAME = /^[A-Z0-9_-][A-Z0-9 _-]*$/;
 
@@ -27,9 +27,13 @@ const S = {
   /** "card" = card reader, "wifi" = handheld over SSH. Used on the TF2 and Reset tabs. */
   target: store.get("sysTf2Target", "card"),
   path: "", image: null, imageError: "", inspecting: false,
-  hash: "", hashSource: "", hashError: "", unchecked: false,
+  hash: "", hashSource: "", hashFile: "", hashError: "", unchecked: false,
+  skipVerify: store.get("sysSkipVerify", false),
+  importing: false, pendingImage: "",
   name: "SD_CARD", fs: "FAT32",
-  confirm: "", starting: false, sig: "", timer: 0, jobTimer: 0,
+  starting: false, sig: "", timer: 0, jobTimer: 0,
+  /** Last job stage fingerprint — used to refresh the card layout when a step finishes. */
+  jobStages: "", cardRefresh: false,
 };
 
 const card = () => S.cards?.find((c) => c.id === S.disk) || S.cards?.[0] || null;
@@ -41,8 +45,6 @@ const wifiTab = () => S.tab === "tf2" || S.tab === "reset";
 const usingWifi = () => wifiTab() && S.target === "wifi";
 const wifiReady = () => !!S.wifiTf2?.ready;
 const preferWifi = () => wifiTab() && S.target === "card" && !card() && wifiReady();
-const confirmNeed = () => (usingWifi() ? "TF2" : card()?.id || "");
-
 /** The capacity printed on the card (64 GB) from the byte count diskutil reports. */
 function nominal(bytes) {
   for (const gb of [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]) {
@@ -104,7 +106,7 @@ function renderCard() {
   }
   const c = card(), parts = c.partitions, busyNow = running();
   const chips = S.cards.length > 1
-    ? `<div class="sc-chips" role="tablist" aria-label="Cards">${S.cards.map((x) => `<button class="${x.id === c.id ? "on" : ""}" role="tab" aria-selected="${x.id === c.id}" data-sys="disk" data-disk="${esc(x.id)}" ${busyNow ? "disabled" : ""}>${icon("sd")}<b>${esc(x.id)}</b><small>${nominal(x.size)} · ${esc(x.role.label)}</small></button>`).join("")}</div>`
+    ? `<div class="sc-chips" role="group" aria-label="Cards">${S.cards.map((x) => `<button class="${x.id === c.id ? "on" : ""}" aria-pressed="${x.id === c.id}" data-sys="disk" data-disk="${esc(x.id)}" ${busyNow ? "disabled" : ""}>${icon("sd")}<b>${esc(x.id)}</b><small>${nominal(x.size)} &middot; ${esc(x.role.label)}</small></button>`).join("")}</div>`
     : "";
   const rows = parts.map((p) => `<tr>
       <td class="num">${p.index}</td>
@@ -119,7 +121,7 @@ function renderCard() {
       <div class="sc-art">${sdArt()}<b>${nominal(c.size)}</b></div>
       <div class="sc-main">
         <div class="sc-title"><h3>${esc(c.media || "SD card")}</h3>${busyNow ? `<span class="pill warn busy-pill"><i></i>In use</span>` : `<span class="pill role">${esc(c.role.label)}</span>`}</div>
-        <p>${busyNow ? `${esc(OPS[app.sysJob.op].short)} &mdash; the layout below is from before the job and refreshes when it ends.` : esc(c.role.detail)}</p>
+        <p>${busyNow ? `${esc(OPS[app.sysJob.op].short)} &mdash; layout refreshes after each step.` : esc(c.role.detail)}</p>
         <div class="facts sc-facts">
           ${fact("chip", "Device", `/dev/${c.id}`, "Whole disk")}
           ${fact("sd", "Capacity", nominal(c.size), `${(c.size / 1e9).toFixed(1)} GB usable`)}
@@ -134,7 +136,7 @@ function renderCard() {
       </div>
     </div>
     ${partBar(parts, c.size)}
-    ${parts.length && !busyNow ? `<div class="pt-wrap"><table class="ptable"><thead><tr><th class="num">#</th><th>Name</th><th>Type</th><th>Filesystem</th><th class="num">Size</th><th>Mounted</th><th>Node</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+    ${parts.length ? `<div class="pt-wrap"><table class="ptable"><thead><tr><th class="num">#</th><th>Name</th><th>Type</th><th>Filesystem</th><th class="num">Size</th><th>Mounted</th><th>Node</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
   </section>`;
 }
 
@@ -146,10 +148,10 @@ function renderBody() {
   const box = $("sys-body");
   if (!box) return;
   if (app.sysJob) { box.innerHTML = jobView(app.sysJob); return; }
-  const tabs = `<div class="sys-tabs" role="tablist">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
+  const tabs = `<div class="sys-tabs" id="sys-tabs" role="tablist" aria-label="Card operation">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
       <span class="st-ico">${icon(ico)}</span><span><b>${label}</b><small>${sub}</small></span></button>`).join("")}</div>`;
   const left = S.tab === "install" ? installForm() : S.tab === "tf2" ? tf2Form() : resetForm();
-  box.innerHTML = `${tabs}<div class="sys-grid"><div class="sys-steps">${left}</div>${goPanel()}</div>`;
+  box.innerHTML = `${tabs}<div class="sys-grid" id="sys-task-panel"><div class="sys-steps">${left}</div>${goPanel()}</div>`;
 }
 
 const step = (n, title, state, aside, body) => `<section class="panel sys-step ${state}">
@@ -190,14 +192,23 @@ function installForm() {
       ${modelNotice(im.name)}
     </div>`;
   }
+  const inLibrary = im && /(?:^|\/)mustardos_\d+(?:\.\d+)+\//i.test(im.path.replace(/\\/g, "/"));
+  const saveBtn = im && !S.imageError && !inLibrary
+    ? `<button class="btn" data-sys="import-save" ${S.importing || S.inspecting ? "disabled" : ""} title="Copy into the OS images folder as mustardos_&lt;version&gt;/">${icon("download")}<span>${S.importing ? "Saving&hellip;" : "Save into OS folder"}</span></button>`
+    : "";
   const imageStep = step(1, "Disk image", im && !S.imageError ? "done" : "", im ? `<span class="ss-aside">${im.kind === "gz" ? ".img.gz" : ".img"}</span>` : "", `
     ${list}
     <div class="field-row">
       <input class="control mono grow" id="sys-path" placeholder="/path/to/MustardOS_….img.gz" value="${esc(S.path)}" spellcheck="false" autocomplete="off">
       <button class="btn" data-sys="pick-image">${icon("folder")}Choose&hellip;</button>
       <button class="btn" data-sys="check-image" ${S.inspecting ? "disabled" : ""}>Check</button>
+      ${saveBtn}
     </div>
-    <p class="hint">A MustardOS <code>.img</code> or <code>.img.gz</code>. Compressed images unpack while writing, no extra disk space needed.</p>
+    <p class="hint">A MustardOS <code>.img</code> or <code>.img.gz</code>. Compressed images unpack while writing, no extra disk space needed.
+      Use <b>Add image to OS folder</b> to keep a download under <code>os/mustardos_&lt;version&gt;/</code> with its <code>hash.txt</code>.</p>
+    <div class="panel-actions">
+      <button class="btn" data-sys="import-add" ${S.importing ? "disabled" : ""}>${icon("plus")}<span>${S.importing ? "Adding&hellip;" : "Add image to OS folder"}</span></button>
+    </div>
     ${status}`);
   const h = hashState();
   const hashStep = step(2, "Checksum", h.cls === "ok" ? "done" : "", `<span class="ss-aside">SHA256</span>`, `
@@ -213,7 +224,12 @@ function installForm() {
 function hashState() {
   const v = cleanHash(), gz = S.image?.kind === "gz";
   if (S.hashError) return { cls: "bad", text: S.hashError };
-  if (!v) return gz ? { cls: "warn", text: "No checksum. A damaged download can't be caught before writing." } : { cls: "", text: "Optional for a raw .img. The card is read back and compared with the image either way." };
+  if (!v) {
+    if (gz) return { cls: "warn", text: "No checksum. A damaged download can't be caught before writing." };
+    return { cls: "", text: S.skipVerify
+      ? "Optional for a raw .img. Read-back verification is off for this install."
+      : "Optional for a raw .img. After writing, the card is read back and compared with the image." };
+  }
   if (!HEX.test(v)) return { cls: "bad", text: `A SHA256 is 64 hex characters (0-9, a-f); this has ${v.length}.` };
   const from = S.hashSource ? `From ${S.hashSource}.` : "Entered by hand.";
   return { cls: "ok", text: `${from} The image is hashed before writing and must match.` };
@@ -222,7 +238,8 @@ function hashState() {
 function hashNote(h) {
   const gz = S.image?.kind === "gz" && !HEX.test(cleanHash());
   return `<div class="hash-note ${h.cls}">${icon(h.cls === "ok" ? "shield" : h.cls === "bad" ? "x" : "info")}<span>${esc(h.text)}</span></div>
-    ${gz ? `<label class="check-row"><input type="checkbox" id="sys-unchecked" ${S.unchecked ? "checked" : ""}> Install without a checksum</label>` : ""}`;
+    ${gz ? `<label class="check-row"><input type="checkbox" id="sys-unchecked" ${S.unchecked ? "checked" : ""}> Install without a checksum</label>` : ""}
+    <label class="check-row"><input type="checkbox" id="sys-skip-verify" ${S.skipVerify ? "checked" : ""}> Skip read-back verification (faster; does not check the card was written correctly)</label>`;
 }
 
 function tf2Form() {
@@ -230,10 +247,16 @@ function tf2Form() {
   return step(1, "What the card gets", "", `<span class="ss-aside">MBR · exFAT · TF2</span>`, `
     <div class="tree">
       <div class="tree-root">${icon("sd")}<b>TF2</b><small>one exFAT volume, the whole card</small></div>
-      <ul class="tree-top">${top.map((f) => `<li class="${f === "ROMS" ? "open" : ""}">${icon("folder")}<span>${esc(f)}</span>${f === "ROMS" ? `<small>${plural(systems.length, "system folder")}</small>` : ""}</li>`).join("")}</ul>
+      <ul class="tree-top">${top.map((f) => {
+        const note = f === "ROMS" ? `<small>${plural(systems.length, "system folder")}</small>`
+          : f === "BACKUP" ? `<small>legacy; Andromeda uses .muxbak in ARCHIVE</small>`
+          : f === "ARCHIVE" ? `<small>packages and .muxbak backups</small>` : "";
+        return `<li class="${f === "ROMS" ? "open" : ""}">${icon("folder")}<span>${esc(f)}</span>${note}</li>`;
+      }).join("")}</ul>
       <div class="tree-roms">${systems.map((s) => `<span>${esc(s)}</span>`).join("")}</div>
     </div>
     <p class="hint">On the handheld this card mounts at <code>/mnt/sdcard</code>, and muOS looks for games in <code>ROMS/&lt;system&gt;</code>.
+      Andromeda device backups are <code>.muxbak</code> files in <code>ARCHIVE</code> (Emulation &rsaquo; Saves); <code>BACKUP</code> remains for older zip backups.
       ${usingWifi()
         ? " Over Wi-Fi the manager formats the card already in the handheld and leaves SD1 alone. Afterward you can copy games over Wi-Fi, USB or a card reader."
         : " Once it is set up in a card reader, eject it, put it in the TF2 slot, or copy games while it is still in the reader."}</p>
@@ -272,7 +295,6 @@ function checks() {
       const n = cleanName();
       list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
     }
-    list.push({ ok: wifiReady() && S.confirm.trim() === "TF2", text: "Type TF2 to confirm" });
     return list;
   }
   const c = card(), list = [{ ok: !!c, text: c ? `SD card ${c.id} detected` : "Insert an SD card" }];
@@ -287,7 +309,6 @@ function checks() {
     const n = cleanName();
     list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
   }
-  list.push({ ok: !!c && S.confirm.trim() === c.id, text: c ? `Type ${c.id} to confirm` : "Confirm the card" });
   return list;
 }
 
@@ -302,17 +323,21 @@ function goPanel() {
   const targetSub = wifi
     ? (wifiReady() ? `${w.host}${w.size ? ` · ${nominal(w.size)}` : ""}` : "Connect over Wi-Fi")
     : (c ? `${nominal(c.size)} · ${c.role.label}` : "Insert one");
-  const need = confirmNeed();
   const loses = !wifi && c
     ? (c.partitions.length ? `${plural(c.partitions.length, "partition")}${c.partitions.some((p) => p.volume) ? ` (${c.partitions.filter((p) => p.volume).map((p) => p.volume).join(", ")})` : ""}` : "everything on it")
     : "";
   const warn = wifi
     ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases TF2 on the handheld</b> (<code>/mnt/sdcard</code>). Every game and folder on that card is deleted${S.tab === "reset" ? "; the volume is left empty" : ""}. SD1 (MustardOS) is not touched.</span></div>`
     : c ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases ${esc(c.id)} completely.</b> ${c.role.kind === "tf2" ? "This is a TF2 games card; its ROMS go too. " : c.role.kind === "muos" ? "The MustardOS install and its saves go too. " : ""}Loses ${esc(loses)}.</span></div>` : "";
-  const targets = wifiTab() ? `<div class="sc-chips go-targets" role="tablist" aria-label="Where to ${S.tab === "tf2" ? "set up TF2" : "reset the card"}">
-      <button class="${!wifi ? "on" : ""}" role="tab" aria-selected="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
-      <button class="${wifi ? "on" : ""}" role="tab" aria-selected="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
+  const targets = wifiTab() ? `<div class="sc-chips go-targets" role="group" aria-label="Where to ${S.tab === "tf2" ? "set up TF2" : "reset the card"}">
+      <button class="${!wifi ? "on" : ""}" aria-pressed="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
+      <button class="${wifi ? "on" : ""}" aria-pressed="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
     </div>` : "";
+  const hint = S.tab === "install"
+    ? `${icon("lock")}You will confirm once more, then macOS asks for your login password (sudo) to write the card.`
+    : wifi
+      ? `${icon("lock")}You will confirm once more. ${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
+      : `${icon("lock")}You will confirm once more. Uses diskutil; takes under a minute.`;
   return `<aside class="panel sys-go">
     <h2>${icon(op.icon)}${op.name}</h2>
     ${targets}
@@ -321,16 +346,18 @@ function goPanel() {
       <span class="go-arrow">${icon("arrow")}</span>
       <div class="go-node target${targetOk ? "" : " missing"}">${sdArt()}<b>${esc(targetTitle)}</b><small>${esc(targetSub)}</small></div>
     </div>
-    <ul class="go-checks" id="sys-checks">${checkList()}</ul>
+    <p class="sys-next-step" id="sys-next-step" aria-live="polite">${esc(nextStep())}</p>
+    <details class="sys-prerequisites"><summary>Review safety checks</summary><ul class="go-checks" id="sys-checks">${checkList()}</ul></details>
     ${warn}
-    <label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
-      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>
     <button class="btn danger-solid go-btn" id="sys-go" data-sys="start" ${ready() ? "" : "disabled"}>${S.starting ? `<span class="spinner sm"></span>Starting` : `${icon(op.icon)}${op.button}`}</button>
-    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}macOS asks for your password before writing.`
-      : wifi ? `${icon("info")}${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
-      : `${icon("info")}Uses diskutil; takes under a minute.`}</p>
+    <p class="hint go-hint">${hint}</p>
   </aside>`;
 }
+
+const nextStep = () => {
+  const missing = checks().find((x) => !x.ok);
+  return missing ? `Next: ${missing.text}.` : "Safety checks complete. Review the target and erase warning before continuing.";
+};
 
 const checkList = () => checks().map((x) => `<li class="${x.ok ? "ok" : ""}">${icon(x.ok ? "check" : "dot")}<span>${esc(x.text)}</span></li>`).join("");
 const ready = () => !S.starting && !running() && checks().every((x) => x.ok);
@@ -339,6 +366,7 @@ const ready = () => !S.starting && !running() && checks().every((x) => x.ok);
 function refreshGo() {
   const list = $("sys-checks"), btn = $("sys-go");
   if (list) list.innerHTML = checkList();
+  if ($("sys-next-step")) $("sys-next-step").textContent = nextStep();
   if (btn) btn.disabled = !ready();
 }
 
@@ -347,7 +375,7 @@ function refreshGo() {
 function decorate(job) {
   const total = job.stages.reduce((n, s) => n + (WEIGHTS[s.id] || 5), 0);
   const done = job.stages.reduce((n, s) => {
-    const part = s.state === "done" ? 1 : s.state === "skip" ? 0 : s.total ? Math.min(1, s.done / s.total) : 0;
+    const part = s.state === "done" || s.state === "skip" ? 1 : s.total ? Math.min(1, s.done / s.total) : 0;
     return n + (WEIGHTS[s.id] || 5) * part;
   }, 0);
   const percent = job.state === "done" ? 100 : Math.min(99, Math.floor((done / total) * 100));
@@ -378,10 +406,11 @@ function jobView(j) {
   let outcome = "";
   if (j.state === "done") outcome = `<div class="job-result ok">${icon("check")}<div>${doneText(j)}</div></div>`;
   if (j.state === "failed") outcome = `<div class="job-result bad">${icon("alert")}<div><b>${esc(cur ? `${cur.label} failed` : "Failed")}</b><p>${esc(j.error || "Something went wrong.")}</p>${j.op === "install" ? "<p>The card may be half written. Run the install again, or reset it before using it.</p>" : ""}</div></div>`;
-  if (j.state === "cancelled") outcome = `<div class="job-result warn">${icon("stop")}<div><b>Stopped</b><p>${esc(j.error || "Cancelled before finishing.")}</p>${j.op === "install" ? "<p>The card is only partly written and won't boot. Install again or reset it.</p>" : ""}</div></div>`;
-  const cancellable = j.state === "running" && j.op === "install" && ["check", "auth", "write", "verify"].includes(cur?.id);
+  if (j.state === "cancelled") outcome = `<div class="job-result warn">${icon("x")}<div><b>Stopped</b><p>${esc(j.error || "Cancelled before finishing.")}</p>${j.op === "install" ? "<p>The card is only partly written and won't boot. Install again or reset it.</p>" : ""}</div></div>`;
+  const cancellable = j.state === "running" && j.op === "install" && ["check", "auth", "prepare", "write", "verify"].includes(cur?.id);
+  const skippable = j.state === "running" && j.op === "install" && cur?.id === "verify";
   const actions = j.state === "running"
-    ? cancellable ? `<button class="btn danger" data-sys="cancel">${icon("stop")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`
+    ? `${skippable ? `<button class="btn" data-sys="skip-verify">${icon("arrow")}Skip verify</button>` : ""}${cancellable ? `<button class="btn danger" data-sys="cancel">${icon("x")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`}`
     : `<button class="btn primary" data-sys="dismiss">${icon("check")}${j.state === "done" ? "Done" : "Back"}</button>`;
   return `<section class="panel sys-job st-${j.state}">
     <div class="job-top">
@@ -400,9 +429,16 @@ function jobView(j) {
 
 function doneText(j) {
   const r = j.result || {};
-  if (j.op === "install") return `<b>MustardOS is on ${esc(j.disk)}${r.verified ? " and verified" : ""}.</b>
-    <p>The card was read back and matches the image${r.hashSource ? `, and the image matched ${esc(r.hashSource)}` : ""}. It's ejected and safe to pull out.</p>
+  if (j.op === "install") {
+    const check = r.readback === true
+      ? `The card was read back and matches the image${r.hashSource ? `, and the image matched ${esc(r.hashSource)}` : ""}.`
+      : r.readback === "skipped"
+        ? `Read-back was skipped${r.hashSource ? `; the image file matched ${esc(r.hashSource)}` : ""}.`
+        : (r.hashSource ? `The image matched ${esc(r.hashSource)}.` : "");
+    return `<b>MustardOS is on ${esc(j.disk)}${r.readback === true ? " and verified" : r.readback === "skipped" ? " (read-back skipped)" : r.verified ? " and the image checksum matched" : ""}.</b>
+    <p>${check} It's ejected and safe to pull out.</p>
     <ol class="job-next"><li>Put it in the handheld's <b>TF1</b> slot, the one muOS boots from.</li><li>Turn it on. The first boot sets up the card and can sit on <i>Factory Reset</i> for 5–10 minutes.</li><li>Then come back to Overview and connect over Wi-Fi.</li></ol>`;
+  }
   if (j.op === "tf2") {
     if (r.via === "wifi") {
       return `<b>TF2 on the handheld is ready at <code>${esc(r.mount || "/mnt/sdcard")}</code>.</b><p>${plural(r.systems || 0, "system folder")} under ROMS. Copy games over Wi-Fi, USB or a card reader. SD1 was not touched.</p>`;
@@ -416,6 +452,35 @@ function doneText(j) {
 }
 
 // ---------------------------------------------------------------- data
+
+/** Stage id+state fingerprint so we can reload the card when prepare/write/verify/eject finish. */
+function stageKey(job) {
+  return (job?.stages || []).map((s) => `${s.id}:${s.state}`).join("|");
+}
+
+/** Re-read diskutil for the card panel without touching the job poller (avoids setJob recursion). */
+async function refreshCardDuringJob() {
+  if (S.cardRefresh || !running()) return;
+  S.cardRefresh = true;
+  try {
+    const r = await api("system/cards");
+    S.error = "";
+    S.cards = r.cards;
+    S.wifiTf2 = r.wifiTf2 || null;
+    // Keep the busy disk selected even if diskutil briefly omits it mid-write.
+    if (S.disk && !S.cards.some((c) => c.id === S.disk) && !running()) S.disk = "";
+    const sig = JSON.stringify([
+      S.cards.map((c) => [c.id, c.size, c.scheme, c.role.kind, c.partitions.map((p) => [p.id, p.mount])]),
+      S.wifiTf2?.ready, S.wifiTf2?.host, S.wifiTf2?.reason, S.target,
+    ]);
+    S.sig = sig;
+    renderCard();
+  } catch {
+    /* diskutil can flake while dd holds the device; next stage retry is enough */
+  } finally {
+    S.cardRefresh = false;
+  }
+}
 
 async function loadCards() {
   try {
@@ -444,7 +509,6 @@ async function loadCards() {
   ]);
   renderCard();
   if (sig !== S.sig) {
-    if (S.sig) S.confirm = "";
     S.sig = sig;
     renderBody();
   }
@@ -470,6 +534,7 @@ async function useImage(path, draw = true) {
   S.image = null;
   S.imageError = "";
   S.hashError = "";
+  S.hashFile = "";
   if (!path) { renderBody(); return; }
   S.inspecting = true;
   const seq = S.inspectSeq = (S.inspectSeq || 0) + 1;
@@ -488,16 +553,93 @@ async function useImage(path, draw = true) {
   renderBody();
 }
 
+/** Guess os/mustardos_<ver>/ from a MustardOS_DEVICE_VER_… file name. */
+function releaseFolderHint(name) {
+  const after = String(name || "").replace(/^MustardOS_[^_]+_/i, "");
+  const ver = /v?(\d+(?:\.\d+)+)/i.exec(after)?.[1];
+  return ver ? `mustardos_${ver}` : "";
+}
+
+async function ensureHashForImport() {
+  if (HEX.test(cleanHash())) return true;
+  if (!S.image) return false;
+  toast("Choose the hash.txt or .sha256 file for this image", 2800);
+  const r = await api("system/pick", { kind: "hash", start: S.image.path });
+  if (!r.path) return false;
+  const found = await api("system/hash-file", { path: r.path, image: S.image.path });
+  S.hash = found.value;
+  S.hashSource = found.source;
+  S.hashFile = r.path;
+  S.hashError = "";
+  return true;
+}
+
+async function importImage(fromPicker) {
+  if (S.importing || running()) return;
+  try {
+    if (fromPicker) {
+      const r = await api("system/pick", { kind: "image", start: S.image?.path || S.path || "" });
+      if (!r.path) return;
+      await useImage(r.path);
+      if (!S.image || S.imageError) return;
+    } else if (!S.image || S.imageError) {
+      toast("Choose a MustardOS image first", 2600);
+      return;
+    }
+    if (!(await ensureHashForImport())) {
+      if (!HEX.test(cleanHash())) toast("A SHA256 is required to save into the OS images folder", 3200);
+      renderBody();
+      return;
+    }
+    const folder = releaseFolderHint(S.image.name) || "mustardos_<version>";
+    const ok = await confirmBox({
+      title: "Add image to OS folder?",
+      html: `<p>Saves <b>${esc(S.image.name)}</b> into <code>os/${esc(folder)}/</code> with a <code>hash.txt</code> entry (same layout as your other MustardOS releases).</p>
+        <p class="muted-note">${/\/os\//i.test(S.image.path.replace(/\\/g, "/")) && !new RegExp(`/${folder}/`, "i").test(S.image.path.replace(/\\/g, "/"))
+          ? "The file is already under the OS images folder, so it will be moved into the version folder."
+          : "The image is copied; the original download stays where it is."}</p>`,
+      ok: "Save into OS folder",
+    });
+    if (!ok) return;
+    S.importing = true;
+    renderBody();
+    const saved = await api("system/import-image", {
+      image: S.image.path,
+      hash: cleanHash(),
+      hashFile: S.hashFile || undefined,
+    });
+    S.hashFile = "";
+    toast(`Saved in os/${saved.folder}/`, 2800);
+    import("./os.js").then((m) => m.reloadOs()).catch(() => {});
+    await loadImages();
+    await useImage(saved.path);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  S.importing = false;
+  renderBody();
+}
+
 function setJob(job) {
   const before = app.sysJob;
+  const beforeStages = S.jobStages;
   app.sysJob = job ? decorate(job) : null;
+  const nextStages = stageKey(app.sysJob);
+  const stagesChanged = !!beforeStages && nextStages !== beforeStages;
+  S.jobStages = nextStages;
   if (job?.state === "running") watchJob();
   if (before?.state === "running" && job && job.state !== "running") {
     toast(job.state === "done" ? `${OPS[job.op].name}: done` : `${OPS[job.op].name}: ${job.state}`, 3000);
+    S.jobStages = "";
     setTimeout(loadCards, 600);
+  } else if (job?.state === "running" && stagesChanged) {
+    // diskutil during write/verify can remount MustardOS volumes and dirty sectors mid-flash.
+    const cur = (job.stages || []).find((s) => s.state === "run");
+    if (!cur || (cur.id !== "write" && cur.id !== "verify")) void refreshCardDuringJob();
   }
+  if (!job) S.jobStages = "";
   renderStatusbar();
-  if (section() === "system" && (job || before)) { renderBody(); if (!!before !== !!job || before?.state !== job?.state) renderCard(); }
+  if (section() === "system" && (job || before)) { renderBody(); if (!!before !== !!job || before?.state !== job?.state || stagesChanged) renderCard(); }
 }
 
 function watchJob() {
@@ -531,10 +673,18 @@ export function forgetImages() {
 }
 
 export function showSystem() {
+  const tab = store.get("sysTab", "install");
+  if (TABS.some(([id]) => id === tab) && S.tab !== tab) S.tab = tab;
   renderCard();
   renderBody();
   loadCards();
   if (!S.images) loadImages();
+  const pending = S.pendingImage || store.get("sysPendingImage", "");
+  if (pending) {
+    S.pendingImage = "";
+    store.set("sysPendingImage", "");
+    useImage(pending);
+  }
   schedule();
 }
 
@@ -546,24 +696,31 @@ async function start() {
   const wifi = usingWifi();
   const c = card();
   if (!wifi && !c) return;
+  // Server still expects a confirm token; the modal is the user confirmation (same as Install).
+  const confirmToken = wifi ? "TF2" : c.id;
   const body = wifi
-    ? { op: S.tab, via: "wifi", confirm: S.confirm.trim() }
-    : { op: S.tab, disk: c.id, confirm: S.confirm.trim() };
-  if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked });
+    ? { op: S.tab, via: "wifi", confirm: confirmToken }
+    : { op: S.tab, disk: c.id, confirm: confirmToken };
+  if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked, skipVerify: !!S.skipVerify });
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
-  const ok = await confirmBox({
-    title: `${op.button}?`,
-    html: wifi
-      ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
-      : `${S.tab === "install" ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b>.</p>` : ""}<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
-    ok: op.button, danger: true,
-  });
+  const title = S.tab === "install" ? "Install MustardOS on this card?"
+    : S.tab === "tf2" ? (wifi ? "Set up TF2 over Wi-Fi?" : `Set up TF2 on ${c.id}?`)
+    : (wifi ? "Reset TF2 over Wi-Fi?" : `Reset ${c.id}?`);
+  const html = wifi
+    ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
+    : S.tab === "install"
+      ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b> to <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}).</p>
+         <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>
+         ${S.skipVerify ? "<p class=\"muted-note\">Read-back verification is skipped for this install.</p>" : ""}`
+      : S.tab === "tf2"
+        ? `<p>Formats <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) as exFAT named <b>TF2</b> and creates the ROMS folders. <b>Everything on that card is erased.</b> This can't be undone.</p>`
+        : `<p>Formats <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>. <b>Everything on that card is erased</b>; the volume is left empty (no ROMS folders). This can't be undone.</p>`;
+  const ok = await confirmBox({ title, html, ok: op.button, danger: true });
   if (!ok) return;
   S.starting = true;
   refreshGo();
   try {
     setJob(await api("system/start", body));
-    S.confirm = "";
   } catch (error) {
     toast(error.message, 4000);
   }
@@ -575,8 +732,8 @@ async function act(el) {
   const what = el.dataset.sys;
   if (what === "tab") {
     S.tab = el.dataset.tab;
-    S.confirm = "";
     store.set("sysTab", S.tab);
+    setTabRoute("system", S.tab);
     if (preferWifi()) {
       S.target = "wifi";
       store.set("sysTf2Target", "wifi");
@@ -587,16 +744,17 @@ async function act(el) {
   }
   if (what === "target") {
     S.target = el.dataset.target === "wifi" ? "wifi" : "card";
-    S.confirm = "";
     store.set("sysTf2Target", S.target);
     renderCard();
     renderBody();
     return;
   }
-  if (what === "disk") { S.disk = el.dataset.disk; S.confirm = ""; renderCard(); renderBody(); return; }
+  if (what === "disk") { S.disk = el.dataset.disk; renderCard(); renderBody(); return; }
   if (what === "refresh") { el.disabled = true; await loadCards(); return; }
   if (what === "use-image") { if (el.dataset.path !== S.path) useImage(el.dataset.path); return; }
   if (what === "check-image") { useImage($("sys-path").value); return; }
+  if (what === "import-add") { importImage(true); return; }
+  if (what === "import-save") { importImage(false); return; }
   if (what === "fs") {
     S.fs = el.dataset.fs;
     renderBody();
@@ -614,6 +772,7 @@ async function act(el) {
       const found = await api("system/hash-file", { path: r.path, image: S.image.path });
       S.hash = found.value;
       S.hashSource = found.source;
+      S.hashFile = r.path;
       S.hashError = "";
       renderBody();
     } else if (what === "eject") {
@@ -624,6 +783,9 @@ async function act(el) {
     } else if (what === "cancel") {
       el.disabled = true;
       await api("system/cancel", {});
+    } else if (what === "skip-verify") {
+      el.disabled = true;
+      await api("system/skip-verify", {});
     } else if (what === "dismiss") {
       await api("system/dismiss", {});
       app.sysJob = null;
@@ -645,8 +807,7 @@ export function bindSystem() {
   });
   view.addEventListener("input", (e) => {
     const id = e.target.id;
-    if (id === "sys-confirm") S.confirm = e.target.value;
-    else if (id === "sys-path") {
+    if (id === "sys-path") {
       S.path = e.target.value;
       if (S.image && S.path.trim() !== S.image.path) {
         S.image = null;
@@ -658,6 +819,7 @@ export function bindSystem() {
     else if (id === "sys-hash") {
       S.hash = e.target.value;
       S.hashSource = "";
+      S.hashFile = "";
       S.hashError = "";
       const h = hashState();
       e.target.closest(".hash-field").className = `hash-field ${h.cls}`;
@@ -675,6 +837,14 @@ export function bindSystem() {
   });
   view.addEventListener("change", (e) => {
     if (e.target.id === "sys-unchecked") { S.unchecked = e.target.checked; refreshGo(); }
+    if (e.target.id === "sys-skip-verify") {
+      S.skipVerify = e.target.checked;
+      store.set("sysSkipVerify", S.skipVerify);
+      const h = hashState();
+      const note = $("sys-hash-state");
+      if (note) note.innerHTML = hashNote(h);
+      refreshGo();
+    }
   });
   view.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.id === "sys-path") useImage(e.target.value);

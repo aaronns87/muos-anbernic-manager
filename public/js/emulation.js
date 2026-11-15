@@ -1,6 +1,6 @@
 // Emulation: what the emulators on the handheld keep and need, in tabs.
 
-import { $, app, icon, store } from "./core.js";
+import { setTabRoute, $, app, icon, store } from "./core.js";
 import { bindBios, renderBios, showBios } from "./bios.js";
 import { bindChecks, renderChecks, showChecks } from "./checks.js";
 import { bindCores, renderCores, showCores } from "./cores.js";
@@ -32,7 +32,7 @@ export function showEmulation() {
     $("emu-tabs").addEventListener("click", (e) => {
       const b = e.target.closest("[data-tab]");
       if (!b || b.classList.contains("on")) return;
-      store.set("emuTab", b.dataset.tab);
+      store.set("emuTab", b.dataset.tab); setTabRoute("emulation", b.dataset.tab);
       showEmulation();
     });
     bindSaves($("view-emulation"));

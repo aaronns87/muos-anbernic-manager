@@ -1,5 +1,5 @@
 // Why MustardOS may have no system for a ROM folder the games library knows, and what to do about it.
-// extra: missing from MustardOS 2601 Jacaranda; newer versions offer these as optional extra cores.
+// extra: optional Extra Cores on older MustardOS; Andromeda may ship some built-in (e.g. FreeJ2ME in Pickles).
 // use: runs under another MustardOS system, with the cores named in how. none: no MustardOS core runs it.
 
 import { esc } from "./core.js";
@@ -21,7 +21,10 @@ const NOTES = {
   WS: { extra: ["Beetle WonderSwan"] },
   EASYRPG: { extra: ["EasyRPG"] },
   ONS: { extra: ["ONScripter", "ONScripter-Yuri"] },
-  JAVA: { extra: ["FreeJ2ME"] },
+  JAVA: {
+    tip: "On MustardOS 2606 Andromeda, assign the FreeJ2ME core (Pickles); external FreeJ2ME launchers were removed. On older builds, enable FreeJ2ME under Extra Cores.",
+    extra: ["FreeJ2ME"],
+  },
   MAME: { use: "Arcade", how: "one of its MAME 2003 cores", core: "mame 2003" },
   FBNEO: { use: "Arcade", how: "the FinalBurn Neo core", core: "finalburn neo" },
   CPS1: { use: "Arcade", how: "the FinalBurn Neo core", core: "finalburn neo" },
@@ -56,5 +59,8 @@ export function systemNote(folder, name = "", inCores = true) {
   if (n.use) return `MustardOS has no ${label} system of its own: these games run under <b>${esc(n.use)}</b> with ${esc(n.how)}. Pick ${esc(n.use)} for the folder ${where}.`;
   if (n.none) return esc(n.none);
   const tip = n.tip ? ` ${esc(n.tip)}` : "";
-  return `${label} is not part of MustardOS 2601 Jacaranda. Newer MustardOS versions offer optional cores for it (${n.extra.map(esc).join(", ")}) under ${EXTRA_PATH}.${tip}`;
+  if (String(folder).toUpperCase() === "JAVA") {
+    return `${label}: on <b>Andromeda (2606)</b> use the <b>FreeJ2ME</b> core in Pickles (external launchers were removed). On older MustardOS, enable FreeJ2ME under ${EXTRA_PATH}.${tip}`;
+  }
+  return `${label} may need an optional core (${n.extra.map(esc).join(", ")}) under ${EXTRA_PATH} on older MustardOS releases. On Andromeda, check Emulation &rsaquo; Cores first.${tip}`;
 }

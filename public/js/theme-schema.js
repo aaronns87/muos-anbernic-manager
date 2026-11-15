@@ -449,6 +449,7 @@ export const RESOLUTIONS = ["640x480", "720x480", "720x576", "720x720", "1024x76
 
 /** version.txt values the theme picker accepts: the theme's version must start a supported release name. */
 export const VERSIONS = [
+  ["2606.0", "2606.0 Andromeda and newer"],
   ["2601.0", "2601.0 Jacaranda and newer"], ["2601.1", "2601.1 Funky Jacaranda only"],
   ["2508.0", "2508 Goose and newer"],
 ];

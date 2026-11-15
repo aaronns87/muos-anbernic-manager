@@ -169,7 +169,7 @@ test("theme designer: create, edit, package and remove a theme in the workspace 
   assert.equal(made.status, 200, JSON.stringify(made.json));
   assert.equal(made.json.created, "Test Theme");
   const dir = path.join(root, "themes", "Test Theme");
-  assert.equal(fs.readFileSync(path.join(dir, "version.txt"), "utf8"), "2601.0\n");
+  assert.equal(fs.readFileSync(path.join(dir, "version.txt"), "utf8"), "2606.0\n");
   assert.ok(fs.statSync(path.join(dir, "640x480")).isDirectory());
   assert.equal((await api("designer/scheme", { name: "Test Theme", file: "640x480/scheme/muxlaunch.ini", scheme: { grid: { COLUMN_COUNT: 4 } } })).status, 200);
   assert.equal(fs.readFileSync(path.join(dir, "640x480", "scheme", "muxlaunch.ini"), "utf8"), "[grid]\nCOLUMN_COUNT=4\n");
@@ -202,6 +202,40 @@ test("static files are served, hidden paths are not", async () => {
   assert.equal((await fetch(`${base}/`)).status, 200);
 });
 
+test("GET /api/os lists mustardos release folders in the workspace", async () => {
+  const ver = path.join(root, "os", "mustardos_2601.1");
+  fs.mkdirSync(ver, { recursive: true });
+  const name = "MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz";
+  fs.writeFileSync(path.join(ver, name), "fake");
+  fs.writeFileSync(path.join(ver, "hash.txt"), `${"d".repeat(64)}  ${name}\n`);
+  const { status, json } = await api("os");
+  assert.equal(status, 200);
+  assert.equal(json.available, true);
+  const rel = json.releases.find((r: { version: string }) => r.version === "2601.1");
+  assert.ok(rel);
+  assert.equal(rel.images.length, 1);
+  assert.equal(rel.images[0].name, name);
+  assert.equal(rel.images[0].hashOk, true);
+  assert.equal((await api("os/remove", { kind: "image", path: path.join(root, "..", "etc") })).status, 400);
+});
+
+test("GET /api/os/market returns catalogue shape for a handheld", async () => {
+  const { status, json } = await api("os/market?device=rg40xx-h");
+  assert.equal(status, 200);
+  assert.equal(json.device, "rg40xx-h");
+  assert.ok(typeof json.deviceName === "string");
+  assert.ok(Array.isArray(json.releases));
+  assert.ok("image" in json);
+  assert.ok("checked" in json);
+  assert.ok("error" in json);
+  for (const r of json.releases) {
+    assert.ok(r.ver);
+    assert.ok("local" in r);
+    assert.ok("deviceMatch" in r);
+    assert.ok(r.links && typeof r.links === "object");
+  }
+});
+
 test("every front-end module parses", () => {
   const dir = path.join(manager, "public", "js");
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
@@ -212,10 +246,12 @@ test("every front-end module parses", () => {
 test("index.html has the elements the Emulation and Apps views render into", () => {
   const html = fs.readFileSync(path.join(manager, "public", "index.html"), "utf8");
   for (const id of ["view-emulation", "view-wiki", "wiki", "help", "help-wiki", "help-close", "help-full", "emu-tabs", "emu-body", "emu-actions", "emu-sub", "bios-files", "apps-updates", "confirm", "c-ok", "c-cancel",
+    "scheme-edit", "scheme-edit-title", "scheme-edit-name", "scheme-edit-mode", "scheme-edit-colors", "scheme-edit-preview", "scheme-edit-cancel", "scheme-edit-save",
     "view-play", "play-tabs", "play-body", "play-sub", "play-actions", "view-themes", "th-tabs", "themes", "th-sub", "th-actions", "themeview", "thv-title", "thv-body", "thv-foot", "view-files", "files", "view-tuning", "tune-body", "tune-actions", "fileview", "fv-title", "fv-where", "fv-body", "fv-note", "fv-save",
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder", "main-content", "filters-toggle", "games-filters",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
+    "view-os", "os", "os-sub", "os-actions", "os-count", "osmarket", "om-title", "om-main", "om-foot", "om-close",
     "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }

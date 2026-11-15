@@ -19,7 +19,8 @@ export interface Handheld {
   mtp: boolean;
   /** The OS has finished configuring it (macOS asks the user to allow new accessories first). */
   ready: boolean;
-  function: "MTP" | "ADB" | "Unknown";
+  /** MTP file transfer, ADB, Device Link (Andromeda usblink0), or something else. */
+  function: "MTP" | "ADB" | "Link" | "Unknown";
   usb_id: string;
   serial: string;
   speed: string;
@@ -59,9 +60,14 @@ export const busyDisks = new Set<string>();
 export const MUSTARD_VENDOR = 0x1d6b;
 export const MUSTARD_MTP_PRODUCT = 0x0100;
 export const MUSTARD_ADB_PRODUCT = 0x0105;
+/** Andromeda Device Link (mulink / usblink0). Pauses MTP while enabled. */
+export const MUSTARD_LINK_PRODUCT = 0x0110;
 
 export function usbFunction(product: number): Handheld["function"] {
-  return product === MUSTARD_MTP_PRODUCT ? "MTP" : product === MUSTARD_ADB_PRODUCT ? "ADB" : "Unknown";
+  if (product === MUSTARD_MTP_PRODUCT) return "MTP";
+  if (product === MUSTARD_ADB_PRODUCT) return "ADB";
+  if (product === MUSTARD_LINK_PRODUCT) return "Link";
+  return "Unknown";
 }
 
 export function usbId(vendor: number, product: number): string {

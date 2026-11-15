@@ -22,8 +22,8 @@ const FOLDERS = [
   ["themes", "themes", "Themes you make in the Theme Designer."],
 ];
 const MODES = [
-  ["usb", "cable", "USB cable", "Plug the handheld in with Configuration \u203a Advanced Settings \u203a USB Function set to MTP."],
-  ["wifi", "wifi", "Wi-Fi", "Handheld and computer on the same network, with SFTP + Filebrowser on. Also needed for apps, themes, ports and settings."],
+  ["usb", "cable", "USB cable", "Andromeda: turn Device Link USB Cable off, set USB function to MTP in Device Settings over Wi-Fi/SSH (often missing on the handheld menus), then plug in. Older builds: Advanced Settings \u203a USB Function \u203a MTP."],
+  ["wifi", "wifi", "Wi-Fi", "Handheld and computer on the same network, with Secure File Transfer (or SFTP + Filebrowser) on. Also needed for apps, themes, ports and settings."],
   ["card", "sd", "Card reader", "Take the games card out and put it in this computer. Fastest for many games, and needed for System Tools."],
 ];
 

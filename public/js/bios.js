@@ -112,7 +112,7 @@ function render() {
     root.innerHTML = `<section class="panel"><h2>${icon("shield")}BIOS</h2>
       ${d.catalogError ? `<div class="notice err">${esc(d.catalogError)}</div>` : ""}
       <div class="notice">The list of BIOS files comes from MustardOS on the handheld. Connect it over Wi-Fi with SSH on once
-        (<b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>, then the <a href="#ssh">SSH</a> section); after that the check also works offline.</div></section>`;
+        (<b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>, then <a href="#ssh" data-connect="ssh">Connection settings</a>); after that the check also works offline.</div></section>`;
     return;
   }
   const weight = (s) => (s.files.some((f) => f.main) ? 0 : 1);
@@ -140,7 +140,7 @@ function statusPanel() {
   const d = B.data;
   const dev = d.device.error ? `<span class="app-bad">${esc(d.device.error)}</span>`
     : d.device.reachable ? `Compared with <b>${esc(d.device.host)}</b>`
-    : `Connect the handheld over Wi-Fi with SSH on to compare and send (<a href="#ssh">SSH</a>)`;
+    : `Connect the handheld over Wi-Fi with SSH on to compare and send (<a href="#ssh" data-connect="ssh">SSH</a>)`;
   return `<p class="muted-note bios-status">${icon(d.device.reachable && !d.device.error ? "check" : "info")}<span>${dev} &middot;
     list of ${plural(d.catalog.files, "file")} from MustardOS ${esc(d.catalog.version || "")}, read ${esc(formatDate(new Date(d.catalog.fetched), "long"))}
     ${d.catalogError ? ` &middot; <span class="app-bad">${esc(d.catalogError)}</span>` : ""}</span></p>`;

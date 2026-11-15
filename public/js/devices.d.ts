@@ -25,6 +25,7 @@ export const DEFAULT_DEVICE: string;
 export function byId(id: string): Device | null;
 export function deviceFor(board: unknown): Device | null;
 export function screenText(d: Device): string;
+export function formIconName(d: Device | null | undefined): "handheld" | "handheld-v" | "handheld-sp";
 export function specs(d: Device): [string, string][];
 export function portCaps(d: Device): string[];
 export function imageDevice(file: unknown): Device | null;

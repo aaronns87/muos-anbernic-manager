@@ -22,13 +22,21 @@ import {
 import { mergeCfg, overrideFor, parseCfg } from "../src/retroarch.ts";
 import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
-import { byId, DEVICES, deviceFor, imageDevice, portCaps, specs } from "../public/js/devices.js";
+import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
 import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
+import { GROUPS, codenameOf } from "../src/device/muos-settings.ts";
+import { archiveMuxbakPath, SECTIONS } from "../src/device/muxbak.ts";
+import { mapSftpRoots } from "../src/device/sftp.ts";
+import { DEFAULT_VERSION } from "../src/theme-designer.ts";
+import { RESOLUTIONS } from "../src/themes.ts";
+import { UserError } from "../src/errors.ts";
+import { createRequire } from "node:module";
+const { VERSIONS } = createRequire(import.meta.url)("../public/js/theme-schema.js") as { VERSIONS: [string, string][] };
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
 import { createShortcut, shortcutInfo } from "../src/shortcut.ts";
@@ -40,6 +48,8 @@ import { cheatCandidates, parseCht, parsePpssppCheats, ppssppIni, retroarchName,
 import zlib from "node:zlib";
 import { safeEntries, tarEntries } from "../src/tar.ts";
 import { compareVersions, parseYaml, versionOfBuild } from "../src/updates.ts";
+import { hashLines, importOsImage, osReleaseFolder } from "../src/system/image.ts";
+import { listOsReleases, parseOsReleaseFolder } from "../src/os-library.ts";
 import { inside, safePart, splitName } from "../src/util.ts";
 import { parseChangelog, releasesSince } from "../src/whats-new.ts";
 
@@ -146,6 +156,64 @@ test("versionOfBuild finds a point release from the build id in an image name", 
   assert.equal(versionOfBuild("1a2b3c4d", names), "2601.0");
   assert.equal(versionOfBuild("deadbeef", names), "");
   assert.equal(versionOfBuild("", names), "");
+});
+
+test("osReleaseFolder and hashLines follow the os/mustardos_<ver>/hash.txt layout", () => {
+  assert.equal(osReleaseFolder("MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz"), "mustardos_2601.1");
+  assert.equal(osReleaseFolder("MustardOS_TUI-BRICK_2606.0_ANDROMEDA-db2a3bd0.img"), "mustardos_2606.0");
+  assert.throws(() => osReleaseFolder("random.img.gz"), /version/);
+  assert.deepEqual(hashLines(`
+# comment
+b52c3b7c7d12549d606dcb06ef5e88dd1569112a5495f1e6914e9fdcbca6468a  MustardOS_RG40XX-H_2601.1_X.img.gz
+not-a-hash  skip.me
+fe4100637e4a968a72e119b2ceb32be3ddc5a019068b2cf14238f6e7e4eafe34 *MustardOS_RG28XX-H_2601.1_X.img.gz
+`), [
+    { value: "b52c3b7c7d12549d606dcb06ef5e88dd1569112a5495f1e6914e9fdcbca6468a", name: "MustardOS_RG40XX-H_2601.1_X.img.gz" },
+    { value: "fe4100637e4a968a72e119b2ceb32be3ddc5a019068b2cf14238f6e7e4eafe34", name: "MustardOS_RG28XX-H_2601.1_X.img.gz" },
+  ]);
+});
+
+test("importOsImage copies into os/mustardos_<ver>/ and merges hash.txt", async (t) => {
+  const root = tmp(t);
+  setRoot(root);
+  await createWorkspace();
+  const src = path.join(root, "Downloads");
+  fs.mkdirSync(src);
+  const name = "MustardOS_RG40XX-H_2606.0_ANDROMEDA-db2a3bd0.img.gz";
+  const image = path.join(src, name);
+  const hash = "a".repeat(64);
+  fs.writeFileSync(image, "fake-image");
+  fs.writeFileSync(path.join(src, "hash.txt"), `${hash}  ${name}\n${"b".repeat(64)}  MustardOS_RG28XX-H_2606.0_ANDROMEDA-db2a3bd0.img.gz\n`);
+  const saved = await importOsImage({ image, hashFile: path.join(src, "hash.txt") });
+  assert.equal(saved.folder, "mustardos_2606.0");
+  assert.equal(saved.path, path.join(ctx.os, "mustardos_2606.0", name));
+  assert.ok(fs.existsSync(saved.path));
+  assert.ok(fs.existsSync(image), "original download stays when copied from outside os/");
+  const lines = fs.readFileSync(path.join(ctx.os, "mustardos_2606.0", "hash.txt"), "utf8");
+  assert.match(lines, new RegExp(`${hash}  ${name}`));
+  assert.match(lines, /MustardOS_RG28XX-H_2606\.0_ANDROMEDA-db2a3bd0\.img\.gz/);
+});
+
+test("listOsReleases groups mustardos_<ver> folders and loose root images", async (t) => {
+  assert.equal(parseOsReleaseFolder("mustardos_2601.1"), "2601.1");
+  assert.equal(parseOsReleaseFolder("other"), null);
+  const root = tmp(t);
+  setRoot(root);
+  await createWorkspace();
+  const ver = path.join(ctx.os, "mustardos_2601.1");
+  fs.mkdirSync(ver);
+  const img = "MustardOS_RG40XX-H_2601.1_FUNKY_JACARANDA-bc38efa0.img.gz";
+  fs.writeFileSync(path.join(ver, img), "x");
+  fs.writeFileSync(path.join(ver, "hash.txt"), `${"c".repeat(64)}  ${img}\n`);
+  fs.writeFileSync(path.join(ctx.os, "MustardOS_RG28XX-H_2600.0_OLD.img.gz"), "loose");
+  const list = await listOsReleases();
+  assert.equal(list.length, 2);
+  assert.equal(list[0].version, "2601.1");
+  assert.equal(list[0].images.length, 1);
+  assert.equal(list[0].images[0].hashOk, true);
+  assert.equal(list[0].images[0].deviceId, "rg40xx-h");
+  assert.equal(list[1].unsorted, true);
+  assert.equal(list[1].images.length, 1);
 });
 
 test("parseYaml reads the MustardOS release files", () => {
@@ -346,6 +414,11 @@ test("devices: board names, PortMaster capabilities and image names", () => {
   assert.equal(imageDevice("MustardOS_TUI-BRICK_2601.1_X.img")?.id, "tui-brick");
   assert.equal(imageDevice("random.img"), null);
   assert.ok(specs(byId("tui-brick")!).some(([k, v]) => k === "Cards" && /One microSD/.test(v)));
+  assert.equal(formIconName(byId("rg40xx-h")), "handheld");
+  assert.equal(formIconName(byId("rg35xx-plus")), "handheld-v");
+  assert.equal(formIconName(byId("rg35xx-sp")), "handheld-sp");
+  assert.equal(formIconName(null), "handheld");
+  for (const d of DEVICES) assert.ok(["handheld", "handheld-v", "handheld-sp"].includes(formIconName(d)), d.id);
 });
 
 test("a clean cache starts the setup wizard, and the workspace gets its folders without touching files", async (t) => {
@@ -426,7 +499,17 @@ test("app market: packages are ranked for the handheld's maker and MustardOS rel
   const dolphin = rankAssets([{ name: "Dolphin_RtCore_v12_0_0_Andromeda.muxupd", size: 1 }], "Anbernic", "ANDROMEDA");
   assert.equal(dolphin[0].fit, "best");
   assert.equal(rankAssets(dolphin, "Anbernic", "JACARANDA")[0].fit, "other");
+  const byVer = [
+    { name: "App_2606.0_ANDROMEDA.muxupd", size: 1 },
+    { name: "App_2601.0_JACARANDA.muxupd", size: 1 },
+    { name: "App_2606_0.muxupd", size: 1 },
+  ];
+  const andromedaVer = rankAssets(byVer, "Anbernic", "ANDROMEDA", "2606.0_ANDROMEDA");
+  assert.equal(andromedaVer.filter((a) => a.fit === "best").length >= 1, true);
+  assert.ok(andromedaVer.some((a) => a.name.includes("2606") && a.fit === "best"));
+  assert.equal(rankAssets(byVer, "Anbernic", "JACARANDA", "2601.0_JACARANDA").find((a) => a.name.includes("2601"))?.fit, "best");
   assert.ok(KNOWN.some((k) => k.repo === "SilverCrow2323/dolphin-rt-core"));
+  assert.ok(KNOWN.some((k) => k.repo === "PapaZolaRis/MustardTube"));
   assert.equal(new Set(KNOWN.map((k) => k.repo.toLowerCase())).size, KNOWN.length);
 });
 
@@ -932,4 +1015,46 @@ device=/dev/input/event1
   const inferred = inferAxisPairs([2, 3, 4, 5]);
   const left = map.left[0] >= 0 ? map.left : inferred.left;
   assert.deepEqual(left, [2, 3]);
+});
+
+test("Andromeda: settings catalogue, themes 2606, muxbak path guards", () => {
+  const keys = GROUPS.flatMap((g) => g.items.map((s) => s.key));
+  for (const k of ["settings/power/saver_type", "web/sftp", "web/sftp_port", "settings/advanced/passcode", "visual/bluetooth"]) {
+    assert.ok(keys.includes(k), `missing catalogue key ${k}`);
+  }
+  assert.equal(codenameOf("2606.0_ANDROMEDA"), "Andromeda");
+  assert.equal(codenameOf("2601.0_JACARANDA"), "Jacaranda");
+  // Presence filter: Jacaranda-like values omit Andromeda-only keys
+  const jacarandaFiles = new Set(["settings/general/volume", "web/sftpgo", "settings/advanced/verbose"]);
+  const shown = keys.filter((k) => jacarandaFiles.has(k));
+  assert.deepEqual(shown.sort(), ["settings/advanced/verbose", "settings/general/volume", "web/sftpgo"]);
+  assert.ok(!shown.includes("web/sftp_port"));
+  assert.ok(!shown.includes("settings/power/saver_type"));
+
+  assert.equal(DEFAULT_VERSION, "2606.0");
+  assert.ok(VERSIONS.some(([v]) => v === "2606.0"));
+  assert.ok(RESOLUTIONS.includes("720x576"));
+  assert.ok(RESOLUTIONS.includes("1920x1080"));
+  assert.ok(SECTIONS.some(([id]) => id === "save"));
+
+  const ok = archiveMuxbakPath("/mnt/sdcard/ARCHIVE/MustardOS.FullBackup.20260101.muxbak");
+  assert.equal(ok.name, "MustardOS.FullBackup.20260101.muxbak");
+  assert.equal(ok.storage, "TF2");
+  assert.throws(() => archiveMuxbakPath("/mnt/sdcard/ARCHIVE/../etc/passwd.muxbak"), UserError);
+  assert.throws(() => archiveMuxbakPath("/mnt/sdcard/ROMS/foo.muxbak"), UserError);
+  assert.throws(() => archiveMuxbakPath("/mnt/mmc/ARCHIVE/not-a-backup.zip"), UserError);
+  assert.throws(() => archiveMuxbakPath("/tmp/evil.muxbak"), UserError);
+});
+
+test("mapSftpRoots accepts Andromeda Primary/Secondary Storage and older SD1/SD2 names", () => {
+  assert.deepEqual(mapSftpRoots(["Primary Storage", "Secondary Storage", "Internal", "History"]), [
+    { name: "SD1", root: "/Primary Storage" },
+    { name: "SD2", root: "/Secondary Storage" },
+  ]);
+  assert.deepEqual(mapSftpRoots(["SD1 (mmc)", "SD2 (sdcard)", "USB (external)"]), [
+    { name: "SD1", root: "/SD1 (mmc)" },
+    { name: "SD2", root: "/SD2 (sdcard)" },
+  ]);
+  assert.deepEqual(mapSftpRoots(["ROMS", "MUOS"]), [{ name: "SD1", root: "/" }]);
+  assert.deepEqual(mapSftpRoots(["Internal", "Boot", "History"]), []);
 });

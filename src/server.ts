@@ -31,7 +31,7 @@ import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchma
 import {
   controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
 } from "./device/controls.ts";
-import { attachTerminal, deviceStats, forgetHostKey, power, saveSshSettings, SshError, sshStatus } from "./device/ssh.ts";
+import { attachTerminal, deviceStats, forgetHostKey, power, probeSignIn, saveSshSettings, SshError, sshStatus, trustHostKey } from "./device/ssh.ts";
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "./device/muos-settings.ts";
 import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.ts";
 import { cardHint, usbModel, wifiModel } from "./device/model.ts";
@@ -47,8 +47,9 @@ import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from
 import { libraryJson, rescanLibrary } from "./games/library.ts";
 import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
-import { hashFromFile, inspectImage, workspaceImages } from "./system/image.ts";
-import { cancelSystemJob, dismissSystemJob, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
+import { hashFromFile, importOsImage, inspectImage, workspaceImages } from "./system/image.ts";
+import { osLibraryJson, osMarketJson, removeOsPath, revealOsPath } from "./os-library.ts";
+import { cancelSystemJob, dismissSystemJob, skipSystemVerify, startSystemJob, systemJob, tf2Systems, TF2_TOP, wifiTf2Status } from "./system/ops.ts";
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { workspaceInfo } from "./workspace.ts";
@@ -58,6 +59,7 @@ import { downloadUpdate, updatesJson } from "./updates.ts";
 import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } from "./cores.ts";
 import { biosJson, deleteBios, fixBiosNames, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
+import { createMuxbak, createStatus as muxbakCreateStatus, downloadMuxbak, muxbakJson, restoreMuxbak, restoreStatus as muxbakRestoreStatus } from "./device/muxbak.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
 import { chatKnowledgePublic, chatSettingsPublic, runChat, saveChatSettings } from "./chat.ts";
@@ -285,6 +287,12 @@ const routes: Record<string, Handler> = {
   "GET /api/saves/backup": (query) => backupContents(query),
   "POST /api/saves/restore": (_, body) => restoreSaves(body),
   "POST /api/saves/trash": (_, body) => trashBackup(body),
+  "GET /api/muxbak": () => muxbakJson(),
+  "POST /api/muxbak/download": (_, body) => downloadMuxbak(body),
+  "POST /api/muxbak/create": (_, body) => createMuxbak(body),
+  "GET /api/muxbak/create": () => muxbakCreateStatus(),
+  "POST /api/muxbak/restore": (_, body) => restoreMuxbak(body),
+  "GET /api/muxbak/restore": () => muxbakRestoreStatus(),
   "GET /api/bios": (query) => biosJson(query),
   "POST /api/bios/send": (_, body) => sendBios(body),
   "POST /api/bios/fix-names": () => fixBiosNames(),
@@ -323,6 +331,12 @@ const routes: Record<string, Handler> = {
   "GET /api/system/images": async () => ({ images: await workspaceImages(), tf2: { top: TF2_TOP, systems: tf2Systems() } }),
   "POST /api/system/inspect": (_, body) => inspectImage(String(body.path ?? "")),
   "POST /api/system/hash-file": (_, body) => hashFromFile(String(body.path ?? ""), String(body.image ?? "")),
+  "POST /api/system/import-image": (_, body) => importOsImage(body),
+  "GET /api/os": (query) => osLibraryJson(query),
+  "GET /api/os/market": (query) => osMarketJson(query),
+  "POST /api/os/import": (_, body) => importOsImage(body),
+  "POST /api/os/remove": (_, body) => removeOsPath(body),
+  "POST /api/os/reveal": (_, body) => revealOsPath(body),
   "POST /api/system/pick": async (_, body) => {
     if (!platform.pickFile) throw new UserError("This system has no file picker; type the path instead.");
     const hash = body.kind === "hash";
@@ -333,6 +347,10 @@ const routes: Record<string, Handler> = {
   "GET /api/system/job": () => ({ job: systemJob() }),
   "POST /api/system/cancel": () => {
     cancelSystemJob();
+    return { ok: true };
+  },
+  "POST /api/system/skip-verify": () => {
+    skipSystemVerify();
     return { ok: true };
   },
   "POST /api/system/dismiss": () => {
@@ -355,6 +373,8 @@ const routes: Record<string, Handler> = {
     await forgetHostKey();
     return sshStatus();
   },
+  "POST /api/ssh/probe": () => probeSignIn(),
+  "POST /api/ssh/trust-key": () => trustHostKey(),
   "GET /api/ssh/stats": () => deviceStats(),
   "GET /api/handheld/settings": () => handheldSettings(),
   "POST /api/handheld/settings": (_, body) => saveHandheldSettings(body),

@@ -1,10 +1,10 @@
 // Device › Settings: the MustardOS options from the handheld's own Settings screens, changed over SSH. Edits are
 // collected on the page and written together; each save can be undone.
 
-import { $, api, esc, icon, osVersion, plural, toast } from "./core.js";
+import { $, api, esc, icon, osVersion, plural, toast, trustSshHostKey } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
-const H = { data: null, error: "", loading: false, saving: false, edits: {}, q: "", advanced: false, result: null, bound: false, active: "" };
+const H = { data: null, error: "", errorCode: "", fingerprint: "", loading: false, saving: false, edits: {}, q: "", advanced: false, result: null, bound: false, active: "" };
 
 const WHEN = {
   bright: ["now", "Applies right away"], volume: ["now", "Applies right away"], tweak: ["now", "Applies right away"],
@@ -34,11 +34,15 @@ export function clearHandheldBar() {
 async function load() {
   H.loading = true;
   H.error = "";
+  H.errorCode = "";
+  H.fingerprint = "";
   render();
   try {
     H.data = await api("handheld/settings");
   } catch (error) {
     H.error = error.message;
+    H.errorCode = error.code || "";
+    H.fingerprint = error.fingerprint || "";
   }
   H.loading = false;
   render();
@@ -59,9 +63,15 @@ function render() {
   if (!H.data) {
     box.innerHTML = H.error
       ? `<div class="hh-empty">${icon("unplug")}<h3>Can't reach the handheld</h3><p>${esc(H.error)}</p>
-          <p class="hh-hint">The handheld needs Wi-Fi and Configuration &rsaquo; Web Services &rsaquo; Secure Shell turned on.</p>
-          <div class="hh-empty-actions"><button class="btn primary" data-hh="reload">${icon("refresh")}Try again</button>
-          <a class="btn" href="#ssh">${icon("chip")}SSH settings</a></div></div>`
+          ${H.errorCode === "hostkey" && H.fingerprint ? `<p class="hh-hint">New key: <code>${esc(H.fingerprint)}</code></p>` : ""}
+          <p class="hh-hint">${H.errorCode === "hostkey"
+            ? "That is normal after reinstalling MustardOS. Trust the new host key if this is still your handheld."
+            : "The handheld needs Wi-Fi and Configuration &rsaquo; Web Services &rsaquo; Secure Shell turned on."}</p>
+          <div class="hh-empty-actions">${H.errorCode === "hostkey"
+            ? `<button class="btn primary" data-hh="trust-key">${icon("check")}Trust the new key</button>`
+            : `<button class="btn primary" data-hh="reload">${icon("refresh")}Try again</button>`}
+          <a class="btn" href="#ssh" data-connect="ssh">${icon("chip")}SSH settings</a>
+          ${H.errorCode === "hostkey" ? `<button class="btn" data-hh="reload">${icon("refresh")}Try again</button>` : ""}</div></div>`
       : `<div class="planning"><span class="spinner"></span> Reading settings from the handheld&hellip;</div>`;
     renderBar();
     return;
@@ -94,8 +104,14 @@ function renderHead() {
   const sub = $("hh-sub"), actions = $("hh-actions");
   if (!sub) return;
   const d = H.data;
-  sub.innerHTML = d ? `MustardOS ${esc(osVersion(d.version))} on ${esc(d.host)} &middot; changed over SSH` : "MustardOS settings on the handheld, changed over SSH";
+  const release = d ? `MustardOS ${esc(osVersion(d.version))}${d.codename ? ` · ${esc(d.codename)}` : ""}` : "";
+  sub.innerHTML = d
+    ? `${release} on ${esc(d.host)} &middot; options match files on this handheld &middot; changed over SSH`
+    : "MustardOS settings on the handheld, changed over SSH";
+  const ports = d?.ports;
+  const canSync = ports && ((ports.ssh > 0 && ports.ssh !== 22) || (ports.sftp > 0 && ports.sftp !== 2022));
   actions.innerHTML = `${d?.undo ? `<button class="btn" data-hh="undo" title="Put back: ${esc(d.undo.labels.join(", "))}">${icon("refresh")}Undo last save</button>` : ""}
+    ${canSync ? `<button class="btn" data-hh="ports" title="Copy SSH ${ports.ssh || 22} and SFTP ${ports.sftp || 2022} into the manager connection settings">${icon("chip")}Use handheld ports</button>` : ""}
     <button class="btn" data-hh="reload" ${H.loading || H.saving ? "disabled" : ""}>${H.loading ? `<span class="spinner"></span>` : icon("download")}Reload from handheld</button>`;
 }
 
@@ -273,8 +289,49 @@ async function undo() {
   render();
 }
 
+async function syncPorts() {
+  const p = H.data?.ports;
+  if (!p) return;
+  try {
+    const ssh = await api("ssh/status");
+    if (p.ssh > 0) {
+      await api("ssh/settings", {
+        host: ssh.hostSetting || "",
+        port: p.ssh,
+        user: ssh.user || "root",
+        shell: ssh.shell || "bash",
+      });
+    }
+    if (p.sftp > 0) {
+      await api("device/wifi", { host: ssh.host || H.data.host || "", port: p.sftp });
+    }
+    toast(`Manager now uses SSH ${p.ssh || 22} and SFTP ${p.sftp || 2022}`, 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+}
+
 async function act(el) {
   const what = el.dataset.hh;
+  if (what === "trust-key") {
+    H.loading = true;
+    H.error = "";
+    H.errorCode = "";
+    H.fingerprint = "";
+    render();
+    try {
+      await trustSshHostKey();
+      toast("Trusted the handheld's new host key.", 3000);
+      return load();
+    } catch (error) {
+      H.error = error.message;
+      H.errorCode = error.code || "";
+      H.fingerprint = error.fingerprint || "";
+      H.loading = false;
+      render();
+      return;
+    }
+  }
   if (what === "reload") {
     if (changedKeys().length && !(await confirmBox({ title: "Discard your changes?", html: `<p>Reloading drops ${plural(changedKeys().length, "unsaved change")}.</p>`, ok: "Discard and reload", danger: true }))) return;
     H.edits = {};
@@ -287,6 +344,7 @@ async function act(el) {
   if (what === "dismiss") { H.result = null; render(); return; }
   if (what === "advanced") { H.advanced = true; render(); return; }
   if (what === "revert") { delete H.edits[el.dataset.key]; render(); return; }
+  if (what === "ports") return syncPorts();
   if (what === "reboot") {
     const ok = await confirmBox({ title: "Restart the handheld?", html: "<p>A game that is running is closed without saving.</p>", ok: "Restart", danger: true });
     if (!ok) return;

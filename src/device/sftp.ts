@@ -1,5 +1,5 @@
-// The handheld over Wi-Fi: MustardOS's "SFTP + Filebrowser" web service (SFTPGo). Files go over SFTP (port 2022);
-// Filebrowser is SFTPGo's web UI (port 9090), which the app only links to.
+// The handheld over Wi-Fi: Secure File Transfer on port 2022 (Andromeda: Dropbear protected view;
+// older MustardOS: SFTPGo, with Filebrowser on port 9090 which the app can link to).
 
 import fsp from "node:fs/promises";
 import net from "node:net";
@@ -95,7 +95,8 @@ export async function findHandhelds(): Promise<{ host: string; server: string }[
     const batch = await Promise.all(hosts.slice(i, i + 128).map(async (host) => ({ host, server: await banner(host, port, 1200) })));
     found.push(...batch.filter((b) => b.server));
   }
-  return found.sort((a, b) => Number(/sftpgo/i.test(b.server)) - Number(/sftpgo/i.test(a.server)));
+  const score = (s: string) => (/sftpgo/i.test(s) ? 2 : /dropbear/i.test(s) ? 1 : 0);
+  return found.sort((a, b) => score(b.server) - score(a.server));
 }
 
 // ---------------------------------------------------------------- the session
@@ -123,7 +124,7 @@ let lastUsed = 0;
 function friendly(error: Error & { code?: string; level?: string }, s: WifiSettings): string {
   const where = `${s.host}:${s.port}`;
   if (error.code === "ECONNREFUSED") {
-    return `Nothing answers on ${where}. On the handheld enable Configuration \u203a Web Services \u203a SFTP + Filebrowser.`;
+    return `Nothing answers on ${where}. On the handheld enable Configuration \u203a Connectivity \u203a Web Services \u203a Secure File Transfer (Andromeda), or SFTP + Filebrowser on older MustardOS.`;
   }
   if (error.level === "client-authentication" || /authentication/i.test(error.message)) {
     return `The handheld refused user "${s.user}" and its password. MustardOS uses muos / muos unless you changed it.`;
@@ -142,14 +143,24 @@ const run = (fn: (cb: (err?: Error | null) => void) => void): Promise<void> =>
 
 const missing = (error: unknown) => (error as { code?: number }).code === 2;
 
-/** MustardOS shows its storages as "SD1 (mmc)", "SD2 (sdcard)", "USB (external)" and "MUX (internal)". */
+/**
+ * Map SFTP top-level folder names to manager storage labels.
+ * Jacaranda/SFTPGo: "SD1 (mmc)", "SD2 (sdcard)", …. Andromeda/Dropbear: "Primary Storage", "Secondary Storage", ….
+ */
+export function mapSftpRoots(names: string[]): { name: string; root: string }[] {
+  const pick = (...res: RegExp[]) => names.find((n) => res.some((re) => re.test(n)));
+  const roots: [string, string | undefined][] = [
+    ["SD1", pick(/^sd1\b/i, /^mmc$/i, /^primary storage$/i, /^primary$/i)],
+    ["SD2", pick(/^sd2\b/i, /^sdcard$/i, /^secondary storage$/i, /^secondary$/i)],
+  ];
+  const found = roots.filter((r): r is [string, string] => !!r[1]).map(([name, dir]) => ({ name, root: `/${dir}` }));
+  if (!found.length && names.some((n) => /^(roms|muos)$/i.test(n))) found.push({ name: "SD1", root: "/" });
+  return found;
+}
+
 async function findStorages(sftp: SFTPWrapper): Promise<SftpStorage[]> {
   const top = await call<{ filename: string; attrs: Stats }[]>((cb) => sftp.readdir("/", cb));
-  const pick = (re: RegExp) => top.find((e) => re.test(e.filename))?.filename;
-  const roots: [string, string | undefined][] = [["SD1", pick(/^sd1\b|^mmc$/i)], ["SD2", pick(/^sd2\b|^sdcard$/i)]];
-  const found = roots.filter((r): r is [string, string] => !!r[1]).map(([name, dir]) => ({ name, root: `/${dir}`, free: 0, total: 0 }));
-  if (!found.length && top.some((e) => /^(roms|muos)$/i.test(e.filename))) found.push({ name: "SD1", root: "/", free: 0, total: 0 });
-  return found;
+  return mapSftpRoots(top.map((e) => e.filename)).map((r) => ({ ...r, free: 0, total: 0 }));
 }
 
 async function updateSpace(session: SftpSession): Promise<void> {
@@ -188,7 +199,9 @@ function connect(s: WifiSettings): Promise<SftpSession> {
         if (err) return fail(err);
         try {
           const storages = await findStorages(sftp);
-          if (!storages.length) throw new Error("No SD1 or SD2 folder is visible over SFTP.");
+          if (!storages.length) {
+            throw new Error("No Primary Storage / Secondary Storage (or SD1 / SD2) folder is visible over SFTP. On Andromeda enable Configuration \u203a Connectivity \u203a Web Services \u203a Secure File Transfer.");
+          }
           settled = true;
           resolve({ sftp, storages, close: () => client.end() });
         } catch (error) {
