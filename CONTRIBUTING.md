@@ -19,6 +19,18 @@ Node.js 23.6 or newer runs the TypeScript in `src/` directly; there is no build 
 
 ## Making changes
 
+Open a pull request against **`changes/unreleased`** (not `main`). That branch holds everything not yet
+released; CODEOWNERS must approve before it can be merged (squash only). Do not open PRs against `main` or
+`version/*`.
+
+You can work from either:
+
+1. **A fork** (anyone): fork the repo, push a branch on your fork, open a PR into
+   `aaronns87/muos-anbernic-manager` with base `changes/unreleased`.
+2. **A branch on this repo** (if you have Write access): push something like `feature/short-name` and open a
+   PR with the same base. Feature branches are not protected; only maintainers can push straight to
+   `changes/unreleased`.
+
 - One concern per pull request, with a short description of what the user sees.
 - Add or update tests in `test/` (`node:test`, no extra packages), and the wiki article in
   `public/js/wiki.js` for anything a user would notice.
@@ -51,9 +63,10 @@ the new version and date and adds it to the version history table, then tags the
 publishes a [GitHub release](https://github.com/aaronns87/muos-anbernic-manager/releases) with the same notes.
 Running managers only look at `VERSION` on `main`, so tags and releases never change what they offer.
 
-Branches: unreleased work collects on `changes/unreleased`, and pull requests from contributors should target it. A
-release renames that branch to `version/X.Y.Z`, adds the version bump and changelog there, and reaches `main` through a
-pull request the maintainer merges. The next `changes/unreleased` is created from `main` when new work starts.
+Branches: unreleased work collects on `changes/unreleased` (contributor PRs target it; maintainers may push there
+directly). A release renames that branch to `version/X.Y.Z`, adds the version bump and changelog there, and reaches
+`main` through a pull request only a maintainer (CODEOWNERS) merges. The next `changes/unreleased` is created from
+`main` when new work starts.
 
 ## License
 

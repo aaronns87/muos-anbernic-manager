@@ -21,7 +21,9 @@ Prefer minor over major. The new number must be higher than the current `VERSION
 ## Steps
 
 Branches follow `.cursor/rules/branching.mdc`: unreleased work is on `changes/unreleased`, a release is made on
-`version/X.Y.Z` and reaches `main` only when the user merges its pull request on GitHub.
+`version/X.Y.Z` and reaches `main` only when the user merges its pull request on GitHub. Repository rulesets give
+Admin bypass for renaming/deleting `changes/unreleased` and for pushing `version/*`; only the user merges into
+`main`.
 
 ```
 - [ ] 1. Working tree clean, on changes/unreleased, up to date (git status, git pull --ff-only)
