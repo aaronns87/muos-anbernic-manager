@@ -51,8 +51,24 @@ bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Wi
 | Handheld command | `runCommand` in `src/device/ssh.ts` | - |
 | Settings toggle | `Settings` + `DEFAULTS` + `loadSettings` + `saveSettings` in `src/settings.ts` | `toggle(...)` in `settings.js` |
 
-## Cursor
+## Cursor and Codex
 
 `.cursor/rules/` holds the rules (always-on: project, safety, versioning; per-area: server, front end,
 tests, shell scripts). `.cursor/skills/` holds task guides: `manager-feature-workflow`,
 `manager-testing`, `muos-device-expert`, `manager-release`.
+
+Codex uses copied rules in `.codex/rules/` and copied skills in `.agents/skills/`.
+The `.codex/rules/` folder is not an automatic rule loader: read rules through this guide.
+Paths below are relative to this repository; run workflow commands from its root.
+
+- Always read `project.mdc`, `safety.mdc`, `versioning.mdc` and `branching.mdc` in `.codex/rules/`.
+- For `src/**/*.ts`, also read `.codex/rules/server.mdc`.
+- For `public/**`, also read `.codex/rules/frontend.mdc`.
+- For `test/**`, also read `.codex/rules/testing.mdc`.
+- For shell/PowerShell/CMD files or `scripts/**`, also read `.codex/rules/shell-scripts.mdc`.
+- Load the matching `.agents/skills/<name>/SKILL.md` for feature work, testing, device work or releases.
+  If absent from the session skill list, read it directly before that workflow.
+
+Cursor's files stay in `.cursor/`. These are independent copies, not symlinks.
+When updating rules or skills, update both copies; only agent-specific path references should differ.
+The parent workspace has its own `AGENTS.md` and `.codex/rules/` for workspace-wide guidance.

@@ -26,8 +26,11 @@ maintainer merges a release pull request on GitHub.
 
 - If a `version/X.Y.Z` pull request is still open, ask the user to merge it first, so the new branch starts from
   the released `main`.
-- Stay on `changes/unreleased` until a release; commit and push there. Do not open pull requests for it.
-- User-visible changes go under **Unreleased** in `CHANGELOG.md`, as before.
+- Stay on `changes/unreleased` until a release; maintainers and agents commit and push there directly (Admin
+  ruleset bypass). Contributor pull requests also target `changes/unreleased` and need CODEOWNERS approval to
+  merge; do not open maintainer/agent work as PRs into it unless the user asks.
+- Only CODEOWNERS merge to `main` or run a release. User-visible changes go under **Unreleased** in
+  `CHANGELOG.md`, as before.
 
 ## Releasing X.Y.Z (only with a number the user gave; see the `manager-release` skill)
 

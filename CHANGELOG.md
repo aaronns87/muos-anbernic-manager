@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
 | [1.2.3](#123---2026-10-16) | 2026-10-16 | TF2 over Wi-Fi, BYOK assistant, What's new after update |
@@ -23,6 +24,35 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.2.6] - 2026-11-15
+
+### Added
+
+- App market: [Dolphin Rt:Core](https://github.com/SilverCrow2323/dolphin-rt-core) (GameCube/Wii for H700). MustardOS Andromeda is recognised when picking packages by release.
+
+### Changed
+
+- Shared interface polish: clearer panel headings, neutral charcoal and light surfaces, consistent spacing and controls,
+  and a narrower sidebar with more room for content. Settings folders use a responsive card grid.
+- On phones, Games filters and card size sit behind a Filters button that shows the active filter count. The duplicated
+  sidebar device card is hidden; connection settings remain in the top-bar status panel. Toolbars no longer cover the
+  game list while scrolling, and shared buttons have larger touch targets.
+- Tabs support Left/Right, Home and End with keyboard focus kept on the active tab. Added Skip to content, current-page
+  navigation labels, reduced-motion support and sticky spacing that follows the actual header height.
+- Connection help and FAT32 transfer warnings now point to System Tools instead of an obsolete script name.
+
+### Fixed
+
+- Renaming games or files no longer overwrites a different file whose name differs only by letter case.
+- Files keeps edits made while a save is running marked as unsaved, and ignores save results from a closed preview.
+- Theme Designer keeps failed autosaves available for Retry and blocks switching themes, exporting or installing
+  until those edits have saved. Closing the page warns about unsaved edits.
+- Deleting a folder from the handheld includes hidden files and folders instead of stopping after a partial deletion.
+- The top bar fits phone widths, with compact Transfers and Assistant controls and wrapping when needed.
+- Comparing games before a transfer no longer changes timestamps on the card.
+- After **Artwork › Scrape** saves images, the Games library updates without a full page reload (cards get the new art
+  immediately, and opening Games forces a quiet rescan when needed).
 
 ## [1.2.5] - 2026-10-18
 
@@ -295,7 +325,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.5...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.2.6...changes/unreleased
+[1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6
 [1.2.5]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.5
 [1.2.4]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.4
 [1.2.3]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.3

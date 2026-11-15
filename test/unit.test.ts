@@ -423,6 +423,10 @@ test("app market: packages are ranked for the handheld's maker and MustardOS rel
   assert.equal(unknown[0].fit, "best");
   const scrappy = rankAssets([{ name: "Scrappy_v2.2.1.muxzip", size: 1 }, { name: "Scrappy_v2.2.1_update.muxapp", size: 1 }], "Anbernic", "JACARANDA");
   assert.deepEqual(scrappy.map((a) => a.fit), ["best", "other"]);
+  const dolphin = rankAssets([{ name: "Dolphin_RtCore_v12_0_0_Andromeda.muxupd", size: 1 }], "Anbernic", "ANDROMEDA");
+  assert.equal(dolphin[0].fit, "best");
+  assert.equal(rankAssets(dolphin, "Anbernic", "JACARANDA")[0].fit, "other");
+  assert.ok(KNOWN.some((k) => k.repo === "SilverCrow2323/dolphin-rt-core"));
   assert.equal(new Set(KNOWN.map((k) => k.repo.toLowerCase())).size, KNOWN.length);
 });
 

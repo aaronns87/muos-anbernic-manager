@@ -69,6 +69,8 @@ const ARTICLES = [
       <li>Anything that changes the handheld or erases a card asks you first and says what will happen.</li>
     </ul>`],
     ["Keyboard shortcuts", `<ul>
+      <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
+      or Home/End for the first or last tab.</li>
       <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Files); <kbd>0</kbd> opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on.</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
@@ -78,7 +80,8 @@ const ARTICLES = [
   ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
       games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
-      The top-bar chip opens the connection panel; Overview remains the full connection page.</p>`],
+      The top-bar chip opens the connection panel; Overview remains the full connection page. On phones this panel replaces
+      the sidebar's device card, with connection choices, status and Wi-Fi settings in one place.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
       when the handheld reconnects; <b>Find on network</b> searches for it again.</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
@@ -90,11 +93,14 @@ const ARTICLES = [
       database. The controls next to the search box switch between grid and list view, show <b>Empty systems</b> (folders with no games yet),
       expand or collapse every system, and make the cards bigger or smaller with the slider.</p>`],
     ["Finding games", `<p>Type in the search box to match titles, file names, regions such as <i>Japan</i>, or systems. The filters narrow the list by
-      platform, genre and year. <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
+      platform, genre and year. On phones, <b>Filters</b> opens these controls and the card-size slider; the button shows how many filters are active.
+      Collapsing filters keeps your choices, and on a wider screen they are always shown.
+      <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
       handheld, move them to the Trash, or delete them from the handheld's card.</p>`],
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
-      active. A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
+      active. Comparing first does not change files or their timestamps on the card; nothing is written until you confirm the transfer.
+      A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
       and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
       A copy of several games shows each file expanded by default (you can hide them): every game with its own progress while it
@@ -174,18 +180,20 @@ const ARTICLES = [
   ["apps", "package", "Apps", "apps", "Find apps in the App market, install them and updates on the handheld, and keep them current.", [
     ["Packages", `<p>MustardOS installs software from package files: <code>.muxapp</code> for apps, <code>.muxupd</code> for updates and add-ons, and <code>.muxzip</code> for other bundles such as themes.
       They sit in your <code>apps</code> folder; the <b>App market</b>, <b>Add packages</b> or dragging files onto the page puts them there.</p>`],
-    ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps, such as Scrappy, Artie, Grout and Bluetooth, with
-      screenshots, GitHub stars, the latest release notes and links to each app's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
+    ["App market", `<p><b>App market</b> at the top of Apps lists popular MustardOS apps and packages, such as Scrappy, Artie, Grout, Bluetooth,
+      Void Desk and Dolphin Rt:Core (GameCube/Wii for H700 handhelds), with screenshots, GitHub stars, the latest release notes and links to each
+      project's GitHub page and releases. Click a picture or <b>About</b> for the details.</p>
       <ul>
         <li><b>Runs on the &hellip;</b> hides apps that cannot work on your handheld model, for example apps that need Wi-Fi on a model without it.
           Badges warn about the rest: <i>Made for</i> another handheld, <i>No longer developed</i>, or a <i>Pre-release</i>.</li>
         <li><b>Get</b> downloads the package that suits your handheld into the <code>apps</code> folder. Many apps publish one package per handheld
-          maker or MustardOS release; the manager picks the right one, and matches the MustardOS release once the handheld is connected over SSH.
-          <b>About</b> lists every package in the release if you want a different one.</li>
+          maker or MustardOS release (Banana through Andromeda); the manager picks the right one, and matches the MustardOS release once the handheld
+          is connected over SSH. <b>About</b> lists every package in the release if you want a different one.</li>
         <li>Then <b>Send</b> it, or <b>Send and install</b> over Wi-Fi, as described below. Apps already on the handheld show <i>Installed</i>;
           <b>Reinstall</b> in About replaces the app with the package in your <code>apps</code> folder, for example to update it.</li>
       </ul>
       <p>The apps come from their makers' GitHub releases and are not checked by MustardOS, so read an app's page before installing it.
+        Some packages (for example Dolphin Rt:Core) still need a separate binary or extra steps after install; the release notes explain that.
         The list is checked again every 12 hours; <b>Refresh</b> checks now.</p>`],
     ["Send, then install", `<ol>
       <li><b>Send</b> copies a package into the handheld's <code>ARCHIVE</code> folder. It shows under <b>Waiting in ARCHIVE</b>.</li>
@@ -233,7 +241,9 @@ const ARTICLES = [
       <b>Apply</b> switches to it; the bin button deletes it from the handheld. The active theme cannot be deleted, and deleting is permanent.</p>`],
     ["Designer", `<p>Makes your own themes on this computer, kept in the <b>themes</b> folder (one folder per theme, the same layout as
       <code>MUOS/theme</code>; move it in Settings). Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
-      one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.</p>
+      one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.
+      If saving fails, your edits stay in the editor: press <b>Retry</b>. Switching themes, exporting and installing wait until the edits save.
+      Closing the page warns you if changes are still unsaved.</p>
       <p>The preview on the right draws the main menu, Explore, Configuration, a settings list, pop-ups, the keyboard, the passcode wheel, the charging
       screen and the boot logo from the theme's settings and pictures, at each screen size and colour variant. Click any part to open its settings.</p>
       <p><b>Quick style</b> sets many colours at once from a palette or six colour roles, plus roundness, items per page, bar heights and a list or grid
@@ -364,12 +374,15 @@ const ARTICLES = [
       Transfers panel like game copies: they can wait in line behind another copy, and can be stopped.</p>`],
     ["Rename, new folder, delete", `<ul>
       <li>The buttons above each list make a new folder, rename the one picked item, or delete the picked items.</li>
-      <li>On this computer, deleting moves things to the Trash. On the handheld it is permanent, including everything inside a folder.</li>
+      <li>On this computer, deleting moves things to the Trash. On the handheld it is permanent, including hidden files and folders inside a folder.</li>
+      <li>Renaming will not replace a different existing file, even when only the letter case differs.</li>
       <li>Renaming on the handheld is not possible over USB; use Wi-Fi or a card reader.</li>
       <li>SD1's <code>MUOS</code> folder holds MustardOS itself. The manager warns you before you change anything there.</li>
     </ul>`],
     ["Preview and edit", `<p>Click a file name to open it. Pictures are shown; text and config files (<code>.cfg</code>, <code>.ini</code>, <code>.json</code>,
-      <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.</p>`],
+      <code>.txt</code> and similar, up to 512 KB) open in an editor. <b>Save</b> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) writes the file back.
+      If you keep typing while it saves, the newer changes stay marked <b>Not saved</b>; press Save again to keep them.
+      Closing the editor or page warns you about unsaved changes.</p>`],
   ]],
   ["tuning", "gauge", "Game Tuning", "tuning", "Per-game emulator settings, cheats and CPU governor.", [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
@@ -435,7 +448,8 @@ const ARTICLES = [
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
       title describes the tab you are on.</p>`],
-    ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> set where apps, MustardOS
+    ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
+      and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
       the date and clock format, and the size uploaded artwork is saved at.</p>`],

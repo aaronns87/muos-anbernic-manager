@@ -1,0 +1,31 @@
+---
+description: How tests are written and run (node:test, temp workspaces, no real device)
+globs: test/**
+alwaysApply: false
+---
+
+# Tests
+
+`node:test` + `node:assert/strict`, no test framework packages. Run with `npm test`; type-check with
+`npm run check` (tests are type-checked too).
+
+| File | Covers |
+| --- | --- |
+| `test/unit.test.ts` | pure functions and small modules (parsers, settings, versions, device list) |
+| `test/server.test.ts` | the real server via `startServer()` from `test/helpers.ts`: API, static files, index.html ids |
+| `test/checks.test.ts` | library checks: DAT parsing, CRCs, duplicates |
+| `test/browser.test.ts` | headless Chrome over CDP: every section at desktop and phone width; skipped without Chrome |
+
+## Rules
+
+- Tests never touch the real workspace, `.cache/`, the network or a handheld. Use temp folders:
+  `fs.mkdtempSync(path.join(os.tmpdir(), "manager-..."))` and remove them in `t.after()`.
+- Code that reads `ctx` paths: save and restore with `setRoot()` and `ctx.cacheDir` in `t.after()`.
+- Server tests use `startServer({ GB: ["Tetris (World).gb"] })`; it boots `src/main.ts` on a free port with a
+  throwaway workspace and cache. Call `srv.api(route, body?)`.
+- Name tests as a sentence describing behaviour: `test("trash refuses empty or unsafe requests without touching files", ...)`.
+- A new dialog or view adds its element ids to the list in `test/server.test.ts`.
+- A bug fix adds a test that failed before the fix when practical.
+- Run one file or test: `node --test test/unit.test.ts --test-name-pattern "workspace"`.
+
+For manual checks in a browser (temp server, fake TF2 card, cleanup) use the `manager-testing` skill.

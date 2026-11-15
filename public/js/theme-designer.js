@@ -36,7 +36,7 @@ const PARTS = (() => {
 const D = {
   list: null, loading: false, error: "", name: store.get("designerTheme", ""), model: null, files: new Map(),
   panel: store.get("designerPanel", "quick"), q: "", layer: GLOBAL, res: "", screen: "muxlaunch", variant: "", imgScope: "all",
-  undo: [], redo: [], pending: new Map(), chain: Promise.resolve(), saving: 0, saveError: "", form: null, busy: "",
+  undo: [], redo: [], pending: new Map(), failed: new Map(), chain: Promise.resolve(), saving: 0, saveError: "", form: null, busy: "",
   host: null, regions: [], frame: 0,
 };
 
@@ -285,11 +285,12 @@ function saveNow(file) {
   D.chain = D.chain.then(async () => {
     try {
       await api("designer/scheme", { name, file, scheme });
-      D.saveError = "";
+      D.failed.delete(file);
     } catch (error) {
-      D.saveError = error.message;
+      D.failed.set(file, error.message);
       toast(`Not saved: ${error.message}`, 6000);
     }
+    D.saveError = [...D.failed.values()][0] || "";
     D.saving--;
     status();
   });
@@ -298,13 +299,21 @@ function saveNow(file) {
 
 async function flush() {
   if (!D.model) return;
-  [...D.pending.keys()].forEach(saveNow);
-  await D.chain;
+  [...new Set([...D.failed.keys(), ...D.pending.keys()])].forEach(saveNow);
+  do {
+    [...D.pending.keys()].forEach(saveNow);
+    await D.chain;
+  } while (D.pending.size || D.saving);
+  if (D.failed.size) throw new Error("Theme changes are not saved. Use Retry before switching, exporting or installing.");
 }
+
+addEventListener("beforeunload", (e) => {
+  if (D.pending.size || D.saving || D.failed.size) e.preventDefault();
+});
 
 addEventListener("pagehide", () => {
   if (!D.model) return;
-  for (const file of D.pending.keys()) {
+  for (const file of new Set([...D.failed.keys(), ...D.pending.keys()])) {
     fetch("/api/designer/scheme", {
       method: "POST", keepalive: true, headers: { "X-Manager-Token": TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({ name: D.model.name, file, scheme: D.model.schemes[file] || {} }),
@@ -317,7 +326,7 @@ function status() {
   if (!el) return;
   const waiting = D.saving || D.pending.size;
   el.className = `dz-status${D.saveError && !waiting ? " err" : ""}`;
-  el.innerHTML = !D.model ? "" : waiting ? `${ICONS.spin} Saving&hellip;` : D.saveError ? `${icon("alert")} Not saved` : `${icon("check")} Saved in the themes folder`;
+  el.innerHTML = !D.model ? "" : waiting ? `${ICONS.spin} Saving&hellip;` : D.saveError ? `${icon("alert")} Not saved <button class="btn small" data-dz="retry">Retry</button>` : `${icon("check")} Saved in the themes folder`;
 }
 
 // ---------------------------------------------------------------- the preview
@@ -1102,7 +1111,10 @@ function onInput(e) {
 
 function onChange(e) {
   const t = e.target;
-  if (t.matches("[data-dz-theme]")) { if (t.value && t.value !== D.name) openTheme(t.value); return; }
+  if (t.matches("[data-dz-theme]")) {
+    if (t.value && t.value !== D.name) openTheme(t.value).catch((error) => { t.value = D.name; toast(error.message, 6000); });
+    return;
+  }
   if (t.matches("[data-dz-layer]")) return setLayer(t.value);
   if (t.matches("[data-dz-res]")) return setRes(t.value);
   if (t.matches("[data-dz-variant]")) { D.variant = t.value; renderEditor(); return redraw(); }
@@ -1162,9 +1174,10 @@ async function onClick(e) {
   else if (what === "cancel-new") { D.form = null; renderBody(); }
   else if (what === "create") create();
   else if (what === "import") $("dz-import").click();
-  else if (what === "export") exportTheme();
-  else if (what === "install") install(el.dataset.apply === "1");
-  else if (["duplicate", "rename", "trash", "reveal"].includes(what)) themeAction(what);
+  else if (what === "export") await exportTheme();
+  else if (what === "install") await install(el.dataset.apply === "1");
+  else if (what === "retry") await flush();
+  else if (["duplicate", "rename", "trash", "reveal"].includes(what)) await themeAction(what);
   else if (what === "undo") undo();
   else if (what === "redo") redo();
   else if (what === "screen") { D.screen = el.dataset.screen; renderView(); renderEditor(); }
@@ -1186,7 +1199,7 @@ async function onClick(e) {
 function bind(root) {
   root.addEventListener("input", onInput);
   root.addEventListener("change", onChange);
-  root.addEventListener("click", (e) => { onClick(e); });
+  root.addEventListener("click", (e) => { onClick(e).catch((error) => toast(error.message, 6000)); });
   root.addEventListener("mousemove", (e) => { if (e.target.id === "dz-canvas") hover(e); });
   root.addEventListener("mouseout", (e) => { if (e.target.id === "dz-canvas") hover(null); });
   root.addEventListener("dragover", (e) => { if (e.target.closest("[data-drop]")) { e.preventDefault(); e.target.closest("[data-drop]").classList.add("drag"); } });

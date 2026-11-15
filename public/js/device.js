@@ -55,7 +55,7 @@ export function connection() {
         one ? `Turn the ${model().name} off, take its SD card out and put it in a card reader.`
           : "Take the TF2 card (the second slot) out of the handheld and put it in a card reader.",
         one ? "The computer reads its games partition, which has the ROMS and ARCHIVE folders."
-          : "It needs one FAT32 or exFAT volume; setup-device.sh prepares one.",
+          : "Use System Tools > Set up TF2 to prepare a games card. Formatting erases the card.",
         ...d.rejects
       ] };
   }

@@ -14,6 +14,7 @@ import { consoleIcon } from "./consoles.js";
 import { portsSection } from "./ports.js";
 import { openFreeScummvm } from "./free-scummvm.js";
 import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
+import { syncGameFilters } from "./ui.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -91,6 +92,13 @@ export function renderStats() {
 }
 
 let lastScan = 0, scanning = false;
+/** Set when Roms/ artwork (or similar) changed outside Games; next Games visit reloads even within the quiet window. */
+let libraryDirty = false;
+
+/** Call after scraping or otherwise changing Roms/ images so Games picks them up without a full page reload. */
+export function noteLibraryChange() {
+  libraryDirty = true;
+}
 
 /** "14:35" for a scan from today, otherwise the full "2026-10-12 14:35". */
 function renderScanState() {
@@ -100,19 +108,36 @@ function renderScanState() {
 
 /** Scans Roms/ again quietly when Games opens; only redraws when the games or their artwork changed. */
 export async function autoRescan() {
-  if (!app.data || scanning || busy() || Date.now() - lastScan < 4000) return;
+  if (!app.data || scanning || busy()) return;
+  if (!libraryDirty && Date.now() - lastScan < 4000) return;
+  const force = libraryDirty;
+  libraryDirty = false;
   scanning = true;
   lastScan = Date.now();
   renderScanState();
   try {
     const result = await api("games/rescan", {});
-    if (result.sig && result.sig !== app.data.sig) {
+    if (force || (result.sig && result.sig !== app.data.sig)) {
       await loadLibrary();
-      toast(`Roms/ changed: ${result.games.toLocaleString()} games`, 2500);
+      if (!force) toast(`Roms/ changed: ${result.games.toLocaleString()} games`, 2500);
     }
-  } catch {}
+  } catch (error) {
+    if (force) libraryDirty = true;
+    if (force) toast(error.message, 3500);
+  }
   scanning = false;
   renderScanState();
+}
+
+/** Point a library game at a new Roms/ Imgs URL (cache-busted) so cards update before the next full rescan. */
+export function setGameArt(code, file, imageUrl) {
+  const sys = app.data?.systems.find((s) => s.code === code);
+  const g = sys?.games.find((x) => x.f === file);
+  if (!g || !imageUrl) return false;
+  const bust = imageUrl.includes("?") ? imageUrl : `${imageUrl}?t=${Date.now()}`;
+  if (g.i === bust) return false;
+  g.i = bust;
+  return true;
 }
 
 export async function rescan() {
@@ -241,6 +266,7 @@ const pickBox = (on) => `<span class="pick" role="checkbox" aria-checked="${on}"
 const sysPick = (code) => `<button class="sys-pick" data-pick-sys="${esc(code)}" title="Select every shown game in this system" aria-label="Select system">${icon("check")}</button>`;
 
 export function render() {
+  syncGameFilters();
   if (!app.data) {
     $("games-list").innerHTML = app.libraryError
       ? `<div class="dev-note"><div class="notice err">${esc(app.libraryError)}</div><button class="btn" data-lib="retry">${icon("refresh")}<span>Try again</span></button></div>`

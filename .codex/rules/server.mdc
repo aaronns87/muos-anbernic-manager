@@ -1,0 +1,40 @@
+---
+description: Conventions for the Node/TypeScript server in src/
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Server (src/)
+
+## TypeScript that Node can run
+
+Node strips types at load; there is no compiler step.
+
+- No `enum`, `namespace`, parameter properties, decorators or other non-erasable syntax.
+- `import type { X }` for types; local imports end in `.ts` (`import { ctx } from "./context.ts"`).
+- Only Node built-ins and the packages in `package.json`. No new dependency without a strong reason.
+
+## Routes and errors
+
+```ts
+// src/server.ts, routes object
+"POST /api/things/rename": async (_, body) => renameThing(body),
+"GET /api/things": (q) => listThings(q.get("filter") ?? ""),
+```
+
+- Logic lives in its own module; the route only wires it up. Query is `URLSearchParams` (`q.get(...)`).
+- Throw `UserError("What happened. What to do.")` for anything the user should read (becomes HTTP 400).
+- Validate request input: `String(body.x ?? "")`, `safePart()`, `inside()`; never trust a path.
+- Anything that conflicts with a copy or a card job calls `requireIdle()` first (`src/jobs.ts`).
+
+## Running things
+
+- External commands: `run(cmd, args, timeoutMs)` from `src/platform/run.ts` (no shell, never throws).
+- Handheld commands: `runCommand()` in `src/device/ssh.ts`; quote anything interpolated into shell text.
+- Device files: `withTarget(volume, (t) => ...)` and the `DeviceFs` interface, so card, USB and Wi-Fi share code.
+- OS differences go in `src/platform/{darwin,linux,win32}.ts` behind the `Platform` interface.
+
+## Logging
+
+`say("green", "LABEL", "Sentence.")` from `src/log.ts` prints in the terminal and records to the activity log.
+Use it for every change the manager makes; use `dim()` for plain progress lines.

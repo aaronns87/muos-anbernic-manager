@@ -55,14 +55,16 @@ per-session token. Nothing is uploaded anywhere.
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
-- **Apps**: an app market of popular MustardOS apps with screenshots and release notes, picking the package for your
-  handheld; install `.muxapp` apps and `.muxupd` updates, and check for new MustardOS releases.
+- **Apps**: an app market of popular MustardOS apps and packages (including Void Desk and Dolphin Rt:Core) with
+  screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
+  and `.muxupd` updates, and check for new MustardOS releases.
 - **Device**: change MustardOS settings from the computer, calibrate analogs and watch live sticks (Controls), and run
   connectivity, storage and short CPU benchmarks over SSH.
 - **Themes**: browse the community theme library filtered for your screen, preview themes, install and apply them.
   The **Designer** makes your own themes with a live preview of the handheld's screens: palettes and colours, layout,
   grid menus, pictures, icons, fonts (converted from TTF/OTF) and sounds, every scheme setting MustardOS reads, colour
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
+  Failed autosaves keep your edits in the editor with **Retry**; switching themes, exporting and installing wait until they save.
 - **Emulation**: back up and restore saves and save states, check BIOS files in the workspace `bios/` folder (**Fix
   names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit
   RetroArch picture/play and Menu+X **core options** per folder, and run a health check of your library (verify dumps,
@@ -70,6 +72,7 @@ per-session token. Nothing is uploaded anywhere.
   **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can
   run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
+  Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
 - **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
   PPSSPP, Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest,
   Balanced and Best looking presets and recommendations for known heavy games. The game viewer Handheld tab embeds the
@@ -77,6 +80,8 @@ per-session token. Nothing is uploaded anywhere.
   the cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
 
 **Tools**
+- **Interface**: consistent dark and light layouts, responsive folder cards, compact phone navigation and game filters,
+  keyboard tab navigation, visible focus indicators and reduced-motion support.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
   Install needs a card reader; Set up TF2 and Reset card can also run over Wi-Fi/SSH on the handheld's TF2 without
   touching SD1 (setup: exFAT named TF2 with ROMS folders; reset: FAT32 or exFAT with the name you choose, empty).
@@ -333,7 +338,8 @@ the tests and type check first, and keep changes that write to the handheld behi
 - [CHANGELOG.md](CHANGELOG.md): release notes and version history; add user-visible changes under **Unreleased**.
 - [docs/architecture.md](docs/architecture.md): module map, request flow, device access and the MustardOS paths used.
 - [AGENTS.md](AGENTS.md): short guide for coding agents; Cursor also picks up the rules in `.cursor/rules/` and the
-  task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing).
+  task guides in `.cursor/skills/` (feature workflow, testing, device access, releasing). Codex uses copied rules
+  in `.codex/rules/` through `AGENTS.md` and copied skills in `.agents/skills/`. Keep both sets in sync.
 
 ## Credits
 

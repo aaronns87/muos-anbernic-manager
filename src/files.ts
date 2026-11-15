@@ -12,7 +12,7 @@ import { UserError } from "./errors.ts";
 import { Job, requireIdle, requireQueueable, startJob, type Work } from "./jobs.ts";
 import { files, human, say } from "./log.ts";
 import { platform } from "./platform/index.ts";
-import { exists, inside, removeQuietly } from "./util.ts";
+import { exists, inside, removeQuietly, renameAvailable } from "./util.ts";
 
 type Side = "local" | "device";
 
@@ -143,7 +143,7 @@ export async function filesRename(body: Record<string, unknown>) {
   if (s === "local") {
     const src = localPath(root, from), dest = localPath(root, [...dir, to]);
     if (!(await exists(src))) throw new UserError(`${from.at(-1)} is no longer there.`);
-    if ((await exists(dest)) && src.toLowerCase() !== dest.toLowerCase()) throw new UserError(`${to} already exists there.`);
+    if (!(await renameAvailable(src, dest))) throw new UserError(`${to} already exists there.`);
     await fsp.rename(src, dest);
   } else {
     await withTarget(String(body.volume ?? ""), async (t) => {
@@ -162,10 +162,15 @@ export async function removeDevice(f: DeviceFs, parts: string[]): Promise<number
     await f.delete(parts);
     return 1;
   }
-  const list = await f.list(parts);
+  const list = await f.list(parts, true);
   if (!list) throw new UserError(`${parts.at(-1)} is no longer on the handheld.`);
   let n = 0;
-  for (const e of list) n += await removeDevice(f, [...parts, e.name]);
+  for (const e of list) {
+    const child = [...parts, e.name];
+    if (e.folder) n += await removeDevice(f, child);
+    // Deleting a file can also remove its ._ metadata sidecar from this listing.
+    else if (await f.entry(child)) { await f.delete(child); n++; }
+  }
   await f.removeDir(parts);
   return n;
 }

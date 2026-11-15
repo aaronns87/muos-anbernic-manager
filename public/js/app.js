@@ -29,6 +29,7 @@ import { openActivity } from "./activity.js";
 import { renderOverview } from "./overview.js";
 import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
 import "./combo.js";
+import { bindUi } from "./ui.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
@@ -40,7 +41,11 @@ function showSection() {
   const s = section();
   for (const name of SECTIONS) $("view-" + name).hidden = s !== name;
   document.body.classList.toggle("in-ssh", s === "ssh");
-  document.querySelectorAll(".section-link").forEach((a) => a.classList.toggle("on", a.dataset.section === s));
+  document.querySelectorAll(".section-link").forEach((a) => {
+    const active = a.dataset.section === s;
+    a.classList.toggle("on", active);
+    if (active) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
   const nav = document.querySelector(".sections"), on = nav.querySelector(".on");
   if (on && nav.scrollWidth > nav.clientWidth) nav.scrollLeft += on.getBoundingClientRect().left - nav.getBoundingClientRect().left - (nav.clientWidth - on.offsetWidth) / 2;
   const [title, ico] = TITLES[s];
@@ -124,6 +129,7 @@ function bindShared() {
     if (e.target.dataset?.device === "pick") deviceAction("pick", e.target);
   });
   document.addEventListener("keydown", (e) => {
+    if (e.target instanceof Element && e.target.closest('[role="tablist"]') && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     if (document.querySelector("dialog[open]:not(#viewer)")) return;
     if ($("viewer").open) {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
@@ -167,6 +173,7 @@ applyView();
 setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
 bindShared();
+bindUi();
 bindModelPicker();
 bindGames();
 bindCopy();

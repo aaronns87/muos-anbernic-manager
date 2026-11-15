@@ -231,10 +231,12 @@ async function remove(name) {
 function bind() {
   T.bound = true;
   const view = $("view-themes"), dialog = $("themeview");
-  const click = (e) => {
+  const click = async (e) => {
     const t = e.target.closest("[data-th-tab]");
     if (t) {
-      if (tab()[0] === "designer" && t.dataset.thTab !== "designer") flushDesigner();
+      if (tab()[0] === "designer" && t.dataset.thTab !== "designer") {
+        try { await flushDesigner(); } catch (error) { toast(error.message, 6000); return; }
+      }
       store.set("themesTab", t.dataset.thTab);
       return render();
     }

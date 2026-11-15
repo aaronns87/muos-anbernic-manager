@@ -1,0 +1,34 @@
+---
+description: What muOS Anbernic Manager is, where things live, and the checks to run after a change
+alwaysApply: true
+---
+
+# muOS Anbernic Manager
+
+Local web app for MustardOS handhelds: Node 23.6+ server in `src/` (TypeScript run directly, no build) and a
+plain ES-module front end in `public/`, served on 127.0.0.1 with a per-run token.
+
+## Find things fast
+
+- Module map, request flow, device paths: `docs/architecture.md` (read it before scanning the tree).
+- Each file's first comment says what it does: `rg -n "^// " src/games/library.ts`.
+- API routes: the `routes` object in `src/server.ts` (`rg -n '"(GET|POST|PUT|DELETE) /api/' src/server.ts`).
+- Front-end entry: `public/js/app.js`; helpers and the API client: `public/js/core.js`.
+- User docs: `public/js/wiki.js` (`ARTICLES`), `README.md`.
+
+Do not read `node_modules/`, `.cache/` or the user's `Roms/`, `os/`, `apps/` folders (large, private).
+
+## After every change
+
+```bash
+npm run check && npm test
+node --check public/js/<changed>.js
+LC_ALL=C rg -n '[^\x00-\x7F]' <changed files>   # must print nothing for new lines
+```
+
+## Style
+
+- Match the surrounding code: small functions, early returns, no needless abstraction.
+- Comments only state a constraint the code cannot show; no "what the next line does" comments.
+- User-facing strings are plain, friendly sentences; errors say what to do next.
+- Feature changes update their test, the wiki article and, when users notice, the README.

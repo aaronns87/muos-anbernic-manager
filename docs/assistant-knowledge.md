@@ -52,6 +52,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 ### Top bar
 
 - **Connection chip** - Live links, Check/Connect/Disconnect, Wi-Fi help when offline.
+- On phones, the chip's panel replaces the duplicate sidebar device card; connection choices remain available there.
 - **Transfers** - Show Transfers / Hide Transfers. Queue, history, per-file progress. Shown when there is transfer state.
 - **Assistant** - Opens/hides chat dock after API key saved (same as mustard button bottom-right).
 - Version / Update / What's new as above.
@@ -68,6 +69,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 - `1`-`9`: first nine sidebar sections (Overview to Files); `0`: Wiki.
 - `?`: help for current page. `[`: fold sidebar.
 - Games: `/` search, `S` select mode, arrows in game viewer.
+- Tab bars: Left/Right to change tabs, Home/End for first/last. Tab to Skip to content to bypass navigation.
 
 ## overview - Overview
 
@@ -86,6 +88,7 @@ Every game under `Roms/<SYSTEM>/`, grouped by system, with box art and LaunchBox
 ### Finding and selecting
 
 Search matches titles, file names, regions, systems. Filters: platform, genre, year. **Roms/ library** vs **On TF2** switches computer vs handheld card. **Select** (or `S`) then Transfer, Trash, or delete from TF2.
+On phones, **Filters** reveals filters and the card-size slider and shows the active filter count. Hiding it keeps the selections. Wider screens always show the filters.
 
 ### Copying and Transfers
 
@@ -141,7 +144,7 @@ Packages: `.muxapp` apps, `.muxupd` updates/add-ons, `.muxzip` bundles. Live in 
 
 ### App market
 
-Popular apps (Scrappy, Artie, Grout, Bluetooth, ...) with screenshots, stars, notes, GitHub links. Filter to what runs on the model; badges for wrong handheld, abandoned, pre-release. **Get** downloads the right package for model/MustardOS. Send or Send and install. Reinstall from About. List refreshes every 12h; Refresh forces. Apps are third-party - read the page before install.
+Popular apps and packages (Scrappy, Artie, Grout, Bluetooth, Void Desk, Dolphin Rt:Core for GameCube/Wii on H700, ...) with screenshots, stars, notes, GitHub links. Filter to what runs on the model; badges for wrong handheld, abandoned, pre-release. **Get** downloads the right package for model/MustardOS release (Banana through Andromeda). Send or Send and install. Reinstall from About. Some packages still need a separate binary after install (Dolphin Rt:Core: put `dolphin` in `/opt/muos/share/emulator/dolphin/`). List refreshes every 12h; Refresh forces. Apps are third-party - read the page before install.
 
 ### Send then install
 

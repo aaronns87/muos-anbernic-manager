@@ -5,7 +5,7 @@ import { $, app, esc, icon, store, toast, DEVICES, model, modelInfo, cardKey, se
 import { byId, screenText } from "./devices.js";
 import { renderDevice } from "./device.js";
 
-const VIA = { usb: "Detected over USB", wifi: "Detected over Wi-Fi", ssh: "Detected over SSH", card: "Chosen for this card", picked: "Pick your handheld" };
+const VIA = { usb: "USB detected", wifi: "Wi-Fi detected", ssh: "SSH detected", card: "Card model", picked: "Change model" };
 const STICKS = ["no sticks", "one stick", "two sticks"];
 const makers = () => [...new Set(DEVICES.map((d) => d.maker))];
 const detected = (via) => via === "usb" || via === "wifi" || via === "ssh";
@@ -19,7 +19,7 @@ export function renderModelPicker() {
       ${icon("handheld")}<span><b>${esc(d.name)}</b><small>${esc(optSub(d))}</small></span>${d.id === m.id ? icon("check", "mp-check") : ""}</button>`;
   box.innerHTML = `<button class="mp-btn" aria-haspopup="listbox" aria-expanded="${open}" title="Device model: ${esc(VIA[via])}">
       <span class="mp-ico">${icon("handheld")}</span>
-      <span class="mp-text"><b>${esc(m.name)}</b><small>${esc(m.maker)} &middot; ${esc(VIA[via])}</small></span>
+      <span class="mp-text"><b>${esc(m.name)}</b><small>${esc(VIA[via])}</small></span>
       ${icon("down", "mp-chev")}
     </button>
     <div class="mp-menu" role="listbox" aria-label="Device model">

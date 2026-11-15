@@ -2,7 +2,7 @@
 // each game would get, and saves the chosen ones as PNG in Roms/<SYS>/Imgs. Sending them to the device is the Sync tab.
 
 import { $, app, api, esc, store, plural, initial, busy, toast, TOKEN, icon } from "./core.js";
-import { loadLibrary } from "./games.js";
+import { loadLibrary, noteLibraryChange, setGameArt } from "./games.js";
 import { pngData, confirmBox } from "./art-images.js";
 import { invalidateLocal } from "./art-local.js";
 
@@ -113,7 +113,12 @@ async function save(item) {
   if (!canvas) throw new Error(`No artwork found for ${item.name}`);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
   const png = await pngData(blob, 0);
-  await api("artwork/local/put", { system: item.code, stem: item.stem, data: png.data, bulk: true });
+  const res = await api("artwork/local/put", { system: item.code, stem: item.stem, data: png.data, bulk: true });
+  item.has = true;
+  if (res?.image) {
+    item.image = res.image;
+    setGameArt(item.code, item.file, res.image);
+  }
 }
 
 // ---------------------------------------------------------------- panels
@@ -316,7 +321,6 @@ async function saveAll() {
       const item = todo[next++];
       try {
         await save(item);
-        item.has = true;
         state.saved++;
       } catch (error) {
         task.failed++;
@@ -330,10 +334,13 @@ async function saveAll() {
   state.task = null;
   toast(`Saved ${plural(state.saved, "image")}${task.failed ? `, ${task.failed} failed (${task.error})` : ""}${task.stop ? ", stopped" : ""}`, task.failed ? 6000 : 3000);
   invalidateLocal();
+  noteLibraryChange();
   try {
     await api("games/rescan", {});
     await loadLibrary();
-  } catch {}
+  } catch (error) {
+    toast(error.message || "Could not refresh the games library after saving artwork.", 4500);
+  }
   redraw();
 }
 

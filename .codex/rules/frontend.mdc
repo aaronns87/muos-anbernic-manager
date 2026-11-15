@@ -1,0 +1,39 @@
+---
+description: Conventions for the browser app in public/ (plain ES modules, no framework)
+globs: public/**
+alwaysApply: false
+---
+
+# Front end (public/)
+
+Plain ES modules, one `index.html`, one `css/app.css`. No framework, bundler or npm packages in the browser.
+
+## Patterns
+
+- API: `const data = await api("things", body)` from `core.js` calls `/api/things` (POST with a body, GET
+  without), adds the token and throws `Error(message)` on failure. Show failures with `toast(error.message, 3000)` or inline, never `alert()`.
+- Rendering: build HTML strings and set `innerHTML`; every dynamic value goes through `esc()`.
+- Events: one delegated listener per module on a container (or `document`) using `data-*` attributes:
+  `if (e.target.closest("[data-mgr-act]")) ...`. Do not attach listeners per rendered element.
+- State: module-level objects; persisted UI choices via `store.get/set` (localStorage `manager.*`).
+- Icons: `icon("name")` / `ICONS.spin` from `core.js`; names are the keys of `PATHS` there.
+- Dialogs: `<dialog>` in `index.html` with `.help-head` header, a body element and `.fv-foot` footer; open with
+  `showModal()`. Add the new ids to the element list in `test/server.test.ts`.
+- New section: `view-<name>` in `index.html`, `SECTIONS` in `core.js`, `TITLES` and `showSection()` in `app.js`,
+  a wiki article in `wiki.js`.
+
+## Shared code
+
+`public/js/devices.js` is also imported by the server: no DOM, no Node APIs, plain data and functions.
+
+## CSS
+
+- Use the variables in `:root` (`--mustard`, `--panel-2`, `--muted`, `--ok`, `--bad`, ...), never raw colours.
+- Reuse existing classes (`.btn`, `.btn.primary`, `.set-row`, `.set-chip`, `.switch`, `.muted-note`) before
+  adding new ones; prefix new feature classes (`.wiz-*`, `.mgr-*`).
+- Modal dialogs that should hug their content need `height: fit-content`.
+- Check phone widths: the browser test fails on sideways scrolling.
+
+## Text
+
+Write for non-technical users: short sentences, name the button they press, say what happens on the handheld.
