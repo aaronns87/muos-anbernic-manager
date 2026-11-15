@@ -270,8 +270,9 @@ those already on `main` but not yet released.
 | USB cable | Andromeda: turn **Device Link → USB Cable** off, connect Wi-Fi + SSH, set **Device → Settings → Advanced → USB function → MTP** in this manager (often not on the handheld menus), then unplug/replug. Older builds: **Advanced Settings → USB Function → MTP**. | Copying games and artwork; play time. |
 | Wi-Fi | Turn on **Configuration > Connectivity > Web Services > Secure File Transfer** (Andromeda; older builds: SFTP + Filebrowser) for files, and **Secure Shell** for everything else. | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
 
-Switch between them at the top of the Overview page. The default MustardOS logins (`muos`/`muos` for SFTP, `root`/`root`
-for SSH) are filled in; **Find on network** looks for the handheld's address.
+Switch between them from the top-bar connection chip (**Transfer path** cards for USB / Wi-Fi / Card). Game copies use the
+primary path; Play activity can use any live USB or Wi-Fi link. The default MustardOS logins (`muos`/`muos` for SFTP,
+`root`/`root` for SSH) are filled in; **Find on network** looks for the handheld's address.
 
 ## Usage
 

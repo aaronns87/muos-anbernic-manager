@@ -29,7 +29,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 2. **USB** - Andromeda: turn off Connectivity > Device Link > USB Cable; enable Wi-Fi + Secure Shell; in the manager Device > Settings > Advanced set **USB function** to **MTP** (often not shown on the handheld), then unplug/replug. Older: Advanced Settings > USB Function > MTP.
 3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel (primary path for copies, reconnect, Wi-Fi setup). Game copies use one primary path at a time.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
 
 ### How the model is known
 
@@ -124,7 +124,7 @@ Computer: Trash, optional art. Handheld card: permanent.
 
 ## play - Play
 
-Needs USB or Wi-Fi (data on SD1). Games card alone is not enough.
+Needs USB or Wi-Fi (data on SD1). Games card alone is not enough. Works whenever USB or Wi-Fi is live in the top bar — Card reader as the primary transfer path does not block it.
 
 **Play time**: MustardOS activity tracking (on by default). Totals, launches, sort by most/last played, launches, name. Box art from Roms when present. Refresh after playing (written when leaving a game).
 

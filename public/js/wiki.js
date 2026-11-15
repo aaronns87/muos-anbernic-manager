@@ -40,7 +40,9 @@ const ARTICLES = [
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>
-    <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel (switch the primary path for copies, reconnect, or set up Wi-Fi). Game copies still use one primary path at a time.</p>`],
+    <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel.
+      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path.
+      Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
     ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
       artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
       <table class="wiki-table">
@@ -57,7 +59,7 @@ const ARTICLES = [
     ["Which connection each feature needs", `<table class="wiki-table">
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
-      <tr><td>Play time, Recently played, Collections</td><td>USB or Wi-Fi (they live on SD1 inside the handheld)</td></tr>
+      <tr><td>Play time, Recently played, Collections</td><td>Any live USB or Wi-Fi link (data on SD1; Card reader as primary is fine)</td></tr>
       <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
@@ -70,7 +72,7 @@ const ARTICLES = [
     </ul>`],
     ["Navigation and connection", `<p>On smaller screens, Menu opens all sections. Close menu or Escape returns to the current task. Play activity shows play history and collections; Terminal contains SSH tools.</p>
       <p>Section tabs have direct links, such as <a href="#emulation/checks">Library checks</a> and <a href="#settings/appearance">Appearance</a>. Browser Back and Forward return to previous tabs.</p>
-      <p>The connection button opens Files for game and artwork transfers, or Remote controls for SSH settings. Setup stays beside your current page. A responding SSH service still checks sign-in when you use a remote feature.</p>`],
+      <p>The connection button opens Files (transfer path cards, Wi-Fi address, Andromeda USB help) or Remote controls (SSH settings, Test sign-in, Trust host key). Setup stays beside your current page.</p>`],
     ["Layout and recovery", `<p>Apps leads with App market; Import packages adds files you already have. Apps and Saves keep full folder paths in expandable details. Settings separates visual style from density, provides Copy path, and warns about low text contrast in custom palettes.</p>
       <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Install MustardOS, Set up TF2 and Reset card each ask for a final confirmation modal (Install then uses sudo on macOS). You can skip read-back verification before or during install.</p>`],
     ["Keyboard shortcuts", `<ul>
@@ -155,6 +157,8 @@ const ARTICLES = [
     ["Deleting a game", `<p>From this computer it goes to the Trash, optionally with its artwork. From the handheld's card it is deleted for good.</p>`],
   ]],
   ["play", "clock", "Play", "play", "Play time, recently played games and collections on the handheld.", [
+    ["Needs a live handheld link", `<p>Play data lives on SD1 inside the handheld, so a games card in a reader is not enough. USB or Wi-Fi must be live
+      (the top bar shows them). Card reader can stay the primary transfer path; Play still uses the live USB or Wi-Fi link.</p>`],
     ["Play time", `<p>MustardOS records how long and how often you play each game while activity tracking is on (it is by default). This tab reads that
       record from SD1 and shows the total time played, the number of games and launches, and a list you can sort by most played, last played,
       most launches or name. Box art comes from your <code>Roms/</code> library when the game is there too.</p>

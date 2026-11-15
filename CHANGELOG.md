@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda USB/SFTP/SSH fixes, OS library/market, MustardTube, Appearance, System Tools confirm modals + remount-safe macOS install |
+| [Unreleased](#unreleased) | | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -86,9 +86,13 @@ version.
   MustardOS reinstall; Device Settings and Terminal offer the same Trust action when the key changed.
 - USB cable mode on Andromeda shows spaced **Andromeda USB (MTP) help** in the connection panel: Device Link off → Wi-Fi + SSH →
   set MTP in Device Settings (often missing on-device) → unplug/replug, with a link to Device Settings.
+- Connection panel Files tab uses selectable **Transfer path** cards (USB / Wi-Fi / Card) instead of a duplicate mode switcher
+  plus status list, with clearer action and help sections.
 
 ### Fixed
 
+- Play activity (and game viewer play/collections) uses a live USB or Wi-Fi link even when Card reader is the primary transfer
+  path — no longer shows “Connect the handheld” while USB · Wi-Fi is already up in the top bar.
 - Wi-Fi SFTP recognises Andromeda's **Primary Storage** / **Secondary Storage** folders (Dropbear Secure File Transfer), not only
   the older SFTPGo **SD1** / **SD2** names — fixes "No SD1 or SD2 folder is visible over SFTP" after updating to Andromeda.
 - After reinstalling MustardOS, a changed SSH host key can be trusted from the connection panel, Terminal, or Device Settings

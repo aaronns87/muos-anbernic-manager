@@ -1,6 +1,6 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
-import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime, setTabRoute } from "./core.js";
+import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime, handheldVolume, setTabRoute } from "./core.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
@@ -642,7 +642,7 @@ async function resetPlay(what) {
   s.working = `set-play-${what}`;
   render();
   try {
-    const r = await api("play/reset", { volume: app.device.target?.id || "", what });
+    const r = await api("play/reset", { volume: handheldVolume(), what });
     forgetPlay();
     forgetActivity();
     toast(time ? "Play time reset" : r.removed ? `Removed ${plural(r.removed, "game")} from the history` : "The history was already empty", 2600);

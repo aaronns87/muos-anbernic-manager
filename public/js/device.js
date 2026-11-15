@@ -228,10 +228,40 @@ function linkStatusRows() {
   }
 
   return [
-    { mode: "usb", ico: "cable", label: "USB", status: usbStatus, live: links.usb, primary: primary === "usb" },
+    { mode: "usb", ico: "cable", label: "USB cable", status: usbStatus, live: links.usb, primary: primary === "usb" },
     { mode: "wifi", ico: "wifi", label: "Wi-Fi", status: wifiStatus, live: links.wifi, primary: primary === "wifi" },
     { mode: "card", ico: "sd", label: "Card reader", status: cardStatus, live: links.card, primary: primary === "card" }
   ];
+}
+
+/** Selectable transfer paths: one control that sets the primary mode and shows live status. */
+function pathPicker() {
+  const dis = busy() ? " disabled" : "";
+  return `<div class="sb-conn-paths" role="radiogroup" aria-label="Transfer path">${linkStatusRows().map((row) => `
+    <button type="button" role="radio" class="sb-conn-path${row.live ? " live" : ""}${row.primary ? " on" : ""}"
+      data-device="mode" data-mode="${row.mode}" aria-checked="${row.primary}"${dis}
+      title="${row.primary ? "Primary path for copies" : `Use ${esc(row.label)} for copies`}">
+      <span class="sb-conn-path-ico">${icon(row.ico)}</span>
+      <span class="sb-conn-path-text">
+        <b>${esc(row.label)}</b>
+        <small>${esc(row.status)}</small>
+      </span>
+      ${row.primary ? `<span class="sb-conn-path-badge">Primary</span>` : ""}
+    </button>`).join("")}</div>`;
+}
+
+function connHelpBlock(conn) {
+  const andromedaUsb = app.ui.mode === "usb" && isAndromedaOs();
+  const steps = andromedaUsb ? (conn.steps.length ? conn.steps : andromedaUsbSteps()) : conn.steps;
+  if (!steps.length) return "";
+  const open = !liveLinks()[app.ui.mode === "card" ? "card" : app.ui.mode] || ["link", "nomtp", "none", "wifisetup", "wifioff"].includes(conn.state);
+  return `<details class="conn-help"${open ? " open" : ""}>
+    <summary>${andromedaUsb ? "Andromeda USB (MTP) help" : "Connection help"}</summary>
+    <ol class="steps">${steps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
+    ${andromedaUsb
+      ? `<p class="muted-note"><a href="#handheld" data-conn-overview>Open Device Settings</a> (needs Wi-Fi + SSH) to set USB function to MTP when the handheld menu does not show it.</p>`
+      : ""}
+  </details>`;
 }
 
 /** The handheld's SFTPGo web file manager, or "" before an address is set. */
@@ -390,9 +420,8 @@ function remoteSetup() {
     : signedIn ? "Signed in over SSH."
     : s?.reachable ? "SSH is answering. Use Test sign-in to check the password and host key."
     : "SSH is not available yet.";
-  return `<p class="muted-note">Apps, saves, themes and device settings use Secure Shell (SSH). On the handheld, turn on Configuration &gt; Web Services &gt; Secure Shell.</p>
-    ${remoteHostKeyBlock(s)}
-    <p class="muted-note">${statusNote}</p>
+  return `<p class="muted-note">Apps, saves, themes and device settings use Secure Shell (SSH). On the handheld, turn on Configuration &gt; Connectivity &gt; Web Services &gt; Secure Shell.</p>
+    <div class="sb-conn-remote-status"><p class="muted-note">${statusNote}</p>${remoteHostKeyBlock(s)}</div>
     ${s ? `<form class="conn-remote-form">
       <label>Handheld address<input class="control" name="host" value="${esc(s.hostSetting || "")}" placeholder="${esc(s.host ? `Same as file connection (${s.host})` : "192.168.0.32")}" autocomplete="off"></label>
       <div class="conn-form-row"><label>Port<input class="control" name="port" value="${s.port}" inputmode="numeric" required></label><label>User<input class="control" name="user" value="${esc(s.user)}" autocomplete="off" required></label></div>
@@ -421,7 +450,7 @@ function positionConnPanel() {
   const panel = $("sb-conn-panel");
   if (!btn || !panel || panel.hidden) return;
   const r = btn.getBoundingClientRect();
-  const width = Math.min(380, window.innerWidth - 16);
+  const width = Math.min(420, window.innerWidth - 16);
   let left = r.right - width;
   if (left < 8) left = 8;
   panel.style.top = `${Math.round(r.bottom + 6)}px`;
@@ -438,6 +467,7 @@ function paintConnPanel() {
   }
   const typed = [...panel.querySelectorAll("input")].map(el => [(el.closest(".conn-remote-form") ? "ssh:" : "files:") + (el.name || el.dataset.wifi || el.id), el.value]);
   const focused = panel.contains(document.activeElement) ? document.activeElement : null;
+  const focusMode = focused?.matches("[data-device=mode][data-mode]") ? focused.dataset.mode : "";
   const focusAction = focused?.matches("[data-conn-close]") ? "[data-conn-close]"
     : focused?.matches("[data-conn-tab]") ? `[data-conn-tab="${focused.dataset.connTab}"]`
     : focused?.matches("[data-conn-check]") ? "[data-conn-check]"
@@ -446,35 +476,27 @@ function paintConnPanel() {
     : focused?.matches(".conn-remote-form button:not([type])") ? ".conn-remote-form button:not([type])" : "";
   const focusKey = focused && (focused.closest(".conn-remote-form") ? "ssh:" : "files:") + (focused.name || focused.dataset.wifi || focused.id);
   const conn = connection(), w = app.device.wifi || {};
-  const rows = linkStatusRows().map((row) =>
-    `<li class="sb-conn-link${row.live ? " live" : ""}${row.primary ? " primary" : ""}">
-      <span class="sb-conn-link-ico">${icon(row.ico)}</span>
-      <span class="sb-conn-link-text"><b>${esc(row.label)}${row.primary ? " · primary" : ""}</b><small>${esc(row.status)}</small></span>
-    </li>`).join("");
   const showWifi = app.ui.mode === "wifi" || !w.configured;
-  const andromedaUsb = app.ui.mode === "usb" && isAndromedaOs();
-  const usbHelpSteps = andromedaUsb ? (conn.steps.length ? conn.steps : andromedaUsbSteps())
-    : conn.steps;
-  const usbHelpOpen = app.ui.mode === "usb" && !liveLinks().usb;
-  const usbHelp = usbHelpSteps.length
-    ? `<details class="conn-help"${usbHelpOpen ? " open" : ""}><summary>${andromedaUsb ? "Andromeda USB (MTP) help" : "Connection help"}</summary>
-        <ol class="steps">${usbHelpSteps.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
-        ${andromedaUsb
-          ? `<p class="muted-note"><a href="#handheld" data-conn-overview>Open Device Settings</a> (needs Wi-Fi + SSH) to set USB function to MTP when the handheld menu does not show it.</p>`
-          : ""}</details>`
-    : "";
+  const primaryLabel = ({ usb: "USB cable", wifi: "Wi-Fi", card: "Card reader" })[app.ui.mode] || "this path";
+  const actions = deviceButtons(conn);
   panel.innerHTML = `<div class="sb-conn-panel-inner">
     <div class="conn-panel-head"><b>Connection</b><button class="btn small" data-conn-close>Done</button></div>
-    <div class="segmented" role="group" aria-label="Connection capability"><button data-conn-tab="files" class="${connTab === "files" ? "on" : ""}" aria-pressed="${connTab === "files"}">Files</button><button data-conn-tab="ssh" class="${connTab === "ssh" ? "on" : ""}" aria-pressed="${connTab === "ssh"}">Remote controls</button></div>
-    <div ${connTab === "files" ? "" : "hidden"}>
-    <p class="muted-note">Copy games and artwork, or browse files. Choose the connection used for transfers.</p>
-    <div class="sb-conn-section"><span class="mode-label">Connect with</span>${modePicker()}</div>
-    <ul class="sb-conn-links">${rows}</ul>
-    <div class="sb-conn-actions">${deviceButtons(conn)}</div>
-    ${usbHelp}
-    ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi settings</span>${wifiForm({ ids: false })}</div>` : ""}
-    <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
-    </div><div ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}</div>
+    <div class="segmented wide" role="group" aria-label="Connection capability"><button data-conn-tab="files" class="${connTab === "files" ? "on" : ""}" aria-pressed="${connTab === "files"}">Files</button><button data-conn-tab="ssh" class="${connTab === "ssh" ? "on" : ""}" aria-pressed="${connTab === "ssh"}">Remote controls</button></div>
+    <div class="sb-conn-body" ${connTab === "files" ? "" : "hidden"}>
+      <p class="muted-note">Pick how copies reach the handheld. The highlighted path is used for transfers.</p>
+      <div class="sb-conn-section">
+        <span class="mode-label">Transfer path</span>
+        ${pathPicker()}
+      </div>
+      ${actions ? `<div class="sb-conn-actions-block">
+        <span class="mode-label">Actions for ${esc(primaryLabel)}</span>
+        <div class="sb-conn-actions">${actions}</div>
+      </div>` : ""}
+      ${connHelpBlock(conn)}
+      ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi address</span>${wifiForm({ ids: false })}</div>` : ""}
+      <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
+    </div>
+    <div class="sb-conn-body" ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}</div>
   </div>`;
   for (const input of panel.querySelectorAll("input")) {
     const key = (input.closest(".conn-remote-form") ? "ssh:" : "files:") + (input.name || input.dataset.wifi || input.id);
@@ -483,7 +505,8 @@ function paintConnPanel() {
     if (focusKey && focusKey === key) input.focus({ preventScroll: true });
   }
   panel.hidden = false;
-  if (focusAction) panel.querySelector(focusAction)?.focus({ preventScroll: true });
+  if (focusMode) panel.querySelector(`[data-device="mode"][data-mode="${focusMode}"]`)?.focus({ preventScroll: true });
+  else if (focusAction) panel.querySelector(focusAction)?.focus({ preventScroll: true });
   document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "true");
   positionConnPanel();
 }

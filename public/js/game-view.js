@@ -1,7 +1,7 @@
 // The library game viewer's details: facts, the game's state on the handheld, its file, library check, BIOS
 // and related games, in tabs. Handheld data is read in the background and kept for a while across games.
 
-import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, store, toast, busy, canCopy, devName, handheldMode, isOnCard, keyOf, onCardState } from "./core.js";
+import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, store, toast, busy, canCopy, devName, handheldMode, handheldVolume, isOnCard, keyOf, onCardState } from "./core.js";
 import { artMax, confirmBox, droppedImage, pickImage, pngData } from "./art-images.js";
 import { noteKind, systemNote, useCore, useSystem } from "./system-notes.js";
 import { focusTuningGame } from "./tuning.js";
@@ -60,14 +60,14 @@ function loadDetails() {
 /** play, cols, cores, saves: undefined while reading, null when not available, { error } or the answer. */
 function loadDevice(force = false) {
   const d = V.dev;
-  const target = app.device.target?.id || "", wifi = !!app.device.wifi?.reachable;
+  const target = handheldVolume(), wifi = !!app.device.wifi?.reachable;
   const key = `${target}|${wifi}`;
   if (!force && d.key === key && Date.now() - d.at < DEVICE_TTL) return;
   const seq = ++d.seq;
   Object.assign(d, { key, at: Date.now(), play: undefined, cols: undefined, cores: undefined, saves: undefined });
   const set = (k) => (v) => { if (seq === d.seq) { d[k] = v; paint("device"); } };
   const fail = (k) => (e) => { if (seq === d.seq) { d[k] = { error: e.message }; paint("device"); } };
-  if (target && handheldMode()) {
+  if (target) {
     api(`play?volume=${enc(target)}`).then(set("play"), fail("play"));
     api(`collections?volume=${enc(target)}`).then(set("cols"), fail("cols"));
   } else d.play = d.cols = null;
@@ -77,7 +77,7 @@ function loadDevice(force = false) {
   } else d.cores = d.saves = null;
 }
 
-const deviceKnown = () => handheldMode() || !!app.device.wifi?.reachable;
+const deviceKnown = () => !!handheldVolume() || !!app.device.wifi?.reachable;
 const sameRom = (system, file) => String(system).toUpperCase() === V.cur.sys.code.toUpperCase() && file === V.cur.g.f;
 
 function playOf() {
@@ -613,7 +613,7 @@ export function enrichViewer(index) {
   $("v-back").hidden = !V.back.length;
   const fm = fileManager();
   $("v-reveal-label").textContent = fm ? `Show in ${fm}` : "Open folder";
-  V.devSig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
+  V.devSig = `${handheldVolume()}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
   loadDetails();
   loadDevice();
   paint();
@@ -624,7 +624,7 @@ export function enrichViewer(index) {
 export function viewerDeviceChanged() {
   if (!V.cur || !$("viewer").open) return;
   const { sys, g } = V.cur;
-  const sig = `${app.device.target?.id || ""}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
+  const sig = `${handheldVolume()}|${!!app.device.wifi?.reachable}|${canCopy(sys)}|${devName()}|${onCardState(sys, g) || ""}`;
   if (sig === V.devSig) {
     syncTransferButton();
     return;

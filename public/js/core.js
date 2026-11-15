@@ -297,6 +297,18 @@ export const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" 
 export const usbMode = () => !!app.device.target && app.device.target.mode === "usb";
 /** The handheld itself, over USB or Wi-Fi, rather than a card in a reader. */
 export const handheldMode = () => !!app.device.target && app.device.target.mode !== "card";
+/**
+ * Volume id for features that need the handheld (play time, collections): the primary USB/Wi-Fi
+ * target when that is the copy path, otherwise a live USB or Wi-Fi link even if Card reader is primary.
+ */
+export function handheldVolume() {
+  const t = app.device.target;
+  if (t?.mode === "usb" || t?.mode === "wifi") return t.id;
+  const h = app.device.handheld, w = app.device.wifi || {};
+  if (h && h.mtp && h.ready && h.libmtp && !h.released) return "usb";
+  if (w.configured && w.reachable) return "wifi";
+  return "";
+}
 /** A sentence for slow device reads, or "" for a card reader. */
 export const slowHint = () => (!handheldMode() ? "" : usbMode() ? " Over USB this can take a minute." : " Over Wi-Fi this can take a minute.");
 /** The games card: "TF2" on two-slot handhelds, "SD card" where one card holds MustardOS and games. */
