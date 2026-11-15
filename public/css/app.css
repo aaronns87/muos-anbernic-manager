@@ -3581,3 +3581,111 @@ dialog { max-height: 90dvh; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   .game:hover { transform: none; }
 }
+
+/* Overview tasks and compact local-folder details. */
+.ov-local-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.apps-location, .sv-location { margin-bottom: 16px; color: var(--muted); font-size: 12px; }
+.apps-location summary, .sv-location summary { cursor: pointer; width: fit-content; padding: 8px 0; }
+.apps-location code, .sv-location code { display: block; overflow-wrap: anywhere; margin: 4px 0 8px; color: var(--text); }
+.apps-location a, .sv-location a { display: inline-block; padding: 4px 0; }
+
+/* Settings locations and System Tools prerequisite disclosure. */
+.set-folder .set-path { border: 0; padding: 0; background: transparent; }
+.set-folder .set-path code { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.set-folder-location { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.set-folder-location summary, .sys-prerequisites summary { cursor: pointer; padding: 8px 0; }
+.set-folder-location[open] { display: block; }
+.set-folder-location > code { display: block; padding: 8px 0; overflow-wrap: anywhere; user-select: text; }
+.set-folder-location .btn { margin-top: 4px; }
+.set-contrast { padding: 10px 12px; background: var(--panel-2); border-radius: 8px; }
+.set-contrast.warn { color: var(--warn); }
+.sys-next-step { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+.sys-prerequisites { font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.sys-prerequisites .go-checks { margin-top: 8px; }
+
+/* Files transfer context and theme recovery. */
+.fx-switch { display: none; }
+.fx-destination { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: var(--panel-2); color: var(--muted); font-size: 12px; }
+.fx-destination span { min-width: 0; overflow-wrap: anywhere; }
+.fx-destination b { color: var(--text); font-weight: 600; }
+.fx-destination .btn { flex: none; }
+.fx-review { display: grid; gap: 6px; margin: 12px 0; }
+.fx-review dt { color: var(--muted); font-size: 12px; }
+.fx-review dd { margin: 0 0 8px; font-weight: 600; overflow-wrap: anywhere; }
+.fx-save-error { flex-shrink: 0; overflow-wrap: anywhere; }
+.th-action-error { flex-basis: 100%; flex-wrap: wrap; overflow-wrap: anywhere; }
+.th-action-error span { flex: 1; min-width: 0; }
+.dz-advanced { border-top: 1px solid var(--line); padding-top: 12px; }
+.dz-advanced summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
+.dz-target { padding: 10px 0; }
+@media (max-width: 720px) {
+  .fx-switch { display: flex; gap: 8px; margin-bottom: 12px; }
+  .fx-switch .btn { flex: 1; white-space: normal; min-height: 44px; }
+  .fx[data-active="local"] > [data-side="device"], .fx[data-active="device"] > [data-side="local"] { display: none; }
+  .fx-destination { align-items: flex-start; flex-direction: column; }
+  .fx-tools [data-fx="copy"] { width: 100%; justify-content: center; }
+  .fx-list { max-height: 55dvh; }
+}
+.dz-action-error { flex-basis: 100%; overflow-wrap: anywhere; }
+
+/* Task navigation: a compact shell on smaller windows. */
+.nav-open, .nav-close, .nav-help, .nav-backdrop { display: none; }
+.sd-actions .btn.primary { background: var(--panel-2); border-color: var(--line-2); color: var(--text); }
+.tabs button.on { background: var(--panel-3); color: var(--text); box-shadow: inset 0 -2px var(--mustard); }
+@media (max-width: 980px) {
+  .app { display: block; }
+  .nav-open, .nav-close, .nav-help { display: inline-flex; }
+  .app > aside { position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; align-items: stretch; width: min(320px, 88vw); height: 100dvh; padding: 16px; background: var(--bar); z-index: 120; border-right: 1px solid var(--line); transform: translateX(-101%); visibility: hidden; overflow-y: auto; }
+  body.nav-visible { overflow: hidden; }
+  body.nav-visible .app > aside { transform: none; visibility: visible; }
+  .app > aside > .sections { display: flex; flex-direction: column; flex-wrap: nowrap; overflow: visible; margin: 0; padding: 0; flex-shrink: 0; }
+  .app > aside > .sd { display: none; }
+  .app > aside .brand { margin: 12px 0; }
+  .app > aside .brand small, .app > aside .nav-label { display: block; }
+  .app > aside .nav-group { display: block; margin-top: 12px; }
+  .app > aside .section-link { min-height: 44px; width: 100%; justify-content: flex-start; }
+  .app > aside .nav-count { margin-left: auto; }
+  .nav-close { align-self: flex-end; }
+  .nav-backdrop:not([hidden]) { display: block; position: fixed; inset: 0; border: 0; background: color-mix(in srgb, var(--bg) 70%, transparent); z-index: 119; }
+  .statusbar { flex-wrap: nowrap; gap: 8px; padding-top: 6px; padding-bottom: 6px; min-height: 60px; }
+  .statusbar h1 { font-size: 16px; }
+  #sb-title { flex: 1 1 auto; }
+  #sb-title > .i { display: none; }
+  .sb-status { flex: 0 1 auto; flex-wrap: nowrap; }
+  .sb-clock, .sb-ver:not(.new), .sb-batt, .sb-chat, .sb-help { display: none; }
+  .sb-conn span { max-width: 75px; overflow: hidden; text-overflow: ellipsis; }
+  .page-head { padding-top: 16px; padding-bottom: 12px; }
+}
+@media (max-width: 720px) {
+  #view-games .page-head { gap: 10px; }
+  #view-games .stats { gap: 8px; font-size: 12px; }
+  #games-device { display: none; }
+  #view-games .page-actions { gap: 6px; flex-wrap: wrap; }
+  .tool-end { display: none; }
+  .tool-row { gap: 8px; }
+  .toolbar { padding-top: 0; }
+  .sb-job:not(.idle) span { max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
+  .sb-ver.new { max-width: 75px; overflow: hidden; }
+}
+
+/* Connection setup keeps the current task in view. */
+.conn-panel-head, .conn-form-row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.conn-remote-form { display: grid; gap: 12px; }
+.conn-remote-form label { display: grid; gap: 6px; font-size: 13px; min-width: 0; }
+.conn-remote-form input { width: 100%; }
+.conn-form-row > label { flex: 1; }
+.sb-conn-panel [hidden] { display: none; }
+.sb-conn-panel { max-height: calc(100dvh - 90px); overflow-y: auto; }
+@media (max-width: 720px) {
+  #games-filters .tool-end { display: flex; }
+}
+
+/* Offline home uses compact connection guidance and balanced local tasks. */
+.ov-grid.ov-offline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ov-grid.ov-offline > .panel { grid-column: auto; }
+.ov-grid.ov-offline > .ov-connect { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.ov-connect h2 { margin-bottom: 8px; }
+.ov-connect p { margin: 0; }
+@media (max-width: 800px) {
+  .ov-grid.ov-offline { grid-template-columns: minmax(0, 1fr); }
+}

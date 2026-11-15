@@ -654,7 +654,7 @@ function goTo(where) {
     store.set("emuTab", "checks");
     store.set("checkView", "disc");
     $("viewer").close();
-    location.hash = "#emulation";
+    location.hash = "#emulation/checks";
     return;
   }
   if (where === "tuning") {
@@ -666,7 +666,7 @@ function goTo(where) {
   const emu = { cores: "cores", checks: "checks", bios: "bios", saves: "saves" }[where];
   if (emu) store.set("emuTab", emu);
   $("viewer").close();
-  location.hash = emu ? "#emulation" : where === "art" ? "#artwork" : `#${where}`;
+  location.hash = emu ? `#emulation/${emu}` : where === "art" ? "#artwork" : `#${where}`;
 }
 
 async function saveTune() {

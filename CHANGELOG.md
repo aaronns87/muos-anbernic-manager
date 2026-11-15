@@ -34,6 +34,15 @@ version.
 ### Changed
 
 - Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
+- Smaller screens use a navigation drawer and compact header, leaving more room for the current task. Section tabs
+  have direct links, keyboard navigation and screen-reader connections to their content.
+- Connection setup groups file access and remote controls in one panel without leaving the current section.
+  Offline Overview offers local library tasks; Apps, Saves and Game Tuning have shorter, actionable setup guidance.
+- Files uses switchable panes on phones and shows the copy destination. Save and theme action errors stay visible
+  with recovery actions. Themes prioritizes previews while offline; advanced Designer targets are tucked away.
+- Apps consistently leads with App market and offers Import packages as a secondary action. Apps and Saves keep
+  full folder paths in expandable details. Settings simplifies folder controls and separates density from visual style;
+  custom palettes show contrast guidance. System Tools highlights the next prerequisite while retaining erase safeguards.
 
 ## [1.2.6] - 2026-11-15
 

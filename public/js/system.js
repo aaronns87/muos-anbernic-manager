@@ -1,7 +1,7 @@
 // System section: the SD card in a card reader, and the jobs that rewrite it (install MustardOS, set up TF2, reset).
 // Set up TF2 and Reset card also run over Wi-Fi/SSH on the handheld's TF2; install stays card-reader only.
 
-import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model } from "./core.js";
+import { $, app, api, clock, esc, human, icon, plural, section, store, toast, model, setTabRoute } from "./core.js";
 import { imageDevice } from "./devices.js";
 import { renderStatusbar } from "./device.js";
 import { confirmBox } from "./art-images.js";
@@ -104,7 +104,7 @@ function renderCard() {
   }
   const c = card(), parts = c.partitions, busyNow = running();
   const chips = S.cards.length > 1
-    ? `<div class="sc-chips" role="tablist" aria-label="Cards">${S.cards.map((x) => `<button class="${x.id === c.id ? "on" : ""}" role="tab" aria-selected="${x.id === c.id}" data-sys="disk" data-disk="${esc(x.id)}" ${busyNow ? "disabled" : ""}>${icon("sd")}<b>${esc(x.id)}</b><small>${nominal(x.size)} · ${esc(x.role.label)}</small></button>`).join("")}</div>`
+    ? `<div class="sc-chips" role="group" aria-label="Cards">${S.cards.map((x) => `<button class="${x.id === c.id ? "on" : ""}" aria-pressed="${x.id === c.id}" data-sys="disk" data-disk="${esc(x.id)}" ${busyNow ? "disabled" : ""}>${icon("sd")}<b>${esc(x.id)}</b><small>${nominal(x.size)} &middot; ${esc(x.role.label)}</small></button>`).join("")}</div>`
     : "";
   const rows = parts.map((p) => `<tr>
       <td class="num">${p.index}</td>
@@ -146,10 +146,10 @@ function renderBody() {
   const box = $("sys-body");
   if (!box) return;
   if (app.sysJob) { box.innerHTML = jobView(app.sysJob); return; }
-  const tabs = `<div class="sys-tabs" role="tablist">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
+  const tabs = `<div class="sys-tabs" id="sys-tabs" role="tablist" aria-label="Card operation">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
       <span class="st-ico">${icon(ico)}</span><span><b>${label}</b><small>${sub}</small></span></button>`).join("")}</div>`;
   const left = S.tab === "install" ? installForm() : S.tab === "tf2" ? tf2Form() : resetForm();
-  box.innerHTML = `${tabs}<div class="sys-grid"><div class="sys-steps">${left}</div>${goPanel()}</div>`;
+  box.innerHTML = `${tabs}<div class="sys-grid" id="sys-task-panel"><div class="sys-steps">${left}</div>${goPanel()}</div>`;
 }
 
 const step = (n, title, state, aside, body) => `<section class="panel sys-step ${state}">
@@ -309,9 +309,9 @@ function goPanel() {
   const warn = wifi
     ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases TF2 on the handheld</b> (<code>/mnt/sdcard</code>). Every game and folder on that card is deleted${S.tab === "reset" ? "; the volume is left empty" : ""}. SD1 (MustardOS) is not touched.</span></div>`
     : c ? `<div class="notice err go-warn">${icon("alert")}<span><b>Erases ${esc(c.id)} completely.</b> ${c.role.kind === "tf2" ? "This is a TF2 games card; its ROMS go too. " : c.role.kind === "muos" ? "The MustardOS install and its saves go too. " : ""}Loses ${esc(loses)}.</span></div>` : "";
-  const targets = wifiTab() ? `<div class="sc-chips go-targets" role="tablist" aria-label="Where to ${S.tab === "tf2" ? "set up TF2" : "reset the card"}">
-      <button class="${!wifi ? "on" : ""}" role="tab" aria-selected="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
-      <button class="${wifi ? "on" : ""}" role="tab" aria-selected="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
+  const targets = wifiTab() ? `<div class="sc-chips go-targets" role="group" aria-label="Where to ${S.tab === "tf2" ? "set up TF2" : "reset the card"}">
+      <button class="${!wifi ? "on" : ""}" aria-pressed="${!wifi}" data-sys="target" data-target="card" ${running() ? "disabled" : ""}>${icon("sd")}<b>Card reader</b><small>${c ? esc(c.id) : "Insert a card"}</small></button>
+      <button class="${wifi ? "on" : ""}" aria-pressed="${wifi}" data-sys="target" data-target="wifi" ${running() || (!wifiReady() && !w?.host) ? "disabled" : ""} title="${esc(wifiReady() ? `Format TF2 on ${w.host}` : (w?.reason || "Connect over Wi-Fi with SSH"))}">${icon("wifi")}<b>Over Wi-Fi</b><small>${wifiReady() ? esc(w.host) : "SSH required"}</small></button>
     </div>` : "";
   return `<aside class="panel sys-go">
     <h2>${icon(op.icon)}${op.name}</h2>
@@ -321,7 +321,8 @@ function goPanel() {
       <span class="go-arrow">${icon("arrow")}</span>
       <div class="go-node target${targetOk ? "" : " missing"}">${sdArt()}<b>${esc(targetTitle)}</b><small>${esc(targetSub)}</small></div>
     </div>
-    <ul class="go-checks" id="sys-checks">${checkList()}</ul>
+    <p class="sys-next-step" id="sys-next-step" aria-live="polite">${esc(nextStep())}</p>
+    <details class="sys-prerequisites"><summary>Review safety checks</summary><ul class="go-checks" id="sys-checks">${checkList()}</ul></details>
     ${warn}
     <label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
       <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>
@@ -332,6 +333,11 @@ function goPanel() {
   </aside>`;
 }
 
+const nextStep = () => {
+  const missing = checks().find((x) => !x.ok);
+  return missing ? `Next: ${missing.text}.` : "Safety checks complete. Review the target and erase warning before continuing.";
+};
+
 const checkList = () => checks().map((x) => `<li class="${x.ok ? "ok" : ""}">${icon(x.ok ? "check" : "dot")}<span>${esc(x.text)}</span></li>`).join("");
 const ready = () => !S.starting && !running() && checks().every((x) => x.ok);
 
@@ -339,6 +345,7 @@ const ready = () => !S.starting && !running() && checks().every((x) => x.ok);
 function refreshGo() {
   const list = $("sys-checks"), btn = $("sys-go");
   if (list) list.innerHTML = checkList();
+  if ($("sys-next-step")) $("sys-next-step").textContent = nextStep();
   if (btn) btn.disabled = !ready();
 }
 
@@ -531,6 +538,8 @@ export function forgetImages() {
 }
 
 export function showSystem() {
+  const tab = store.get("sysTab", "install");
+  if (TABS.some(([id]) => id === tab) && S.tab !== tab) { S.tab = tab; S.confirm = ""; }
   renderCard();
   renderBody();
   loadCards();
@@ -577,6 +586,7 @@ async function act(el) {
     S.tab = el.dataset.tab;
     S.confirm = "";
     store.set("sysTab", S.tab);
+    setTabRoute("system", S.tab);
     if (preferWifi()) {
       S.target = "wifi";
       store.set("sysTf2Target", "wifi");

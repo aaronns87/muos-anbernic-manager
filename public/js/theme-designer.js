@@ -37,7 +37,7 @@ const D = {
   list: null, loading: false, error: "", name: store.get("designerTheme", ""), model: null, files: new Map(),
   panel: store.get("designerPanel", "quick"), q: "", layer: GLOBAL, res: "", screen: "muxlaunch", variant: "", imgScope: "all",
   undo: [], redo: [], pending: new Map(), failed: new Map(), chain: Promise.resolve(), saving: 0, saveError: "", form: null, busy: "",
-  host: null, regions: [], frame: 0,
+  actionError: "", host: null, regions: [], frame: 0,
 };
 
 const qs = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
@@ -442,7 +442,7 @@ function renderTop() {
   const m = D.model, dis = !m || D.busy ? " disabled" : "";
   const canInstall = reachable();
   const why = canInstall ? "" : " title=\"Needs the handheld over Wi-Fi with SSH on\"";
-  top.innerHTML = `
+  top.innerHTML = `${D.actionError ? `<div class="notice err dz-action-error" role="alert">${esc(D.actionError)} You can try the action again. <button class="btn small" data-dz="dismiss-error">Dismiss</button></div>` : ""}
     <label class="dz-pick">${icon("palette")}<select class="control" data-dz-theme aria-label="Theme to edit"${D.busy ? " disabled" : ""}>
       ${list.length ? list.map((t) => `<option value="${esc(t.name)}"${t.name === D.name ? " selected" : ""}>${esc(t.name)}</option>`).join("") : `<option value="">No themes yet</option>`}
     </select></label>
@@ -452,9 +452,9 @@ function renderTop() {
     <button class="btn small ghost" data-dz="import" title="Add a .muxthm or theme zip from this computer"${D.busy ? " disabled" : ""}>${icon("upload")}<span>Import</span></button>
     <input type="file" id="dz-import" accept=".muxthm,.zip" hidden>
     ${m ? `<span class="dz-sep"></span>
-    <button class="btn small ghost" data-dz="export" title="Save the theme as a .muxthm file to share or copy to the SD card"${dis}>${icon("download")}<span>Export</span></button>
-    <button class="btn small" data-dz="install"${canInstall ? " title=\"Copy it to the handheld without changing the active theme\"" : why}${dis || (canInstall ? "" : " disabled")}>${icon("upload")}<span>Install</span></button>
-    <button class="btn small primary" data-dz="install" data-apply="1"${canInstall ? " title=\"Copy it to the handheld and make it the active theme\"" : why}${dis || (canInstall ? "" : " disabled")}>${D.busy ? ICONS.spin : icon("check")}<span>${D.busy ? esc(D.busy) : "Install and apply"}</span></button>
+    <button class="btn small${canInstall ? " ghost" : " primary"}" data-dz="export" title="Save the theme as a .muxthm file to share or copy to the SD card"${dis}>${icon("download")}<span>Export</span></button>
+    ${canInstall ? `<button class="btn small" data-dz="install"${canInstall ? " title=\"Copy it to the handheld without changing the active theme\"" : why}${dis || (canInstall ? "" : " disabled")}>${icon("upload")}<span>Install</span></button>
+    <button class="btn small primary" data-dz="install" data-apply="1"${canInstall ? " title=\"Copy it to the handheld and make it the active theme\"" : why}${dis || (canInstall ? "" : " disabled")}>${D.busy ? ICONS.spin : icon("check")}<span>${D.busy ? esc(D.busy) : "Install and apply"}</span></button>` : `<button class="btn small" data-connect="ssh">Connect to install</button>`}
     <details class="dz-menu"><summary class="btn small ghost" aria-label="More">&hellip;</summary><div class="dz-menu-list">
       <button data-dz="duplicate"${dis}>${icon("copy")} Duplicate</button>
       <button data-dz="rename"${dis}>${icon("pencil")} Rename</button>
@@ -770,13 +770,13 @@ function renderView() {
   if (!v || !D.model) return;
   const sizes = D.model.res.length ? D.model.res : [D.res];
   v.innerHTML = `<div class="dz-view-head">
-      <div class="dz-screens" role="tablist" aria-label="Screen">${S.SCREENS.map(([id, label]) => `<button role="tab" data-dz="screen" data-screen="${id}" class="${id === D.screen ? "on" : ""}" aria-selected="${id === D.screen}">${esc(label)}</button>`).join("")}</div>
+      <div class="dz-screens" id="dz-screen-tabs" role="tablist" aria-label="Screen">${S.SCREENS.map(([id, label]) => `<button role="tab" data-dz="screen" data-screen="${id}" class="${id === D.screen ? "on" : ""}" aria-selected="${id === D.screen}">${esc(label)}</button>`).join("")}</div>
       <div class="dz-view-opts">
         <select class="control" data-dz-res aria-label="Screen size">${sizes.map((r) => `<option value="${r}"${r === D.res ? " selected" : ""}>${r}${r === deviceRes() ? " (your handheld)" : ""}</option>`).join("")}</select>
         ${D.model.variants.length ? `<select class="control" data-dz-variant aria-label="Colour variant"><option value="">No variant</option>${D.model.variants.map((x) => `<option value="${esc(x)}"${x === D.variant ? " selected" : ""}>${esc(x)}${x === D.model.active ? " (starts with)" : ""}</option>`).join("")}</select>` : ""}
       </div>
     </div>
-    <div class="dz-stage"><canvas id="dz-canvas" aria-label="Preview of the ${esc(S.SCREENS.find((s) => s[0] === D.screen)?.[1] || "")} screen" role="img"></canvas><div class="dz-hl" id="dz-hl" hidden></div></div>
+    <div class="dz-stage" id="dz-preview-panel"><canvas id="dz-canvas" aria-label="Preview of the ${esc(S.SCREENS.find((s) => s[0] === D.screen)?.[1] || "")} screen" role="img"></canvas><div class="dz-hl" id="dz-hl" hidden></div></div>
     <p class="muted-note dz-view-foot">Click any part to open its settings. Fonts are close matches unless the theme keeps the TTF its fonts were made from (Fonts).
       <button class="btn small ghost" data-dz="previews" title="Draw preview.png, preview.0.png and preview.1.png for ${esc(D.res)}; the theme picker shows them">${icon("image")}<span>Make preview pictures</span></button></p>`;
   redraw();
@@ -858,7 +858,7 @@ function newThemeView() {
   const dev = data?.device?.installed || [];
   const mine = D.list?.themes || [];
   const FROM = [
-    ["blank", "wand", "Start fresh", "Pick a palette and screen sizes, then fine-tune"],
+    ["blank", "wand", "Start fresh", "Choose colours for your handheld"],
     ["catalogue", "web", "A library theme", `Remix one of ${cat.length || "the"} community themes`],
     ["device", "handheld", "From the handheld", reachable() ? `${plural(dev.length, "theme")} installed` : "Needs Wi-Fi and SSH"],
     ["copy", "copy", "Copy one of yours", mine.length ? plural(mine.length, "theme") : "None yet"],
@@ -872,7 +872,9 @@ function newThemeView() {
   if (f.from === "blank") {
     source = `<div class="dz-field"><span>Colours</span><div class="dz-palettes">${S.PALETTES.map(([name, ...cols], i) => `<button class="dz-palette${i === f.palette ? " on" : ""}" data-form-palette="${i}" aria-pressed="${i === f.palette}">
         <span class="dz-swatches">${cols.map((c) => `<i style="background:#${c}"></i>`).join("")}</span><b>${name}</b></button>`).join("")}</div></div>
-      <div class="dz-field"><span>Screen sizes</span><div class="dz-checks">${S.RESOLUTIONS.map((r) => `<label class="check"><input type="checkbox" data-form-res="${r}"${f.res.has(r) ? " checked" : ""}> ${r}${r === deviceRes() ? " <em>your handheld</em>" : ""}</label>`).join("")}</div></div>`;
+      <div class="dz-target muted-note">Designed for <b>${esc(model().name)}</b> (${esc(deviceRes())}).</div>
+      <details class="dz-advanced"${f.advanced ? " open" : ""}><summary>Screen sizes and compatibility</summary><div class="dz-field"><span>Screen sizes</span><div class="dz-checks">${S.RESOLUTIONS.map((r) => `<label class="check"><input type="checkbox" data-form-res="${r}"${f.res.has(r) ? " checked" : ""}> ${r}${r === deviceRes() ? " <em>your handheld</em>" : ""}</label>`).join("")}</div></div>
+      <label class="dz-field"><span>MustardOS version</span><select class="control" data-form="version">${S.VERSIONS.map(([v, l]) => `<option value="${v}"${v === f.version ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label></details>`;
   } else if (f.from === "catalogue") {
     source = `<label class="dz-field"><span>Theme</span><input class="control" data-combo="dz-cat" data-form="source" value="${esc(f.source)}" placeholder="Type to search ${cat.length} themes" autocomplete="off" role="combobox" aria-haspopup="listbox" aria-expanded="false"></label>
       ${cat.some((t) => t.name === f.source) ? `<img class="dz-src-shot" src="/api/themes/preview?${qs({ name: f.source, res: deviceRes(), kind: "png", token: TOKEN })}" alt="">` : ""}`;
@@ -887,13 +889,13 @@ function newThemeView() {
     ${mine.length ? "" : `<div class="dz-hero">${icon("palette")}<div><h2>Design your own MustardOS theme</h2>
       <p>Colours, layout, pictures, icons, fonts and sounds, with a live preview of the handheld's screens. Themes are kept in the themes folder${D.list?.folder ? ` (<code>${esc(D.list.folder)}</code>)` : ""}; install and apply them over Wi-Fi when they are ready.</p></div></div>`}
     <h3>${mine.length ? "New theme" : "Start a theme"}</h3>
+    ${f.error ? `<div class="notice err" role="alert">${esc(f.error)} Your choices are kept. Try Create theme again.</div>` : ""}
     <div class="dz-from" role="radiogroup" aria-label="Start from">${FROM.map(([id, ico, label, sub]) => `<button role="radio" data-form-from="${id}" class="${id === f.from ? "on" : ""}" aria-checked="${id === f.from}"${disabled(id) ? " disabled" : ""}>
       ${icon(ico)}<b>${label}</b><small>${esc(sub)}</small></button>`).join("")}</div>
     <div class="dz-form">
       <label class="dz-field"><span>Name</span><input class="control" data-form="name" value="${esc(f.name)}" maxlength="100" placeholder="My Theme"><small>The folder name on the handheld too.</small></label>
       ${source}
       ${f.from === "blank" || f.from === "file" ? "" : `<p class="muted-note">The copy is yours to change; the original stays as it is.</p>`}
-      ${f.from === "blank" ? `<label class="dz-field"><span>Made for</span><select class="control" data-form="version">${S.VERSIONS.map(([v, l]) => `<option value="${v}"${v === f.version ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` : ""}
     </div>
     <footer class="dz-new-foot">${mine.length ? `<button class="btn" data-dz="cancel-new"${f.busy ? " disabled" : ""}>Cancel</button>` : ""}
       <button class="btn primary" data-dz="create"${f.busy ? " disabled" : ""}>${f.busy ? ICONS.spin : icon("plus")}<span>${f.busy ? esc(f.busy) : "Create theme"}</span></button></footer>
@@ -915,6 +917,7 @@ async function create() {
   if (f.from !== "blank" && f.from !== "file" && !f.source) return toast("Pick the theme to start from.", 3000);
   if (f.from === "file" && !f.file) return toast("Pick a .muxthm file.", 3000);
   if (f.from === "blank" && !f.res.size) return toast("Pick at least one screen size.", 3000);
+  f.error = "";
   f.busy = f.from === "catalogue" ? "Downloading" : f.from === "device" ? "Copying from the handheld" : "Creating";
   renderBody();
   try {
@@ -928,6 +931,7 @@ async function create() {
     toast(`${r.created} is ready to design.`, 3000);
   } catch (error) {
     f.busy = "";
+    f.error = error.message;
     renderBody();
     toast(error.message, 6000);
   }
@@ -941,9 +945,10 @@ async function ask(title, label, value) {
 }
 
 async function busy(label, fn) {
+  D.actionError = "";
   D.busy = label;
   renderTop();
-  try { await fn(); } catch (error) { toast(error.message, 6000); }
+  try { await fn(); } catch (error) { D.actionError = error.message; toast(error.message, 6000); }
   D.busy = "";
   renderTop();
 }
@@ -1139,6 +1144,7 @@ function onChange(e) {
 
 async function onClick(e) {
   const t = e.target;
+  if (t.closest('[data-dz="dismiss-error"]')) { D.actionError = ""; return renderTop(); }
   if (t.closest(".dz-menu-list button")) t.closest("details").open = false;
   const panel = t.closest("[data-dz-panel]");
   if (panel) return openPanel(panel.dataset.dzPanel);
@@ -1200,6 +1206,7 @@ function bind(root) {
   root.addEventListener("input", onInput);
   root.addEventListener("change", onChange);
   root.addEventListener("click", (e) => { onClick(e).catch((error) => toast(error.message, 6000)); });
+  root.addEventListener("toggle", (e) => { if (e.target.matches(".dz-advanced") && D.form) D.form.advanced = e.target.open; }, true);
   root.addEventListener("mousemove", (e) => { if (e.target.id === "dz-canvas") hover(e); });
   root.addEventListener("mouseout", (e) => { if (e.target.id === "dz-canvas") hover(null); });
   root.addEventListener("dragover", (e) => { if (e.target.closest("[data-drop]")) { e.preventDefault(); e.target.closest("[data-drop]").classList.add("drag"); } });

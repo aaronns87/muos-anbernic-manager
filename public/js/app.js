@@ -25,6 +25,7 @@ import { showFiles } from "./files.js";
 import { showTuning } from "./tuning.js";
 import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
+import { flushDesigner } from "./theme-designer.js";
 import { openActivity } from "./activity.js";
 import { renderOverview } from "./overview.js";
 import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
@@ -32,13 +33,40 @@ import "./combo.js";
 import { bindUi } from "./ui.js";
 
 const TITLES = {
-  overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
+  overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play activity", "clock"], artwork: ["Artwork", "image"], apps: ["Apps", "package"],
   handheld: ["Device", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
-  ssh: ["SSH", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
+  ssh: ["Terminal", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
 };
 
-function showSection() {
+let routeSequence = 0;
+async function showSection() {
+  const sequence = ++routeSequence;
   const s = section();
+  const tab = location.hash.split("/")[1];
+  if (!$("view-themes").hidden && store.get("themesTab", "browse") === "designer" && (s !== "themes" || (tab && tab !== "designer"))) {
+    try { await flushDesigner(); }
+    catch (error) {
+      if (sequence === routeSequence) {
+        history.replaceState(null, "", "#themes/designer");
+        toast(error.message, 6000);
+      }
+      return;
+    }
+    if (sequence !== routeSequence) return;
+  }
+  const routes = {
+    settings: ["settingsTab", ["folders", "behaviour", "appearance", "assistant", "data", "resets"]],
+    emulation: ["emuTab", ["saves", "bios", "cores", "systems", "retroarch", "checks"]],
+    handheld: ["handheldTab", ["settings", "controls", "benchmark"]],
+    themes: ["themesTab", ["browse", "device", "designer"]],
+    play: ["playTab", ["time", "recent", "collections"]],
+    system: ["sysTab", ["install", "tf2", "reset"]],
+  };
+  if (routes[s]?.[1].includes(tab)) store.set(routes[s][0], tab);
+  if (routes[s] && !tab) {
+    const [key, valid] = routes[s], saved = store.get(key, valid[0]);
+    history.replaceState(null, "", `#${s}/${valid.includes(saved) ? saved : valid[0]}`);
+  }
   for (const name of SECTIONS) $("view-" + name).hidden = s !== name;
   document.body.classList.toggle("in-ssh", s === "ssh");
   document.querySelectorAll(".section-link").forEach((a) => {
@@ -54,6 +82,12 @@ function showSection() {
   if (s !== "games" && app.selecting) setSelecting(false);
   renderDevice();
   if (s === "games") { render(); autoRescan(); }
+  if (s === "artwork") {
+    const saved = sessionStorage.getItem("manager.artTab") || "sync";
+    const selected = ["sync", "local", "device", "scrape"].includes(tab || saved) ? tab || saved : "sync";
+    if (!tab) history.replaceState(null, "", `#artwork/${selected}`);
+    showArtTab(selected);
+  }
   if (s === "handheld") showDevice();
   if (s === "emulation") showEmulation();
   if (s === "apps") showApps();
@@ -160,7 +194,10 @@ function bindShared() {
   });
   window.addEventListener("scroll", () => $("top").classList.toggle("show", scrollY > 900), { passive: true });
   $("top").addEventListener("click", () => scrollTo({ top: 0 }));
-  window.addEventListener("hashchange", showSection);
+  window.addEventListener("hashchange", async () => {
+    await showSection();
+    if (!document.querySelector("dialog[open]")) $("main-content").focus({ preventScroll: true });
+  });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && section() === "games") autoRescan(); });
   matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { if (app.ui.theme === "system") applyView(); });
   (function tick() {

@@ -68,6 +68,11 @@ const ARTICLES = [
       <li>Deleting something on the handheld or its card is <b>permanent</b>; there is no Trash there.</li>
       <li>Anything that changes the handheld or erases a card asks you first and says what will happen.</li>
     </ul>`],
+    ["Navigation and connection", `<p>On smaller screens, Menu opens all sections. Close menu or Escape returns to the current task. Play activity shows play history and collections; Terminal contains SSH tools.</p>
+      <p>Section tabs have direct links, such as <a href="#emulation/checks">Library checks</a> and <a href="#settings/appearance">Appearance</a>. Browser Back and Forward return to previous tabs.</p>
+      <p>The connection button opens Files for game and artwork transfers, or Remote controls for SSH settings. Setup stays beside your current page. A responding SSH service still checks sign-in when you use a remote feature.</p>`],
+    ["Layout and recovery", `<p>Apps leads with App market; Import packages adds files you already have. Apps and Saves keep full folder paths in expandable details. Settings separates visual style from density, provides Copy path, and warns about low text contrast in custom palettes.</p>
+      <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Erase warnings and typed confirmation still apply.</p>`],
     ["Keyboard shortcuts", `<ul>
       <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
       or Home/End for the first or last tab.</li>
@@ -77,7 +82,7 @@ const ARTICLES = [
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
     </ul>`],
   ]],
-  ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention.", [
+  ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention. Offline, it offers local library tasks without repeating empty device panels.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
       games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
       The top-bar chip opens the connection panel; Overview remains the full connection page. On phones this panel replaces
@@ -365,7 +370,8 @@ const ARTICLES = [
       revision. The others are ticked; untick anything you want to keep, then <b>Move to the Trash</b>. You are warned if every version of a game is ticked.
       Arcade folders are skipped because their clone sets need the parent set.</p>`],
   ]],
-  ["files", "folder", "Files", "files", "Browse this computer and the handheld side by side, copy between them, and edit config files.", [
+  ["files", "folder", "Files", "files", "Browse this computer and the handheld, copy between them, and edit config files.", [
+    ["On a phone", `<p>Switch between This computer and Handheld above the file list. Each side keeps its selected files. Choose folder opens the other side; review the From and To locations before copying. If saving fails, your edits stay in the editor with a Retry save button.</p>`],
     ["Two sides", `<p>The left side is this computer: your workspace, plus the Roms, apps, OS, BIOS and backup folders if Settings points them elsewhere.
       The right side is the handheld: SD1 (MustardOS) and TF2 (games), over the card reader, USB or Wi-Fi. Pick a place in the list at the top of each side,
       click a folder to open it, and use the path or the up arrow to go back.</p>`],

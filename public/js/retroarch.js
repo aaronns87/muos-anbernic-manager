@@ -128,7 +128,7 @@ function render() {
   if (!d.reachable) {
     root.innerHTML = `<section class="panel"><h2>${icon("sliders")}RetroArch</h2>
       <div class="notice">RetroArch's settings live on the handheld. Connect it over Wi-Fi and turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>,
-        then check the <a href="#ssh">SSH</a> section.</div></section>`;
+        then open <a href="#ssh" data-connect="ssh">Connection settings</a>.</div></section>`;
     return;
   }
   $("emu-sub").innerHTML = `Picture, play and core options (Menu+X) for each ROM folder on <b>${esc(d.host)}</b>`;

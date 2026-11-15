@@ -125,15 +125,16 @@ function render() {
   $("apps-actions").innerHTML = `
     <button class="btn" data-ap="refresh" title="Read the apps folder and the handheld again">${icon("refresh")}<span>Refresh</span></button>
     ${A.data?.available ? `<button class="btn" data-ap="reveal">${icon("external")}<span>Show folder</span></button>` : ""}
-    <button class="btn" data-ap="market" title="Browse popular MustardOS apps and get them from GitHub">${icon("grid")}<span>App market</span></button>
-    <button class="btn primary" data-ap="add">${icon("plus")}<span>Add packages&hellip;</span></button>`;
+    <button class="btn primary" data-ap="market" title="Browse popular MustardOS apps and get them from GitHub">${icon("grid")}<span>App market</span></button>
+    <button class="btn" data-ap="add">${icon("plus")}<span>Import packages&hellip;</span></button>`;
   if ($("appmarket")?.open) renderMarket();
   if (!A.data) {
     root.innerHTML = A.error ? `<div class="notice err">${esc(A.error)}</div>` : `<div class="planning"><span class="spinner"></span> Reading the apps folder&hellip;</div>`;
     return;
   }
-  $("apps-sub").innerHTML = `${plural(count, "package")} in <code title="${esc(A.data.folder)}">${esc(A.data.folder)}</code> &middot; change it in Settings`;
-  root.innerHTML = `${installPanel()}<div class="apps-layout">${packagesPanel()}${devicePanel()}</div>`;
+  $("apps-sub").textContent = `${plural(count, "package")} on this computer. Browse the market or import a package to get started.`;
+  const locationOpen = root.querySelector(".apps-location")?.open;
+  root.innerHTML = `<details class="apps-location"${locationOpen ? " open" : ""}><summary>Package folder</summary><code>${esc(A.data.folder)}</code><a href="#settings/folders">Change in Settings</a></details>${installPanel()}<div class="apps-layout">${packagesPanel()}${devicePanel()}</div>`;
   const log = root.querySelector(".apps-log");
   if (log) log.scrollTop = log.scrollHeight;
 }
@@ -149,9 +150,9 @@ function packagesPanel() {
   if (!d.packages.length && !A.uploads.length) {
     return `<section class="panel apps-main"><h2>${icon("package")}Packages</h2>
       <div class="empty-state apps-empty">${icon("package")}<p><b>No packages yet.</b> Get apps from the app market, drop .muxapp, .muxupd or .muxzip files here,
-        or add them with the button. They are kept in <code>${esc(d.folder)}</code>.</p>
+        or choose Import packages.</p>
         <div class="panel-actions"><button class="btn primary" data-ap="market">${icon("grid")}<span>App market</span></button>
-        <button class="btn" data-ap="add">${icon("plus")}<span>Add packages&hellip;</span></button></div></div></section>`;
+        <button class="btn" data-ap="add">${icon("plus")}<span>Import packages&hellip;</span></button></div></div></section>`;
   }
   const all = d.packages.length && d.packages.every((p) => A.picked.has(p.name));
   const rows = d.packages.map((p) => {
@@ -189,12 +190,13 @@ function devicePanel() {
   const head = `<h2>${icon("handheld")}On the handheld${A.dev?.reachable ? ` <small>${esc(A.dev.host)}</small>` : ""}<span class="grow"></span>
     ${A.devLoading ? `<span class="spinner sm"></span>` : ""}</h2>`;
   if (A.devError) return `<section class="panel apps-side">${head}<div class="notice err">${esc(A.devError)}</div>
-    <div class="panel-actions"><button class="btn small" data-ap="refresh">${icon("refresh")}<span>Try again</span></button><a class="btn small ghost" href="#ssh">SSH settings</a></div></section>`;
+    <div class="panel-actions"><button class="btn small" data-ap="refresh">${icon("refresh")}<span>Try again</span></button><button class="btn small ghost" data-connect="ssh">Connection settings</button></div></section>`;
   if (!A.dev) return `<section class="panel apps-side">${head}<div class="planning"><span class="spinner"></span> Asking the handheld&hellip;</div></section>`;
   if (!A.dev.reachable) {
     return `<section class="panel apps-side">${head}
-      <div class="notice">Installing from here needs SSH over Wi-Fi. On the handheld turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>, then check the <a href="#ssh">SSH</a> section.</div>
-      <p class="muted-note">You can still send packages over USB or with the card reader, then install them on the handheld from <b>Applications &rsaquo; Archive Manager</b>.</p></section>`;
+      <p class="muted-note">Connect remote controls over Wi-Fi to install packages from here.</p>
+      <div class="panel-actions"><button class="btn" data-connect="ssh">Set up remote controls</button></div>
+      <p class="muted-note">You can also send packages over USB or a card reader, then install them from <b>Applications &rsaquo; Archive Manager</b> on the handheld.</p></section>`;
   }
   const d = A.dev;
   const files = d.archive.length

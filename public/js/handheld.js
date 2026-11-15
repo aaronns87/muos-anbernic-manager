@@ -61,7 +61,7 @@ function render() {
       ? `<div class="hh-empty">${icon("unplug")}<h3>Can't reach the handheld</h3><p>${esc(H.error)}</p>
           <p class="hh-hint">The handheld needs Wi-Fi and Configuration &rsaquo; Web Services &rsaquo; Secure Shell turned on.</p>
           <div class="hh-empty-actions"><button class="btn primary" data-hh="reload">${icon("refresh")}Try again</button>
-          <a class="btn" href="#ssh">${icon("chip")}SSH settings</a></div></div>`
+          <a class="btn" href="#ssh" data-connect="ssh">${icon("chip")}SSH settings</a></div></div>`
       : `<div class="planning"><span class="spinner"></span> Reading settings from the handheld&hellip;</div>`;
     renderBar();
     return;

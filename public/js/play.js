@@ -1,6 +1,6 @@
 // Play: what you play on the handheld (MustardOS's play time tracker and history), and its game collections.
 
-import { $, api, app, clock, esc, formatDate, formatTime, icon, initial, isOnCard, plural, store, toast } from "./core.js";
+import { setTabRoute, $, api, app, clock, esc, formatDate, formatTime, icon, initial, isOnCard, plural, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
 const TABS = [
@@ -255,7 +255,7 @@ function bind() {
   const view = $("view-play");
   view.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-pl-tab]");
-    if (t) { store.set("playTab", t.dataset.plTab); return render(); }
+    if (t) { store.set("playTab", t.dataset.plTab); setTabRoute("play", t.dataset.plTab); return render(); }
     const el = e.target.closest("[data-pl]");
     if (!el || el.disabled) return;
     const { pl, path } = el.dataset;

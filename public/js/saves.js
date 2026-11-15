@@ -87,8 +87,9 @@ function render() {
     root.innerHTML = S.error ? `<div class="notice err">${esc(S.error)}</div>` : `<div class="planning"><span class="spinner"></span> Reading the backups and asking the handheld&hellip;</div>`;
     return;
   }
-  $("emu-sub").innerHTML = `${plural(d.backups.length, "save backup")} in <code title="${esc(d.folder)}">${esc(d.folder)}</code> &middot; change it in Settings`;
-  setKeepingScroll(root, `<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
+  $("emu-sub").textContent = `${plural(d.backups.length, "save backup")} on this computer. Back up and restore progress over SSH.`;
+  const locationOpen = root.querySelector(".sv-location")?.open;
+  setKeepingScroll(root, `<details class="sv-location"${locationOpen ? " open" : ""}><summary>Backup folder</summary><code>${esc(d.folder)}</code><a href="#settings/folders">Change in Settings</a></details><div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
 }
 
 function backupHint() {
@@ -103,7 +104,7 @@ function backupsPanel() {
   if (!list.length) {
     return `<section class="panel apps-main"><h2>${icon("save")}Backups</h2>
       <div class="empty-state apps-empty">${icon("save")}<p><b>No backups yet.</b> <b>Back up now</b> copies every save and save state from the handheld
-        into one file in <code>${esc(S.data.folder)}</code>.</p></div></section>`;
+        into a backup on this computer.</p></div></section>`;
   }
   const onDevice = deviceMap(), latest = list.find((b) => !b.error);
   const rows = list.map((b) => {
@@ -166,10 +167,11 @@ function devicePanel() {
   const head = `<h2>${icon("handheld")}On the handheld${d?.reachable ? ` <small>${esc(d.host)}</small>` : ""}<span class="grow"></span>
     ${S.loading ? `<span class="spinner sm"></span>` : ""}</h2>`;
   if (S.data.deviceError) return `<section class="panel apps-side">${head}<div class="notice err">${esc(S.data.deviceError)}</div>
-    <div class="panel-actions"><button class="btn small" data-sv="refresh">${icon("refresh")}<span>Try again</span></button><a class="btn small ghost" href="#ssh">SSH settings</a></div></section>`;
+    <div class="panel-actions"><button class="btn small" data-sv="refresh">${icon("refresh")}<span>Try again</span></button><button class="btn small ghost" data-connect="ssh">Connection settings</button></div></section>`;
   if (!d.reachable) {
     return `<section class="panel apps-side">${head}
-      <div class="notice">Backing up and restoring saves needs SSH over Wi-Fi. On the handheld turn on <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b>, then check the <a href="#ssh">SSH</a> section.</div></section>`;
+      <p class="muted-note">Connect remote controls over Wi-Fi to back up and restore saves. Your existing backups remain available on this computer.</p>
+      <div class="panel-actions"><button class="btn" data-connect="ssh">Set up remote controls</button></div></section>`;
   }
   if (!d.files.length) {
     return `<section class="panel apps-side">${head}

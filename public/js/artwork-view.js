@@ -1,7 +1,7 @@
 // Artwork section: a summary strip, then four tabs: syncing with the device, the Roms/ library's images,
 // the artwork on the device, and scraping.
 
-import { $, app, esc, icon, human, ART_KINDS, handheldMode, slowHint, devName, busy, section } from "./core.js";
+import { setTabRoute, $, app, esc, icon, human, ART_KINDS, handheldMode, slowHint, devName, busy, section } from "./core.js";
 import { connection, isLive } from "./device.js";
 import { libraryTotals, loadDevice, openDeviceGame } from "./games.js";
 import { localPanels, afterLocalDraw, bindLocal, showLocalSystem, localTotals, ensureLocalSummary } from "./art-local.js";
@@ -197,7 +197,7 @@ export function showArtTab(name, code) {
   tab = name;
   sessionStorage.setItem("manager.artTab", tab);
   if (code && name === "local") showLocalSystem(code);
-  if (section() === "artwork") redrawTab(); else location.hash = "#artwork";
+  if (section() === "artwork") { setTabRoute("artwork", tab); redrawTab(); } else location.hash = "#artwork/" + tab;
 }
 
 export function bindArtworkView() {

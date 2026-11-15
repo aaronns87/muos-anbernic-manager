@@ -294,6 +294,33 @@ export function renderSideDevice() {
 }
 
 let connPanelOpen = false;
+let connTab = "files", connReturn = null, remoteStatus = null, remoteError = "", remoteBusy = false;
+
+async function readRemoteStatus() {
+  if (remoteBusy) return;
+  remoteBusy = true;
+  remoteError = "";
+  paintConnPanel();
+  try { remoteStatus = await api("ssh/status"); }
+  catch (error) { remoteError = error.message; }
+  remoteBusy = false;
+  if (connPanelOpen) paintConnPanel();
+}
+
+function remoteSetup() {
+  const s = remoteStatus;
+  return `<p class="muted-note">Apps, saves, themes and device settings use Secure Shell (SSH). On the handheld, turn on Configuration &gt; Web Services &gt; Secure Shell.</p>
+    ${remoteError ? `<div class="notice err" role="alert">${esc(remoteError)}</div>` : ""}
+    <p class="muted-note">${remoteBusy ? "Checking SSH..." : s?.reachable ? "SSH service is responding. Sign-in is checked when you use a remote feature." : "SSH service is not available yet."}</p>
+    ${s ? `<form class="conn-remote-form">
+      <label>Handheld address<input class="control" name="host" value="${esc(s.hostSetting || "")}" placeholder="${esc(s.host ? `Same as file connection (${s.host})` : "192.168.0.32")}" autocomplete="off"></label>
+      <div class="conn-form-row"><label>Port<input class="control" name="port" value="${s.port}" inputmode="numeric" required></label><label>User<input class="control" name="user" value="${esc(s.user)}" autocomplete="off" required></label></div>
+      <label>Password<input class="control" name="password" type="password" placeholder="Keep saved sign-in" autocomplete="new-password"></label>
+      <p class="muted-note">MustardOS normally uses root / root. Leave the password blank to keep the current password or SSH agent sign-in.</p>
+      <div class="panel-actions"><button class="btn primary" ${remoteBusy ? "disabled" : ""}>Save settings</button><button class="btn" type="button" data-conn-check ${remoteBusy ? "disabled" : ""}>Check again</button></div>
+    </form>` : `<button class="btn" data-conn-check ${remoteBusy ? "disabled" : ""}>Check SSH</button>`}
+    <a href="#ssh" data-conn-overview class="sb-conn-overview">Advanced sign-in and terminal</a>`;
+}
 
 function ensureConnPanel() {
   let el = $("sb-conn-panel");
@@ -328,6 +355,13 @@ function paintConnPanel() {
     document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "false");
     return;
   }
+  const typed = [...panel.querySelectorAll("input")].map(el => [(el.closest(".conn-remote-form") ? "ssh:" : "files:") + (el.name || el.dataset.wifi || el.id), el.value]);
+  const focused = panel.contains(document.activeElement) ? document.activeElement : null;
+  const focusAction = focused?.matches("[data-conn-close]") ? "[data-conn-close]"
+    : focused?.matches("[data-conn-tab]") ? `[data-conn-tab="${focused.dataset.connTab}"]`
+    : focused?.matches("[data-conn-check]") ? "[data-conn-check]"
+    : focused?.matches(".conn-remote-form button:not([type])") ? ".conn-remote-form button:not([type])" : "";
+  const focusKey = focused && (focused.closest(".conn-remote-form") ? "ssh:" : "files:") + (focused.name || focused.dataset.wifi || focused.id);
   const conn = connection(), w = app.device.wifi || {};
   const rows = linkStatusRows().map((row) =>
     `<li class="sb-conn-link${row.live ? " live" : ""}${row.primary ? " primary" : ""}">
@@ -336,45 +370,106 @@ function paintConnPanel() {
     </li>`).join("");
   const showWifi = app.ui.mode === "wifi" || !w.configured;
   panel.innerHTML = `<div class="sb-conn-panel-inner">
+    <div class="conn-panel-head"><b>Connection</b><button class="btn small" data-conn-close>Done</button></div>
+    <div class="segmented" role="group" aria-label="Connection capability"><button data-conn-tab="files" class="${connTab === "files" ? "on" : ""}" aria-pressed="${connTab === "files"}">Files</button><button data-conn-tab="ssh" class="${connTab === "ssh" ? "on" : ""}" aria-pressed="${connTab === "ssh"}">Remote controls</button></div>
+    <div ${connTab === "files" ? "" : "hidden"}>
+    <p class="muted-note">Copy games and artwork, or browse files. Choose the connection used for transfers.</p>
     <div class="sb-conn-section"><span class="mode-label">Connect with</span>${modePicker()}</div>
     <ul class="sb-conn-links">${rows}</ul>
     <div class="sb-conn-actions">${deviceButtons(conn)}</div>
+    ${conn.steps.length ? `<details class="conn-help"><summary>Connection help</summary><ol class="steps">${conn.steps.map(step => `<li>${esc(step)}</li>`).join("")}</ol></details>` : ""}
     ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi settings</span>${wifiForm({ ids: false })}</div>` : ""}
     <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
+    </div><div ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}</div>
   </div>`;
+  for (const input of panel.querySelectorAll("input")) {
+    const key = (input.closest(".conn-remote-form") ? "ssh:" : "files:") + (input.name || input.dataset.wifi || input.id);
+    const saved = typed.find(([k]) => k === key);
+    if (saved) input.value = saved[1];
+    if (focusKey && focusKey === key) input.focus({ preventScroll: true });
+  }
   panel.hidden = false;
+  if (focusAction) panel.querySelector(focusAction)?.focus({ preventScroll: true });
   document.querySelector("[data-conn-panel]")?.setAttribute("aria-expanded", "true");
   positionConnPanel();
 }
 
-function closeConnPanel() {
+function closeConnPanel(restore = true) {
   if (!connPanelOpen) return;
   connPanelOpen = false;
   paintConnPanel();
+  if (restore) {
+    const current = connReturn?.isConnected && connReturn.getClientRects().length ? connReturn
+      : document.querySelector(`.view:not([hidden]) [data-connect="${connTab}"]`) || document.querySelector("[data-conn-panel]");
+    current?.focus();
+  }
 }
 
-function toggleConnPanel() {
-  connPanelOpen = !connPanelOpen;
+function openConnPanel(tab, trigger) {
+  connReturn = trigger;
+  connTab = tab;
+  connPanelOpen = true;
+  trigger?.closest("dialog[open]")?.close();
   paintConnPanel();
+  $("sb-conn-panel").querySelector("[data-conn-close]").focus();
+  if (tab === "ssh") readRemoteStatus();
+}
+
+function toggleConnPanel(trigger) {
+  if (connPanelOpen) closeConnPanel();
+  else openConnPanel("files", trigger);
 }
 
 document.addEventListener("click", (e) => {
+  const setup = e.target.closest("[data-connect]");
+  if (setup) { e.preventDefault(); openConnPanel(setup.dataset.connect, setup); return; }
+  if (e.target.closest("[data-conn-close]")) { closeConnPanel(); return; }
+  const tab = e.target.closest("[data-conn-tab]");
+  if (tab) {
+    connTab = tab.dataset.connTab;
+    paintConnPanel();
+    $("sb-conn-panel").querySelector(`[data-conn-tab="${connTab}"]`).focus();
+    if (connTab === "ssh") readRemoteStatus();
+    return;
+  }
+  if (e.target.closest("[data-conn-check]")) { readRemoteStatus(); return; }
   if (e.target.closest("[data-conn-panel]")) {
     e.preventDefault();
-    toggleConnPanel();
+    toggleConnPanel(e.target.closest("[data-conn-panel]"));
     return;
   }
   if (e.target.closest("[data-conn-overview]")) {
-    closeConnPanel();
+    closeConnPanel(false);
     return;
   }
-  if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel();
+  if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel(false);
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && connPanelOpen) closeConnPanel();
+  if (e.key === "Escape" && connPanelOpen) { e.preventDefault(); e.stopImmediatePropagation(); closeConnPanel(); }
 });
 
+document.addEventListener("submit", async e => {
+  const form = e.target.closest(".conn-remote-form");
+  if (!form) return;
+  e.preventDefault();
+  if (remoteBusy) return;
+  const fields = Object.fromEntries(new FormData(form));
+  const body = { host: fields.host, port: fields.port, user: fields.user, shell: remoteStatus?.shell || "bash" };
+  if (fields.password) body.password = fields.password;
+  remoteBusy = true;
+  remoteError = "";
+  paintConnPanel();
+  try {
+    remoteStatus = await api("ssh/settings", body);
+    const password = $("sb-conn-panel").querySelector('[name="password"]');
+    if (password) password.value = "";
+    toast("Settings saved. Use Refresh or Reload on your page to check the connection.", 3500);
+  } catch (error) { remoteError = error.message; }
+  remoteBusy = false;
+  if (connPanelOpen) paintConnPanel();
+});
+window.addEventListener("hashchange", () => closeConnPanel(false));
 window.addEventListener("resize", () => { if (connPanelOpen) positionConnPanel(); });
 
 /** Chip label and icons for every live link (primary path stays in the panel). */

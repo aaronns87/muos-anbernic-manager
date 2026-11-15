@@ -302,8 +302,13 @@ export const canCopy = (sys) => ready() && !EXCLUDED.has(sys.code) && sys.games.
 
 // ---------------------------------------------------------------- sections
 
+export function setTabRoute(name, tab) {
+  const hash = `#${name}/${tab}`;
+  if (location.hash !== hash) history.pushState(null, "", hash);
+}
+
 export function section() {
-  const hash = location.hash.slice(1);
+  const hash = location.hash.slice(1).split("/")[0];
   return SECTIONS.includes(hash) ? hash : "overview";
 }
 

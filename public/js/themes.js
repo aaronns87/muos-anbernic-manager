@@ -1,6 +1,6 @@
 // Themes: browse the MustardOS theme catalogue with previews, and install, apply and remove themes on the handheld.
 
-import { $, api, esc, human, icon, ICONS, model, plural, store, toast, TOKEN } from "./core.js";
+import { $, api, esc, human, icon, ICONS, model, plural, setTabRoute, store, toast, TOKEN } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { designerCount, flushDesigner, reloadDesigner, showDesigner } from "./theme-designer.js";
 
@@ -10,7 +10,7 @@ const TABS = [
   ["designer", "wand", "Designer", "Make your own themes with a live preview, then export them or install and apply them on the handheld"],
 ];
 const KINDS = [["all", "Any kind"], ["grid", "Grid menus"], ["language", "Language packs"], ["hdmi", "HDMI ready"]];
-const T = { data: null, loading: false, error: "", q: "", fit: store.get("themeFit", true), kind: "all", sort: "name", busy: "", limit: 60, bound: false };
+const T = { data: null, loading: false, error: "", q: "", fit: store.get("themeFit", true), kind: "all", sort: "name", busy: "", limit: 60, bound: false, actionError: "", retry: null };
 
 const tab = () => TABS.find((t) => t[0] === store.get("themesTab", "browse")) || TABS[0];
 const res = () => T.data?.device?.res || model().screen.join("x");
@@ -62,13 +62,16 @@ function render() {
   if (id === "designer") return showDesigner(root, host);
   if (T.error && !T.data) return void (root.innerHTML = `<div class="notice err">${esc(T.error)}</div>`);
   if (!T.data) return void (root.innerHTML = `<div class="planning"><span class="spinner"></span> Loading the theme list&hellip;</div>`);
-  root.innerHTML = `${T.error ? `<div class="notice err">${esc(T.error)}</div>` : ""}${statusBar()}${id === "device" ? deviceTab() : browseTab()}`;
+  root.innerHTML = `${T.error ? `<div class="notice err">${esc(T.error)}</div>` : ""}${actionNotice()}${statusBar()}${id === "device" ? deviceTab() : browseTab()}`;
+}
+
+function actionNotice() {
+  return T.actionError ? `<div class="notice err th-action-error" role="alert"><span>${esc(T.actionError)}</span><button class="btn small" data-th="retry"${T.busy ? " disabled" : ""}>Retry</button><button class="btn small ghost" data-th="dismiss-error">Dismiss</button></div>` : "";
 }
 
 function statusBar() {
   const d = T.data, dev = device();
-  if (!d.reachable) return `<div class="notice">Browse and preview freely. Installing and applying need the handheld over Wi-Fi with
-    <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b> on; check the <a href="#ssh">SSH</a> section.</div>`;
+  if (!d.reachable) return `<div class="notice">Browse and preview freely. <a href="#ssh" data-connect="ssh">Set up remote controls</a> to install and apply themes.</div>`;
   if (d.deviceError) return `<div class="notice err">${esc(d.deviceError)}</div>`;
   if (!dev) return "";
   const active = installed(dev.active);
@@ -98,6 +101,7 @@ function actions(name, inCatalogue, compact = false) {
   const dev = device(), have = installed(name), active = dev?.active === name, dis = !dev || T.busy ? " disabled" : "";
   const working = T.busy && T.busy.endsWith(name);
   if (working) return `<button class="btn small" disabled>${ICONS.spin}<span>${esc(T.busy.split(" ")[0])}&hellip;</span></button>`;
+  if (!dev) return compact ? `<button class="btn small" data-th="view" data-name="${esc(name)}" data-where="online">${icon("image")}<span>Preview</span></button>` : `<a class="btn small" href="#ssh" data-connect="ssh" data-th="connect">Connect to install</a>`;
   const out = [];
   if (active) out.push(`<span class="pill ok">${icon("check")} Active</span>`);
   else if (have) out.push(`<button class="btn small primary" data-th="apply" data-name="${esc(name)}"${dis}>${icon("check")}<span>Apply</span></button>`);
@@ -174,17 +178,19 @@ function openView(name, where) {
 
 function footer(name, inCatalogue) {
   const have = installed(name);
-  $("thv-foot").innerHTML = `<span class="muted-note">${device() ? (device().active === name ? "This is the active theme." : have ? "Installed on the handheld." : "Not on the handheld yet.") : "Connect the handheld over SSH to install."}</span>
+  $("thv-foot").innerHTML = `${actionNotice()}<span class="muted-note">${device() ? (device().active === name ? "This is the active theme." : have ? "Installed on the handheld." : "Not on the handheld yet.") : "Connect the handheld over SSH to install."}</span>
     <span class="grow"></span>${actions(name, inCatalogue)}${have && inCatalogue && device()?.active !== name ? `<button class="btn small ghost danger" data-th="delete" data-name="${esc(name)}"${T.busy ? " disabled" : ""} title="Delete it from the handheld">${icon("trash")}</button>` : ""}
     <button class="btn" data-th="close">Close</button>`;
 }
 
 // ---------------------------------------------------------------- actions
 
-async function run(label, fn) {
+async function run(label, fn, retry) {
+  T.actionError = "";
+  T.retry = null;
   T.busy = label;
   refresh();
-  try { await fn(); } catch (error) { toast(error.message, 5000); }
+  try { await fn(); } catch (error) { T.actionError = `${label} failed: ${error.message}`; T.retry = retry; toast(error.message, 5000); }
   T.busy = "";
   refresh();
 }
@@ -206,7 +212,7 @@ async function install(name, apply, reinstall) {
     T.data = r;
     toast(r.applied ? `${name} is installed. The handheld's menu restarts with it.` : `${name} is installed on the handheld.`, 4000);
     if (r.applied) setTimeout(() => { if (!T.busy) load(); }, 8000);
-  });
+  }, () => install(name, apply, reinstall));
 }
 
 async function apply(name) {
@@ -216,7 +222,7 @@ async function apply(name) {
     device().active = name;
     toast(`Applying ${name}. The handheld's menu restarts with it.`, 4000);
     setTimeout(() => { if (!T.busy) load(); }, 8000);
-  });
+  }, () => apply(name));
 }
 
 async function remove(name) {
@@ -225,7 +231,7 @@ async function remove(name) {
     T.data = await api("themes/delete", { name });
     if ($("themeview").open && $("thv-title").textContent === name) $("themeview").close();
     toast(`${name} is deleted from the handheld.`, 3000);
-  });
+  }, () => remove(name));
 }
 
 function bind() {
@@ -238,12 +244,16 @@ function bind() {
         try { await flushDesigner(); } catch (error) { toast(error.message, 6000); return; }
       }
       store.set("themesTab", t.dataset.thTab);
+      setTabRoute("themes", t.dataset.thTab);
       return render();
     }
     const el = e.target.closest("[data-th]");
     if (!el || el.disabled) return;
     const { th, name } = el.dataset;
     if (th === "refresh") { load(true); if (tab()[0] === "designer") reloadDesigner(); }
+    else if (th === "retry") { if (!T.busy) T.retry?.(); }
+    else if (th === "dismiss-error") { T.actionError = ""; T.retry = null; refresh(); }
+    else if (th === "connect") dialog.close();
     else if (th === "more") { T.limit += 60; render(); }
     else if (th === "view") openView(name, el.dataset.where);
     else if (th === "install") install(name, el.dataset.apply === "1", el.dataset.reinstall === "1");

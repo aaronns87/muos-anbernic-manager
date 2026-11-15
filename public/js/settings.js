@@ -1,6 +1,6 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
-import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime } from "./core.js";
+import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime, setTabRoute } from "./core.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
@@ -34,7 +34,7 @@ const s = {
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups and themes"],
   ["behaviour", "sliders", "Behaviour", "Copying, startup, updates and uploaded artwork size"],
-  ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, soft UX, compact layout, clock and date"],
+  ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
   ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
   ["resets", "trash", "Resets", "Clear logs and preferences on this computer, play history on the handheld, or start over"],
@@ -50,7 +50,7 @@ const SCHEMES = [
   ["ember", "Ember", ["#14110e", "#211c16", "#e07a3a", "#f4efe8"]],
 ];
 const APPEARANCE_DEFAULTS = {
-  theme: "dark", scheme: "mustard", zoom: 100, soft: false, soft: false,
+  theme: "dark", scheme: "mustard", zoom: 100, soft: false,
   clockStyle: "digital", clock: "24", dateFormat: "weekday",
 };
 
@@ -110,7 +110,7 @@ function render() {
     return;
   }
   const d = s.data, [tab, , , sub] = settingsTab();
-  $("settings-sub").textContent = tab === "folders" && d.settings.roms ? `Roms folder: ${d.roms}` : sub;
+  $("settings-sub").textContent = sub;
   const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
     : tab === "behaviour" ? `${copyPanel(d)}${imagesPanel()}`
     : tab === "appearance" ? appearancePanels()
@@ -198,16 +198,17 @@ function folderBox(d, which) {
   const attrs = (extra = "") => ` data-which="${which}"${s.working.startsWith("folder-") || extra ? " disabled" : ""}`;
   return `<div class="set-path">
       <span class="set-path-icon">${FOLDER}</span>
-      <code title="${esc(f.path)}">${esc(f.path)}</code>
+      <code title="${esc(f.path)}">${esc(f.path.split(/[\\/]/).filter(Boolean).slice(-2).join(" / ") || f.path)}</code>
       <span class="set-chip">${f.custom ? "Custom" : "Default"}</span>${folderState(which, f)}
     </div>
     <div class="panel-actions set-actions">
-      <button class="btn" data-set="browse"${attrs(s.browse ? "x" : "")}>${FOLDER} Change folder&hellip;</button>
-      ${d.pickFolder ? `<button class="btn" data-set="pick"${attrs()}>${icon("search")}<span>Choose in ${esc(d.fileManager)}&hellip;</span></button>` : ""}
-      ${f.available ? `<button class="btn" data-set="reveal" data-which="${which}">${icon("external")}<span>Show in ${esc(d.fileManager)}</span></button>` : ""}
-      ${f.custom ? `<button class="btn ghost" data-set="default"${attrs()} title="${esc(f.default)}">${icon("refresh")}<span>Use the workspace ${KINDS[which].workspace} folder</span></button>` : ""}
+      <button class="btn" data-set="browse"${attrs(s.browse ? "x" : "")}>${FOLDER} Change&hellip;</button>
+      ${d.pickFolder ? `<button class="btn" data-set="pick"${attrs()}>${icon("search")}<span>Browse in ${esc(d.fileManager)}</span></button>` : ""}
+      ${f.available ? `<button class="btn" data-set="reveal" data-which="${which}">${icon("external")}<span>Show folder</span></button>` : ""}
+      ${f.custom ? `<button class="btn ghost" data-set="default"${attrs()} title="${esc(f.default)}">${icon("refresh")}<span>Use default</span></button>` : ""}
       ${working ? `<span class="muted-note set-working"><span class="spinner"></span> ${which === "roms" ? "Scanning the new folder" : "Saving"}&hellip;</span>` : ""}
     </div>
+    <details class="set-folder-location"><summary>Full path</summary><code>${esc(f.path)}</code><button class="btn small ghost" data-set="copy-path" data-which="${which}">${icon("copy")} Copy path</button></details>
     ${choosing ? browser(d) : ""}`;
 }
 
@@ -219,11 +220,11 @@ function romsPanel(d) {
 function otherFoldersPanel(d) {
   const block = (which, title, note) => `<div class="set-folder"><div class="set-folder-head"><b>${title}</b><small>${note}</small></div>${folderBox(d, which)}</div>`;
   return panel("full", "Other folders", `<div class="set-folders-grid">` +
-    block("apps", "Apps", "MustardOS apps and updates (.muxapp, .muxupd, .muxzip) waiting to go to the handheld. By default the apps folder next to Roms.")
-    + block("os", "OS images", "MustardOS card images (.img, .img.gz) for System Tools. Images one folder down are found too. By default the os folder next to Roms.")
-    + block("bios", "BIOS", "BIOS files the emulators need (PlayStation, Sega CD, Neo Geo&hellip;), ready to send to the handheld. By default the bios folder next to Roms.")
-    + block("backups", "Save backups", "Backups of the handheld's saves and save states. By default the backups folder next to Roms.")
-    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. By default the themes folder next to Roms.") + `</div>`);
+    block("apps", "Apps", "MustardOS apps and updates (.muxapp, .muxupd, .muxzip) waiting to go to the handheld. ")
+    + block("os", "OS images", "MustardOS card images (.img, .img.gz) for System Tools. Images one folder down are found too. ")
+    + block("bios", "BIOS", "BIOS files the emulators need (PlayStation, Sega CD, Neo Geo&hellip;), ready to send to the handheld. ")
+    + block("backups", "Save backups", "Backups of the handheld's saves and save states. ")
+    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. ") + `</div>`);
 }
 
 function crumbs(b) {
@@ -324,33 +325,34 @@ function schemeCard(id, label, chips, custom = false) {
 function appearancePanels() {
   const theme = app.ui.theme;
   const themeSeg = [["dark", "Dark"], ["light", "Light"], ["system", "Match system"]]
-    .map(([v, l]) => `<button type="button" data-set-theme="${v}" class="${theme === v ? "on" : ""}">${l}</button>`).join("");
+    .map(([v, l]) => `<button type="button" data-set-theme="${v}" aria-pressed="${theme === v}" class="${theme === v ? "on" : ""}">${l}</button>`).join("");
   const customs = loadCustomSchemes();
   const schemes = SCHEMES.map(([id, label, chips]) => schemeCard(id, label, chips)).join("")
     + customs.map((c) => schemeCard(c.id, c.name, schemeChips(c), true)).join("")
     + `<button type="button" class="set-scheme set-scheme-new" data-set="scheme-new" title="Create a custom colour scheme">
         <b>${icon("plus")} Create new</b><span class="muted-note">Your own accent and surfaces</span></button>`;
   const zoomSeg = ZOOM_LEVELS.map((v) =>
-    `<button type="button" data-set-zoom="${v}" class="${app.ui.zoom === v ? "on" : ""}">${v}%</button>`).join("");
+    `<button type="button" data-set-zoom="${v}" aria-pressed="${app.ui.zoom === v}" class="${app.ui.zoom === v ? "on" : ""}">${v}%</button>`).join("");
   const now = new Date();
   const style = app.ui.clockStyle === "analog" ? "analog" : "digital";
   const styleSeg = [["digital", "Digital"], ["analog", "Analog"]]
-    .map(([v, l]) => `<button type="button" data-set-clock-style="${v}" class="${style === v ? "on" : ""}">${l}</button>`).join("");
+    .map(([v, l]) => `<button type="button" data-set-clock-style="${v}" aria-pressed="${style === v}" class="${style === v ? "on" : ""}">${l}</button>`).join("");
   const clockSeg = [["24", "24-hour"], ["12", "12-hour"]]
-    .map(([v, l]) => `<button type="button" data-set-clock="${v}" class="${app.ui.clock === v ? "on" : ""}" title="${esc(formatTime(now, v))}"${style === "analog" ? " disabled" : ""}>${l}</button>`).join("");
+    .map(([v, l]) => `<button type="button" data-set-clock="${v}" aria-pressed="${app.ui.clock === v}" class="${app.ui.clock === v ? "on" : ""}" title="${esc(formatTime(now, v))}"${style === "analog" ? " disabled" : ""}>${l}</button>`).join("");
   const dates = DATE_FORMATS.map(([v, l]) => `<option value="${v}"${app.ui.dateFormat === v ? " selected" : ""}>${v === "none" ? l : `${esc(formatDate(now, v))} \u00b7 ${l}`}</option>`).join("");
-  return `${panel("full", `${icon("palette")} Look`, `
+  return `${panel("full", `${icon("palette")} Colours and style`, `
     <p class="muted-note">Dark or light mode, and a colour scheme for accents and surfaces. Changes apply at once and stay on this computer.</p>
     <div class="set-row"><span><b>Theme</b><small>Dark matches the MustardOS look on the handheld.</small></span>
       <div class="segmented">${themeSeg}</div></div>
     <div class="set-scheme-block"><span><b>Colour scheme</b><small>Accent and background colours together. Create new opens an editor with a live preview.</small></span>
-      <div class="set-schemes">${schemes}</div></div>`)
+      <div class="set-schemes">${schemes}</div></div>
+    <label class="set-row set-toggle"><span><b>Softer style</b><small>Pastel accents and rounder controls. Combine with Compact layout for less spacing.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" data-set-soft${app.ui.soft ? " checked" : ""}><span class="switch-track"></span></span></label>
+`)
   }${panel("half", "Density", `
-    <p class="muted-note">Overall size of the interface, softer colours, and tighter spacing when you want more on screen.</p>
+    <p class="muted-note">Choose how much fits on screen. These settings work with every colour scheme and style.</p>
     <div class="set-row"><span><b>Zoom</b><small>Scales the whole manager window.</small></span>
       <div class="segmented">${zoomSeg}</div></div>
-    <label class="set-row set-toggle"><span><b>Soft UX</b><small>Pastel accents, airier spacing, tinted selection, rounder corners and gentler controls. Dark themes stay dark.</small></span>
-      <span class="switch"><input type="checkbox" role="switch" data-set-soft${app.ui.soft ? " checked" : ""}><span class="switch-track"></span></span></label>
     <label class="set-row set-toggle"><span><b>Compact layout</b><small>Smaller padding, bars and controls. Game card size stays on the Games toolbar.</small></span>
       <span class="switch"><input type="checkbox" role="switch" data-set-compact${app.ui.compact ? " checked" : ""}><span class="switch-track"></span></span></label>`)
   }${panel("half", "Clock", `
@@ -362,7 +364,7 @@ function appearancePanels() {
     <div class="set-row"><span><b>Date</b><small>Shown next to the clock.</small></span>
       <select class="control" data-set-date>${dates}</select></div>`)
   }${panel("full", "Reset", `
-    <p class="muted-note">Put theme, colour scheme, zoom, soft UX, compact layout, clock and date back to the defaults. Sorting, open tabs and connection stay.</p>
+    <p class="muted-note">Put theme, colour scheme, zoom, softer style, compact layout, clock and date back to the defaults. Sorting, open tabs and connection stay.</p>
     <div class="set-row"><span><b>Appearance</b><small>Only the choices on this tab.</small></span>
       <button class="btn" data-set="appearance-reset">${icon("refresh")}<span>Reset to default</span></button></div>`)}`;
 }
@@ -808,7 +810,7 @@ async function resetPrefs() {
 async function resetAppearance() {
   const ok = await confirmBox({
     title: "Reset appearance?",
-    html: "<p>Theme, colour scheme, zoom, soft UX, compact layout, clock style, format and date go back to their defaults. Custom schemes you created stay. Sorting, open tabs and connection stay.</p>",
+    html: "<p>Theme, colour scheme, zoom, softer style, compact layout, clock style, format and date go back to their defaults. Custom schemes you created stay. Sorting, open tabs and connection stay.</p>",
     ok: "Reset to default",
   });
   if (!ok) return;
@@ -839,17 +841,47 @@ function closeSchemeEditor() {
   s.schemeEdit = null;
 }
 
+function schemeContrast() {
+  const ed = s.schemeEdit;
+  if (!ed) return;
+  const luminance = (hex) => {
+    const rgb = hex.match(/[a-f0-9]{2}/gi).map((v) => parseInt(v, 16) / 255)
+      .map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+  };
+  const failures = [];
+  for (const mode of ["dark", "light"]) {
+    const roles = ed[mode];
+    for (const [fg, bg, label] of [["text", "bg", "page text"], ["text", "panel", "panel text"], ["muted", "panel", "secondary text"], ["onAccent", "accent", "button text"]]) {
+      const a = luminance(roles[fg]), b = luminance(roles[bg]);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      if (ratio < 4.5) failures.push(`${mode} ${label} (${ratio.toFixed(1)}:1)`);
+    }
+  }
+  let note = $("scheme-contrast");
+  if (!note) {
+    note = document.createElement("p"); note.id = "scheme-contrast";
+    note.setAttribute("role", "status");
+    $("scheme-edit-preview").after(note);
+  }
+  note.className = `muted-note set-contrast${failures.length ? " warn" : ""}`;
+  note.textContent = failures.length
+    ? `Low text contrast: ${failures.join(", ")}. Aim for at least 4.5:1 for easier reading. You can still save this scheme.`
+    : "Text contrast is at least 4.5:1 in both modes.";
+}
+
 function paintSchemeEditor() {
   const ed = s.schemeEdit;
   if (!ed) return;
   const mode = ed.mode === "light" ? "light" : "dark";
   const roles = ed[mode];
   $("scheme-edit-mode").innerHTML = [["dark", "Dark"], ["light", "Light"]]
-    .map(([v, l]) => `<button type="button" data-scheme-mode="${v}" class="${mode === v ? "on" : ""}">${l}</button>`).join("");
+    .map(([v, l]) => `<button type="button" data-scheme-mode="${v}" aria-pressed="${mode === v}" class="${mode === v ? "on" : ""}">${l}</button>`).join("");
   $("scheme-edit-colors").innerHTML = SCHEME_ROLES.map(([key, label, note]) => `
     <label class="scheme-edit-role"><span><b>${esc(label)}</b><small>${esc(note)}</small></span>
       <input type="color" data-scheme-role="${key}" value="${esc(roles[key] || defaultRoles(mode)[key])}" aria-label="${esc(label)}"></label>`).join("");
   applyVars($("scheme-edit-preview"), rolesToVars(roles, mode));
+  schemeContrast();
 }
 
 function saveSchemeEditor() {
@@ -913,6 +945,7 @@ function bindSchemeEditor() {
       const mode = s.schemeEdit.mode === "light" ? "light" : "dark";
       s.schemeEdit[mode][t.dataset.schemeRole] = t.value;
       applyVars($("scheme-edit-preview"), rolesToVars(s.schemeEdit[mode], mode));
+      schemeContrast();
     }
   });
 }
@@ -927,6 +960,7 @@ function bind() {
     const b = e.target.closest("[data-settings-tab]");
     if (!b || b.classList.contains("on")) return;
     store.set("settingsTab", b.dataset.settingsTab);
+    setTabRoute("settings", b.dataset.settingsTab);
     s.browse = null;
     render();
   });
@@ -998,6 +1032,10 @@ function bind() {
     else if (action === "chat-knowledge") openKnowledgeViewer();
     else if (action === "use") useFolder(s.browse.path, s.browse.which);
     else if (action === "default") useFolder("", which);
+    else if (action === "copy-path") {
+      try { await navigator.clipboard.writeText(s.data.folders[which].path); toast("Folder path copied", 2000); }
+      catch { toast("Could not copy. Select the full path and copy it manually.", 4000); }
+    }
     else if (action === "reveal") api("settings/reveal", { which }).catch((error) => toast(error.message, 3000));
     else if (action === "pick") {
       try {
