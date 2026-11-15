@@ -247,7 +247,7 @@ test("phone filters retain selections across collapse and resize and connection 
   assert.equal(await cdp.eval<string>(`getComputedStyle(document.getElementById('side-device')).display`), "none");
   await cdp.eval(`document.querySelector('[data-conn-panel]').click()`);
   await cdp.until(`!document.getElementById('sb-conn-panel').hidden`);
-  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#sb-conn-panel .mode-pick [data-mode]').length`), 3);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll('#sb-conn-panel .sb-conn-path[data-mode]').length`), 3);
   await cdp.eval(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
