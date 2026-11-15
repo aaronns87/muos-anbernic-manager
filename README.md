@@ -97,8 +97,9 @@ per-session token. Nothing is uploaded anywhere.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
   cloned the repository or downloaded the ZIP. After you restart into a new version, a **What's new** dialog lists the
   changes once. See [CHANGELOG.md](CHANGELOG.md) for the full history.
-- **Settings**: five tabs — **Folders**, **Behaviour**, **Assistant** (API key, model, system prompt, view knowledge base),
-  **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Settings**: six tabs — **Folders**, **Behaviour**, **Appearance** (theme, colour schemes, zoom, compact layout, digital or
+  analog clock), **Assistant** (API key, model, system prompt, view knowledge base), **Data** and **Resets** (including factory
+  reset that starts over from the setup wizard).
 
 ## Screenshots
 

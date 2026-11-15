@@ -395,6 +395,21 @@ function connChip(conn, links) {
   return { state: "on", tip, icons: icons.join(""), label: names.join(" · ") };
 }
 
+/** Minimal analog hands for the top bar when Appearance → Clock style is Analog. */
+function analogClockSvg(now) {
+  const m = now.getMinutes() + now.getSeconds() / 60;
+  const h = (now.getHours() % 12) + m / 60;
+  const hour = h * 30, minute = m * 6;
+  const ticks = [0, 90, 180, 270].map((deg) =>
+    `<line class="tick" x1="16" y1="2.2" x2="16" y2="5.2" transform="rotate(${deg} 16 16)"/>`).join("");
+  return `<svg class="sb-analog" viewBox="0 0 32 32" aria-hidden="true">
+    ${ticks}
+    <line class="hour" x1="16" y1="18" x2="16" y2="8" transform="rotate(${hour.toFixed(2)} 16 16)"/>
+    <line class="minute" x1="16" y1="18.5" x2="16" y2="3.8" transform="rotate(${minute.toFixed(2)} 16 16)"/>
+    <circle class="hub" cx="16" cy="16" r="1.7"/>
+  </svg>`;
+}
+
 /** The top bar's right side, like the MustardOS header: job, connection, battery, clock. */
 export function renderStatusbar() {
   const box = $("sb-status");
@@ -427,7 +442,11 @@ export function renderStatusbar() {
   }
   const now = new Date();
   const date = formatDate(now);
-  parts.push(`<span class="sb-item sb-clock" title="${esc(now.toLocaleDateString(undefined, { dateStyle: "full" }))}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}<b>${esc(formatTime(now))}</b></span>`);
+  const tip = now.toLocaleDateString(undefined, { dateStyle: "full" }) + ", " + formatTime(now);
+  const time = app.ui.clockStyle === "analog"
+    ? analogClockSvg(now)
+    : `<b>${esc(formatTime(now))}</b>`;
+  parts.push(`<span class="sb-item sb-clock${app.ui.clockStyle === "analog" ? " analog" : ""}" title="${esc(tip)}">${date ? `<span class="sb-date">${esc(date)}</span>` : ""}${time}</span>`);
   parts.push(versionItem());
   parts.push(`<button type="button" class="sb-help" data-help title="Help for this page (?)" aria-label="Help for this page">${icon("help")}</button>`);
   box.innerHTML = parts.join("");

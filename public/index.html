@@ -407,6 +407,39 @@
     </div>
   </div>
 </dialog>
+<dialog id="scheme-edit" class="scheme-edit" aria-labelledby="scheme-edit-title">
+  <div class="t-body">
+    <h2 id="scheme-edit-title">New colour scheme</h2>
+    <p class="muted-note">Pick colours for dark and light. The preview shows buttons, panels and text that use those colours. Saving keeps the scheme on this computer.</p>
+    <label class="scheme-edit-name"><span>Name</span><input class="control" id="scheme-edit-name" maxlength="40" spellcheck="true" aria-label="Scheme name"></label>
+    <div class="set-row scheme-edit-mode-row"><span><b>Edit colours for</b><small>Switch to set the other theme mode.</small></span>
+      <div class="segmented" id="scheme-edit-mode">
+        <button type="button" data-scheme-mode="dark" class="on">Dark</button>
+        <button type="button" data-scheme-mode="light">Light</button>
+      </div>
+    </div>
+    <div class="scheme-edit-layout">
+      <div class="scheme-edit-colors" id="scheme-edit-colors"></div>
+      <div class="scheme-edit-preview-wrap">
+        <b class="scheme-edit-preview-label">Preview</b>
+        <div class="scheme-preview" id="scheme-edit-preview" aria-hidden="true">
+          <div class="scheme-preview-bar"><span class="scheme-preview-brand">Manager</span><span class="scheme-preview-chip">Active</span></div>
+          <div class="scheme-preview-panel">
+            <b>Panel heading</b>
+            <p>Body text on a panel surface.</p>
+            <p class="scheme-preview-muted">Muted note for secondary help.</p>
+            <div class="scheme-preview-actions"><button type="button" class="scheme-preview-btn">Primary</button><button type="button" class="scheme-preview-ghost">Secondary</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <span class="grow"></span>
+      <button class="btn" type="button" id="scheme-edit-cancel">Cancel</button>
+      <button class="btn primary" type="button" id="scheme-edit-save">Save scheme</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="chat-prompt" class="chat-prompt" aria-labelledby="chat-prompt-title">
   <div class="t-body">
     <h2 id="chat-prompt-title">System prompt</h2>

@@ -272,7 +272,11 @@ Roms folder (library) and other folders: apps, os, bios, backups, themes. Change
 
 ### Behaviour
 
-Transfers, startup and updates (app shortcut, update check). Appearance, clock/date format, uploaded artwork size.
+Transfers, startup and updates (app shortcut, update check). Images: uploaded artwork size.
+
+### Appearance
+
+Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember) plus Create new custom scheme modal (dark/light colours, live preview; edit/delete later), zoom (50/65/85/100/110/125%), compact layout, clock style (digital / analog widget), 12/24 format, date in the top bar, Reset to default (appearance selection only; custom schemes kept).
 
 ### Assistant
 

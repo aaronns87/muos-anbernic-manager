@@ -25,6 +25,16 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Settings **Appearance** tab (after Behaviour): colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember), custom schemes via Create new
+  (modal with dark/light colours and a live preview), zoom including 50% and 65%, Soft UX (pastel accents, airier spacing, tinted selection,
+  gentler controls), compact layout, theme, digital or analog top-bar clock, and date controls, with reset to default. Choices stay in this browser.
+
+### Changed
+
+- Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
+
 ## [1.2.6] - 2026-11-15
 
 ### Added

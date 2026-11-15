@@ -181,7 +181,7 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   await cdp.eval(`location.hash = "#settings"`);
   await cdp.until(`!!document.querySelector(".set-folders-grid")`);
   assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.set-folders-grid')).gridTemplateColumns.split(' ').length >= 2`));
-  for (const [key, expected] of [["ArrowRight", "behaviour"], ["End", "resets"], ["ArrowRight", "folders"], ["ArrowLeft", "resets"], ["Home", "folders"]]) {
+  for (const [key, expected] of [["ArrowRight", "behaviour"], ["ArrowRight", "appearance"], ["End", "resets"], ["ArrowRight", "folders"], ["ArrowLeft", "resets"], ["Home", "folders"]]) {
     await cdp.eval(`(() => { const tab = document.querySelector('#settings-tabs [aria-selected="true"]'); tab.focus(); tab.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', bubbles: true })); })()`);
     await cdp.until(`document.activeElement?.dataset.settingsTab === "${expected}"`);
     assert.equal(await cdp.eval<number>(`[...document.querySelectorAll('#settings-tabs [role="tab"]')].filter(t=>t.tabIndex === 0).length`), 1);
@@ -190,6 +190,45 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   await cdp.eval(`document.querySelector('[data-skip-content]').click()`);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "main-content");
   assert.equal(await cdp.eval<string>(`location.hash`), "#settings");
+});
+
+test("Settings Appearance applies colour scheme and zoom", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.eval(`location.hash = "#settings"`);
+  await cdp.until(`!!document.querySelector('#settings-tabs [data-settings-tab="appearance"]')`);
+  await cdp.eval(`document.querySelector('#settings-tabs [data-settings-tab="appearance"]').click()`);
+  await cdp.until(`!!document.querySelector('[data-set-scheme="ocean"]')`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('[data-set-zoom="50"]') && !!document.querySelector('[data-set-zoom="65"]') && !!document.querySelector('[data-set-compact]')`));
+  assert.ok(await cdp.eval<boolean>(`getComputedStyle(document.querySelector('.set-schemes')).gridTemplateColumns.split(' ').length >= 2`));
+  await cdp.eval(`document.querySelector('[data-set-scheme="ocean"]').click()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "ocean"`);
+  await cdp.eval(`document.querySelector('[data-set-zoom="65"]').click()`);
+  await cdp.until(`getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom").trim() === "0.65"`);
+  assert.ok(await cdp.eval<boolean>(`(() => {
+    const root = document.documentElement;
+    const zoom = parseFloat(getComputedStyle(root).getPropertyValue("--ui-zoom")) || 1;
+    const layoutW = root.getBoundingClientRect().width;
+    return zoom < 1 && layoutW > window.innerWidth * 0.9;
+  })()`), "sub-100% zoom still fills the window width");
+  await cdp.eval(`document.querySelector('[data-set-clock-style="analog"]').click()`);
+  await cdp.until(`!!document.querySelector('.sb-clock.analog .sb-analog')`);
+  await cdp.eval(`document.querySelector('[data-set="scheme-new"]').click()`);
+  await cdp.until(`document.getElementById("scheme-edit").open`);
+  await cdp.eval(`(() => {
+    document.getElementById("scheme-edit-name").value = "Test Blue";
+    document.getElementById("scheme-edit-name").dispatchEvent(new Event("input", { bubbles: true }));
+    const accent = document.querySelector('[data-scheme-role="accent"]');
+    accent.value = "#4488ff";
+    accent.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("scheme-edit-save").click();
+  })()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "custom" && !document.getElementById("scheme-edit").open`);
+  assert.match(await cdp.eval<string>(`getComputedStyle(document.documentElement).getPropertyValue("--mustard").trim()`), /#4488ff/i);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('.set-scheme.on [data-set-scheme^="custom-"]')`));
+  await cdp.eval(`document.querySelector('[data-set="appearance-reset"]').click()`);
+  await cdp.until(`document.getElementById("confirm").open`);
+  await cdp.eval(`document.getElementById("c-ok").click()`);
+  await cdp.until(`document.documentElement.dataset.scheme === "mustard" && getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom").trim() === "1" && !document.querySelector('.sb-clock.analog')`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector('[data-set-scheme^="custom-"]')`), "custom schemes survive appearance reset");
 });
 
 test("phone filters retain selections across collapse and resize and connection details stay available", { skip: !CHROME && "Chrome not found" }, async () => {

@@ -212,6 +212,7 @@ test("every front-end module parses", () => {
 test("index.html has the elements the Emulation and Apps views render into", () => {
   const html = fs.readFileSync(path.join(manager, "public", "index.html"), "utf8");
   for (const id of ["view-emulation", "view-wiki", "wiki", "help", "help-wiki", "help-close", "help-full", "emu-tabs", "emu-body", "emu-actions", "emu-sub", "bios-files", "apps-updates", "confirm", "c-ok", "c-cancel",
+    "scheme-edit", "scheme-edit-title", "scheme-edit-name", "scheme-edit-mode", "scheme-edit-colors", "scheme-edit-preview", "scheme-edit-cancel", "scheme-edit-save",
     "view-play", "play-tabs", "play-body", "play-sub", "play-actions", "view-themes", "th-tabs", "themes", "th-sub", "th-actions", "themeview", "thv-title", "thv-body", "thv-foot", "view-files", "files", "view-tuning", "tune-body", "tune-actions", "fileview", "fv-title", "fv-where", "fv-body", "fv-note", "fv-save",
     "fv-done", "fv-close", "activity", "act-q", "act-level", "act-list", "act-count", "act-more", "act-close", "ag-files", "ag-folder", "main-content", "filters-toggle", "games-filters",
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",

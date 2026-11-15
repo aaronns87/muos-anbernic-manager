@@ -446,13 +446,20 @@ const ARTICLES = [
     ["Be careful", `<p>Commands run as the administrator (root) of the handheld. A wrong command can delete files or stop MustardOS from starting.</p>`],
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
-    ["The tabs", `<p>Settings is split into five tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
+    ["The tabs", `<p>Settings is split into six tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Appearance</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
       title describes the tab you are on.</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups and the themes you design are kept.</p>`],
-    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Appearance, clock and images</b> sets the theme,
-      the date and clock format, and the size uploaded artwork is saved at.</p>`],
+    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Images</b> sets the size
+      uploaded artwork is saved at.</p>`],
+    ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
+      that changes accents and surfaces together. <b>Create new</b> opens an editor with colour pickers and a preview of buttons, panels and text; custom schemes
+      can be edited or deleted later. <b>Density</b> sets zoom (including 50% and 65%), Soft UX (pastel accents, airier spacing, tinted selection and gentler controls),
+      and a compact layout.
+      <b>Clock</b> chooses a digital or analog face in the
+      top bar, the 12/24-hour format for digits, and the date next to it. <b>Reset to default</b> puts theme, zoom, clock and the active scheme back; schemes you
+      created stay. Sorting and open tabs stay.</p>`],
     ["Assistant", `<p>Paste a free chat API key, pick a provider and model, optionally edit the system prompt, and open the read-only
       <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
     ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
@@ -461,7 +468,7 @@ const ARTICLES = [
     ["Resets", `<p>Start some things over:</p>
       <ul>
         <li><b>Activity log</b> clears Recent activity on Overview.</li>
-        <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, clock and scraper choices this browser remembers. The connection,
+        <li><b>View preferences</b> forgets the sorting, layout, open tabs, theme, colour scheme, zoom, clock and scraper choices this browser remembers. The connection,
           handheld model and SSH snippets stay.</li>
         <li><b>Play time</b> resets the launches and time played that MustardOS recorded, and <b>Recently played</b> clears the History list in the
           handheld's menu. Both change the handheld, so connect it over USB or Wi-Fi first; they cannot be undone.</li>

@@ -155,6 +155,14 @@ export const app = {
     q: "", art: "all", onCard: "all", devFilter: "all", genre: "all", rating: "all", year: "all", where: sessionStorage.getItem("manager.where") || "library",
     sort: store.get("sort", "title"), view: store.get("view", "grid"),
     card: store.get("card", 180), empty: store.get("empty", false), theme: store.get("theme", "dark"),
+    scheme: store.get("scheme", "mustard") || "mustard",
+    zoom: (() => {
+      const v = Number(store.get("zoom", 100));
+      return [50, 65, 85, 100, 110, 125].includes(v) ? v : 100;
+    })(),
+    compact: store.get("compact", false) === true,
+    soft: store.get("soft", false) === true,
+    clockStyle: store.get("clockStyle", "digital") === "analog" ? "analog" : "digital",
     clock: store.get("clock", "24"), dateFormat: store.get("dateFormat", "weekday"),
     /** Systems start collapsed on every load; filled in when the library arrives. */
     collapsed: new Set(),
