@@ -24,6 +24,10 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- App market: [Dolphin Rt:Core](https://github.com/SilverCrow2323/dolphin-rt-core) (GameCube/Wii for H700). MustardOS Andromeda is recognised when picking packages by release.
+
 ### Changed
 
 - Shared interface polish: clearer panel headings, neutral charcoal and light surfaces, consistent spacing and controls,

@@ -17,7 +17,7 @@ const FRESH_MS = 12 * 3600_000;
 const AGENT = { "User-Agent": "muos-anbernic-manager" };
 const PACKAGE = /\.(muxapp|muxzip|muxupd)$/i;
 /** MustardOS release names in the order they came out. */
-const CODENAMES = ["BANANA", "PIXIE", "GOOSE", "JACARANDA"];
+const CODENAMES = ["BANANA", "PIXIE", "GOOSE", "JACARANDA", "ANDROMEDA"];
 const MAKERS: Record<string, string> = { ANBERNIC: "Anbernic", TRIMUI: "TrimUI" };
 
 type Need = "wifi";
@@ -48,6 +48,7 @@ export const KNOWN: Known[] = [
   { repo: "nvcuong1312/bltMuos", title: "Bluetooth", category: "Tools", desc: "Pair and manage Bluetooth headphones and controllers.", needs: ["wifi"] },
   { repo: "treebeard/muOS-Play-Activity", title: "Play Activity", category: "Tools", desc: "Shows your play time history." },
   { repo: "SilverCrow2323/muOS-Void-Desk", title: "Void Desk", category: "Tools", desc: "Hub with Linux desktop environments and tools for the handheld." },
+  { repo: "SilverCrow2323/dolphin-rt-core", title: "Dolphin Rt:Core", category: "Emulation", desc: "GameCube and Wii emulation tuned for Allwinner H700 handhelds, with Rt:Core tools and core registration for MustardOS." },
   { repo: "andersmmg/app_downloader", title: "App Downloader", category: "Tools", desc: "Download community apps straight from the handheld.", needs: ["wifi"] },
   { repo: "rommapp/muos-app", title: "RomM", category: "Online", desc: "The original RomM app for muOS, replaced by Grout.", needs: ["wifi"] },
 ];
