@@ -72,7 +72,7 @@ const ARTICLES = [
       <p>Section tabs have direct links, such as <a href="#emulation/checks">Library checks</a> and <a href="#settings/appearance">Appearance</a>. Browser Back and Forward return to previous tabs.</p>
       <p>The connection button opens Files for game and artwork transfers, or Remote controls for SSH settings. Setup stays beside your current page. A responding SSH service still checks sign-in when you use a remote feature.</p>`],
     ["Layout and recovery", `<p>Apps leads with App market; Import packages adds files you already have. Apps and Saves keep full folder paths in expandable details. Settings separates visual style from density, provides Copy path, and warns about low text contrast in custom palettes.</p>
-      <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Erase warnings and typed confirmation still apply.</p>`],
+      <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Install MustardOS asks for a final confirmation modal; Set up TF2 and Reset card still use typed confirmation.</p>`],
     ["Keyboard shortcuts", `<ul>
       <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
       or Home/End for the first or last tab.</li>
@@ -466,7 +466,8 @@ const ARTICLES = [
   ["system", "sd", "System Tools", "system", "Prepare SD cards: install MustardOS, set up a games card, or wipe a card.", [
     ["Before you start", `<p><b>Install MustardOS</b> needs the card in this computer's card reader. Only removable cards are offered; your computer's own disks never are.
       <b>Set up TF2</b> and <b>Reset card</b> can use the card reader <em>or</em> the handheld over Wi-Fi with Secure Shell (TF2 slot only). All of these tools <b>erase the target card</b>, so back up your saves first (Emulation &rsaquo; Saves). Writing from a card reader may ask for your password.</p>`],
-    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.</p>
+    ["Install MustardOS", `<p>Writes a MustardOS image from your <code>os</code> folder onto the SD1 (system) card in a card reader, then reads it back to check it was written correctly. This cannot run over Wi-Fi.
+      When the safety checks pass, <b>Install MustardOS</b> opens a confirmation (no need to type the disk name). After you authorize, the installer clears the card's partition map (so leftover volumes cannot remount mid-write), then writes and verifies the image.</p>
       <p><b>Add image to OS folder</b> (or <b>Save into OS folder</b> after choosing a file elsewhere) copies a downloaded
       <code>.img</code> / <code>.img.gz</code> and its SHA256 into <code>os/mustardos_&lt;version&gt;/</code> with a <code>hash.txt</code>,
       the same layout as releases you already keep there. The version comes from the MustardOS file name

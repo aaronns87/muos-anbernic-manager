@@ -1,6 +1,6 @@
 // System section jobs: install MustardOS, set up a TF2 card, reset a card. One at a time, never during a transfer.
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fsp from "node:fs/promises";
 import os from "node:os";
@@ -156,7 +156,7 @@ export async function startSystemJob(body: Record<string, unknown>) {
       if (expected && !isSha256(expected)) throw new UserError("The checksum must be a 64 character SHA256.");
       if (!expected && image.hash) [expected, source] = [image.hash.value, image.hash.source];
       if (!expected && image.kind === "gz" && body.allowUnchecked !== true) throw new UserError("Add the SHA256 for this archive, or confirm installing without one.");
-      next = new SystemJob(op, card, `Install ${image.name}`, [["check", "Check image"], ["auth", "Authorize"], ["write", "Write"], ["verify", "Verify"], ["eject", "Eject"]]);
+      next = new SystemJob(op, card, `Install ${image.name}`, [["check", "Check image"], ["auth", "Authorize"], ["prepare", "Prepare card"], ["write", "Write"], ["verify", "Verify"], ["eject", "Eject"]]);
       next.result = { image: image.name, bytes: image.bytes, hashSource: expected ? source : "" };
       work = (j) => install(j, image, expected, source);
     } else if (op === "tf2") {
@@ -268,40 +268,7 @@ async function reset(j: SystemJob, fs: "FAT32" | "ExFAT", name: string): Promise
 
 // ---------------------------------------------------------------- install
 
-const GUARD_SOURCE = () => path.join(ctx.root, "scripts", "lib", "mount-guard.swift");
-
-/** The mount guard from scripts/lib, built once into the same cache the shell script uses. */
-async function guardBinary(j: SystemJob): Promise<string> {
-  const source = GUARD_SOURCE();
-  if (!(await isFile(source))) throw new UserError("scripts/lib/mount-guard.swift is missing, so auto-mounts cannot be blocked during the write.");
-  const digest = crypto.createHash("sha256").update(await fsp.readFile(source)).digest("hex").slice(0, 16);
-  const dir = path.join(os.homedir(), "Library", "Caches", "anbernic-scripts");
-  const bin = path.join(dir, `mount-guard-${digest}`);
-  if (await isFile(bin)) return bin;
-  j.stage("auth").detail = "Building the auto-mount guard";
-  await fsp.mkdir(dir, { recursive: true });
-  const built = await run("swiftc", ["-O", "-o", `${bin}.tmp`, source], 300_000);
-  if (built.code !== 0) throw new UserError(built.code === -1 ? "swiftc is missing. Install the command line tools with: xcode-select --install" : "Could not build the mount guard.");
-  await fsp.rename(`${bin}.tmp`, bin);
-  return bin;
-}
-
-function startGuard(bin: string, disk: string): Promise<ChildProcess> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, [disk], { stdio: ["ignore", "pipe", "pipe"] });
-    let out = "";
-    const timer = setTimeout(() => { child.kill(); reject(new UserError("The mount guard did not start.")); }, 5000);
-    child.stdout.on("data", (d: Buffer) => {
-      out += d.toString();
-      if (out.includes("ready")) { clearTimeout(timer); resolve(child); }
-    });
-    child.on("error", (e) => { clearTimeout(timer); reject(new UserError(`The mount guard did not start: ${e.message}`)); });
-    child.on("exit", () => { clearTimeout(timer); reject(new UserError("The mount guard stopped before it was ready.")); });
-  });
-}
-
 const shellQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
-const appleString = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 async function install(j: SystemJob, image: ImageInfo, expected: string, source: string): Promise<void> {
   const check = j.begin("check", "Hashing and unpacking the image", image.fileSize);
@@ -312,26 +279,48 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
 
   const auth = j.begin("auth", "Waiting for your password");
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "muos-install-"));
-  let guard: ChildProcess | null = null;
+  // Do not start mount-guard here: its DiskArbitration session can make raw /dev/rdisk*
+  // opens return EPERM even for root. The flash script clears the partition map instead.
   try {
-    guard = await startGuard(await guardBinary(j), j.card.id);
     auth.detail = "Waiting for your password";
-    const progress = path.join(dir, "progress.jsonl"), cancel = path.join(dir, "cancel"), argsFile = path.join(dir, "args.json");
+    const progress = path.join(dir, "progress.jsonl"), cancel = path.join(dir, "cancel");
+    const logFile = path.join(dir, "helper.log");
     await fsp.writeFile(progress, "");
-    await fsp.writeFile(argsFile, JSON.stringify({
-      image: image.path, kind: image.kind, bytes: image.bytes, payloadHash, disk: j.card.id, size: j.card.size, progress, cancel,
-    }));
-    const helper = path.join(ctx.managerDir, "src", "system", "flash-helper.ts");
-    const command = `${shellQuote(process.execPath)} ${shellQuote(helper)} ${shellQuote(argsFile)} >> ${shellQuote(path.join(dir, "helper.log"))} 2>&1`;
-    const prompt = `muOS Anbernic Manager needs your password to write MustardOS to ${j.card.id} (${j.card.media}).`;
-    const osa = spawn("osascript", ["-e", "activate", "-e", `do shell script ${appleString(command)} with prompt ${appleString(prompt)} with administrator privileges`], { stdio: ["ignore", "pipe", "pipe"] });
-    let osaErr = "", helperStarted = false;
-    osa.stderr.on("data", (d: Buffer) => { osaErr += d.toString(); });
+    await fsp.writeFile(logFile, "");
+    const flashSh = path.join(ctx.managerDir, "scripts", "lib", "flash-card.sh");
+    const askpass = path.join(ctx.managerDir, "scripts", "lib", "sudo-askpass.sh");
+    if (!(await isFile(flashSh))) throw new UserError("scripts/lib/flash-card.sh is missing, so the card cannot be written.");
+    if (!(await isFile(askpass))) throw new UserError("scripts/lib/sudo-askpass.sh is missing, so the card cannot be written.");
+    // osascript "with administrator privileges" cannot open /dev/rdisk* on modern macOS
+    // (Catalina+). Real `sudo` can — same approach as balenaEtcher. Password via SUDO_ASKPASS.
+    const envFile = path.join(dir, "env.sh");
+    await fsp.writeFile(envFile, [
+      `export MUOS_DISK=${shellQuote(j.card.id)}`,
+      `export MUOS_IMAGE=${shellQuote(image.path)}`,
+      `export MUOS_KIND=${shellQuote(image.kind)}`,
+      `export MUOS_BYTES=${shellQuote(String(image.bytes))}`,
+      `export MUOS_HASH=${shellQuote(payloadHash)}`,
+      `export MUOS_PROGRESS=${shellQuote(progress)}`,
+      `export MUOS_CANCEL=${shellQuote(cancel)}`,
+      "",
+    ].join("\n"));
+    const inner = `set -a; . ${shellQuote(envFile)}; set +a; /bin/bash ${shellQuote(flashSh)} >> ${shellQuote(logFile)} 2>&1`;
+    const child = spawn("/usr/bin/sudo", ["-A", "-p", "", "/bin/bash", "-c", inner], {
+      env: { ...process.env, SUDO_ASKPASS: askpass, PATH: "/usr/bin:/bin:/usr/sbin:/sbin" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let sudoErr = "", helperStarted = false;
+    child.stderr.on("data", (d: Buffer) => { sudoErr += d.toString(); });
+    child.stdout.on("data", (d: Buffer) => { sudoErr += d.toString(); });
     j.onCancel = () => {
+      // After the elevated helper starts, only the cancel file is safe: SIGTERM on
+      // sudo can orphan root dd. The script polls MUOS_CANCEL during write/verify.
       void fsp.writeFile(cancel, "1").catch(() => {});
-      if (!helperStarted) osa.kill();
+      if (!helperStarted) {
+        try { child.kill("SIGTERM"); } catch { /* already exited */ }
+      }
     };
-    const exited = new Promise<number>((resolve) => osa.on("close", (code) => resolve(code ?? 1)));
+    const exited = new Promise<number>((resolve) => child.on("close", (code) => resolve(code ?? 1)));
 
     let offset = 0, failure = "", finished = false;
     const pump = async () => {
@@ -344,12 +333,17 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
         let msg: { stage?: string; done?: number; total?: number; error?: string };
         try { msg = JSON.parse(line); } catch { continue; }
         if (msg.error) failure = msg.error;
-        if (msg.stage === "write" || msg.stage === "verify") {
+        if (msg.stage === "prepare" || msg.stage === "write" || msg.stage === "verify") {
           helperStarted = true;
           if (j.stage("auth").state === "run") j.end("auth", "Administrator access granted");
+          if (msg.stage === "write" && j.stage("prepare").state === "run") j.end("prepare", "Old partition map cleared");
           if (msg.stage === "verify" && j.stage("write").state === "run") j.end("write", "Every byte written");
           const s = j.stage(msg.stage);
-          if (s.state !== "run") j.begin(msg.stage, msg.stage === "write" ? `Writing to /dev/r${j.card.id}` : "Reading the card back", msg.total ?? image.bytes);
+          if (s.state !== "run") {
+            const detail = msg.stage === "prepare" ? "Clearing the old partition map"
+              : msg.stage === "write" ? `Writing to /dev/r${j.card.id}` : "Reading the card back";
+            j.begin(msg.stage, detail, msg.total ?? (msg.stage === "prepare" ? 1 : image.bytes));
+          }
           s.done = msg.done ?? 0;
         }
         if (msg.stage === "done") finished = true;
@@ -360,13 +354,20 @@ async function install(j: SystemJob, image: ImageInfo, expected: string, source:
     clearInterval(timer);
     await pump();
     if (!finished) {
-      if (/-128|User cancel/i.test(osaErr)) throw new Cancelled();
-      if (j.cancelled && !helperStarted) throw new Cancelled();
-      throw new UserError(failure || osaErr.replace(/^.*execution error: /s, "").trim() || `The write stopped (exit ${code}).`);
+      if (/^Sorry, try again|sudo:|a password is required|Askpass/i.test(sudoErr) && !helperStarted) {
+        throw new UserError("Password not accepted, or the password dialog was cancelled.");
+      }
+      if (j.cancelled) {
+        if (/cancelled/i.test(failure)) throw new UserError(failure);
+        throw new Cancelled();
+      }
+      const log = await fsp.readFile(logFile, "utf8").catch(() => "");
+      const logTail = log.trim().split(/\r?\n/).filter(Boolean).slice(-6).join(" ").trim();
+      const detail = failure || logTail || sudoErr.trim() || `The write stopped (exit ${code}).`;
+      throw new UserError(detail);
     }
     j.end("verify", "Read-back SHA256 matches the image");
   } finally {
-    guard?.kill();
     await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
   j.begin("eject", `Ejecting ${j.card.id}`);

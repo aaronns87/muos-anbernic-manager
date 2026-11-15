@@ -262,7 +262,7 @@ Map community tips onto options that exist in Game Tuning / Core options; do not
 
 All erase the target - back up saves first (Emulation > Saves). Card reader may ask for password. Only removable cards offered.
 
-**Install MustardOS**: write image from `os/` onto SD1 in reader, verify. Not over Wi-Fi. **Add image to OS folder** / **Save into OS folder**: copy a downloaded `.img`/`.img.gz` plus SHA256 into `os/mustardos_<version>/` with `hash.txt` (version from the MustardOS file name). Day-to-day management of those releases: Library → OS.
+**Install MustardOS**: write image from `os/` onto SD1 in reader, verify. Not over Wi-Fi. Button enabled when checks pass; confirmation modal (no typing the disk id). After authorize, clears the start of the card (old MBR/GPT) before writing so leftover volumes cannot remount mid-flash. **Add image to OS folder** / **Save into OS folder**: copy a downloaded `.img`/`.img.gz` plus SHA256 into `os/mustardos_<version>/` with `hash.txt` (version from the MustardOS file name). Day-to-day management of those releases: Library → OS. Set up TF2 / Reset card still require typing the disk id or `TF2`.
 
 **Set up TF2**: format exFAT named TF2 + ROMS folders. Reader or Over Wi-Fi (`/mnt/sdcard` only; never SD1). One-slot games-on-SD1 cannot use Wi-Fi path.
 

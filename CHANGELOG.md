@@ -50,6 +50,11 @@ version.
 
 ### Changed
 
+- Install MustardOS clears the start of the card (old MBR/GPT) after authorize and before writing, so leftover volumes cannot remount mid-flash (avoids macOS EPERM from `eraseDisk Free Space`).
+- Install MustardOS no longer asks you to type the disk id; the Install button opens an Are you sure confirmation instead (Set up TF2 / Reset card still use typed confirmation).
+- Install MustardOS uses real `sudo -A` (graphical askpass) to write the card — osascript “administrator privileges” cannot open `/dev/rdisk*` on modern macOS; same approach as balenaEtcher.
+- Install MustardOS reports live write and verify progress (chunked elevated `flash-card.sh`), keeps the raw device open so macOS remounts cannot stall mid-flash, and Cancel stops write/verify within about a second.
+- During an install, the SD card panel refreshes after each step so the partition map stays current.
 - App market package ranking prefers assets tagged with the handheld's numeric MustardOS version (e.g. 2606.0 / 2606_0), not only codename tokens.
 - JAVA / FreeJ2ME notes: Andromeda uses the FreeJ2ME core in Pickles; older builds still use Extra Cores / external launchers.
 - Set up TF2 labels `BACKUP` as legacy and notes that Andromeda device backups are `.muxbak` files in `ARCHIVE`.

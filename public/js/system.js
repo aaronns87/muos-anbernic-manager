@@ -17,7 +17,7 @@ const OPS = {
   reset: { name: "Reset card", short: "Erasing", button: "Erase card", icon: "eraser" },
 };
 /** Share of the whole job each stage stands for, so the big ring moves evenly. */
-const WEIGHTS = { check: 22, auth: 1, write: 45, verify: 30, eject: 2, erase: 80, mount: 10, folders: 10 };
+const WEIGHTS = { check: 22, auth: 1, prepare: 4, write: 41, verify: 30, eject: 2, erase: 80, mount: 10, folders: 10 };
 const HEX = /^[0-9a-f]{64}$/;
 const NAME = /^[A-Z0-9_-][A-Z0-9 _-]*$/;
 
@@ -31,6 +31,8 @@ const S = {
   importing: false, pendingImage: "",
   name: "SD_CARD", fs: "FAT32",
   confirm: "", starting: false, sig: "", timer: 0, jobTimer: 0,
+  /** Last job stage fingerprint — used to refresh the card layout when a step finishes. */
+  jobStages: "", cardRefresh: false,
 };
 
 const card = () => S.cards?.find((c) => c.id === S.disk) || S.cards?.[0] || null;
@@ -120,7 +122,7 @@ function renderCard() {
       <div class="sc-art">${sdArt()}<b>${nominal(c.size)}</b></div>
       <div class="sc-main">
         <div class="sc-title"><h3>${esc(c.media || "SD card")}</h3>${busyNow ? `<span class="pill warn busy-pill"><i></i>In use</span>` : `<span class="pill role">${esc(c.role.label)}</span>`}</div>
-        <p>${busyNow ? `${esc(OPS[app.sysJob.op].short)} &mdash; the layout below is from before the job and refreshes when it ends.` : esc(c.role.detail)}</p>
+        <p>${busyNow ? `${esc(OPS[app.sysJob.op].short)} &mdash; layout refreshes after each step.` : esc(c.role.detail)}</p>
         <div class="facts sc-facts">
           ${fact("chip", "Device", `/dev/${c.id}`, "Whole disk")}
           ${fact("sd", "Capacity", nominal(c.size), `${(c.size / 1e9).toFixed(1)} GB usable`)}
@@ -135,7 +137,7 @@ function renderCard() {
       </div>
     </div>
     ${partBar(parts, c.size)}
-    ${parts.length && !busyNow ? `<div class="pt-wrap"><table class="ptable"><thead><tr><th class="num">#</th><th>Name</th><th>Type</th><th>Filesystem</th><th class="num">Size</th><th>Mounted</th><th>Node</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+    ${parts.length ? `<div class="pt-wrap"><table class="ptable"><thead><tr><th class="num">#</th><th>Name</th><th>Type</th><th>Filesystem</th><th class="num">Size</th><th>Mounted</th><th>Node</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
   </section>`;
 }
 
@@ -303,7 +305,8 @@ function checks() {
     const n = cleanName();
     list.push({ ok: !!n && n.length <= nameMax() && NAME.test(n), text: "Volume name is valid" });
   }
-  list.push({ ok: !!c && S.confirm.trim() === c.id, text: c ? `Type ${c.id} to confirm` : "Confirm the card" });
+  // Install uses the Are you sure modal instead of typing the disk id.
+  if (S.tab !== "install") list.push({ ok: !!c && S.confirm.trim() === c.id, text: c ? `Type ${c.id} to confirm` : "Confirm the card" });
   return list;
 }
 
@@ -340,10 +343,10 @@ function goPanel() {
     <p class="sys-next-step" id="sys-next-step" aria-live="polite">${esc(nextStep())}</p>
     <details class="sys-prerequisites"><summary>Review safety checks</summary><ul class="go-checks" id="sys-checks">${checkList()}</ul></details>
     ${warn}
-    <label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
-      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>
+    ${S.tab === "install" ? "" : `<label class="confirm-field"><span>Type <code>${need ? esc(need) : "the disk"}</code> to confirm</span>
+      <input class="control mono" id="sys-confirm" value="${esc(S.confirm)}" placeholder="${esc(need)}" ${need ? "" : "disabled"} spellcheck="false" autocomplete="off"></label>`}
     <button class="btn danger-solid go-btn" id="sys-go" data-sys="start" ${ready() ? "" : "disabled"}>${S.starting ? `<span class="spinner sm"></span>Starting` : `${icon(op.icon)}${op.button}`}</button>
-    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}macOS asks for your password before writing.`
+    <p class="hint go-hint">${S.tab === "install" ? `${icon("lock")}You will confirm once more, then macOS asks for your login password (sudo) to write the card.`
       : wifi ? `${icon("info")}${S.tab === "tf2" ? "Formats TF2 and creates ROMS folders" : "Formats TF2 to an empty volume"} over SSH; takes under a minute.`
       : `${icon("info")}Uses diskutil; takes under a minute.`}</p>
   </aside>`;
@@ -401,10 +404,10 @@ function jobView(j) {
   let outcome = "";
   if (j.state === "done") outcome = `<div class="job-result ok">${icon("check")}<div>${doneText(j)}</div></div>`;
   if (j.state === "failed") outcome = `<div class="job-result bad">${icon("alert")}<div><b>${esc(cur ? `${cur.label} failed` : "Failed")}</b><p>${esc(j.error || "Something went wrong.")}</p>${j.op === "install" ? "<p>The card may be half written. Run the install again, or reset it before using it.</p>" : ""}</div></div>`;
-  if (j.state === "cancelled") outcome = `<div class="job-result warn">${icon("stop")}<div><b>Stopped</b><p>${esc(j.error || "Cancelled before finishing.")}</p>${j.op === "install" ? "<p>The card is only partly written and won't boot. Install again or reset it.</p>" : ""}</div></div>`;
-  const cancellable = j.state === "running" && j.op === "install" && ["check", "auth", "write", "verify"].includes(cur?.id);
+  if (j.state === "cancelled") outcome = `<div class="job-result warn">${icon("x")}<div><b>Stopped</b><p>${esc(j.error || "Cancelled before finishing.")}</p>${j.op === "install" ? "<p>The card is only partly written and won't boot. Install again or reset it.</p>" : ""}</div></div>`;
+  const cancellable = j.state === "running" && j.op === "install" && ["check", "auth", "prepare", "write", "verify"].includes(cur?.id);
   const actions = j.state === "running"
-    ? cancellable ? `<button class="btn danger" data-sys="cancel">${icon("stop")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`
+    ? cancellable ? `<button class="btn danger" data-sys="cancel">${icon("x")}Cancel</button>` : `<span class="hint">Erasing can't be stopped halfway.</span>`
     : `<button class="btn primary" data-sys="dismiss">${icon("check")}${j.state === "done" ? "Done" : "Back"}</button>`;
   return `<section class="panel sys-job st-${j.state}">
     <div class="job-top">
@@ -439,6 +442,35 @@ function doneText(j) {
 }
 
 // ---------------------------------------------------------------- data
+
+/** Stage id+state fingerprint so we can reload the card when prepare/write/verify/eject finish. */
+function stageKey(job) {
+  return (job?.stages || []).map((s) => `${s.id}:${s.state}`).join("|");
+}
+
+/** Re-read diskutil for the card panel without touching the job poller (avoids setJob recursion). */
+async function refreshCardDuringJob() {
+  if (S.cardRefresh || !running()) return;
+  S.cardRefresh = true;
+  try {
+    const r = await api("system/cards");
+    S.error = "";
+    S.cards = r.cards;
+    S.wifiTf2 = r.wifiTf2 || null;
+    // Keep the busy disk selected even if diskutil briefly omits it mid-write.
+    if (S.disk && !S.cards.some((c) => c.id === S.disk) && !running()) S.disk = "";
+    const sig = JSON.stringify([
+      S.cards.map((c) => [c.id, c.size, c.scheme, c.role.kind, c.partitions.map((p) => [p.id, p.mount])]),
+      S.wifiTf2?.ready, S.wifiTf2?.host, S.wifiTf2?.reason, S.target,
+    ]);
+    S.sig = sig;
+    renderCard();
+  } catch {
+    /* diskutil can flake while dd holds the device; next stage retry is enough */
+  } finally {
+    S.cardRefresh = false;
+  }
+}
 
 async function loadCards() {
   try {
@@ -581,14 +613,23 @@ async function importImage(fromPicker) {
 
 function setJob(job) {
   const before = app.sysJob;
+  const beforeStages = S.jobStages;
   app.sysJob = job ? decorate(job) : null;
+  const nextStages = stageKey(app.sysJob);
+  const stagesChanged = !!beforeStages && nextStages !== beforeStages;
+  S.jobStages = nextStages;
   if (job?.state === "running") watchJob();
   if (before?.state === "running" && job && job.state !== "running") {
     toast(job.state === "done" ? `${OPS[job.op].name}: done` : `${OPS[job.op].name}: ${job.state}`, 3000);
+    S.jobStages = "";
     setTimeout(loadCards, 600);
+  } else if (job?.state === "running" && stagesChanged) {
+    // prepare / write / verify / eject each change what diskutil reports — refresh the panel.
+    void refreshCardDuringJob();
   }
+  if (!job) S.jobStages = "";
   renderStatusbar();
-  if (section() === "system" && (job || before)) { renderBody(); if (!!before !== !!job || before?.state !== job?.state) renderCard(); }
+  if (section() === "system" && (job || before)) { renderBody(); if (!!before !== !!job || before?.state !== job?.state || stagesChanged) renderCard(); }
 }
 
 function watchJob() {
@@ -645,16 +686,20 @@ async function start() {
   const wifi = usingWifi();
   const c = card();
   if (!wifi && !c) return;
+  const confirmToken = wifi ? S.confirm.trim() : (S.tab === "install" ? c.id : S.confirm.trim());
   const body = wifi
-    ? { op: S.tab, via: "wifi", confirm: S.confirm.trim() }
-    : { op: S.tab, disk: c.id, confirm: S.confirm.trim() };
+    ? { op: S.tab, via: "wifi", confirm: confirmToken }
+    : { op: S.tab, disk: c.id, confirm: confirmToken };
   if (!wifi && S.tab === "install") Object.assign(body, { image: S.image.path, hash: cleanHash(), hashSource: S.hashSource, allowUnchecked: S.unchecked });
   if (S.tab === "reset") Object.assign(body, { name: cleanName(), fs: S.fs });
   const ok = await confirmBox({
-    title: `${op.button}?`,
+    title: S.tab === "install" ? "Install MustardOS on this card?" : `${op.button}?`,
     html: wifi
       ? `<p>Formats <b>TF2</b> on <b>${esc(S.wifiTf2.host)}</b> (<code>/mnt/sdcard</code>${S.wifiTf2.size ? `, ${nominal(S.wifiTf2.size)}` : ""})${S.tab === "reset" ? ` as <b>${S.fs === "FAT32" ? "FAT32" : "exFAT"}</b> named <b>${esc(cleanName())}</b>` : ""}. Every game on that card is erased${S.tab === "reset" ? "; the volume is left empty (no ROMS folders)" : ", then the ROMS folders are created"}. SD1 is not touched. This can't be undone.</p>`
-      : `${S.tab === "install" ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b>.</p>` : ""}<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
+      : S.tab === "install"
+        ? `<p>Writes <b>${esc(S.image.name || S.image.path)}</b> to <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}).</p>
+           <p><b>Everything on that card is erased</b> — partitions are cleared, then the image is written. This can't be undone.</p>`
+        : `<p>Everything on <b>${esc(c.id)}</b> (${esc(c.media || "SD card")}, ${nominal(c.size)}) is erased. This can't be undone.</p>`,
     ok: op.button, danger: true,
   });
   if (!ok) return;
