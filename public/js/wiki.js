@@ -5,7 +5,7 @@ import { DEVICES, screenText } from "./devices.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
 const SSH_ON = path("Configuration", "Web Services", "Secure Shell");
-const SFTP_ON = path("Configuration", "Web Services", "SFTP + Filebrowser");
+const SFTP_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure File Transfer")} (Andromeda; older builds: ${path("Configuration", "Web Services", "SFTP + Filebrowser")})`;
 
 /** [id, icon, title, section it explains (or ""), one-line summary, [[heading, html], ...]] */
 const ARTICLES = [
@@ -36,7 +36,7 @@ const ARTICLES = [
         dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
-      <li><b>USB cable.</b> On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>, then plug it in.</li>
+      <li><b>USB cable.</b> On Andromeda, turn ${path("Configuration", "Connectivity", "Device Link", "USB Cable")} off, enable Wi-Fi and Secure Shell, then in the manager open Device \u203a Settings \u203a Advanced and set <b>USB function</b> to <b>MTP</b> (that menu is often missing on the handheld). Unplug and replug. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>

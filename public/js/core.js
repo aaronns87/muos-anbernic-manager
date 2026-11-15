@@ -210,8 +210,18 @@ export async function api(path, body) {
     error.offline = true;
     throw error;
   }
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  if (!res.ok) {
+    const error = new Error(data.error || res.statusText);
+    if (data.code) error.code = data.code;
+    if (data.fingerprint) error.fingerprint = data.fingerprint;
+    throw error;
+  }
   return data;
+}
+
+/** Clears the stored SSH host key and signs in once so the next key is trusted (e.g. after reinstalling MustardOS). */
+export async function trustSshHostKey() {
+  return api("ssh/trust-key", {});
 }
 
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

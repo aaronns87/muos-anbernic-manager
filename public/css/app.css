@@ -517,6 +517,31 @@ a.sb-item:hover, button.sb-item:hover { background: var(--panel-2); }
 .sb-conn-link-text b { font-size: 12.5px; font-weight: 750; }
 .sb-conn-link-text small { color: var(--muted); font-size: 11.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-conn-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sb-conn-panel .conn-help {
+  margin: 2px 0 0; padding: 12px 14px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2);
+}
+.sb-conn-panel .conn-help > summary {
+  cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.4;
+  list-style: none; display: flex; align-items: center; gap: 8px;
+}
+.sb-conn-panel .conn-help > summary::-webkit-details-marker { display: none; }
+.sb-conn-panel .conn-help > summary::before {
+  content: ""; width: 0; height: 0; border-left: 5px solid var(--muted); border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent; flex: none; transition: transform .12s;
+}
+.sb-conn-panel .conn-help[open] > summary::before { transform: rotate(90deg); }
+.sb-conn-panel .conn-help > summary:hover { color: var(--mustard); }
+.sb-conn-panel .conn-help .steps {
+  margin: 12px 0 0; padding: 0 0 0 1.35em; display: flex; flex-direction: column; gap: 10px;
+  font-size: 12.5px; line-height: 1.55; color: var(--text);
+}
+.sb-conn-panel .conn-help .steps li { padding: 0; margin: 0; }
+.sb-conn-panel .conn-help .steps li::marker { color: var(--muted); font-weight: 700; }
+.sb-conn-panel .conn-help > .muted-note {
+  margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); line-height: 1.55;
+}
+.sb-conn-panel .conn-help > .muted-note a { color: var(--brand); font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
 .sb-conn-wifi .wifi-form { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0; }
 .sb-conn-wifi .wifi-form label:first-child { grid-column: 1 / -1; }
 .sb-conn-wifi .wifi-form label { font-size: 12px; }
@@ -1631,6 +1656,8 @@ body.in-ssh #view-ssh { flex: 1; min-height: 0; display: flex; flex-direction: c
 .term-alert .notice > div:first-child { flex: 1 1 260px; }
 .term-alert code { font-size: 11.5px; }
 .alert-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.sb-conn-panel .notice.err { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sb-conn-panel .notice.err > div:first-child { flex: 1 1 200px; }
 .term-stage { position: relative; flex: 1; min-height: 0; background: var(--term-bg); }
 .term-host { position: absolute; inset: 8px 4px 4px 10px; display: none; }
 .term-host.on { display: block; }

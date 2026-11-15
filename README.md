@@ -267,8 +267,8 @@ those already on `main` but not yet released.
 | Connection | How | Good for |
 | --- | --- | --- |
 | Card reader | Take the games card (TF2, or the only card on one-slot models) out and put it in the computer. | Copying many games quickly; install MustardOS, set up TF2, wipe a card. |
-| USB cable | On the handheld: **Configuration > Advanced Settings > USB Function > MTP**, then plug it in. | Copying games and artwork; play time. |
-| Wi-Fi | Turn on **Configuration > Web Services > SFTP + Filebrowser** (files) and **Secure Shell** (everything else). | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
+| USB cable | Andromeda: turn **Device Link → USB Cable** off, connect Wi-Fi + SSH, set **Device → Settings → Advanced → USB function → MTP** in this manager (often not on the handheld menus), then unplug/replug. Older builds: **Advanced Settings → USB Function → MTP**. | Copying games and artwork; play time. |
+| Wi-Fi | Turn on **Configuration > Connectivity > Web Services > Secure File Transfer** (Andromeda; older builds: SFTP + Filebrowser) for files, and **Secure Shell** for everything else. | Everything, including apps, themes, ports, settings, saves, Set up TF2 and Reset card (TF2). |
 
 Switch between them at the top of the Overview page. The default MustardOS logins (`muos`/`muos` for SFTP, `root`/`root`
 for SSH) are filled in; **Find on network** looks for the handheld's address.
@@ -310,13 +310,20 @@ On Windows, `run.cmd` takes the same options. `--root DIR` uses another workspac
 ## Troubleshooting
 
 - **"Node.js is too old"**: install Node.js 23.6 or newer from [nodejs.org](https://nodejs.org/) or with `brew install node`.
+- **SSH says the host key changed**: normal after reinstalling MustardOS. In the connection panel open **Remote controls** and
+  click **Trust the new key** (or use the same button on Terminal / Device Settings). Only do that if the address is still yours.
+- **USB shows Device Link / usblink0 / “looking for other device”**: that is Andromeda Device Link (USB id `1d6b:0110`),
+  for two MustardOS handhelds — not this computer. Turn **USB Cable** off under **Configuration > Connectivity > Device Link**,
+  connect Wi-Fi + SSH, set **Device → Settings → Advanced → USB function → MTP** in this manager (often missing on the handheld),
+  then unplug and replug. While USB Cable is on, MTP is paused.
 - **USB shows nothing on a Mac**: install `libmtp` (`brew install libmtp`), set the handheld's USB Function to MTP, and quit
   apps that grab MTP devices (Android File Transfer, OpenMTP).
 - **The handheld is not found over USB, often after a restart**: unplug the cable, wait until the handheld has finished
   starting, and plug it in again; plugged in during start-up, its USB port can come up in the wrong mode. On a Mac, unlock
   it and click **Allow** on the accessory prompt (or check **System Settings > Privacy & Security > Allow accessories to
   connect**), and try another cable if it still shows nothing: charge-only cables carry no data.
-- **Wi-Fi does not connect**: check that SFTP + Filebrowser is on and the address under Wi-Fi settings is right; features
+- **Wi-Fi says no Primary Storage / SD1 folder**: Andromeda names cards Primary/Secondary Storage over SFTP; update the manager if you still see that on a current build. Check Secure File Transfer is on (Connectivity → Web Services).
+- **Wi-Fi does not connect**: check that Secure File Transfer (or SFTP + Filebrowser) is on and the address under Wi-Fi settings is right; features
   that change the handheld also need Secure Shell.
 - **The card reader card is not found**: on one-slot models the games live on the only card; pick your model in the picker
   under the logo so the manager knows.

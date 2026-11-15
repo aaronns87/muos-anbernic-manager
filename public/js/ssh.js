@@ -709,10 +709,15 @@ async function onClick(e) {
         ok: "Forget", danger: true,
       }))) return;
       try {
-        ssh.status = await api("ssh/forget-key", {});
-        renderConn();
-        if (act === "trust" && t) connectTab(t);
-        else toast("Forgot the host key. The next connection trusts the key it sees.", 3000);
+        if (act === "trust") {
+          ssh.status = await api("ssh/trust-key", {});
+          toast(`Trusted the handheld's host key ${(ssh.status.fingerprint || "").slice(0, 20)}\u2026`, 3000);
+          if (t) connectTab(t);
+        } else {
+          ssh.status = await api("ssh/forget-key", {});
+          toast("Forgot the host key. The next connection trusts the key it sees.", 3000);
+        }
+        renderConn(); renderEmpty(); renderHead();
       } catch (error) { toast(error.message, 4000); }
       return;
     }

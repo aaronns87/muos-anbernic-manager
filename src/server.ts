@@ -31,7 +31,7 @@ import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchma
 import {
   controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
 } from "./device/controls.ts";
-import { attachTerminal, deviceStats, forgetHostKey, power, saveSshSettings, SshError, sshStatus } from "./device/ssh.ts";
+import { attachTerminal, deviceStats, forgetHostKey, power, probeSignIn, saveSshSettings, SshError, sshStatus, trustHostKey } from "./device/ssh.ts";
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "./device/muos-settings.ts";
 import { cardFor, findCards, handheldStatus, withTarget } from "./device/target.ts";
 import { cardHint, usbModel, wifiModel } from "./device/model.ts";
@@ -373,6 +373,8 @@ const routes: Record<string, Handler> = {
     await forgetHostKey();
     return sshStatus();
   },
+  "POST /api/ssh/probe": () => probeSignIn(),
+  "POST /api/ssh/trust-key": () => trustHostKey(),
   "GET /api/ssh/stats": () => deviceStats(),
   "GET /api/handheld/settings": () => handheldSettings(),
   "POST /api/handheld/settings": (_, body) => saveHandheldSettings(body),

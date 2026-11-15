@@ -100,8 +100,8 @@ The handheld runs MustardOS. The manager reaches it three ways, chosen by the us
 | --- | --- | --- |
 | Card reader | `CardFs` on the mounted TF2 card (or SD1 on one-slot models); `system/cards.ts` for raw disks | files, games, artwork; System Tools (install, TF2, reset) |
 | Wi-Fi SSH | `runCommand` / `storage.sh` on the handheld | System Tools Set up TF2 and Reset card (never SD1) |
-| USB (MTP) | `device/mtp.ts` via libmtp; vendor `0x1d6b`, product `0x0100` | files, games, artwork, play data |
-| Wi-Fi | `device/sftp.ts` (SFTPGo, port 2022, `muos`/`muos`) and `device/ssh.ts` (port 22, `root`/`root`) | everything; SSH is needed for apps, themes, ports, settings, cores, saves, BIOS |
+| USB (MTP) | `device/mtp.ts` via libmtp; vendor `0x1d6b`, product `0x0100` (MTP). Product `0x0110` is Andromeda Device Link (`usblink0`); not used for file transfer | files, games, artwork, play data |
+| Wi-Fi | `device/sftp.ts` (port 2022, `muos`/`muos`; Andromeda Dropbear Primary/Secondary Storage → SD1/SD2, older SFTPGo SD1/SD2) and `device/ssh.ts` (port 22, `root`/`root`) | everything; SSH is needed for apps, themes, ports, settings, cores, saves, BIOS |
 
 `withTarget(volume, (t) => ...)` gives a `Target`: `t.roms` (where ROMs go), `t.arts` (artwork
 catalogues, preferred first), `t.all` (every readable storage by label). All three implement `DeviceFs`.

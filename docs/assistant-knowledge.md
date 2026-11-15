@@ -26,8 +26,8 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 ### Three ways to connect
 
 1. **Card reader** - TF2 games card (or the only card on one-slot models) in this computer. Fastest for many games. Needed for Install MustardOS and for card wipes from a reader.
-2. **USB** - On the handheld: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
-3. **Wi-Fi** - Same network. Enable **SFTP + Filebrowser** for files. Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
+2. **USB** - Andromeda: turn off Connectivity > Device Link > USB Cable; enable Wi-Fi + Secure Shell; in the manager Device > Settings > Advanced set **USB function** to **MTP** (often not shown on the handheld), then unplug/replug. Older: Advanced Settings > USB Function > MTP.
+3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
 
 USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel (primary path for copies, reconnect, Wi-Fi setup). Game copies use one primary path at a time.
 
@@ -314,16 +314,20 @@ In-app help for every section, glossary and troubleshooting. `?` opens the artic
 - **Core** - Emulator program. **BIOS** - Console startup chip copy.
 - **MD5 / CRC** - File fingerprints.
 - **.muxapp / .muxupd** - MustardOS packages. **Archive Manager** - installs from ARCHIVE.
-- **SFTP** - File copy over Wi-Fi (SFTP + Filebrowser). **SSH** - Secure shell. **MTP** - USB file mode.
+- **SFTP** - File copy over Wi-Fi (Andromeda Secure File Transfer / Dropbear; older SFTP + Filebrowser). **SSH** - Secure shell. **MTP** - USB file mode.
 - **Save state** - Emulator snapshot (not in-game save).
 - **Port / PortMaster / Runtime / Ready to run** - Native ports; installer app; shared engine; self-contained port.
 - **ScummVM / .scummvm** - Adventure runner; empty list file next to data folder.
 
 ## help - Troubleshooting
 
-**USB not found**: set USB Function to MTP; unplug after boot and replug; Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or use Wi-Fi.
+**USB not found / Device Link / usblink0 / “looking for other device”**: Device Link (USB `1d6b:0110`) is for two handhelds; turn USB Cable off under Connectivity → Device Link; enable Wi-Fi + SSH; in the manager Device → Settings → Advanced set USB function to MTP (often missing on-device); unplug/replug. While USB Cable is on, MTP is paused. Also: Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or stay on Wi-Fi.
 
-**Wi-Fi unreachable**: same network; handheld awake; SFTP (+ SSH for SSH features); Find on network if address changed.
+**Wi-Fi “No SD1 or SD2 folder”**: Andromeda SFTP lists Primary/Secondary Storage (manager maps them to SD1/TF2). Enable Secure File Transfer under Connectivity → Web Services.
+
+**SSH host key changed / different host key**: normal after reinstalling MustardOS. Connection panel → Remote controls → **Trust the new key**, or Terminal → **Trust the new key and connect**, or Device Settings → **Trust the new key**. Only trust if the address is still your handheld.
+
+**Wi-Fi unreachable**: same network; handheld awake; Secure File Transfer / SFTP (+ SSH for SSH features); Find on network if address changed.
 
 **Game won't start**: Emulation > BIOS (Fix names for PS lowercase); Disc layouts for zip/broken cue; try SwanStation/DuckStation for PS CHD black screen; try another core; Verify dumps for bad dump.
 

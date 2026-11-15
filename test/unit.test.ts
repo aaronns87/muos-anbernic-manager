@@ -31,6 +31,7 @@ import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
 import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
 import { GROUPS, codenameOf } from "../src/device/muos-settings.ts";
 import { archiveMuxbakPath, SECTIONS } from "../src/device/muxbak.ts";
+import { mapSftpRoots } from "../src/device/sftp.ts";
 import { DEFAULT_VERSION } from "../src/theme-designer.ts";
 import { RESOLUTIONS } from "../src/themes.ts";
 import { UserError } from "../src/errors.ts";
@@ -1043,4 +1044,17 @@ test("Andromeda: settings catalogue, themes 2606, muxbak path guards", () => {
   assert.throws(() => archiveMuxbakPath("/mnt/sdcard/ROMS/foo.muxbak"), UserError);
   assert.throws(() => archiveMuxbakPath("/mnt/mmc/ARCHIVE/not-a-backup.zip"), UserError);
   assert.throws(() => archiveMuxbakPath("/tmp/evil.muxbak"), UserError);
+});
+
+test("mapSftpRoots accepts Andromeda Primary/Secondary Storage and older SD1/SD2 names", () => {
+  assert.deepEqual(mapSftpRoots(["Primary Storage", "Secondary Storage", "Internal", "History"]), [
+    { name: "SD1", root: "/Primary Storage" },
+    { name: "SD2", root: "/Secondary Storage" },
+  ]);
+  assert.deepEqual(mapSftpRoots(["SD1 (mmc)", "SD2 (sdcard)", "USB (external)"]), [
+    { name: "SD1", root: "/SD1 (mmc)" },
+    { name: "SD2", root: "/SD2 (sdcard)" },
+  ]);
+  assert.deepEqual(mapSftpRoots(["ROMS", "MUOS"]), [{ name: "SD1", root: "/" }]);
+  assert.deepEqual(mapSftpRoots(["Internal", "Boot", "History"]), []);
 });

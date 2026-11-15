@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda 2606, OS library/market, MustardTube, Appearance, System Tools confirm modals + remount-safe macOS install |
+| [Unreleased](#unreleased) | | Andromeda USB/SFTP/SSH fixes, OS library/market, MustardTube, Appearance, System Tools confirm modals + remount-safe macOS install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -82,9 +82,19 @@ version.
   Colours and style groups Softer style separately from layout density and zoom.
 - System Tools highlights the next prerequisite and puts the full checklist in expandable details, while preserving
   target information, erase warnings and a single Are you sure confirmation modal.
+- Connection panel **Remote controls** can Test sign-in (password + host key) and trust or forget the SSH host key after a
+  MustardOS reinstall; Device Settings and Terminal offer the same Trust action when the key changed.
+- USB cable mode on Andromeda shows spaced **Andromeda USB (MTP) help** in the connection panel: Device Link off → Wi-Fi + SSH →
+  set MTP in Device Settings (often missing on-device) → unplug/replug, with a link to Device Settings.
 
 ### Fixed
 
+- Wi-Fi SFTP recognises Andromeda's **Primary Storage** / **Secondary Storage** folders (Dropbear Secure File Transfer), not only
+  the older SFTPGo **SD1** / **SD2** names — fixes "No SD1 or SD2 folder is visible over SFTP" after updating to Andromeda.
+- After reinstalling MustardOS, a changed SSH host key can be trusted from the connection panel, Terminal, or Device Settings
+  instead of failing with only the mismatch message.
+- USB connection recognises Andromeda **Device Link** (`1d6b:0110` / usblink0) and guides MTP setup through Device Settings when
+  USB Function is not on the handheld menus.
 - Failed file saves keep the edited content and show a persistent Retry save action. File and theme action failures
   remain visible until dismissed or retried, and theme creation failures preserve the selected options.
 - Leaving Theme Designer, including through browser history, waits for pending edits to save. Failed saves keep the
