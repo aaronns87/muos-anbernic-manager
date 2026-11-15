@@ -72,6 +72,20 @@ const SLEEP: Option[] = [["-2", "Disabled"], ["-1", "Sleep until woken"], ["2", 
   ["120", "Sleep 2 min, then shut down"], ["300", "Sleep 5 min, then shut down"], ["600", "Sleep 10 min, then shut down"],
   ["900", "Sleep 15 min, then shut down"], ["1800", "Sleep 30 min, then shut down"], ["3600", "Sleep 60 min, then shut down"]];
 const MUSIC: Option[] = [["0", "Disabled"], ["1", "Global"], ["2", "From the theme"]];
+const PORT = (key: string, label: string, help: string, def: number): Setting =>
+  range(key, label, help, "services", 1, 65535, { warn: `Changing the port may disconnect the manager until you set the same port under connection settings (default ${def}).` });
+
+/** Screensaver types from MustardOS Andromeda (common/saver/type.h). */
+const SAVER_TYPE: Option[] = [
+  ["0", "Disabled"], ["1", "DVD logo"], ["2", "Starfield"], ["3", "Matrix"], ["4", "Fireflies"],
+  ["5", "Pulse"], ["6", "Trace"], ["7", "Constellation"], ["8", "Mystify"], ["9", "Maze"],
+  ["10", "Block fall"], ["11", "Date and time"], ["12", "Video wallpaper"], ["13", "Slideshow"],
+  ["14", "Flying box art"], ["15", "Blue screen"], ["16", "Lava lamp"], ["17", "Gravity glitch"],
+  ["18", "Endless hallway"], ["19", "Pixel moss"], ["20", "Blank"],
+];
+const SAVER_SPEED: Option[] = [
+  ["30", "Crawl"], ["90", "Cruise"], ["150", "Fast"], ["300", "Turbo"], ["600", "Ludicrous"],
+];
 
 export const GROUPS: Group[] = [
   {
@@ -95,6 +109,9 @@ export const GROUPS: Group[] = [
       toggle("settings/power/idle_mute", "Mute when the screen dims", "Silences the audio while the display is dimmed.", "live"),
       range("settings/power/low_battery", "Low battery warning", "Battery level at which the red LED comes on.", "live", 0, 100, { unit: "%" }),
       select("settings/power/gov_idle", "Idle CPU governor", "The CPU governor used while there is no input.", "live", [], { dyn: "governors" }),
+      select("settings/power/gov_default", "Default CPU governor", "The governor used while something is happening (Andromeda).", "live", [], { dyn: "governors" }),
+      select("settings/power/saver_type", "Screensaver", "What plays after the screen dims (Andromeda Power settings).", "live", SAVER_TYPE),
+      select("settings/power/saver_speed", "Screensaver speed", "How fast the screensaver moves when it supports speed.", "live", SAVER_SPEED),
     ],
   },
   {
@@ -102,7 +119,9 @@ export const GROUPS: Group[] = [
     items: [
       toggle("visual/battery", "Battery icon", "Shows the battery icon in the header.", "menu"),
       toggle("visual/network", "Network icon", "Shows the Wi-Fi icon in the header.", "menu"),
+      toggle("visual/bluetooth", "Bluetooth icon", "Shows the Bluetooth icon in the header when the board supports it (Andromeda).", "menu"),
       toggle("visual/clock", "Clock", "Shows the clock in the header.", "menu"),
+      toggle("visual/pickles_startup_messages", "Pickles startup messages", "Shows messages while Pickles (the Libretro player) starts (Andromeda).", "menu"),
       select("visual/name", "Game names", "Hides extra information from names on screen. Files are not renamed.", "menu", [
         ["0", "Full name"], ["1", "Remove [ ]"], ["2", "Remove ( )"], ["3", "Remove [ ] and ( )"],
       ]),
@@ -147,8 +166,11 @@ export const GROUPS: Group[] = [
       select("settings/general/sound", "Navigation sounds", "Sounds when moving through the menus.", "menu", MUSIC),
       range("settings/general/soundvol", "Navigation sound volume", "Volume of the navigation sounds.", "menu", 0, 100, { unit: "%" }),
       toggle("settings/general/chime", "Startup chime", "Plays a sound when the menu starts.", "boot"),
+      toggle("settings/general/rgb", "RGB lighting", "Turns stick and button RGB on where the board supports it (Andromeda).", "tweak"),
       toggle("visual/backgroundanimation", "Background animation", "Plays the theme's animated background.", "menu"),
       select("settings/general/theme_scaling", "Theme scaling", "How themes made for other screen sizes are fitted.", "menu", [["0", "None"], ["1", "Scale"], ["2", "Stretch"]]),
+      select("settings/general/theme_resolution", "Theme resolution preference", "Preferred theme size when more than one is installed (Andromeda).", "menu",
+        [["0", "Auto"], ["1", "Native screen"], ["2", "720p"], ["3", "1080p"]]),
       toggle("settings/advanced/random_theme", "Random theme on boot", "Picks a different installed theme each time the handheld starts.", "boot"),
     ],
   },
@@ -162,14 +184,40 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "web", title: "Web services", icon: "web", intro: "Network services on the handheld. Changes start or stop them right away.",
+    id: "network", title: "Network", icon: "web", intro: "How the handheld connects on Wi-Fi (Andromeda Network settings).",
     items: [
-      toggle("web/sshd", "Secure Shell (SSH)", "Port 22. This page, the SSH terminal and device stats use it.", "services",
+      toggle("settings/network/boot", "Connect on boot", "Starts Wi-Fi when the handheld starts.", "boot"),
+      toggle("settings/network/wake", "Reconnect after sleep", "Brings Wi-Fi back when waking from sleep.", "live"),
+      toggle("settings/network/monitor", "Connection monitor", "Watches the link and retries when it drops.", "live"),
+      toggle("settings/network/async_load", "Async network load", "Loads network services without blocking the menu.", "boot"),
+      toggle("settings/network/system_dns", "Use system DNS", "Uses the handheld's DNS settings for lookups.", "network"),
+      toggle("settings/network/usb_cable", "USB network cable", "Allows networking over a USB cable when the board supports it.", "tweak"),
+    ],
+  },
+  {
+    id: "web", title: "Web services", icon: "web", intro: "Network services on the handheld. Changes start or stop them right away. Ports appear on Andromeda when those files exist.",
+    items: [
+      toggle("web/sshd", "Secure Shell (SSH)", "Remote shell for this page, the terminal and device stats.", "services",
         { warn: "Turning off Secure Shell disconnects the manager: this page, the terminal and device stats stop working until you turn it back on in Configuration \u203a Web Services on the handheld." }),
-      toggle("web/sftpgo", "SFTP and file browser", "Port 2022, file browser on port 9090. Wi-Fi transfers use it.", "services",
+      PORT("web/sshd_port", "SSH port", "TCP port for Secure Shell (default 22).", 22),
+      toggle("web/sftpgo", "SFTP and file browser (older MustardOS)", "Port 2022 and file browser. Used on Jacaranda builds that still name the service sftpgo.", "services",
         { warn: "Turning off SFTP stops transfers over Wi-Fi until you turn it back on." }),
-      toggle("web/ttyd", "Virtual terminal", "A terminal in the browser on port 8080.", "services"),
-      toggle("web/syncthing", "Syncthing", "Syncs saves and files with other devices. Web interface on port 7070.", "services"),
+      toggle("web/sftp", "SFTP and file browser", "Andromeda name for the SFTP service. Wi-Fi transfers use it.", "services",
+        { warn: "Turning off SFTP stops transfers over Wi-Fi until you turn it back on." }),
+      PORT("web/sftp_port", "SFTP port", "TCP port for SFTP file transfers (default 2022).", 2022),
+      toggle("web/ttyd", "Virtual terminal", "A terminal in the browser.", "services"),
+      PORT("web/ttyd_port", "Virtual terminal port", "Browser terminal port (default 8080).", 8080),
+      toggle("web/syncthing", "Syncthing", "Syncs saves and files with other devices.", "services"),
+      PORT("web/syncthing_port", "Syncthing port", "Syncthing web interface port (default 7070).", 7070),
+      toggle("web/landing", "Web landing page", "Shows the MustardOS landing page on the local network (Andromeda).", "services"),
+      PORT("web/landing_port", "Landing page port", "HTTP port for the landing page (default 80).", 80),
+      toggle("web/landing_auth", "Landing page sign-in", "Asks for a password on the landing page.", "services"),
+      toggle("web/mdns", "mDNS discovery", "Advertises the handheld on the local network for Find on network.", "services"),
+      { key: "web/mdns_name", label: "mDNS name", help: "Local hostname advertised over mDNS, without .local.", kind: "text", apply: "services",
+        pattern: /^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/ },
+      toggle("web/remote_control", "Remote view", "Allows remote viewing of the handheld screen (Andromeda).", "services"),
+      toggle("web/remote_sound", "Remote view audio", "Sends audio with remote view when that is on.", "services"),
+      toggle("web/remote_privacy", "Remote view privacy", "Blurs or hides sensitive screens in remote view.", "services"),
       toggle("web/tailscaled", "Tailscale", "Reach the handheld from anywhere. Log in over SSH first to set it up.", "services"),
     ],
   },
@@ -194,10 +242,14 @@ export const GROUPS: Group[] = [
       ], { needs: "rumble" }),
       toggle("settings/advanced/led", "LED while playing", "Keeps the power LED on during games.", "live"),
       toggle("settings/advanced/activity", "Activity tracker", "Records play time for each game.", "live"),
+      toggle("settings/general/activity", "Activity tracker (general)", "Andromeda also stores activity under General; keep both in sync if both appear.", "live"),
+      toggle("settings/advanced/passcode", "Passcode lock", "Asks for a passcode on the handheld (set the code on-device under Advanced).", "boot",
+        { warn: "Enabling a passcode without setting the code on the handheld can lock you out of menus. Set the code on the device first." }),
       toggle("settings/advanced/thermal", "Thermal shutdown", "Shuts the handheld down when it gets too hot.", "boot"),
       toggle("settings/advanced/lidswitch", "Lid switch", "Uses the lid sensor to sleep when the lid closes.", "boot", { needs: "lid" }),
       toggle("settings/advanced/disp_suspend", "Display suspend", "Turns the display off while sleeping. Some screens do not like this.", "live"),
       toggle("settings/advanced/audio_swap", "Swap left and right audio", "Reverses the speaker channels.", "tweak"),
+      toggle("settings/advanced/audio_suspend", "Suspend audio with sleep", "Stops audio hardware while sleeping (Andromeda).", "live"),
       toggle("settings/advanced/overdrive", "Audio overdrive", "Lets the volume go to 200%.", "tweak"),
       toggle("settings/advanced/maxgpu", "GPU performance mode", "Keeps the GPU at its highest clock.", "tweak"),
       select("settings/advanced/usb_function", "USB function", "What the handheld offers over USB.", "tweak", [["0", "Disabled"], ["1", "ADB"], ["2", "MTP (file transfer)"]],
@@ -282,6 +334,15 @@ function fitsBoard(s: Setting, facts: Facts): boolean {
 
 const keysOf = () => [...BY_KEY.keys()];
 
+/** Codename token from a MustardOS version string, e.g. ANDROMEDA from 2606.0_ANDROMEDA. */
+export function codenameOf(version: string): string {
+  const up = String(version || "").toUpperCase();
+  for (const name of ["ANDROMEDA", "JACARANDA", "GOOSE", "BANANA", "BEAN", "PIPPIN"]) {
+    if (up.includes(name)) return name[0] + name.slice(1).toLowerCase();
+  }
+  return "";
+}
+
 export async function handheldSettings() {
   const { values, facts } = await readValues(keysOf());
   const groups = GROUPS.map((g) => ({
@@ -296,7 +357,17 @@ export async function handheldSettings() {
       };
     }),
   })).filter((g) => g.items.length);
-  return { at: Date.now(), version: facts.version, host: facts.host, groups, undo: await lastBackup() };
+  const ports = {
+    ssh: Number(values["web/sshd_port"]) || 0,
+    sftp: Number(values["web/sftp_port"]) || 0,
+    ttyd: Number(values["web/ttyd_port"]) || 0,
+    syncthing: Number(values["web/syncthing_port"]) || 0,
+    landing: Number(values["web/landing_port"]) || 0,
+  };
+  return {
+    at: Date.now(), version: facts.version, codename: codenameOf(facts.version), host: facts.host, ports, groups,
+    undo: await lastBackup(),
+  };
 }
 
 // ---------------------------------------------------------------- saving

@@ -847,12 +847,12 @@ const suggest = (base = "My Theme") => {
 };
 
 function startForm(from = "blank") {
-  D.form = { from, name: suggest(), named: false, palette: 0, res: new Set([deviceRes()]), source: "", version: D.list?.defaultVersion || "2601.0", busy: false, file: null };
+  D.form = { from, name: suggest(), named: false, palette: 0, res: new Set([deviceRes()]), source: "", version: D.list?.defaultVersion || "2606.0", busy: false, file: null };
   renderBody();
 }
 
 function newThemeView() {
-  const f = D.form || (D.form = { from: "blank", name: suggest(), named: false, palette: 0, res: new Set([deviceRes()]), source: "", version: D.list?.defaultVersion || "2601.0", busy: false, file: null, first: true });
+  const f = D.form || (D.form = { from: "blank", name: suggest(), named: false, palette: 0, res: new Set([deviceRes()]), source: "", version: D.list?.defaultVersion || "2606.0", busy: false, file: null, first: true });
   const data = D.host?.data();
   const cat = data?.catalogue?.themes || [];
   const dev = data?.device?.installed || [];

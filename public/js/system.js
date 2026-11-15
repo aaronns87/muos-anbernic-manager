@@ -240,10 +240,16 @@ function tf2Form() {
   return step(1, "What the card gets", "", `<span class="ss-aside">MBR · exFAT · TF2</span>`, `
     <div class="tree">
       <div class="tree-root">${icon("sd")}<b>TF2</b><small>one exFAT volume, the whole card</small></div>
-      <ul class="tree-top">${top.map((f) => `<li class="${f === "ROMS" ? "open" : ""}">${icon("folder")}<span>${esc(f)}</span>${f === "ROMS" ? `<small>${plural(systems.length, "system folder")}</small>` : ""}</li>`).join("")}</ul>
+      <ul class="tree-top">${top.map((f) => {
+        const note = f === "ROMS" ? `<small>${plural(systems.length, "system folder")}</small>`
+          : f === "BACKUP" ? `<small>legacy; Andromeda uses .muxbak in ARCHIVE</small>`
+          : f === "ARCHIVE" ? `<small>packages and .muxbak backups</small>` : "";
+        return `<li class="${f === "ROMS" ? "open" : ""}">${icon("folder")}<span>${esc(f)}</span>${note}</li>`;
+      }).join("")}</ul>
       <div class="tree-roms">${systems.map((s) => `<span>${esc(s)}</span>`).join("")}</div>
     </div>
     <p class="hint">On the handheld this card mounts at <code>/mnt/sdcard</code>, and muOS looks for games in <code>ROMS/&lt;system&gt;</code>.
+      Andromeda device backups are <code>.muxbak</code> files in <code>ARCHIVE</code> (Emulation &rsaquo; Saves); <code>BACKUP</code> remains for older zip backups.
       ${usingWifi()
         ? " Over Wi-Fi the manager formats the card already in the handheld and leaves SD1 alone. Afterward you can copy games over Wi-Fi, USB or a card reader."
         : " Once it is set up in a card reader, eject it, put it in the TF2 slot, or copy games while it is still in the reader."}</p>

@@ -167,7 +167,7 @@ Sidebar **Device** (was Device Settings). Tabs need Wi-Fi + Secure Shell.
 
 ### Settings tab
 
-Same options as handheld Configuration screens (General, Power, Interface, Customisation, ...). Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options.
+Same options as handheld Configuration screens (General, Power, Interface, Customisation, ...). List adapts by config-file presence: Jacaranda shows today's options; Andromeda (2606.0) adds Bluetooth, screensavers, passcode, web ports, fonts, storage toggles, etc. Release badge shows MustardOS version · codename. **Use handheld ports** copies SSH/SFTP ports from the device into connection setup when they differ. Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options. Wasabi playback and deep Pickles hotkeys stay on-device; related keys can appear when files exist.
 
 ### Controls tab
 
@@ -191,13 +191,19 @@ Browse MustardOS theme library (theme.muos.dev), same as Theme Download on the h
 
 ### Theme Designer
 
-Themes folder (Settings). Start blank, from library, handheld, own theme, or `.muxthm`. Autosave; Ctrl+Z / Ctrl+Shift+Z. Live preview of menus, lists, popups, keyboard, passcode, charging, boot logo. Quick style palettes; full scheme settings. Changes go to: whole theme / screen size / one screen / colour variant. Pictures, icons, fonts (lv_font_conv via npx), sounds. Export `.muxthm`; Install / Install and apply over Wi-Fi+SSH. Needs MustardOS 2601.0+ (themes as folders) for install/apply. Browse needs internet; Designer works offline.
+Themes folder (Settings). Defaults to MustardOS **2606.0 Andromeda** (or connected device version), with 720×576 and 1920×1080 among sizes. Start blank, from library, handheld, own theme, or `.muxthm`. Autosave; Ctrl+Z / Ctrl+Shift+Z. Live preview of menus, lists, popups, keyboard, passcode, charging, boot logo. Quick style palettes; full scheme settings. Changes go to: whole theme / screen size / one screen / colour variant. Pictures, icons, fonts (lv_font_conv via npx), sounds. Export `.muxthm`; Install / Install and apply over Wi-Fi+SSH. Needs MustardOS 2601.0+ (themes as folders) for install/apply. Browse needs internet; Designer works offline.
 
 ## emulation - Emulation
 
 ### Saves
 
-Backup save games and states from handheld to `backups/` (one archive each). Back up now; open backup to compare/restore all or selected. Before restore, auto backup labelled Before a restore.
+**Save games (all builds):** tar.gz of saves/states from handheld into `backups/` on this computer. Back up now; open to compare/restore all or selected. Before restore, auto backup labelled Before a restore.
+
+**Device backups (Andromeda 2606+, backup.sh present):** `.muxbak` in ARCHIVE on the handheld (same as MustardOS Backup / Archive Manager). List, download to `backups/`, create (sections + SD1/SD2/USB, optional merge), restore on device (overwrites matching sections). TF2 setup still creates legacy `BACKUP/` for older zips; Andromeda system backups use ARCHIVE.
+
+### JAVA / FreeJ2ME
+
+Andromeda: FreeJ2ME core in Pickles (external launchers removed). Older builds: Extra Cores → FreeJ2ME.
 
 ### BIOS
 

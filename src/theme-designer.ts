@@ -19,7 +19,7 @@ import { downloadCatalogueTheme, fetchDeviceTheme, installThemeArchive, safeName
 import { isDir, isFile, listDir, removeQuietly } from "./util.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "./zip.ts";
 
-export const DEFAULT_VERSION = "2601.0";
+export const DEFAULT_VERSION = "2606.0";
 const RES = /^\d{3,4}x\d{3,4}$/;
 const VERSION = /^\d{4}\.\d{1,2}$/;
 const MAX_ASSET = 100 * 1024 * 1024;

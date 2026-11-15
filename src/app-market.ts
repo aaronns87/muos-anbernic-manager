@@ -261,17 +261,28 @@ interface Ranked { name: string; size: number; fit: "best" | "ok" | "other"; why
 const cap = (s: string) => s[0] + s.slice(1).toLowerCase();
 
 /** Orders a release's packages for a handheld: ones built for another maker, MustardOS release or as a patch come last. */
-export function rankAssets(assets: Pick<Asset, "name" | "size">[], maker: string, codename: string): Ranked[] {
+/** Version digits in a package name, e.g. 2606.0 or 2606_0 → "2606.0". */
+function versionToken(name: string): string {
+  const m = /(?:^|[_.-])v?(\d+)[._](\d+)(?:[_.-]|$)/i.exec(name);
+  return m ? `${m[1]}.${m[2]}` : "";
+}
+
+export function rankAssets(assets: Pick<Asset, "name" | "size">[], maker: string, codename: string, runningVer = ""): Ranked[] {
   const full = assets.some((a) => !/[_.-]update\b/i.test(a.name));
+  const wantVer = /^(\d+\.\d+)/.exec(runningVer)?.[1] || "";
   const ranked = assets.map((a) => {
     const up = a.name.toUpperCase();
     const codes = CODENAMES.filter((c) => up.includes(c)), makers = Object.keys(MAKERS).filter((m) => up.includes(m));
+    const ver = versionToken(a.name);
     let fit: Ranked["fit"] = "ok", why = "", score = 0;
     if (makers.length && maker && !makers.includes(maker.toUpperCase())) { fit = "other"; why = `For ${makers.map((m) => MAKERS[m]).join(" and ")} handhelds`; }
     else if (codes.length && codename && !codes.includes(codename)) { fit = "other"; why = `For MustardOS ${codes.map(cap).join(" and ")}`; }
+    else if (ver && wantVer && ver !== wantVer && !codes.includes(codename)) { fit = "other"; why = `For MustardOS ${ver}`; }
     else if (full && /[_.-]update\b/i.test(a.name)) { fit = "other"; why = "Updates an existing install"; }
     else {
       if (codes.length) score += codename ? 2 : Math.max(...codes.map((c) => CODENAMES.indexOf(c))) / CODENAMES.length;
+      if (ver && wantVer && ver === wantVer) score += 2;
+      else if (ver) score += 0.5;
       if (makers.length) score += 1;
     }
     return { ...a, fit, why, score };
@@ -284,10 +295,13 @@ export function rankAssets(assets: Pick<Asset, "name" | "size">[], maker: string
 
 let codenameAt = 0, codenameValue = "";
 
+let runningVerCache = "";
+
 async function runningCodename(): Promise<string> {
   if (Date.now() - codenameAt < 60_000) return codenameValue;
   const { version } = await deviceVersion().catch(() => ({ version: "" }));
   codenameAt = Date.now();
+  runningVerCache = version;
   codenameValue = CODENAMES.find((c) => version.toUpperCase().includes(c)) ?? "";
   return codenameValue;
 }
@@ -298,7 +312,7 @@ export async function marketJson(query: URLSearchParams) {
   const [{ data, error }, codename] = await Promise.all([loadMarket(query.get("refresh") === "1"), runningCodename()]);
   const apps = (data?.entries ?? []).map((e) => {
     const key = e.repo.toLowerCase(), r = data!.releases[key]?.release ?? null, info = data!.info[key] ?? null;
-    const assets = r ? rankAssets(r.assets, model.maker, codename) : [];
+    const assets = r ? rankAssets(r.assets, model.maker, codename, runningVerCache) : [];
     const pick = assets.find((a) => a.fit !== "other") ?? null;
     const why: string[] = [];
     let fit: "yes" | "warn" | "no" = "yes";

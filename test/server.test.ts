@@ -169,7 +169,7 @@ test("theme designer: create, edit, package and remove a theme in the workspace 
   assert.equal(made.status, 200, JSON.stringify(made.json));
   assert.equal(made.json.created, "Test Theme");
   const dir = path.join(root, "themes", "Test Theme");
-  assert.equal(fs.readFileSync(path.join(dir, "version.txt"), "utf8"), "2601.0\n");
+  assert.equal(fs.readFileSync(path.join(dir, "version.txt"), "utf8"), "2606.0\n");
   assert.ok(fs.statSync(path.join(dir, "640x480")).isDirectory());
   assert.equal((await api("designer/scheme", { name: "Test Theme", file: "640x480/scheme/muxlaunch.ini", scheme: { grid: { COLUMN_COUNT: 4 } } })).status, 200);
   assert.equal(fs.readFileSync(path.join(dir, "640x480", "scheme", "muxlaunch.ini"), "utf8"), "[grid]\nCOLUMN_COUNT=4\n");

@@ -87,7 +87,7 @@ function render() {
   const head = d.reachable
     ? `<p class="muted-note">MustardOS on <b>${esc(d.host)}</b> can run games for ${runs} of the ${all.length} systems the manager knows.${missingUsed ? ` ${plural(missingUsed, "system")} with games in your library ${missingUsed === 1 ? "needs" : "need"} attention below.` : ""}</p>`
     : `<div class="notice">Connect the ${esc(model().name)} over Wi-Fi with <b>Configuration &rsaquo; Web Services &rsaquo; Secure Shell</b> on to see which systems its MustardOS runs.
-        Until then, the notes below show the systems MustardOS 2601 Jacaranda leaves out.</div>`;
+        Until then, the notes below show systems that need Extra Cores on older MustardOS, or a different core on Andromeda.</div>`;
   root.innerHTML = `<section class="panel cores-panel">
     <h2>${icon("layers")}Systems <small>${list.length}${list.length < all.length ? ` of ${all.length}` : ""}</small><span class="grow"></span>
       <button class="link-btn" data-sy="used">${Y.used ? "Show all systems" : "Only systems with games"}</button></h2>

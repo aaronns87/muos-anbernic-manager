@@ -240,9 +240,13 @@ const ARTICLES = [
     ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
       <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
     ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
-      changed over Wi-Fi with SSH. Change as many as you like; they are written together when you save. Each option says when the change takes
+      changed over Wi-Fi with SSH. The list adapts to the connected build: Jacaranda keeps the options whose config files exist; Andromeda (2606.0) adds
+      groups such as Bluetooth, screensavers, passcode, web service ports, fonts and storage toggles. A release badge shows MustardOS version and codename.
+      If the handheld's SSH or SFTP ports differ from the manager defaults, <b>Use handheld ports</b> copies them into connection setup.</p>
+      <p>Change as many as you like; they are written together when you save. Each option says when the change takes
       effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
-      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.</p>`],
+      <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.
+      Wasabi media and deep Pickles hotkeys stay on the handheld; related config keys can still appear here when the files exist.</p>`],
     ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
       MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
       You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).
@@ -263,7 +267,8 @@ const ARTICLES = [
     ["On the handheld", `<p>Shows every installed theme with its own preview screens, the theme MustardOS version it was made for and its size.
       <b>Apply</b> switches to it; the bin button deletes it from the handheld. The active theme cannot be deleted, and deleting is permanent.</p>`],
     ["Designer", `<p>Makes your own themes on this computer, kept in the <b>themes</b> folder (one folder per theme, the same layout as
-      <code>MUOS/theme</code>; move it in Settings). Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
+      <code>MUOS/theme</code>; move it in Settings). Defaults to MustardOS <b>2606.0 Andromeda</b> (or the connected handheld's version when known),
+      including 720&times;576 and 1920&times;1080 screen sizes. Start fresh with a palette and screen sizes, or from a library theme, a theme on the handheld,
       one of your own or a <code>.muxthm</code> file. Every change is saved as you make it; Ctrl+Z and Ctrl+Shift+Z undo and redo.
       If saving fails, your edits stay in the editor: press <b>Retry</b>. Switching themes, exporting and installing wait until the edits save.
       Closing the page warns you if changes are still unsaved.</p>
@@ -290,11 +295,15 @@ const ARTICLES = [
       the handheld over Wi-Fi with ${SSH_ON}, and MustardOS 2601.0 or newer, which keeps themes as folders.</p>`],
   ]],
   ["emulation", "gamepad", "Emulation", "emulation", "Saves, BIOS files, emulator cores and a health check of your library.", [
-    ["Saves", `<p>Backs up every save game and save state from the handheld into your <code>backups</code> folder, one compressed file per backup.</p>
+    ["Saves", `<p>Two kinds of backup:</p>
       <ul>
-        <li><b>Back up now</b> takes a backup. The handheld panel shows how many files changed since the last one.</li>
-        <li>Open a backup to see its files, compare them with the handheld, and restore all of them or only the ones you tick.</li>
-        <li>Before a restore replaces anything, the manager first backs up what is on the handheld (labelled <i>Before a restore</i>), so a restore can be undone.</li>
+        <li><b>Save games</b> (every MustardOS build): copies saves and save states from the handheld into your <code>backups</code> folder as
+          <code>.tar.gz</code> on this computer. <b>Back up now</b> takes one; open it to compare and restore all or selected files. Before a restore,
+          the manager first backs up what is on the handheld (labelled <i>Before a restore</i>).</li>
+        <li><b>Device backups</b> (Andromeda 2606.0+, when <code>backup.sh</code> is present): <code>.muxbak</code> files in <code>ARCHIVE</code> on the
+          handheld, the same as MustardOS Backup / Archive Manager. List them, download a copy to <code>backups/</code>, create one (sections and
+          destination), or restore on the handheld (replaces matching sections). TF2 still creates a legacy <code>BACKUP</code> folder for older zip
+          backups; Andromeda system backups live under <code>ARCHIVE</code>.</li>
       </ul>`],
     ["BIOS", `<p>Some systems (PlayStation, Sega CD, Game Boy Advance and others) need a BIOS file: a copy of the original console's startup chip.
       Without it, games for that system may not start (PlayStation often shows a black screen).</p>
@@ -463,7 +472,8 @@ const ARTICLES = [
       the same layout as releases you already keep there. The version comes from the MustardOS file name
       (for example <code>MustardOS_RG40XX-H_2606.0_…</code> becomes <code>mustardos_2606.0</code>).
       Manage those releases day to day from the Library &rsaquo; <a href="#os">OS</a> section (list, notes, remove, reveal).</p>`],
-    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the <code>ROMS</code> folders MustardOS expects.
+    ["Set up TF2", `<p>Formats a games card as exFAT named TF2 and creates the folders MustardOS expects (<code>ARCHIVE</code>, legacy <code>BACKUP</code>,
+      <code>ports</code>, <code>ROMS</code>). On Andromeda, device backups are <code>.muxbak</code> files in <code>ARCHIVE</code>; <code>BACKUP</code> remains for older zip backups.
       Use a card in the reader, or pick <b>Over Wi-Fi</b> to format the TF2 card already in the handheld (<code>/mnt/sdcard</code>) over SSH.
       The system card (SD1) is never touched on the Wi-Fi path. One-slot handhelds that keep games on SD1 cannot use the Wi-Fi path.</p>`],
     ["Reset card", `<p>Wipes a card to one empty volume with no system folders. Pick FAT32 or exFAT and a name, on a card in the reader or on the handheld's TF2 over Wi-Fi (SD1 is never touched). Use <b>Set up TF2</b> when you want the ROMS folders too.</p>`],

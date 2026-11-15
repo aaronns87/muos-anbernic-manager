@@ -29,6 +29,13 @@ import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
 import { KNOWN, notesText, parseAssets, parseAtom, rankAssets, readmeImages } from "../src/app-market.ts";
+import { GROUPS, codenameOf } from "../src/device/muos-settings.ts";
+import { archiveMuxbakPath, SECTIONS } from "../src/device/muxbak.ts";
+import { DEFAULT_VERSION } from "../src/theme-designer.ts";
+import { RESOLUTIONS } from "../src/themes.ts";
+import { UserError } from "../src/errors.ts";
+import { createRequire } from "node:module";
+const { VERSIONS } = createRequire(import.meta.url)("../public/js/theme-schema.js") as { VERSIONS: [string, string][] };
 import { companions, isRunner, scummFolder, scummFolders } from "../src/games/engines.ts";
 import { splitTitle } from "../src/games/library.ts";
 import { createShortcut, shortcutInfo } from "../src/shortcut.ts";
@@ -486,6 +493,15 @@ test("app market: packages are ranked for the handheld's maker and MustardOS rel
   const dolphin = rankAssets([{ name: "Dolphin_RtCore_v12_0_0_Andromeda.muxupd", size: 1 }], "Anbernic", "ANDROMEDA");
   assert.equal(dolphin[0].fit, "best");
   assert.equal(rankAssets(dolphin, "Anbernic", "JACARANDA")[0].fit, "other");
+  const byVer = [
+    { name: "App_2606.0_ANDROMEDA.muxupd", size: 1 },
+    { name: "App_2601.0_JACARANDA.muxupd", size: 1 },
+    { name: "App_2606_0.muxupd", size: 1 },
+  ];
+  const andromedaVer = rankAssets(byVer, "Anbernic", "ANDROMEDA", "2606.0_ANDROMEDA");
+  assert.equal(andromedaVer.filter((a) => a.fit === "best").length >= 1, true);
+  assert.ok(andromedaVer.some((a) => a.name.includes("2606") && a.fit === "best"));
+  assert.equal(rankAssets(byVer, "Anbernic", "JACARANDA", "2601.0_JACARANDA").find((a) => a.name.includes("2601"))?.fit, "best");
   assert.ok(KNOWN.some((k) => k.repo === "SilverCrow2323/dolphin-rt-core"));
   assert.ok(KNOWN.some((k) => k.repo === "PapaZolaRis/MustardTube"));
   assert.equal(new Set(KNOWN.map((k) => k.repo.toLowerCase())).size, KNOWN.length);
@@ -993,4 +1009,33 @@ device=/dev/input/event1
   const inferred = inferAxisPairs([2, 3, 4, 5]);
   const left = map.left[0] >= 0 ? map.left : inferred.left;
   assert.deepEqual(left, [2, 3]);
+});
+
+test("Andromeda: settings catalogue, themes 2606, muxbak path guards", () => {
+  const keys = GROUPS.flatMap((g) => g.items.map((s) => s.key));
+  for (const k of ["settings/power/saver_type", "web/sftp", "web/sftp_port", "settings/advanced/passcode", "visual/bluetooth"]) {
+    assert.ok(keys.includes(k), `missing catalogue key ${k}`);
+  }
+  assert.equal(codenameOf("2606.0_ANDROMEDA"), "Andromeda");
+  assert.equal(codenameOf("2601.0_JACARANDA"), "Jacaranda");
+  // Presence filter: Jacaranda-like values omit Andromeda-only keys
+  const jacarandaFiles = new Set(["settings/general/volume", "web/sftpgo", "settings/advanced/verbose"]);
+  const shown = keys.filter((k) => jacarandaFiles.has(k));
+  assert.deepEqual(shown.sort(), ["settings/advanced/verbose", "settings/general/volume", "web/sftpgo"]);
+  assert.ok(!shown.includes("web/sftp_port"));
+  assert.ok(!shown.includes("settings/power/saver_type"));
+
+  assert.equal(DEFAULT_VERSION, "2606.0");
+  assert.ok(VERSIONS.some(([v]) => v === "2606.0"));
+  assert.ok(RESOLUTIONS.includes("720x576"));
+  assert.ok(RESOLUTIONS.includes("1920x1080"));
+  assert.ok(SECTIONS.some(([id]) => id === "save"));
+
+  const ok = archiveMuxbakPath("/mnt/sdcard/ARCHIVE/MustardOS.FullBackup.20260101.muxbak");
+  assert.equal(ok.name, "MustardOS.FullBackup.20260101.muxbak");
+  assert.equal(ok.storage, "TF2");
+  assert.throws(() => archiveMuxbakPath("/mnt/sdcard/ARCHIVE/../etc/passwd.muxbak"), UserError);
+  assert.throws(() => archiveMuxbakPath("/mnt/sdcard/ROMS/foo.muxbak"), UserError);
+  assert.throws(() => archiveMuxbakPath("/mnt/mmc/ARCHIVE/not-a-backup.zip"), UserError);
+  assert.throws(() => archiveMuxbakPath("/tmp/evil.muxbak"), UserError);
 });

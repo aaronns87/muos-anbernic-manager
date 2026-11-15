@@ -94,8 +94,14 @@ function renderHead() {
   const sub = $("hh-sub"), actions = $("hh-actions");
   if (!sub) return;
   const d = H.data;
-  sub.innerHTML = d ? `MustardOS ${esc(osVersion(d.version))} on ${esc(d.host)} &middot; changed over SSH` : "MustardOS settings on the handheld, changed over SSH";
+  const release = d ? `MustardOS ${esc(osVersion(d.version))}${d.codename ? ` · ${esc(d.codename)}` : ""}` : "";
+  sub.innerHTML = d
+    ? `${release} on ${esc(d.host)} &middot; options match files on this handheld &middot; changed over SSH`
+    : "MustardOS settings on the handheld, changed over SSH";
+  const ports = d?.ports;
+  const canSync = ports && ((ports.ssh > 0 && ports.ssh !== 22) || (ports.sftp > 0 && ports.sftp !== 2022));
   actions.innerHTML = `${d?.undo ? `<button class="btn" data-hh="undo" title="Put back: ${esc(d.undo.labels.join(", "))}">${icon("refresh")}Undo last save</button>` : ""}
+    ${canSync ? `<button class="btn" data-hh="ports" title="Copy SSH ${ports.ssh || 22} and SFTP ${ports.sftp || 2022} into the manager connection settings">${icon("chip")}Use handheld ports</button>` : ""}
     <button class="btn" data-hh="reload" ${H.loading || H.saving ? "disabled" : ""}>${H.loading ? `<span class="spinner"></span>` : icon("download")}Reload from handheld</button>`;
 }
 
@@ -273,6 +279,28 @@ async function undo() {
   render();
 }
 
+async function syncPorts() {
+  const p = H.data?.ports;
+  if (!p) return;
+  try {
+    const ssh = await api("ssh/status");
+    if (p.ssh > 0) {
+      await api("ssh/settings", {
+        host: ssh.hostSetting || "",
+        port: p.ssh,
+        user: ssh.user || "root",
+        shell: ssh.shell || "bash",
+      });
+    }
+    if (p.sftp > 0) {
+      await api("device/wifi", { host: ssh.host || H.data.host || "", port: p.sftp });
+    }
+    toast(`Manager now uses SSH ${p.ssh || 22} and SFTP ${p.sftp || 2022}`, 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+}
+
 async function act(el) {
   const what = el.dataset.hh;
   if (what === "reload") {
@@ -287,6 +315,7 @@ async function act(el) {
   if (what === "dismiss") { H.result = null; render(); return; }
   if (what === "advanced") { H.advanced = true; render(); return; }
   if (what === "revert") { delete H.edits[el.dataset.key]; render(); return; }
+  if (what === "ports") return syncPorts();
   if (what === "reboot") {
     const ok = await confirmBox({ title: "Restart the handheld?", html: "<p>A game that is running is closed without saving.</p>", ok: "Restart", danger: true });
     if (!ok) return;

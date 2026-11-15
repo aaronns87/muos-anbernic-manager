@@ -59,6 +59,7 @@ import { downloadUpdate, updatesJson } from "./updates.ts";
 import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } from "./cores.ts";
 import { biosJson, deleteBios, fixBiosNames, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
+import { createMuxbak, createStatus as muxbakCreateStatus, downloadMuxbak, muxbakJson, restoreMuxbak, restoreStatus as muxbakRestoreStatus } from "./device/muxbak.ts";
 import { appsDevice, appsJson, deleteDeviceApp, installStatus, uninstallDeviceApp, sendApps, startInstall, trashApp, uploadApp } from "./apps.ts";
 import { browseFolders, clearCache, createWorkspace, factoryReset, pickFolder, refreshData, revealFolder, saveSettings, settingsJson } from "./settings.ts";
 import { chatKnowledgePublic, chatSettingsPublic, runChat, saveChatSettings } from "./chat.ts";
@@ -286,6 +287,12 @@ const routes: Record<string, Handler> = {
   "GET /api/saves/backup": (query) => backupContents(query),
   "POST /api/saves/restore": (_, body) => restoreSaves(body),
   "POST /api/saves/trash": (_, body) => trashBackup(body),
+  "GET /api/muxbak": () => muxbakJson(),
+  "POST /api/muxbak/download": (_, body) => downloadMuxbak(body),
+  "POST /api/muxbak/create": (_, body) => createMuxbak(body),
+  "GET /api/muxbak/create": () => muxbakCreateStatus(),
+  "POST /api/muxbak/restore": (_, body) => restoreMuxbak(body),
+  "GET /api/muxbak/restore": () => muxbakRestoreStatus(),
   "GET /api/bios": (query) => biosJson(query),
   "POST /api/bios/send": (_, body) => sendBios(body),
   "POST /api/bios/fix-names": () => fixBiosNames(),

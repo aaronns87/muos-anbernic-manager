@@ -19,7 +19,7 @@ const DATA_URL = "https://raw.githubusercontent.com/MustardOS/theme/refs/heads/m
 const PREVIEW_URL = "https://raw.githubusercontent.com/MustardOS/theme/refs/heads/main/current/";
 const THEMES = "/run/muos/storage/theme";
 const ACTIVE = "/opt/muos/config/theme/active";
-export const RESOLUTIONS = ["640x480", "720x480", "720x720", "1024x768", "1280x720"];
+export const RESOLUTIONS = ["640x480", "720x480", "720x576", "720x720", "1024x768", "1280x720", "1920x1080"];
 const FRESH_MS = 12 * 3600_000;
 const AGENT = { "User-Agent": "muos-anbernic-manager" };
 

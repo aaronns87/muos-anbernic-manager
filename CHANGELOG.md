@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Appearance settings, OS library and OS market, MustardTube in the app market, responsive navigation, unified connection setup |
+| [Unreleased](#unreleased) | | Andromeda 2606 support (Device Settings, .muxbak, themes), Appearance settings, OS library and OS market, MustardTube, responsive navigation |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
 | [1.2.4](#124---2026-10-17) | 2026-10-17 | PS1 BIOS/disc checks, CHD convert, archive Fix wizard, multi-connection chip |
@@ -27,6 +27,12 @@ version.
 
 ### Added
 
+- Andromeda (2606.0) Device Settings catalogue: Bluetooth, screensavers, passcode, web service ports, fonts/theme options, storage toggles and related keys,
+  shown when those config files exist (Jacaranda keeps its shorter list). Release badge with MustardOS version and codename; **Use handheld ports** syncs
+  SSH/SFTP ports from the device into connection setup.
+- Emulation → Saves: Andromeda **`.muxbak`** device backups in ARCHIVE (list, download to `backups/`, create via `backup.sh`, restore via Archive Manager /
+  `extract.sh`), alongside existing save-game tar.gz backups on this computer.
+- Theme Designer: MustardOS **2606.0 Andromeda** version target (default), plus 720×576 and 1920×1080 resolutions.
 - App market: [MustardTube](https://github.com/PapaZolaRis/MustardTube) (YouTube and Internet Radio for H700 on Andromeda).
 - Settings **Appearance** tab (after Behaviour): colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember), custom schemes via Create new
   (modal with dark/light colours and a live preview), zoom including 50% and 65%, Softer style (pastel accents, airier spacing, tinted selection,
@@ -44,6 +50,9 @@ version.
 
 ### Changed
 
+- App market package ranking prefers assets tagged with the handheld's numeric MustardOS version (e.g. 2606.0 / 2606_0), not only codename tokens.
+- JAVA / FreeJ2ME notes: Andromeda uses the FreeJ2ME core in Pickles; older builds still use Extra Cores / external launchers.
+- Set up TF2 labels `BACKUP` as legacy and notes that Andromeda device backups are `.muxbak` files in `ARCHIVE`.
 - Library **OS** shows a loading spinner in the content area while the release list and catalogue are fetched.
 - Behaviour keeps transfers, startup, updates and uploaded artwork size; theme, clock and date moved to Appearance.
 - Smaller screens use a dismissible navigation drawer and compact header, leaving more room for the current task.
