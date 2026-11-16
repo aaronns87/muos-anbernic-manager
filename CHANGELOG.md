@@ -37,6 +37,7 @@ version.
 - Emulation Cores / Systems / RetroArch and Game Tuning on **Andromeda**: read `info/manifest/core.json` (and `assign.json`) instead of the removed Jacaranda `info/assign` tree, and locate ROM folders on `/mnt/mmc/ROMS` or `/mnt/sdcard/ROMS` when `/mnt/union/ROMS` is not mounted over SSH.
 - Games: expanding a system no longer adds extra top margin; **Show Transfers** only appears when there is an active or finished transfer.
 - Logs: the Logs view no longer stays visible under other sections after you leave it (`#view-logs` only uses flex when it is not hidden).
+- Emulation → Saves: device backup no longer stays on “Creating…” forever — BusyBox `pgrep` was matching the status checker itself; detection now uses MustardOS `foreground_process` plus a pidfile.
 
 ### Changed
 

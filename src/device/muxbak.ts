@@ -11,11 +11,38 @@ import { withTarget } from "./target.ts";
 import { runCommand, sshStatus } from "./ssh.ts";
 import { shq as quote } from "../util.ts";
 
-const SCRIPT = "/opt/muos/script/mux/backup.sh";
+/** Paths are built in pieces so BusyBox status checkers never embed the full needle in their own cmdline. */
+const MUX = "/opt/muos/script/mux";
+const SCRIPT_A = "bac", SCRIPT_B = "kup.sh";
+const EXTRACT_A = "ext", EXTRACT_B = "ract.sh";
+const SCRIPT = `${MUX}/${SCRIPT_A}${SCRIPT_B}`;
+const EXTRACT = `${MUX}/${EXTRACT_A}${EXTRACT_B}`;
 const MANIFEST = "/tmp/muxbackup_manifest.txt";
 const CREATE_LOG = "/tmp/muos-manager-muxbak-create.log";
+const CREATE_PID = "/tmp/muos-manager-muxbak-create.pid";
 const RESTORE_LOG = "/tmp/muos-manager-muxbak-restore.log";
+const RESTORE_PID = "/tmp/muos-manager-muxbak-restore.pid";
+const FG = "/opt/muos/config/system/foreground_process";
 const ARCHIVES: [string, string][] = [["TF2", "/mnt/sdcard/ARCHIVE"], ["SD1", "/mnt/mmc/ARCHIVE"]];
+
+/** Alive pidfile (digits only) — avoids BusyBox pgrep matching the SSH checker script. */
+const pidAlive = (pidFile: string, tag: string) =>
+  `pid=$(cat ${quote(pidFile)} 2>/dev/null); case "$pid" in *[!0-9]*|"") ;; *) kill -0 "$pid" 2>/dev/null && echo ${tag} ;; esac`;
+
+/** backup.sh sets foreground_process to muxbackup; our jobs also keep a pidfile. */
+const backupRunning = () =>
+  `fg=$(cat ${quote(FG)} 2>/dev/null); [ "$fg" = "muxbackup" ] && echo =C; ${pidAlive(CREATE_PID, "=C")}`;
+
+/** extract/install: no reliable fg name — pidfile for our restores, plus ARCHIVE task lock if present. */
+const extractRunning = () =>
+  `${pidAlive(RESTORE_PID, "=X")}; [ -f /tmp/mux_extract_running ] && echo =X`;
+
+const frontendRunning = () =>
+  `fg=$(cat ${quote(FG)} 2>/dev/null); [ "$fg" = "muxfrontend" ] && echo =F`;
+
+/** Resolve script path on the device without putting the joined name in this checker’s source. */
+const scriptExists = () =>
+  `_a=${quote(SCRIPT_A)}; _b=${quote(SCRIPT_B)}; [ -x ${quote(MUX)}"/$_a$_b" ] && echo =B`;
 
 /** Sections backup.sh can archive (script/archive/<id>.sh). Labels match muxbackup. */
 export const SECTIONS: [string, string][] = [
@@ -78,7 +105,7 @@ async function requireSsh() {
 export async function muxbakSupport() {
   const status = await sshStatus();
   if (!status.configured || !status.reachable) return { supported: false, host: status.host, destinations: [] as string[], sections: SECTIONS };
-  const { out } = await runCommand(`[ -x ${quote(SCRIPT)} ] && echo =B; [ -d /mnt/mmc ] && echo =1; [ -d /mnt/sdcard ] && echo =2; [ -d /mnt/usb ] && echo =U`, 10_000);
+  const { out } = await runCommand(`${scriptExists()}; [ -d /mnt/mmc ] && echo =1; [ -d /mnt/sdcard ] && echo =2; [ -d /mnt/usb ] && echo =U`, 10_000);
   const destinations: string[] = [];
   if (out.includes("=1")) destinations.push("SD1");
   if (out.includes("=2")) destinations.push("SD2");
@@ -93,12 +120,12 @@ for d in ${ARCHIVES.map(([, p]) => p).join(" ")}; do
     printf '=M\\t%s\\t%s\\t%s\\n' "$f" "$(wc -c <"$f")" "$(date -r "$f" +%s 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)"
   done
 done
-[ -x ${SCRIPT} ] && echo =B
+${scriptExists()}
 [ -d /mnt/mmc ] && echo =1
 [ -d /mnt/sdcard ] && echo =2
 [ -d /mnt/usb ] && echo =U
-pgrep -f "/opt/muos/script/mux/[b]ackup.sh" >/dev/null && echo =C
-pgrep -f "/opt/muos/script/mux/[e]xtract.sh" >/dev/null && echo =X
+${backupRunning()}
+${extractRunning()}
 echo =E
 `;
 
@@ -158,7 +185,7 @@ export async function createMuxbak(body: Record<string, unknown>) {
   const sections = [...new Set(raw.filter((id) => SECTION_IDS.has(id)))];
   if (!sections.length) throw new UserError("Pick at least one backup section.");
 
-  const state = await runCommand(`[ -x ${quote(SCRIPT)} ] && echo =B; pgrep -f "/opt/muos/script/mux/[b]ackup.sh" >/dev/null && echo =C; pgrep -f "/opt/muos/script/mux/[e]xtract.sh" >/dev/null && echo =X; pgrep -f "/opt/muos/frontend/[m]uxfrontend" >/dev/null && echo =F`);
+  const state = await runCommand(`${scriptExists()}; ${backupRunning()}; ${extractRunning()}; ${frontendRunning()}`);
   if (!state.out.includes("=B")) throw new UserError("This MustardOS build has no device backup script (.muxbak).");
   if (state.out.includes("=C")) throw new UserError("A device backup is already running on the handheld.");
   if (state.out.includes("=X")) throw new UserError("The handheld is installing or restoring something. Wait for it to finish.");
@@ -169,8 +196,14 @@ export async function createMuxbak(body: Record<string, unknown>) {
   const written = await runCommand(write, 10_000);
   if (!written.out.includes("@ok")) throw new UserError("Could not write the backup manifest on the handheld.");
 
-  const run = `${quote(SCRIPT)} ${merge ? "1" : "0"} >"$1" 2>&1; echo "@exit $?" >>"$1"`;
-  await runCommand(`: >${CREATE_LOG}; setsid -f sh -c ${quote(run)} sh ${CREATE_LOG} </dev/null >/dev/null 2>&1; echo @started`);
+  // Join the script path on the device so this launcher cmdline does not contain the full path either.
+  const start = `
+_a=${quote(SCRIPT_A)}; _b=${quote(SCRIPT_B)}; _script=${quote(MUX)}"/$_a$_b"
+: >${quote(CREATE_LOG)}; rm -f ${quote(CREATE_PID)}
+( echo $$ >${quote(CREATE_PID)}; "$_script" ${merge ? "1" : "0"} >>${quote(CREATE_LOG)} 2>&1; echo "@exit $?" >>${quote(CREATE_LOG)}; rm -f ${quote(CREATE_PID)} ) </dev/null >/dev/null 2>&1 &
+echo @started
+`;
+  await runCommand(start);
   job = { kind: "create", name: merge ? "Full backup" : sections.join(", "), started: Date.now() };
   say("cyan", "BACKUP", `Creating .muxbak on ${dest} (${sections.length} section${sections.length === 1 ? "" : "s"}${merge ? ", merged" : ""}).`);
   return createStatus();
@@ -178,9 +211,9 @@ export async function createMuxbak(body: Record<string, unknown>) {
 
 /** Progress of a running or recent backup.sh job. */
 export async function createStatus() {
-  const { out } = await runCommand(`tail -c 16000 ${CREATE_LOG} 2>/dev/null; pgrep -f "/opt/muos/script/mux/[b]ackup.sh" >/dev/null && echo "@@running"`);
-  const running = out.includes("@@running");
-  const text = out.replace("@@running", "").replace(/\r/g, "");
+  const { out } = await runCommand(`tail -c 16000 ${quote(CREATE_LOG)} 2>/dev/null; ${backupRunning()}; echo @@end`);
+  const running = out.includes("=C");
+  const text = out.replace(/=C/g, "").replace("@@end", "").replace(/\r/g, "");
   const exit = text.match(/@exit (\d+)/);
   const log = text.replace(/@exit \d+\s*$/, "").trimEnd();
   const code = exit ? Number(exit[1]) : null;
@@ -201,13 +234,18 @@ export async function createStatus() {
 export async function restoreMuxbak(body: Record<string, unknown>) {
   await requireSsh();
   const { path: archive, name } = archiveMuxbakPath(body.path);
-  const state = await runCommand(`[ -f ${quote(archive)} ] && echo =H; pgrep -f "/opt/muos/frontend/[m]uxfrontend" >/dev/null && echo =F; pgrep -f "/opt/muos/script/mux/[e]xtract.sh" >/dev/null && echo =X; pgrep -f "/opt/muos/script/mux/[b]ackup.sh" >/dev/null && echo =C`);
+  const state = await runCommand(`[ -f ${quote(archive)} ] && echo =H; ${frontendRunning()}; ${extractRunning()}; ${backupRunning()}`);
   if (!state.out.includes("=H")) throw new UserError(`${name} is no longer in ARCHIVE on the handheld.`);
   if (state.out.includes("=X")) throw new UserError("The handheld is already installing or restoring something. Wait for it to finish.");
   if (state.out.includes("=C")) throw new UserError("A device backup is running. Wait for it to finish.");
   if (!state.out.includes("=F")) throw new UserError("A game or app is open on the handheld. Close it and go back to the menu, then restore.");
-  const run = `/opt/muos/script/mux/extract.sh "$1" launcher >"$2" 2>&1; echo "@exit $?" >>"$2"`;
-  await runCommand(`: >${RESTORE_LOG}; setsid -f sh -c ${quote(run)} sh ${quote(archive)} ${RESTORE_LOG} </dev/null >/dev/null 2>&1; echo @started`);
+  const start = `
+_a=${quote(EXTRACT_A)}; _b=${quote(EXTRACT_B)}; _script=${quote(MUX)}"/$_a$_b"
+: >${quote(RESTORE_LOG)}; rm -f ${quote(RESTORE_PID)}
+( echo $$ >${quote(RESTORE_PID)}; "$_script" ${quote(archive)} launcher >>${quote(RESTORE_LOG)} 2>&1; echo "@exit $?" >>${quote(RESTORE_LOG)}; rm -f ${quote(RESTORE_PID)} ) </dev/null >/dev/null 2>&1 &
+echo @started
+`;
+  await runCommand(start);
   job = { kind: "restore", name, started: Date.now() };
   say("cyan", "RESTORE", `${name} on the handheld (device data for those sections is replaced).`);
   return restoreStatus();
@@ -215,9 +253,9 @@ export async function restoreMuxbak(body: Record<string, unknown>) {
 
 /** Progress of a running or recent .muxbak restore. */
 export async function restoreStatus() {
-  const { out } = await runCommand(`tail -c 16000 ${RESTORE_LOG} 2>/dev/null; pgrep -f "/opt/muos/script/mux/[e]xtract.sh" >/dev/null && echo "@@running"`);
-  const running = out.includes("@@running");
-  const text = out.replace("@@running", "").replace(/\r/g, "").replace(/\.{4,}/g, "...");
+  const { out } = await runCommand(`tail -c 16000 ${quote(RESTORE_LOG)} 2>/dev/null; ${extractRunning()}; echo @@end`);
+  const running = out.includes("=X");
+  const text = out.replace(/=X/g, "").replace("@@end", "").replace(/\r/g, "").replace(/\.{4,}/g, "...");
   const exit = text.match(/@exit (\d+)/);
   const log = text.replace(/@exit \d+\s*$/, "").trimEnd();
   const code = exit ? Number(exit[1]) : null;
