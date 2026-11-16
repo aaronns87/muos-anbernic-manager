@@ -161,9 +161,13 @@ const SOFT_INK = new Set(["--on-mustard", "--text", "--muted", "--faint"]);
 /** Soften accents to pastel; lift surfaces gently without washing dark themes to white. */
 export function applySoftLook(root, soft, theme) {
   if (!soft) {
-    for (const k of SOFT_COLOR_VARS) root.style.removeProperty(k);
+    // Only clear status colours Soft may have set. Wiping SOFT_COLOR_VARS would remove
+    // custom-scheme inline vars that applyColourScheme just applied.
+    for (const k of ["--ok", "--warn", "--bad", "--bad-text"]) root.style.removeProperty(k);
     return;
   }
+  // Soft pastels builtins; custom schemes keep the exact colours the user picked.
+  if (root.dataset.scheme === "custom") return;
   const light = theme === "light";
   const cs = getComputedStyle(root);
   for (const k of SOFT_COLOR_VARS) {

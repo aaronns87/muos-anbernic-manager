@@ -107,7 +107,7 @@ function devicePanel(conn) {
   if (alt) body += `<div class="notice">${icon("info")} ${esc(alt.text)} Use the button below to switch.</div>`;
   const actions = live
     ? `<button class="btn primary" data-device="browse">${icon("handheld")}<span>Games on ${esc(devWord())}</span></button>${deviceButtons(conn)}`
-    : deviceButtons(conn);
+    : `<button class="btn primary" data-connect="files">${icon("plug")}<span>Set up connection</span></button>${deviceButtons(conn)}`;
   return `<section class="panel wide conn ${live ? "live" : `ov-connect ${conn.cls}`}">${head}${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 }
 
