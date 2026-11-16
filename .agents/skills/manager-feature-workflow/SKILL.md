@@ -50,8 +50,10 @@ Check the layout at 390 px wide as well as desktop.
 
 - Wiki: add or update the article in `ARTICLES` in `public/js/wiki.js`
   (`[id, icon, title, section, summary, [[heading, html], ...]]`), written for non-technical users.
+- `docs/assistant-knowledge.md`: same facts in the Assistant grounding guide when the chat should know.
 - README: features list or a section if users will look for it.
 - `CHANGELOG.md`: a line under **Unreleased** (Added, Changed, Fixed or Removed) for anything users notice.
+- New workspace folders: `ctx`, Settings `FOLDERS`, Files roots, installer copy, wiki install list.
 
 ## 6. Tests
 
@@ -68,4 +70,4 @@ LC_ALL=C rg -n '[^\x00-\x7F]' <changed files>
 ```
 
 For UI work, look at it on a temp server (see `manager-testing`). Do not bump the version; mention at the end
-if the change seems release-worthy (see `.codex/rules/versioning.mdc`).
+if the change seems release-worthy (see `.cursor/rules/versioning.mdc`).

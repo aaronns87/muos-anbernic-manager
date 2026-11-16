@@ -69,18 +69,19 @@ per-session token. Nothing is uploaded anywhere.
   Failed autosaves keep your edits in the editor with **Retry**; switching themes, exporting and installing wait until they save.
 - **Emulation**: back up and restore saves and save states (including Andromeda **`.muxbak`** device backups in
   `ARCHIVE` when `backup.sh` is present), check BIOS files in the workspace `bios/` folder (**Fix names** corrects
-  casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game, edit RetroArch picture/play
-  and Menu+X **core options** per folder, and run a health check of your library (verify dumps, duplicates, and
-  PlayStation **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD**
-  when `p7zip` / `chdman` are installed). **Systems** lists every system with what the handheld can run, and why a
-  system is missing when it cannot.
+  casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game (Andromeda reads
+  `info/manifest/core.json`; Jacaranda used `info/assign`), edit RetroArch picture/play and Menu+X **core options**
+  per folder, and run a health check of your library (verify dumps, duplicates, and PlayStation **disc layouts** for
+  orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD** when `p7zip` / `chdman` are
+  installed). **Systems** lists every system with what the handheld can run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
   Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
 - **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
   PPSSPP, Mupen64Plus-Next, PCSX-ReARMed, SwanStation, DuckStation, Flycast) and a per-game CPU governor, with Fastest,
-  Balanced and Best looking presets and recommendations for known heavy games. The game viewer Handheld tab embeds the
-  same editor when the game is on the device. **Cheats** per game from the libretro cheat database (RetroArch cores) or
-  the cheat files MustardOS ships for PPSSPP. Pick the system from a list you filter by typing.
+  Balanced and Best looking presets and recommendations for known heavy games. Uses the same Andromeda manifest and ROM-root
+  fallback as Emulation. The game viewer Handheld tab embeds the same editor when the game is on the device. **Cheats**
+  per game from the libretro cheat database (RetroArch cores) or the cheat files MustardOS ships for PPSSPP. Pick the
+  system from a list you filter by typing.
 
 **Tools**
 - **Interface**: consistent dark and light layouts, a navigation drawer on smaller screens, compact phone headers and game filters,
@@ -93,20 +94,27 @@ per-session token. Nothing is uploaded anywhere.
   also run over Wi-Fi/SSH on the handheld's TF2 without touching SD1 (setup: exFAT named TF2 with ROMS folders; reset:
   FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
-- **Wiki**: built-in help for every page, a glossary and troubleshooting.
+
+**Manager**
+- **Wiki**: built-in help for every page, a glossary and troubleshooting. Sits under Overview in the sidebar
+  (shortcuts <kbd>2</kbd> or <kbd>0</kbd>); every page also has a **?** button for its article.
+- **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour**, **Appearance**
+  (theme, colour schemes, zoom, Softer style, compact layout, digital or analog clock), **Assistant** (API key, model,
+  system prompt, view knowledge base), **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Logs**: application diagnostics written to workspace `logs/` as daily JSONL files. Search, filter by level or day,
+  expand stacks, export, clear, and open the folder. Captures errors, warnings, exceptions, manager actions and browser faults
+  (separate from Overview **Recent activity**).
 - **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
   base plus your library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the
   bottom-right corner or **Assistant** in the top bar. View the knowledge base read-only from Settings → Assistant.
   Replies support Markdown (including tables) and show timestamps; it will not invent walkthroughs.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
-  the copies waiting their turn and a history of finished ones. Start more copies while one runs and they queue up;
-  minimise the panel to a thin progress bar or hide it and reopen it from the top bar.
+  the copies waiting their turn and a history of finished ones. **Show Transfers** appears when there is an active or
+  finished transfer. Start more copies while one runs and they queue up; minimise the panel to a thin progress bar or
+  hide it and reopen it from the top bar.
 - **Updates**: the top bar shows when a new version is out, and **Update now** installs it with one click, whether you
   cloned the repository or downloaded the ZIP. After you restart into a new version, a **What's new** dialog lists the
   changes once. See [CHANGELOG.md](CHANGELOG.md) for the full history.
-- **Settings**: six tabs — **Folders**, **Behaviour**, **Appearance** (theme, colour schemes, zoom, compact layout, digital or
-  analog clock), **Assistant** (API key, model, system prompt, view knowledge base), **Data** and **Resets** (including factory
-  reset that starts over from the setup wizard).
 
 ## Screenshots
 

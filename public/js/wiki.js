@@ -22,12 +22,13 @@ const ARTICLES = [
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
       <p>The sidebar starts with <b>Overview</b> and the <b>Wiki</b> (this help), then groups the rest: <b>Library</b> (Games, Play, Artwork, OS)
       for your games and MustardOS images, <b>Handheld</b> (Apps, Device, Themes, Emulation, Files, Game Tuning) for what is on the device,
-      <b>Tools</b> (System Tools, Terminal) for cards and a shell, and <b>Manager</b> (Settings) for how the manager looks and behaves.
+      <b>Tools</b> (System Tools, Terminal) for cards and a shell, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
+      and where application diagnostics are kept.
       Press <kbd>?</kbd> on any page for help without leaving it, or open the full Wiki from the sidebar.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
       on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
       <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
-      <code>os/</code>, <code>bios/</code>, <code>backups/</code> and <code>themes/</code> next to the manager or in a folder you name, and can start from a clean cache.
+      <code>os/</code>, <code>bios/</code>, <code>backups/</code>, <code>themes/</code> and <code>logs/</code> next to the manager or in a folder you name, and can start from a clean cache.
       Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
       <p>It also offers an <b>app shortcut</b> with the manager's icon: in Applications on a Mac, the Start menu on Windows, or the app menu on
       Linux. The shortcut opens a terminal window that runs the manager and opens this page; closing the window stops the manager.
@@ -451,7 +452,9 @@ const ARTICLES = [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
       Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own Menu+X-style core options and CPU governor
       without changing any other game. It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.
-      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.</p>`],
+      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.
+      On Andromeda it uses the same <code>info/manifest/core.json</code> catalogue and ROM-folder roots as Emulation &rsaquo; Cores
+      (<code>/mnt/union/ROMS</code>, then <code>/mnt/mmc/ROMS</code> or <code>/mnt/sdcard/ROMS</code>).</p>`],
     ["Pick a game", `<p>The list on the left shows your library. Open the system list and type a few letters to narrow it (arrow keys and Enter work
       too); systems with curated presets come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
       The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>

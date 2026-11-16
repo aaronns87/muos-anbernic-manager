@@ -14,7 +14,7 @@ plain ES-module front end in `public/`, served on 127.0.0.1 with a per-run token
 - Each file's first comment says what it does: `rg -n "^// " src/games/library.ts`.
 - API routes: the `routes` object in `src/server.ts` (`rg -n '"(GET|POST|PUT|DELETE) /api/' src/server.ts`).
 - Front-end entry: `public/js/app.js`; helpers and the API client: `public/js/core.js`.
-- User docs: `public/js/wiki.js` (`ARTICLES`), `README.md`.
+- User docs: `public/js/wiki.js` (`ARTICLES`), `docs/assistant-knowledge.md`, `README.md`.
 
 Do not read `node_modules/`, `.cache/` or the user's `Roms/`, `os/`, `apps/` folders (large, private).
 
@@ -31,4 +31,4 @@ LC_ALL=C rg -n '[^\x00-\x7F]' <changed files>   # must print nothing for new lin
 - Match the surrounding code: small functions, early returns, no needless abstraction.
 - Comments only state a constraint the code cannot show; no "what the next line does" comments.
 - User-facing strings are plain, friendly sentences; errors say what to do next.
-- Feature changes update their test, the wiki article and, when users notice, the README.
+- Feature changes update their test, the wiki article, assistant knowledge when the chat should know, and the README when users notice.

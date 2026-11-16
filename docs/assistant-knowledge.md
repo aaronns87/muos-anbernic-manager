@@ -10,10 +10,11 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 
 ### Sidebar
 
+- **Overview**, then **Wiki** (help; shortcuts `2` or `0`)
 - **Library** - Games, Play, Artwork, OS
 - **Handheld** - Apps, Device, Themes, Emulation, Files, Game Tuning
-- **Tools** - System Tools, SSH
-- **Manager** - Settings, Wiki (chat opens from the top bar or mustard button after an API key is saved)
+- **Tools** - System Tools, Terminal (SSH)
+- **Manager** - Settings, Logs (Assistant chat opens from the top bar or mustard button after an API key is saved)
 
 ### Install and setup wizard
 
@@ -77,7 +78,7 @@ The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-F
 
 ### Keyboard shortcuts
 
-- `1`-`9`: first nine sidebar sections (Overview to Files); `0`: Wiki.
+- `1`-`9`: first nine sidebar sections (1 Overview, 2 Wiki, 3 Games … through Themes); `0`: always Wiki.
 - `?`: help for current page. `[`: fold sidebar.
 - Games: `/` search, `S` select mode, arrows in game viewer.
 - Tab bars: Left/Right to change tabs, Home/End for first/last. Tab to Skip to content to bypass navigation.
@@ -88,9 +89,7 @@ Home page: whether the handheld is connected and how (card reader, USB or Wi-Fi)
 
 **Wi-Fi settings**: enter the handheld address (Configuration > Wi-Fi Network on the handheld). Address can change after reconnect; **Find on network** searches again. Optional Filebrowser link when SFTP is up.
 
-**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets.
-
-**Logs** (Manager section): application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`). Search, level/day filter, export, clear, show folder. Captures errors/warnings/exceptions, say() lines and browser faults. Separate from Recent activity.
+**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets. Separate from Manager → Logs.
 
 ## games - Games
 
@@ -224,11 +223,11 @@ Some systems need BIOS (PS, Sega CD, GBA, ...). Workspace `bios/` folder only (n
 
 ### Cores
 
-Emulator per ROM folder. Automatic = from folder name. Change system/core for folder; Keep games with their own core. Per-game core; Use the folder's core. Needs a system = unknown folder name (hints for Arcade/CPS/FDS/etc.).
+Emulator per ROM folder. Automatic = from folder name. Change system/core for folder; Keep games with their own core. Per-game core; Use the folder's core. Needs a system = unknown folder name (hints for Arcade/CPS/FDS/etc.). Andromeda: catalogue from `info/manifest/core.json` (+ `assign.json`); Jacaranda used `info/assign`. ROM folders: `/mnt/union/ROMS`, else `/mnt/mmc/ROMS` or `/mnt/sdcard/ROMS`.
 
 ### Systems
 
-All known systems vs what MustardOS can run. Show all systems toggle. States: On the handheld; Pick its system; Needs an extra core (Config > Advanced > Extra Cores on newer muOS); No core. Needs Wi-Fi+SSH.
+All known systems vs what MustardOS can run. Show all systems toggle. States: On the handheld; Pick its system; Needs an extra core (Andromeda: Configuration > Advanced > Additional Cores; older: Extra Cores); No core. Needs Wi-Fi+SSH.
 
 ### RetroArch
 
@@ -252,9 +251,13 @@ Left: this computer (workspace + remapped folders). Right: handheld SD1 and TF2 
 
 Copy to handheld / Copy to computer into open folder; confirm overwrites; appears in Transfers. New folder, rename, delete. Computer delete = Trash; handheld = permanent. Rename on handheld not over USB - use Wi-Fi or reader. Warns before changing SD1 `MUOS`. Preview: images; edit text/cfg/ini/json/txt up to 512 KB; Save / Ctrl-Cmd+S.
 
+## logs - Logs
+
+Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, Show more, export (txt), clear day or all, Show folder. Captures say() lines, console.warn/error, uncaught exceptions, unhandled rejections, API failures and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
+
 ## tuning - Game Tuning
 
-Per-game Menu+X core options, CPU governor and cheats without changing other games. Wi-Fi+SSH; applies next start. Folder-wide options: Emulation > RetroArch. Same editor in the game viewer Handheld tab when the game is on the device.
+Per-game Menu+X core options, CPU governor and cheats without changing other games. Wi-Fi+SSH; applies next start. Folder-wide options: Emulation > RetroArch. Same editor in the game viewer Handheld tab when the game is on the device. Andromeda: same manifest cores and ROM-root fallback as Emulation > Cores.
 
 Pick system then game (Tuned badge). Any RetroArch core: full `.opt` catalogue from the handheld (curated labels for known cores). PSP: PPSSPP standalone or RA (disc ID for standalone). Every game: CPU governor. Standalone non-RA: governor only unless switched to a RetroArch core. Settings can be saved before the game is on the handheld; first save can create `.opt` from folder/core template.
 
@@ -287,7 +290,7 @@ Browser terminal over Wi-Fi; needs Secure Shell. Quick commands, Storage, Busies
 
 ## settings - Settings
 
-Five tabs; subtitle describes the active tab.
+Six tabs; subtitle describes the active tab.
 
 ### Folders
 
@@ -299,7 +302,7 @@ Transfers, startup and updates (app shortcut, update check). Images: uploaded ar
 
 ### Appearance
 
-Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember) plus Create new custom scheme modal (dark/light colours, live preview; edit/delete later), zoom (50/65/85/100/110/125%), compact layout, clock style (digital / analog widget), 12/24 format, date in the top bar, Reset to default (appearance selection only; custom schemes kept).
+Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember) plus Create new custom scheme modal (dark/light colours, live preview; edit/delete later), zoom (50/65/85/100/110/125%), **Softer style** (pastel accents, rounder corners, airier spacing), compact layout, clock style (digital / analog widget), 12/24 format, date in the top bar, Reset to default (includes soft/compact; custom schemes kept).
 
 ### Assistant
 
