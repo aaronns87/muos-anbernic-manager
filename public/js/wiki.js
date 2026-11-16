@@ -4,8 +4,15 @@ import { $, esc, icon, section } from "./core.js";
 import { DEVICES, screenText } from "./devices.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
-const SSH_ON = path("Configuration", "Web Services", "Secure Shell");
+const SSH_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure Shell")} (Andromeda; older builds: ${path("Configuration", "Web Services", "Secure Shell")})`;
 const SFTP_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure File Transfer")} (Andromeda; older builds: ${path("Configuration", "Web Services", "SFTP + Filebrowser")})`;
+const ANDROMEDA_MTP = `<ol>
+      <li>On the handheld open ${path("Configuration", "Connectivity", "Device Link")} and turn <b>USB Cable</b> off (Status may say it is looking for another device).</li>
+      <li>Enable Wi-Fi and ${path("Configuration", "Connectivity", "Web Services", "Secure Shell")} (and Secure File Transfer if you want file copies over Wi-Fi).</li>
+      <li>In this manager, connect over Wi-Fi, open <b>Device</b> &rsaquo; <b>Settings</b> &rsaquo; <b>Advanced</b>, set <b>USB function</b> to <b>MTP</b>, and turn off <b>USB Cable (Device Link)</b> if it is listed. Andromeda often does not show USB Function on the handheld menus.</li>
+      <li>Unplug the USB cable, plug it in again, then press <b>Check again</b>.</li>
+    </ol>
+    <p>The connection panel’s <b>Andromeda USB (MTP) help</b> and <b>Open Device Settings</b> link cover the same steps when Wi-Fi and SSH are up.</p>`;
 
 /** [id, icon, title, section it explains (or ""), one-line summary, [[heading, html], ...]] */
 const ARTICLES = [
@@ -36,7 +43,7 @@ const ARTICLES = [
         dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
-      <li><b>USB cable.</b> On Andromeda, turn ${path("Configuration", "Connectivity", "Device Link", "USB Cable")} off, enable Wi-Fi and Secure Shell, then in the manager open Device \u203a Settings \u203a Advanced and set <b>USB function</b> to <b>MTP</b> (that menu is often missing on the handheld). Unplug and replug. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device.</li>
+      <li><b>USB cable.</b> Needs <b>MTP</b>. On Andromeda, USB Function is often missing on the handheld — see <a href="#help">Troubleshooting</a> &rsaquo; Andromeda USB (MTP), or the connection panel help. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device, then plug in.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>
@@ -582,7 +589,8 @@ const ARTICLES = [
       <dt>Archive Manager</dt><dd>The MustardOS tool that installs packages from the <code>ARCHIVE</code> folder.</dd>
       <dt>SFTP</dt><dd>A way to copy files over Wi-Fi; MustardOS calls it SFTP + Filebrowser.</dd>
       <dt>SSH</dt><dd>A secure remote command line; the manager uses it to change things on the handheld.</dd>
-      <dt>MTP</dt><dd>The USB mode that lets a computer see the handheld's files over a cable.</dd>
+      <dt>MTP</dt><dd>The USB mode that lets a computer see the handheld's files over a cable. On Andromeda, set it from Device &rsaquo; Settings &rsaquo; Advanced when the handheld menu does not show USB Function; turn Device Link USB Cable off first.</dd>
+      <dt>Device Link / USB Cable</dt><dd>Andromeda feature that joins two MustardOS handhelds over USB-C (<code>usblink0</code>). Not for this computer; while it is on, MTP is paused.</dd>
       <dt>Save state</dt><dd>A snapshot of a game at any moment, made by the emulator; different from the game's own save.</dd>
       <dt>Port</dt><dd>A PC game rebuilt to run natively on handhelds, instead of in an emulator.</dd>
       <dt>PortMaster</dt><dd>The app on MustardOS that downloads, installs and removes ports. The manager asks it to do the work over SSH.</dd>
@@ -593,8 +601,12 @@ const ARTICLES = [
     </dl>`],
   ]],
   ["help", "info", "Troubleshooting", "", "Common problems and what to try.", [
+    ["Andromeda USB (MTP)", `<p>On MustardOS Andromeda, Device Link’s <b>USB Cable</b> mode (<code>usblink0</code>, USB id <code>1d6b:0110</code>) joins two handhelds and pauses MTP.
+      USB Function often does not appear in the handheld menus, so set MTP from the manager over Wi-Fi and SSH:</p>
+      ${ANDROMEDA_MTP}`],
     ["The handheld isn't found over USB", `<ul>
-      <li>On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>.</li>
+      <li><b>Andromeda:</b> follow <b>Andromeda USB (MTP)</b> above (Device Link off, then MTP from Device &rsaquo; Settings &rsaquo; Advanced).</li>
+      <li>Older MustardOS: on the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>.</li>
       <li>Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while the handheld (or the
         computer) starts, its USB port can come up in the wrong mode, and the computer then sees no device at all.</li>
       <li>On a Mac, unlock it before plugging in and click <b>Allow</b> on the accessory prompt. Without a prompt, check System Settings

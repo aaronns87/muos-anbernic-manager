@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | Andromeda USB (MTP) steps in Wiki and assistant knowledge |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
@@ -25,6 +25,10 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Changed
+
+- Wiki Troubleshooting and assistant knowledge document the full **Andromeda USB (MTP)** path: Device Link USB Cable off → Wi-Fi + Secure Shell → Device Settings → USB function MTP → unplug/replug (same steps as the connection panel help).
 
 ## [1.3.0] - 2026-11-15
 

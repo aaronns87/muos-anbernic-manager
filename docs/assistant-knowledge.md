@@ -26,10 +26,21 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 ### Three ways to connect
 
 1. **Card reader** - TF2 games card (or the only card on one-slot models) in this computer. Fastest for many games. Needed for Install MustardOS and for card wipes from a reader.
-2. **USB** - Andromeda: turn off Connectivity > Device Link > USB Cable; enable Wi-Fi + Secure Shell; in the manager Device > Settings > Advanced set **USB function** to **MTP** (often not shown on the handheld), then unplug/replug. Older: Advanced Settings > USB Function > MTP.
+2. **USB** - Needs MTP. On Andromeda, USB Function is often missing on the handheld menus — use the Andromeda MTP steps below. Older MustardOS: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
 3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**). Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+
+### Andromeda USB (MTP) — set MTP from the manager
+
+Andromeda Device Link (**USB Cable**, `usblink0`, USB id `1d6b:0110`) joins two MustardOS handhelds. While it is on, MTP/ADB are paused and Status may say it is looking for another device. USB Function often does not appear on the handheld menus.
+
+1. On the handheld: **Configuration → Connectivity → Device Link** → turn **USB Cable** off.
+2. Enable Wi-Fi and **Configuration → Connectivity → Web Services → Secure Shell** (and **Secure File Transfer** if you want file copies over Wi-Fi).
+3. In this manager: connect over Wi-Fi, open **Device → Settings → Advanced**, set **USB function** to **MTP**, and turn off **USB Cable (Device Link)** if it is listed.
+4. Unplug the USB cable, plug it in again, then press **Check again**.
+
+The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-Fi + SSH are up.
 
 ### How the model is known
 
@@ -321,7 +332,7 @@ In-app help for every section, glossary and troubleshooting. `?` opens the artic
 
 ## help - Troubleshooting
 
-**USB not found / Device Link / usblink0 / “looking for other device”**: Device Link (USB `1d6b:0110`) is for two handhelds; turn USB Cable off under Connectivity → Device Link; enable Wi-Fi + SSH; in the manager Device → Settings → Advanced set USB function to MTP (often missing on-device); unplug/replug. While USB Cable is on, MTP is paused. Also: Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or stay on Wi-Fi.
+**USB not found / Device Link / usblink0 / “looking for other device”**: Follow **Andromeda USB (MTP)** above (Device Link off → Wi-Fi + SSH → Device Settings → USB function MTP → unplug/replug). While USB Cable is on, MTP is paused. Also: Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or stay on Wi-Fi. Older builds: Advanced Settings → USB Function → MTP on the handheld.
 
 **Wi-Fi “No SD1 or SD2 folder”**: Andromeda SFTP lists Primary/Secondary Storage (manager maps them to SD1/TF2). Enable Secure File Transfer under Connectivity → Web Services.
 
