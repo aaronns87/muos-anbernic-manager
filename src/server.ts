@@ -6,6 +6,7 @@ import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
+import { logsClear, logsDownload, logsJson, logsPost, logsReveal } from "./app-log.ts";
 import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
@@ -27,6 +28,7 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { webServicesStatus } from "./device/web-services.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
 import {
   controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
@@ -69,7 +71,7 @@ import { dismissWhatsNew, whatsNewStatus } from "./whats-new.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
-type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string };
+type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -77,10 +79,15 @@ const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
 const routes: Record<string, Handler> = {
   "GET /api/status": async () => {
     const [{ cards, rejects }, handheld, wifi] = await Promise.all([findCards(), handheldStatus(), wifiStatus()]);
-    const [hints, wifiModelFound] = await Promise.all([Promise.all(cards.map((c) => cardHint(c.mount))), wifiModel(wifi.reachable)]);
+    const [hints, wifiModelFound, services] = await Promise.all([
+      Promise.all(cards.map((c) => cardHint(c.mount))),
+      wifiModel(wifi.reachable),
+      webServicesStatus().catch(() => ({ host: "", at: Date.now(), services: [] })),
+    ]);
     const models = { usb: handheld ? usbModel(handheld.name) : null, wifi: wifiModelFound };
-    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, models, platform: process.platform };
+    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, services, models, platform: process.platform };
   },
+  "GET /api/ssh/services": () => webServicesStatus(true),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     const s = await saveWifiSettings(body);
@@ -89,6 +96,11 @@ const routes: Record<string, Handler> = {
   "POST /api/device/wifi/find": async () => ({ found: await findHandhelds() }),
   "GET /api/workspace": () => workspaceInfo(),
   "GET /api/activity": (q) => activityJson(q),
+  "GET /api/logs": (q) => logsJson(q),
+  "GET /api/logs/download": (q) => logsDownload(q),
+  "POST /api/logs": (_, body) => logsPost(body),
+  "POST /api/logs/clear": (_, body) => logsClear(body),
+  "POST /api/logs/reveal": () => logsReveal(),
   "GET /api/files/roots": (q) => filesRoots(q),
   "GET /api/files/list": (q) => filesList(q),
   "GET /api/files/read": (q) => filesRead(q),
@@ -466,17 +478,18 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       return send(res, 200, image, MIME[path.extname(name).toLowerCase()] ?? "image/png");
     }
     if (result && typeof result === "object" && "download" in result && Buffer.isBuffer(result.download)) {
-      const { download, name } = result as { download: Buffer; name: string };
+      const { download, name, type } = result as { download: Buffer; name: string; type?: string };
       res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
-      return send(res, 200, download, "application/zip");
+      return send(res, 200, download, type ?? "application/zip");
     }
     sendJson(res, 200, result);
   } catch (error) {
     if (error instanceof SshError) sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
     else if (error instanceof UserError || error instanceof MtpError) sendJson(res, 400, { error: error.message });
     else {
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error(`${route} failed:`, error);
-      sendJson(res, 500, { error: `Server error: ${error instanceof Error ? error.message : String(error)}` });
+      sendJson(res, 500, { error: `Server error: ${err.message}` });
     }
   }
 }

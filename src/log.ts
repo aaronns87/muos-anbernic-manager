@@ -1,6 +1,7 @@
 // Terminal output in the same badge style as run.sh.
 
 import { recordActivity } from "./activity.ts";
+import { appLogFromSay } from "./app-log.ts";
 
 const colour = process.stdout.isTTY && !process.env.NO_COLOR;
 const code = (value: string) => (colour ? `\x1b[${value}m` : "");
@@ -15,6 +16,7 @@ export type Badge = "green" | "yellow" | "red" | "cyan";
 export function say(badge: Badge, label: string, message: string): void {
   console.log(`  ${C[badge]} ${label} ${C.reset}  ${message}`);
   recordActivity(badge, label, message);
+  appLogFromSay(badge, label, message);
 }
 
 export function dim(message: string): void {

@@ -5,6 +5,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
+import { resolveRomRoot } from "../cores.ts";
 import { ctx } from "../context.ts";
 import { runCommand } from "../device/ssh.ts";
 import { UserError } from "../errors.ts";
@@ -17,7 +18,6 @@ import { checkFile, DISC_ID, emulatorOf, load, parseIni, PPSSPP, pspDiscId, setI
 const RA_CFG = "/opt/muos/share/info/config/retroarch.cfg";
 const RA_CHEATS = "/opt/muos/share/emulator/retroarch/cheats";
 const PSP_CHEATS = path.posix.join(path.posix.dirname(PPSSPP), "Cheats");
-const ROMS = "/mnt/union/ROMS";
 const TREE = "https://api.github.com/repos/libretro/libretro-database/git/trees/master:cht?recursive=1";
 const RAW = "https://raw.githubusercontent.com/libretro/libretro-database/master/cht/";
 const AGENT = { "User-Agent": "muos-anbernic-manager" };
@@ -207,7 +207,8 @@ async function cheatState(q: { folder: string; file: string; discId?: string }) 
   checkFile(q.file);
   const em = emulatorOf(data, q.folder, q.file);
   const kind = em.profile?.kind === "ppsspp" ? "ppsspp" : em.so.endsWith(".so") && em.core ? "retroarch" : null;
-  const { out: first } = await runCommand(`[ -f ${quote(`${ROMS}/${q.folder}/${q.file}`)} ] && echo =ON
+  const { out: first } = await runCommand(`${resolveRomRoot(`${q.folder}/${q.file}`)}
+[ -n "$ROMS" ] && echo =ON
 sed -n 's/^cheat_database_path *= *"\\(.*\\)"/=P\\t\\1/p; s/^apply_cheats_after_load *= *"\\(.*\\)"/=A\\t\\1/p' ${RA_CFG} 2>/dev/null
 echo =E`, 20_000);
   if (!first.includes("=E")) throw new UserError("The handheld did not answer completely. Try again.");

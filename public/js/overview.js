@@ -1,7 +1,7 @@
 // Overview: the connection, the device, how the library and the device compare, and the workspace.
 
 import { $, app, api, esc, human, plural, initial, icon, ICONS, EXCLUDED, model, modelInfo, cardWord, usbMode, handheldMode, devName, devWord, ready, busy, isOnCard, osVersion, scanWhen, section } from "./core.js";
-import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative } from "./device.js";
+import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative, webServicesBlock } from "./device.js";
 import { specs } from "./devices.js";
 import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
@@ -69,10 +69,10 @@ function ago(seconds) {
 
 function devicePanel(conn) {
   const c = app.device.target, h = app.device.handheld, o = app.overview, live = isLive(conn);
-  if (!live) return `<section class="panel ov-connect"><div><h2>${icon("plug")} ${esc(conn.title)}</h2><p class="muted-note">Keep working with your local library, or connect to manage the handheld.</p></div><button class="btn" data-connect="files">${icon("plug")} Set up connection</button></section>`;
+  const sub = live ? (conn.tip || conn.sub) : (conn.sub || "Keep working with your local library, or connect to manage the handheld.");
   const head = `<div class="conn-head"><div class="conn-icon">${conn.icon}</div><div class="conn-text">
     <h3>${esc(conn.title)}${conn.code ? ` <span class="code">${esc(conn.code)}</span>` : ""}</h3>
-    <p>${conn.state === "checking" ? `${ICONS.spin} ` : ""}${esc(live ? conn.tip || conn.sub : conn.sub)}</p></div>
+    <p>${conn.state === "checking" ? `${ICONS.spin} ` : ""}${esc(sub)}</p></div>
     <span class="pill ${live ? "ok" : conn.state === "checking" ? "" : conn.cls === "err" ? "bad" : "warn"}">${live ? "Connected" : conn.state === "checking" ? "Checking" : "Not connected"}</span></div>`;
   let body = "";
   if (live) {
@@ -96,6 +96,7 @@ function devicePanel(conn) {
     const stores = list ? list.map((s) => storeRow(s, { card: c.mode === "card" })).join("")
       : o.infoError ? `<div class="notice err">${esc(o.infoError)}</div>` : `<div class="muted-note">${spinner} Reading the cards&hellip;</div>`;
     body = `<div class="facts">${facts}</div><div class="stores grid">${stores}</div>`;
+    if (app.device.wifi?.host || app.device.services?.host) body += webServicesBlock({ compact: true });
     if (conn.state === "wifi") body += `<details class="wifi-settings"><summary>Wi-Fi settings</summary>${wifiForm()}</details>`;
   } else {
     if (conn.steps.length) body = `<ol class="steps">${conn.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;
@@ -106,8 +107,8 @@ function devicePanel(conn) {
   if (alt) body += `<div class="notice">${icon("info")} ${esc(alt.text)} Use the button below to switch.</div>`;
   const actions = live
     ? `<button class="btn primary" data-device="browse">${icon("handheld")}<span>Games on ${esc(devWord())}</span></button>${deviceButtons(conn)}`
-    : deviceButtons(conn);
-  return `<section class="panel wide conn ${live ? "live" : conn.cls}">${head}${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
+    : `<button class="btn primary" data-connect="files">${icon("plug")}<span>Set up connection</span></button>${deviceButtons(conn)}`;
+  return `<section class="panel wide conn ${live ? "live" : `ov-connect ${conn.cls}`}">${head}${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 }
 
 // ---------------------------------------------------------------- library and device side by side

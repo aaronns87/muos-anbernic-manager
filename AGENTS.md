@@ -37,15 +37,15 @@ bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Wi
 5. **TypeScript must stay erasable** (Node type stripping): no `enum`, `namespace`, parameter properties or
    decorators; use `import type`; import local files with the `.ts` extension.
 6. **No new runtime dependencies** without a strong reason; the front end has none.
-7. **Every feature change updates its test and its wiki article** (`public/js/wiki.js`), and the README when
-   users would notice.
+7. **Every feature change updates its test and its wiki article** (`public/js/wiki.js`), `docs/assistant-knowledge.md`
+   when the Assistant should know, and the README when users would notice.
 
 ## Where to change things
 
 | Task | Server | Client |
 | --- | --- | --- |
 | New API call | add to `routes` in `src/server.ts`, logic in its own module | `api("path", body)` from `core.js` |
-| New section or tab | - | module in `public/js/`, `view-<name>` in `index.html`, `SECTIONS` in `core.js`, `TITLES` and `showSection` in `app.js` |
+| New section or tab | - | module in `public/js/`, `view-<name>` in `index.html`, `SECTIONS` in `core.js`, `TITLES` and `showSection` in `app.js`; wiki + assistant-knowledge + README |
 | New dialog | - | `<dialog>` in `index.html`, its module fills it; add its ids to the list in `test/server.test.ts` |
 | Device files | `withTarget` + `DeviceFs` (`src/device/`) | `device.js` for state |
 | Handheld command | `runCommand` in `src/device/ssh.ts` | - |

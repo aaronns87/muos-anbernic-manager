@@ -10,14 +10,15 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 
 ### Sidebar
 
+- **Overview**, then **Wiki** (help; shortcuts `2` or `0`)
 - **Library** - Games, Play, Artwork, OS
 - **Handheld** - Apps, Device, Themes, Emulation, Files, Game Tuning
-- **Tools** - System Tools, SSH
-- **Manager** - Settings, Wiki (chat opens from the top bar or mustard button after an API key is saved)
+- **Tools** - System Tools, Terminal (SSH)
+- **Manager** - Settings, Logs (Assistant chat opens from the top bar or mustard button after an API key is saved)
 
 ### Install and setup wizard
 
-- Installer: `./muos-anbernic-manager/installer.sh` (macOS/Linux) or `installer.cmd` (Windows). Checks Node.js and packages, can install Node via Homebrew/winget and libmtp on Mac for USB. Creates workspace folders `Roms/`, `apps/`, `os/`, `bios/`, `backups/`, `themes/` (existing files left alone).
+- Installer: `./muos-anbernic-manager/installer.sh` (macOS/Linux) or `installer.cmd` (Windows). Checks Node.js and packages, can install Node via Homebrew/winget and libmtp on Mac for USB. Creates workspace folders `Roms/`, `apps/`, `os/`, `bios/`, `backups/`, `themes/`, `logs/` (existing files left alone).
 - Offers an **app shortcut** (Applications / Start menu / app menu). Shortcut opens a terminal that runs the manager; closing the window stops it. Settings > Behaviour can add the shortcut again after moving the folder.
 - First start with a clean cache opens the **setup wizard** (model, folders, connection, optional game data download and shortcut). Skip setup closes it; Settings can open Run setup again.
 - Start later with the shortcut, `./muos-anbernic-manager/run.sh` or `run.cmd`.
@@ -26,10 +27,21 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 ### Three ways to connect
 
 1. **Card reader** - TF2 games card (or the only card on one-slot models) in this computer. Fastest for many games. Needed for Install MustardOS and for card wipes from a reader.
-2. **USB** - Andromeda: turn off Connectivity > Device Link > USB Cable; enable Wi-Fi + Secure Shell; in the manager Device > Settings > Advanced set **USB function** to **MTP** (often not shown on the handheld), then unplug/replug. Older: Advanced Settings > USB Function > MTP.
+2. **USB** - Needs MTP. On Andromeda, USB Function is often missing on the handheld menus — use the Andromeda MTP steps below. Older MustardOS: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
 3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, ttyd, Syncthing, landing, mDNS, Tailscale when present) with enabled/running/reachable status. Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+
+### Andromeda USB (MTP) — set MTP from the manager
+
+Andromeda Device Link (**USB Cable**, `usblink0`, USB id `1d6b:0110`) joins two MustardOS handhelds. While it is on, MTP/ADB are paused and Status may say it is looking for another device. USB Function often does not appear on the handheld menus.
+
+1. On the handheld: **Configuration → Connectivity → Device Link** → turn **USB Cable** off.
+2. Enable Wi-Fi and **Configuration → Connectivity → Web Services → Secure Shell** (and **Secure File Transfer** if you want file copies over Wi-Fi).
+3. In this manager: connect over Wi-Fi, open **Device → Settings → Advanced**, set **USB function** to **MTP**, and turn off **USB Cable (Device Link)** if it is listed.
+4. Unplug the USB cable, plug it in again, then press **Check again**.
+
+The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-Fi + SSH are up.
 
 ### How the model is known
 
@@ -66,7 +78,7 @@ USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and 
 
 ### Keyboard shortcuts
 
-- `1`-`9`: first nine sidebar sections (Overview to Files); `0`: Wiki.
+- `1`-`9`: first nine sidebar sections (1 Overview, 2 Wiki, 3 Games … through Themes); `0`: always Wiki.
 - `?`: help for current page. `[`: fold sidebar.
 - Games: `/` search, `S` select mode, arrows in game viewer.
 - Tab bars: Left/Right to change tabs, Home/End for first/last. Tab to Skip to content to bypass navigation.
@@ -77,7 +89,7 @@ Home page: whether the handheld is connected and how (card reader, USB or Wi-Fi)
 
 **Wi-Fi settings**: enter the handheld address (Configuration > Wi-Fi Network on the handheld). Address can change after reconnect; **Find on network** searches again. Optional Filebrowser link when SFTP is up.
 
-**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets.
+**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets. Separate from Manager → Logs.
 
 ## games - Games
 
@@ -167,7 +179,7 @@ Sidebar **Device** (was Device Settings). Tabs need Wi-Fi + Secure Shell.
 
 ### Settings tab
 
-Same options as handheld Configuration screens (General, Power, Interface, Customisation, ...). List adapts by config-file presence: Jacaranda shows today's options; Andromeda (2606.0) adds Bluetooth, screensavers, passcode, web ports, fonts, storage toggles, etc. Release badge shows MustardOS version · codename. **Use handheld ports** copies SSH/SFTP ports from the device into connection setup when they differ. Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options. Wasabi playback and deep Pickles hotkeys stay on-device; related keys can appear when files exist.
+Same options as handheld Configuration screens (General, Power, Interface, Customisation, Connectivity, HDMI, overlays, Advanced, ...). List adapts by config-file presence: Jacaranda shows today's options; Andromeda (2606.0) adds Bluetooth, screensavers, passcode, web ports, Additional Cores, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, remote-view detail, fonts/storage toggles, and related keys. Release badge shows MustardOS version · codename. **Use handheld ports** copies SSH/SFTP ports from the device into connection setup when they differ. Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options. Wasabi playback, Core Management install/update, and deep Pickles hotkey editors stay on-device; related keys can appear when files exist.
 
 ### Controls tab
 
@@ -211,11 +223,11 @@ Some systems need BIOS (PS, Sega CD, GBA, ...). Workspace `bios/` folder only (n
 
 ### Cores
 
-Emulator per ROM folder. Automatic = from folder name. Change system/core for folder; Keep games with their own core. Per-game core; Use the folder's core. Needs a system = unknown folder name (hints for Arcade/CPS/FDS/etc.).
+Emulator per ROM folder. Automatic = from folder name. Change system/core for folder; Keep games with their own core. Per-game core; Use the folder's core. Needs a system = unknown folder name (hints for Arcade/CPS/FDS/etc.). Andromeda: catalogue from `info/manifest/core.json` (+ `assign.json`); Jacaranda used `info/assign`. ROM folders: `/mnt/union/ROMS`, else `/mnt/mmc/ROMS` or `/mnt/sdcard/ROMS`.
 
 ### Systems
 
-All known systems vs what MustardOS can run. Show all systems toggle. States: On the handheld; Pick its system; Needs an extra core (Config > Advanced > Extra Cores on newer muOS); No core. Needs Wi-Fi+SSH.
+All known systems vs what MustardOS can run. Show all systems toggle. States: On the handheld; Pick its system; Needs an extra core (Andromeda: Configuration > Advanced > Additional Cores; older: Extra Cores); No core. Needs Wi-Fi+SSH.
 
 ### RetroArch
 
@@ -239,9 +251,13 @@ Left: this computer (workspace + remapped folders). Right: handheld SD1 and TF2 
 
 Copy to handheld / Copy to computer into open folder; confirm overwrites; appears in Transfers. New folder, rename, delete. Computer delete = Trash; handheld = permanent. Rename on handheld not over USB - use Wi-Fi or reader. Warns before changing SD1 `MUOS`. Preview: images; edit text/cfg/ini/json/txt up to 512 KB; Save / Ctrl-Cmd+S.
 
+## logs - Logs
+
+Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, Show more, export (txt), clear day or all, Show folder. Captures say() lines, console.warn/error, uncaught exceptions, unhandled rejections, API failures and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
+
 ## tuning - Game Tuning
 
-Per-game Menu+X core options, CPU governor and cheats without changing other games. Wi-Fi+SSH; applies next start. Folder-wide options: Emulation > RetroArch. Same editor in the game viewer Handheld tab when the game is on the device.
+Per-game Menu+X core options, CPU governor and cheats without changing other games. Wi-Fi+SSH; applies next start. Folder-wide options: Emulation > RetroArch. Same editor in the game viewer Handheld tab when the game is on the device. Andromeda: same manifest cores and ROM-root fallback as Emulation > Cores.
 
 Pick system then game (Tuned badge). Any RetroArch core: full `.opt` catalogue from the handheld (curated labels for known cores). PSP: PPSSPP standalone or RA (disc ID for standalone). Every game: CPU governor. Standalone non-RA: governor only unless switched to a RetroArch core. Settings can be saved before the game is on the handheld; first save can create `.opt` from folder/core template.
 
@@ -274,11 +290,11 @@ Browser terminal over Wi-Fi; needs Secure Shell. Quick commands, Storage, Busies
 
 ## settings - Settings
 
-Five tabs; subtitle describes the active tab.
+Six tabs; subtitle describes the active tab.
 
 ### Folders
 
-Roms folder (library) and other folders: apps, os, bios, backups, themes. Change folder / Choose in Finder / Show in Finder / use default.
+Roms folder (library) and other folders: apps, os, bios, backups, themes, logs. Change folder / Choose in Finder / Show in Finder / use default.
 
 ### Behaviour
 
@@ -286,7 +302,7 @@ Transfers, startup and updates (app shortcut, update check). Images: uploaded ar
 
 ### Appearance
 
-Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember) plus Create new custom scheme modal (dark/light colours, live preview; edit/delete later), zoom (50/65/85/100/110/125%), compact layout, clock style (digital / analog widget), 12/24 format, date in the top bar, Reset to default (appearance selection only; custom schemes kept).
+Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Forest, Berry, Slate, Ember) plus Create new custom scheme modal (dark/light colours, live preview; edit/delete later), zoom (50/65/85/100/110/125%), **Softer style** (pastel accents, rounder corners, airier spacing), compact layout, clock style (digital / analog widget), 12/24 format, date in the top bar, Reset to default (includes soft/compact; custom schemes kept).
 
 ### Assistant
 
@@ -321,7 +337,7 @@ In-app help for every section, glossary and troubleshooting. `?` opens the artic
 
 ## help - Troubleshooting
 
-**USB not found / Device Link / usblink0 / “looking for other device”**: Device Link (USB `1d6b:0110`) is for two handhelds; turn USB Cable off under Connectivity → Device Link; enable Wi-Fi + SSH; in the manager Device → Settings → Advanced set USB function to MTP (often missing on-device); unplug/replug. While USB Cable is on, MTP is paused. Also: Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or stay on Wi-Fi.
+**USB not found / Device Link / usblink0 / “looking for other device”**: Follow **Andromeda USB (MTP)** above (Device Link off → Wi-Fi + SSH → Device Settings → USB function MTP → unplug/replug). While USB Cable is on, MTP is paused. Also: Mac Allow accessories; try data cable/port; quit MTP grabbers (Android File Transfer, OpenMTP); or stay on Wi-Fi. Older builds: Advanced Settings → USB Function → MTP on the handheld.
 
 **Wi-Fi “No SD1 or SD2 folder”**: Andromeda SFTP lists Primary/Secondary Storage (manager maps them to SD1/TF2). Enable Secure File Transfer under Connectivity → Web Services.
 

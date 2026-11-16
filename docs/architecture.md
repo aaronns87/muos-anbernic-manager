@@ -14,7 +14,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 - **Dependencies** (`package.json`): `ssh2` (SFTP and SSH), `koffi` (libmtp FFI for USB), `yauzl` (zips),
   `saxes` (XML), `@xterm/*` (terminal). Dev: `typescript` for `npm run check` only.
 - **Workspace**: the folder above `muos-anbernic-manager/` holds `Roms/`, `apps/`, `os/`, `bios/`,
-  `backups/`, `themes/` (each can be moved in Settings). `.cache/` inside the manager folder holds settings,
+  `backups/`, `themes/`, `logs/` (each can be moved in Settings). `.cache/` inside the manager folder holds settings,
   logins and downloads.
 
 ## Startup (`src/main.ts`)
@@ -46,7 +46,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | --- | --- |
 | Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep), `shortcut.ts` (the app shortcut in Applications, the Start menu or the app menu) |
 | HTTP | `server.ts`, `ws.ts` (WebSocket for the SSH terminal) |
-| Logging | `log.ts` (`say(badge, LABEL, message)` prints and records to the activity log), `activity.ts` |
+| Logging | `log.ts` (`say` → terminal + activity), `activity.ts` (Overview Recent activity in `.cache/activity.jsonl`), `app-log.ts` (workspace `logs/manager-YYYY-MM-DD.jsonl`, console/exception/browser capture; `GET/POST /api/logs`, `/download`, `/clear`, `/reveal`) |
 | Jobs and locks | `jobs.ts`: background jobs, one running at a time with the rest queued (`startJob`, `cancelJob`, `requireIdle`, `requireQueueable`, `locks.system`), a history of finished jobs in `.cache/transfers.json`; copy plans |
 | Games library | `games/library.ts` (scan, in-memory library), `games/systems.ts` (ROM folders), `games/metadata.ts` (mamenames, LaunchBox index), `games/add.ts`, `games/actions.ts` (delete), `games/engines.ts` (ScummVM folders), `games/free-scummvm.ts` |
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |
@@ -83,7 +83,7 @@ of DOM and Node APIs.
   computer and handheld panes while retaining both locations for transfers.
 - One module per section: `overview.js`, `games.js`, `play.js`, `artwork-view.js` (+ `art-*.js`), `apps.js`
   (+ `updates.js`), `handheld.js`, `themes.js` (Designer tab: `theme-designer.js` editor and preview, `theme-assets.js` file panels, `theme-preview.js` canvas renderer, `theme-schema.js` every scheme setting), `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
-  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `wiki.js`, `chat.js` (assistant dock).
+  `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `logs.js`, `wiki.js`, `chat.js` (assistant dock).
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
   their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
   `manager-update.js`, `activity.js`. The library game viewer is opened by `games.js` and filled by
@@ -114,6 +114,8 @@ MustardOS layout the code relies on:
   folder exists there, otherwise SD1. Names per ROM folder are in `CATALOGUES` (`src/catalogue.ts`).
 - Play data on SD1: `MUOS/info/track/playtime_data.json`, `MUOS/info/history`, `MUOS/info/collection`.
 - Options: one-line files under `/opt/muos/config`; core assignment under `/opt/muos/share/info/content`.
+- Cores catalogue: Andromeda `info/manifest/core.json` (+ `assign.json`); Jacaranda `info/assign`. ROM folders over
+  SSH: try `/mnt/union/ROMS`, then `/mnt/mmc/ROMS`, `/mnt/sdcard/ROMS` (cores, BIOS, Game Tuning).
 - Saves and BIOS: `/run/muos/storage/save`, `/run/muos/storage/bios`. Themes: `MUOS/theme` on SD1.
   Packages go to `ARCHIVE` and install with Archive Manager's script; ports use the handheld's PortMaster.
 

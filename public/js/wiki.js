@@ -4,8 +4,15 @@ import { $, esc, icon, section } from "./core.js";
 import { DEVICES, screenText } from "./devices.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
-const SSH_ON = path("Configuration", "Web Services", "Secure Shell");
+const SSH_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure Shell")} (Andromeda; older builds: ${path("Configuration", "Web Services", "Secure Shell")})`;
 const SFTP_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure File Transfer")} (Andromeda; older builds: ${path("Configuration", "Web Services", "SFTP + Filebrowser")})`;
+const ANDROMEDA_MTP = `<ol>
+      <li>On the handheld open ${path("Configuration", "Connectivity", "Device Link")} and turn <b>USB Cable</b> off (Status may say it is looking for another device).</li>
+      <li>Enable Wi-Fi and ${path("Configuration", "Connectivity", "Web Services", "Secure Shell")} (and Secure File Transfer if you want file copies over Wi-Fi).</li>
+      <li>In this manager, connect over Wi-Fi, open <b>Device</b> &rsaquo; <b>Settings</b> &rsaquo; <b>Advanced</b>, set <b>USB function</b> to <b>MTP</b>, and turn off <b>USB Cable (Device Link)</b> if it is listed. Andromeda often does not show USB Function on the handheld menus.</li>
+      <li>Unplug the USB cable, plug it in again, then press <b>Check again</b>.</li>
+    </ol>
+    <p>The connection panel’s <b>Andromeda USB (MTP) help</b> and <b>Open Device Settings</b> link cover the same steps when Wi-Fi and SSH are up.</p>`;
 
 /** [id, icon, title, section it explains (or ""), one-line summary, [[heading, html], ...]] */
 const ARTICLES = [
@@ -13,13 +20,15 @@ const ARTICLES = [
     ["What the manager does", `<p>The manager runs on this computer and looks after your Anbernic or TrimUI handheld running MustardOS: the games in your
       <code>Roms/</code> folder, their box art, apps and updates, save games, BIOS files, emulator choices and the handheld's own settings.
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
-      <p>The sidebar groups the sections: <b>Library</b> (Games, Play, Artwork, OS) is about your games and MustardOS images,
-      <b>Handheld</b> (Apps, Device, Themes, Emulation, Files) changes what is on the device, <b>Tools</b> (System Tools, SSH) prepares cards
-      and opens a shell, and <b>Manager</b> (Settings, Wiki) is about the manager itself.</p>`],
+      <p>The sidebar starts with <b>Overview</b> and the <b>Wiki</b> (this help), then groups the rest: <b>Library</b> (Games, Play, Artwork, OS)
+      for your games and MustardOS images, <b>Handheld</b> (Apps, Device, Themes, Emulation, Files, Game Tuning) for what is on the device,
+      <b>Tools</b> (System Tools, Terminal) for cards and a shell, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
+      and where application diagnostics are kept.
+      Press <kbd>?</kbd> on any page for help without leaving it, or open the full Wiki from the sidebar.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
       on Windows, gets a computer ready: it checks Node.js and the manager's packages (offering to install Node.js with Homebrew or winget, and
       <code>libmtp</code> for USB on a Mac), creates the workspace folders <code>Roms/</code> (one folder per system), <code>apps/</code>,
-      <code>os/</code>, <code>bios/</code>, <code>backups/</code> and <code>themes/</code> next to the manager or in a folder you name, and can start from a clean cache.
+      <code>os/</code>, <code>bios/</code>, <code>backups/</code>, <code>themes/</code> and <code>logs/</code> next to the manager or in a folder you name, and can start from a clean cache.
       Existing folders and files are left as they are; an old cache is kept as <code>.cache-backup-&hellip;</code>.</p>
       <p>It also offers an <b>app shortcut</b> with the manager's icon: in Applications on a Mac, the Start menu on Windows, or the app menu on
       Linux. The shortcut opens a terminal window that runs the manager and opens this page; closing the window stops the manager.
@@ -36,13 +45,14 @@ const ARTICLES = [
         dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
-      <li><b>USB cable.</b> On Andromeda, turn ${path("Configuration", "Connectivity", "Device Link", "USB Cable")} off, enable Wi-Fi and Secure Shell, then in the manager open Device \u203a Settings \u203a Advanced and set <b>USB function</b> to <b>MTP</b> (that menu is often missing on the handheld). Unplug and replug. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device.</li>
+      <li><b>USB cable.</b> Needs <b>MTP</b>. On Andromeda, USB Function is often missing on the handheld — see <a href="#help">Troubleshooting</a> &rsaquo; Andromeda USB (MTP), or the connection panel help. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device, then plug in.</li>
       <li><b>Wi-Fi.</b> Handheld and computer on the same network. Turn on ${SFTP_ON} for files, and ${SSH_ON} for everything that changes
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>
     <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel.
-      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path.
-      Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
+      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path,
+      and <b>Web services</b> lists SSH, SFTP and other services with whether they are enabled, running and reachable.
+      Overview shows the same services block. Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
     ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
       artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
       <table class="wiki-table">
@@ -60,7 +70,8 @@ const ARTICLES = [
       <tr><th>Feature</th><th>Works with</th></tr>
       <tr><td>Copy games, artwork and packages to the handheld, Files</td><td>Card reader, USB or Wi-Fi</td></tr>
       <tr><td>Play time, Recently played, Collections</td><td>Any live USB or Wi-Fi link (data on SD1; Card reader as primary is fine)</td></tr>
-      <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, RetroArch, Game Tuning, SSH</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Install or uninstall apps, Device (settings, controls and benchmark), Themes, Ports, Saves, BIOS, Cores, Systems, RetroArch, Game Tuning, Terminal</td><td>Wi-Fi with Secure Shell on</td></tr>
+      <tr><td>Web services status (SSH, SFTP, virtual terminal, Syncthing, …)</td><td>Wi-Fi; inventory needs SSH when available</td></tr>
       <tr><td>Install MustardOS or wipe a card</td><td>Card reader</td></tr>
       <tr><td>Set up TF2 / Reset card (TF2)</td><td>Card reader, or Wi-Fi with SSH</td></tr>
       <tr><td>Library check, Updates, App market downloads, adding games and artwork to <code>Roms/</code></td><td>Nothing; works on this computer</td></tr>
@@ -78,19 +89,31 @@ const ARTICLES = [
     ["Keyboard shortcuts", `<ul>
       <li>Press Tab to reach <b>Skip to content</b> and jump past navigation. In a tab bar, use Left/Right to change tabs,
       or Home/End for the first or last tab.</li>
-      <li><kbd>1</kbd> to <kbd>9</kbd> jump to the first nine sections in the sidebar, top to bottom (Overview to Emulation); <kbd>0</kbd> opens the Wiki.</li>
-      <li><kbd>?</kbd> opens help for the page you are on.</li>
+      <li><kbd>1</kbd> to <kbd>9</kbd> jump down the sidebar (1 Overview, 2 Wiki, 3 Games &hellip; through Themes); <kbd>0</kbd> always opens the Wiki.</li>
+      <li><kbd>?</kbd> opens help for the page you are on (the matching Wiki article in a dialog).</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
     </ul>`],
   ]],
-  ["overview", "grid", "Overview", "overview", "The home page: connection, storage and what needs attention. Offline, it offers local library tasks without repeating empty device panels.", [
+  ["overview", "grid", "Overview", "overview", "The home page: connection, storage, web services and what needs attention.", [
     ["What you see", `<p>Whether the handheld is connected and how (card reader, USB or Wi-Fi), how much space is left, how many of your systems have
       games and artwork, systems without games, MustardOS images in your <code>os</code> folder, and apps that have updates.
-      The top-bar chip opens the connection panel; Overview remains the full connection page. On phones this panel replaces
-      the sidebar's device card, with connection choices, status and Wi-Fi settings in one place.</p>`],
+      The top-bar connection chip opens the <b>connection panel</b>; Overview remains the full connection page. On phones that panel replaces
+      the sidebar's device card, with connection choices, status and Wi-Fi settings in one place.</p>
+      <p>Offline, Overview still offers local library tasks (Games, Artwork, OS) without empty device-only panels. When a link comes up, the
+      connection card uses the same layout as when live: title, status pill, steps or facts, and actions.</p>`],
+    ["Connection panel", `<p>Click the connection chip (or the sidebar device card) for a flyout that stays beside your current page:</p>
+      <ul>
+        <li><b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for game and file copies (one path at a time).</li>
+        <li>Actions for the active path: reconnect, disconnect, eject, Andromeda USB help, and links into Device Settings when SSH is up.</li>
+        <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, landing page, mDNS and Tailscale (when present): whether each is
+          enabled on the handheld, running, and reachable from this computer. Overview shows the same block when Wi-Fi or SSH is known.</li>
+        <li><b>Wi-Fi address</b> and <b>Remote controls</b> (SSH user, ports, Test sign-in, Trust host key) when you use those paths.</li>
+      </ul>
+      <p>Play activity can use any live USB or Wi-Fi link even when Card reader is the primary transfer path.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
-      when the handheld reconnects; <b>Find on network</b> searches for it again.</p>`],
+      when the handheld reconnects; <b>Find on network</b> searches for it again. <b>Use handheld ports</b> (Device Settings) copies SSH/SFTP ports
+      from Andromeda into this setup when they differ from the defaults.</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
       anything that failed. <b>Show all</b> opens the full log with a search box and a filter for warnings and errors. The log is kept on this computer
       in the manager's cache folder and holds the last few thousand entries.</p>`],
@@ -108,13 +131,13 @@ const ARTICLES = [
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
       active. Comparing first does not change files or their timestamps on the card; nothing is written until you confirm the transfer.
       A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
-    ["Transfers", `<p>The <b>Transfers</b> panel in the bottom-right corner shows every copy: the one running with its progress, speed, time left
-      and current file, the ones waiting their turn, and the finished ones with how much was copied, how long it took and any files that failed.
-      A copy of several games shows each file expanded by default (you can hide them): every game with its own progress while it
-      copies, and afterwards its size, time and speed, or why it failed.
-      Start more copies while one runs and they wait in line. Stop the running copy or take a waiting one out of the queue at any time.
-      Click the panel's title to minimise it to a thin progress bar, or hide it and open it again from the top bar. The history is kept
-      between restarts until you clear it. Over USB the handheld takes one copy at a time, so a new one can start when the current one finishes.</p>`],
+    ["Transfers", `<p>The <b>Transfers</b> dock shows every copy: the one running with its progress, speed, time left and current file, the ones waiting,
+      and finished ones with how much was copied, how long it took and any files that failed. Multi-file copies list each file (expanded by default)
+      with its own progress, then size, time and speed, or why it failed.</p>
+      <p>Start more copies while one runs and they wait in line. Stop the running copy or remove a waiting one at any time. Minimise the dock to a
+      thin progress bar, or hide it with the close control. <b>Show Transfers</b> appears in the top bar only when there is something active or finished;
+      with an empty history the control stays hidden. Clear finished items from the dock when you no longer need them. Over USB the handheld takes one
+      copy at a time, so the next starts when the current one finishes.</p>`],
     ["Adding new games", `<p><b>Add games</b> takes game files you drop on it, puts each in the right system folder, and looks up its description and box art.</p>`],
     ["ScummVM games", `<p>A ScummVM game is a folder of data files, not a single ROM. Drop the game's folder on <b>Add games</b> (or use
       <b>Choose a ScummVM game folder</b>): it becomes <code>Roms/SCUMMVM/&lt;Name&gt;.scummvm</code>, an empty file the handheld lists, plus the
@@ -243,14 +266,16 @@ const ARTICLES = [
   ["handheld", "sliders", "Device", "handheld", "MustardOS settings, Controls and Benchmark on the handheld over SSH.", [
     ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
       <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
-    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
+    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation, Connectivity, HDMI, overlays, Advanced and more),
       changed over Wi-Fi with SSH. The list adapts to the connected build: Jacaranda keeps the options whose config files exist; Andromeda (2606.0) adds
-      groups such as Bluetooth, screensavers, passcode, web service ports, fonts and storage toggles. A release badge shows MustardOS version and codename.
+      Bluetooth, screensavers, passcode, web service ports, <b>Additional Cores</b>, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, remote-view detail, fonts and storage toggles.
+      A release badge shows MustardOS version and codename.
       If the handheld's SSH or SFTP ports differ from the manager defaults, <b>Use handheld ports</b> copies them into connection setup.</p>
-      <p>Change as many as you like; they are written together when you save. Each option says when the change takes
+      <p>Options only appear when their config files exist on the handheld (presence-filtered), so Jacaranda keeps a shorter list than Andromeda.
+      Change as many as you like; they are written together when you save. Each option says when the change takes
       effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
       <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.
-      Wasabi media and deep Pickles hotkeys stay on the handheld; related config keys can still appear here when the files exist.</p>`],
+      Wasabi media, Core Management install/update packages, and deep Pickles hotkey editors stay on the handheld; related config keys can still appear here when the files exist.</p>`],
     ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
       MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
       You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).
@@ -324,7 +349,9 @@ const ARTICLES = [
         <li>Each row shows a short description, the expected MD5, and whether the local copy matches. The trash control
           can move the file from the bios folder to the Trash and/or delete it on the handheld (needs SSH).</li>
       </ul>`],
-    ["Cores", `<p>A <i>core</i> is the emulator program that runs a game. Some systems have several; one may run a game better than another.</p>
+    ["Cores", `<p>A <i>core</i> is the emulator program that runs a game. Some systems have several; one may run a game better than another.
+      Needs Wi-Fi with Secure Shell. On Andromeda the manager reads MustardOS's <code>info/manifest/core.json</code> catalogue (Jacaranda used
+      <code>info/assign</code>); ROM folders are listed from the games card even when the union mount is not visible over SSH.</p>
       <ul>
         <li>Each ROM folder on the handheld shows its system and core. <i>Automatic</i> means MustardOS picks from the folder name.</li>
         <li><b>Change</b> sets the system and core for a whole folder. <b>Keep the games with their own core</b> leaves games that you gave their own core alone.</li>
@@ -338,9 +365,9 @@ const ARTICLES = [
       <ul>
         <li><b>On the handheld</b>: MustardOS has the system, shown with its default core and how many cores it has.</li>
         <li><b>Pick its system</b>: the games run under another MustardOS system. Set it for the folder in the Cores tab.</li>
-        <li><b>Needs an extra core</b>: MustardOS 2601 Jacaranda leaves the system out (Sega Saturn, Nintendo DS, WonderSwan, Virtual Boy, MSX,
-          the smaller Atari machines and others). Newer MustardOS versions offer optional cores for them under
-          ${path("Configuration", "Advanced Settings", "Extra Cores")}. Some, like the Saturn, are too demanding to run well on these handhelds.</li>
+        <li><b>Needs an extra core</b>: Jacaranda leaves some systems out (Sega Saturn, Nintendo DS, WonderSwan, Virtual Boy, MSX, smaller Atari
+          machines and others). On Andromeda turn on ${path("Configuration", "Advanced", "Additional Cores")} (same option in Device &rsaquo; Settings here)
+          so Core Assignment and Core Management show the longer list. Some systems, like Saturn, are still too demanding to run well.</li>
         <li><b>No core</b>: nothing in MustardOS runs these games, such as PolyGame Master 2 and OpenBOR.</li>
       </ul>
       <p>The list needs the handheld over Wi-Fi with Secure Shell on, like the Cores tab.</p>`],
@@ -425,7 +452,9 @@ const ARTICLES = [
     ["What it does", `<p>Some games need more than the handheld can give at the emulator's usual settings: God of War on PSP, Perfect Dark on N64, most
       Dreamcast games. Others have power to spare and could look sharper. Game Tuning gives one game its own Menu+X-style core options and CPU governor
       without changing any other game. It needs the handheld on Wi-Fi with SSH on, and the changes apply the next time the game starts.
-      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.</p>`],
+      Folder-wide options also live under Emulation &rsaquo; RetroArch; the game viewer Handheld tab embeds the same editor when the game is on the device.
+      On Andromeda it uses the same <code>info/manifest/core.json</code> catalogue and ROM-folder roots as Emulation &rsaquo; Cores
+      (<code>/mnt/union/ROMS</code>, then <code>/mnt/mmc/ROMS</code> or <code>/mnt/sdcard/ROMS</code>).</p>`],
     ["Pick a game", `<p>The list on the left shows your library. Open the system list and type a few letters to narrow it (arrow keys and Enter work
       too); systems with curated presets come first. Then search by name; <i>Tuned</i> marks games that already have their own settings.
       The page then shows which emulator starts the game (its own core if it has one, else its folder's) and what it can change:</p>
@@ -497,16 +526,15 @@ const ARTICLES = [
       title describes the tab you are on.</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
-      images, BIOS files, save backups and the themes you design are kept.</p>`],
+      images, BIOS files, save backups, themes you design and application logs are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Images</b> sets the size
       uploaded artwork is saved at.</p>`],
     ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
-      that changes accents and surfaces together. <b>Create new</b> opens an editor with colour pickers and a preview of buttons, panels and text; custom schemes
-      can be edited or deleted later. <b>Density</b> sets zoom (including 50% and 65%), Soft UX (pastel accents, airier spacing, tinted selection and gentler controls),
-      and a compact layout.
-      <b>Clock</b> chooses a digital or analog face in the
-      top bar, the 12/24-hour format for digits, and the date next to it. <b>Reset to default</b> puts theme, zoom, clock and the active scheme back; schemes you
-      created stay. Sorting and open tabs stay.</p>`],
+      that changes accents and surfaces together. Selected controls (primary buttons, tabs, segmented buttons, sidebar) always use the scheme accent fill.
+      <b>Create new</b> opens an editor with colour pickers, contrast guidance and a live preview; custom schemes can be edited or deleted later.</p>
+      <p><b>Density</b> sets zoom (including 50% and 65%), <b>Softer style</b> (pastel accents, rounder corners and airier spacing — selected states stay the same accent),
+      and <b>Compact layout</b> (tighter padding and controls). Soft and compact combine. <b>Clock</b> chooses a digital or analog face, 12/24-hour digits and the date.
+      <b>Reset to default</b> restores theme, scheme, zoom, soft, compact, clock and date; schemes you created stay. Sorting, open tabs and connection stay.</p>`],
     ["Assistant", `<p>Paste a free chat API key, pick a provider and model, optionally edit the system prompt, and open the read-only
       <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
     ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
@@ -522,7 +550,7 @@ const ARTICLES = [
       </ul>`],
     ["Factory reset", `<p>The red panel on the <b>Resets</b> tab starts the manager over as if it had just been installed. It moves to the Trash:</p>
       <ul>
-        <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups and themes;</li>
+        <li>the workspace folders you leave ticked: Roms (your whole game library and its artwork), apps, os, bios, backups, themes and logs;</li>
         <li>everything in the manager's <code>.cache</code> folder: settings and chosen folders, Wi-Fi and SSH logins, assistant API keys, downloaded game data and
           catalogues, ROM check results and the activity log;</li>
         <li>this browser's view preferences.</li>
@@ -531,6 +559,17 @@ const ARTICLES = [
         not touched, and neither is the app shortcut. Nothing is deleted outright, so you can get it back from the Trash until you empty it. On a
         Mac, a folder on another drive is left where it is instead of being copied to the Trash; delete it yourself if you want it gone.
         When the manager was not started with <code>run.sh</code> or <code>run.cmd</code> it stops instead of restarting, so start it again.</p>`],
+  ]],
+  ["logs", "list", "Logs", "logs", "Application diagnostics written to the workspace logs folder.", [
+    ["What it is", `<p>The manager streams errors, warnings, exceptions and notable actions into daily files under the workspace
+      <code>logs/</code> folder (for example <code>manager-2026-11-16.jsonl</code>). Files older than about two weeks are removed automatically.
+      This is separate from <b>Recent activity</b> on Overview, which is a short history of what you changed.</p>`],
+    ["Using the viewer", `<p>Open <b>Logs</b> under Manager in the sidebar. Search by tag, message or stack text; filter by level (Errors, Warnings, Info&hellip;);
+      and pick a day. The list refreshes while the page is open. Expand a row's stack when present. <b>Export</b> downloads the current filter as a text file;
+      <b>Show folder</b> opens <code>logs/</code> in the file manager; <b>Clear</b> deletes the selected day or every log file.</p>`],
+    ["What is recorded", `<p>Terminal <code>say</code> lines, <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections
+      on the server, API failures, and browser script errors posted from the page. Change the folder under ${path("Settings", "Folders")} if you want logs
+      somewhere else.</p>`],
   ]],
   ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own free API key to help with the manager and your library.", [
     ["What it is", `<p>A chat panel in the bottom-right corner. After you save an API key under ${path("Settings", "Assistant")},
@@ -578,11 +617,16 @@ const ARTICLES = [
       <dt>Core</dt><dd>The emulator program that runs games for a system.</dd>
       <dt>BIOS</dt><dd>A copy of a console's startup chip that some cores need.</dd>
       <dt>MD5, CRC</dt><dd>Short fingerprints of a file's contents, used to check a file is exactly the right one.</dd>
-      <dt>.muxapp, .muxupd</dt><dd>MustardOS package files for apps and for updates or add-ons.</dd>
+      <dt>.muxapp, .muxupd, .muxzip</dt><dd>MustardOS package files for apps, updates/add-ons, and other bundles such as themes.</dd>
+      <dt>.muxbak</dt><dd>Andromeda device backup archive in <code>ARCHIVE</code>, created or restored via backup/extract scripts (Emulation &rsaquo; Saves).</dd>
       <dt>Archive Manager</dt><dd>The MustardOS tool that installs packages from the <code>ARCHIVE</code> folder.</dd>
-      <dt>SFTP</dt><dd>A way to copy files over Wi-Fi; MustardOS calls it SFTP + Filebrowser.</dd>
-      <dt>SSH</dt><dd>A secure remote command line; the manager uses it to change things on the handheld.</dd>
-      <dt>MTP</dt><dd>The USB mode that lets a computer see the handheld's files over a cable.</dd>
+      <dt>Andromeda</dt><dd>MustardOS 2606.0 release family; longer Device Settings catalogue, manifest-based cores, <code>.muxbak</code> backups.</dd>
+      <dt>Jacaranda</dt><dd>Earlier MustardOS family (for example 2601.x); shorter settings list and the older <code>info/assign</code> core layout.</dd>
+      <dt>SFTP</dt><dd>A way to copy files over Wi-Fi; MustardOS calls it Secure File Transfer (older builds: SFTP + Filebrowser).</dd>
+      <dt>SSH</dt><dd>A secure remote command line; the manager uses it to change things on the handheld (Secure Shell in Web Services).</dd>
+      <dt>MTP</dt><dd>The USB mode that lets a computer see the handheld's files over a cable. On Andromeda, set it from Device &rsaquo; Settings &rsaquo; Advanced when the handheld menu does not show USB Function; turn Device Link USB Cable off first.</dd>
+      <dt>Device Link / USB Cable</dt><dd>Andromeda feature that joins two MustardOS handhelds over USB-C (<code>usblink0</code>). Not for this computer; while it is on, MTP is paused.</dd>
+      <dt>Web services</dt><dd>SSH, SFTP, virtual terminal, Syncthing, landing page, mDNS, Tailscale and related toggles under Connectivity on the handheld; the manager shows enabled / running / reachable in Connection and Overview.</dd>
       <dt>Save state</dt><dd>A snapshot of a game at any moment, made by the emulator; different from the game's own save.</dd>
       <dt>Port</dt><dd>A PC game rebuilt to run natively on handhelds, instead of in an emulator.</dd>
       <dt>PortMaster</dt><dd>The app on MustardOS that downloads, installs and removes ports. The manager asks it to do the work over SSH.</dd>
@@ -593,8 +637,12 @@ const ARTICLES = [
     </dl>`],
   ]],
   ["help", "info", "Troubleshooting", "", "Common problems and what to try.", [
+    ["Andromeda USB (MTP)", `<p>On MustardOS Andromeda, Device Link’s <b>USB Cable</b> mode (<code>usblink0</code>, USB id <code>1d6b:0110</code>) joins two handhelds and pauses MTP.
+      USB Function often does not appear in the handheld menus, so set MTP from the manager over Wi-Fi and SSH:</p>
+      ${ANDROMEDA_MTP}`],
     ["The handheld isn't found over USB", `<ul>
-      <li>On the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>.</li>
+      <li><b>Andromeda:</b> follow <b>Andromeda USB (MTP)</b> above (Device Link off, then MTP from Device &rsaquo; Settings &rsaquo; Advanced).</li>
+      <li>Older MustardOS: on the handheld set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b>.</li>
       <li>Unplug the cable, wait until the handheld has finished starting, and plug it in again. Plugged in while the handheld (or the
         computer) starts, its USB port can come up in the wrong mode, and the computer then sees no device at all.</li>
       <li>On a Mac, unlock it before plugging in and click <b>Allow</b> on the accessory prompt. Without a prompt, check System Settings
@@ -632,6 +680,14 @@ const ARTICLES = [
     </ul>`],
     ["The page says the token is wrong", `<p>Each start of the manager makes a new private address. Close this tab and open the manager again from
       <code>muos-anbernic-manager/run.sh</code> (or the address printed in its terminal window).</p>`],
+    ["Cores, Systems, RetroArch or Game Tuning say the handheld did not answer", `<ul>
+      <li>These pages need Wi-Fi with Secure Shell on and a reachable SSH session (check Web services in the connection panel).</li>
+      <li>On Andromeda, use a current manager build: core catalogues come from <code>info/manifest</code>, not the old Jacaranda assign folder.</li>
+      <li>Press <b>Refresh</b>; if SSH was reconnecting, wait until the top bar shows Connected, then try again.</li>
+      <li>Terminal &rsaquo; Quick commands can confirm the shell answers; then return to Emulation or Game Tuning.</li>
+    </ul>`],
+    ["Show Transfers is missing", `<p>The top-bar control only appears when a transfer is running or finished history exists. Start a copy (Games, Artwork, Files or Apps)
+      and it shows up; clear finished items from the Transfers dock and the control hides again when the list is empty.</p>`],
   ]],
 ];
 

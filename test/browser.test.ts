@@ -18,7 +18,7 @@ const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((p) => p && fs.existsSync(p));
 
-const SECTIONS = ["overview", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
+const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "logs"];
 const TABS = ["saves", "bios", "cores", "retroarch", "checks"];
 
 class Cdp {
@@ -169,7 +169,7 @@ test("Library check shows the Tetris duplicate with the World version suggested"
 test("sidebar order and number keys follow the sections", { skip: !CHROME && "Chrome not found" }, async () => {
   const order = await cdp.eval<string[]>(`[...document.querySelectorAll(".section-link")].map((a) => a.dataset.section)`);
   assert.deepEqual(order, SECTIONS);
-  for (const [key, want] of [["3", "play"], ["5", "os"], ["7", "handheld"], ["8", "themes"], ["9", "emulation"], ["0", "wiki"]]) {
+  for (const [key, want] of [["2", "wiki"], ["4", "play"], ["6", "os"], ["8", "handheld"], ["9", "themes"], ["0", "wiki"]]) {
     await cdp.eval(`document.activeElement?.blur(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "${key}", bubbles: true }))`);
     await cdp.until(`location.hash.split("/")[0] === "#${want}"`);
   }

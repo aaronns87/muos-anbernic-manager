@@ -21,6 +21,8 @@ export const ctx = {
   backups: path.resolve(managerDir, "..", "backups"),
   /** MustardOS themes made in the Theme Designer, one open theme folder each. */
   themes: path.resolve(managerDir, "..", "themes"),
+  /** Application diagnostic logs (JSONL by day). */
+  logs: path.resolve(managerDir, "..", "logs"),
   token: "",
   port: 0,
   /** A folder holding ROMS/ and ARCHIVE/ used as the TF2 card, for testing without one. */
@@ -35,4 +37,5 @@ export function setRoot(root: string): void {
   ctx.bios = path.join(ctx.root, "bios");
   ctx.backups = path.join(ctx.root, "backups");
   ctx.themes = path.join(ctx.root, "themes");
+  ctx.logs = path.join(ctx.root, "logs");
 }

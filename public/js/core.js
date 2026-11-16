@@ -11,8 +11,8 @@ export const ACCENTS = {
 };
 export const EXCLUDED = new Set(["APPS", "PORTS"]);
 export const ART_KINDS = [["box", "Box art"], ["preview", "Screenshot"], ["splash", "Splash"]];
-export const SECTIONS = ["overview", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "wiki"];
-/** The section each number key opens: 1 to 9 in order, 0 for the Wiki. */
+export const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "logs"];
+/** Number keys 1–9 follow the sidebar (Wiki is 2); 0 always opens the Wiki. */
 export const sectionForKey = (k) => (k === "0" ? "wiki" : SECTIONS[+k - 1]);
 
 export { DEVICES };
@@ -175,7 +175,7 @@ export const app = {
     mode: ["usb", "wifi", "card"].includes(store.get("mode", "usb")) ? store.get("mode", "usb") : "usb"
   },
   /** The connection: status is checking | ready | offline | error. target is the card, "usb" or "wifi" device in use. */
-  device: { status: "checking", targets: [], target: null, rejects: [], files: {}, error: "", handheld: null, wifi: null, models: {}, platform: "" },
+  device: { status: "checking", targets: [], target: null, rejects: [], files: {}, error: "", handheld: null, wifi: null, services: null, models: {}, platform: "" },
   /** The games on the device (Games > On device). */
   listing: { status: "idle", volume: "", data: null, error: "" },
   overview: { workspace: null, info: null, infoFor: "", infoError: "", summary: null, summaryFor: "", summaryError: "", loading: "" },

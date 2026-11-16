@@ -45,6 +45,8 @@ await withTarget(volume, async (t) => {
 - Play data on SD1: `MUOS/info/track/playtime_data.json`, `MUOS/info/history/`, `MUOS/info/collection/`.
 - Settings: one value per file under `/opt/muos/config/...` (`src/device/muos-settings.ts`). Core per system or
   game: `/opt/muos/share/info/content`.
+- Cores catalogue: Andromeda `info/manifest/core.json` (+ `assign.json`); Jacaranda `info/assign`. ROM folders over
+  SSH: `/mnt/union/ROMS`, then `/mnt/mmc/ROMS`, `/mnt/sdcard/ROMS` (cores, BIOS, Game Tuning).
 - Saves and BIOS: `/run/muos/storage/save`, `/run/muos/storage/bios`. Themes: `MUOS/theme/` on SD1.
 - Packages (`.muxapp`, `.muxupd`, themes) are copied to `ARCHIVE/` and installed with muOS's archive script over
   SSH. Ports use the handheld's PortMaster.

@@ -145,6 +145,7 @@ function apply(list) {
     T.ready = true;
     if (T.active.length) T.shown = true;
   }
+  if (T.shown && !T.active.length && !T.history.length) T.shown = false;
   renderDock();
   renderStatusbar();
   for (const id of before) {
