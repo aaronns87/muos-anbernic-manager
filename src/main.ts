@@ -7,6 +7,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { startActivityLog } from "./activity.ts";
+import { installLogCaptures, startAppLog } from "./app-log.ts";
 import { ctx, setRoot } from "./context.ts";
 import { disconnect } from "./device/mtp.ts";
 import { closeSftp } from "./device/sftp.ts";
@@ -104,6 +105,7 @@ const row = (text: string, faint = false) =>
   console.log(`  ${C.green}|${C.reset}${faint ? C.dim : ""}${` ${text}`.padEnd(WIDTH)}${faint ? C.reset : ""}${C.green}|${C.reset}`);
 
 async function main(): Promise<void> {
+  installLogCaptures();
   let args;
   try {
     args = parseArgs({
@@ -142,7 +144,7 @@ async function main(): Promise<void> {
   if (args.init) {
     const created = await createWorkspace(args.workspace ?? "");
     say("green", "READY", created.length ? `Created ${created.length} folders.` : "Every workspace folder is there already.");
-    for (const f of ["roms", "apps", "os", "bios", "backups", "themes"] as const) dim(`${f.padEnd(8)} ${ctx[f]}`);
+    for (const f of ["roms", "apps", "os", "bios", "backups", "themes", "logs"] as const) dim(`${f.padEnd(8)} ${ctx[f]}`);
     return;
   }
   if (!(await isDir(ctx.roms))) {
@@ -160,6 +162,7 @@ async function main(): Promise<void> {
   dim(`Using ${ctx.managerDir} (Node ${process.versions.node}, ${platform.name})`);
   await fsp.mkdir(ctx.cacheDir, { recursive: true });
   await startActivityLog();
+  await startAppLog();
   const previous = await stopPrevious();
   await ensureArcadeNames(!!args["refresh-names"]);
   // On a first run the setup wizard offers the large description download, so the browser opens right away.

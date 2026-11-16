@@ -12,17 +12,43 @@ import { say } from "./log.ts";
 import { shq as quote } from "./util.ts";
 
 const CONTENT = "/opt/muos/share/info/content";
+/** Jacaranda keeps assign/*.ini; Andromeda uses info/manifest/core.json (+ assign.json). */
 const ASSIGN = "/opt/muos/share/info/assign";
-const ROMS = "/mnt/union/ROMS";
+const MANIFEST_CORE = "/opt/muos/share/info/manifest/core.json";
+/** Prefer union when the frontend mounted it; over SSH Andromeda often only has per-card ROMS. */
+export const ROM_ROOTS = ["/mnt/union/ROMS", "/mnt/mmc/ROMS", "/mnt/sdcard/ROMS"] as const;
 
 const stripExt = (f: string) => (f.lastIndexOf(".") > 0 ? f.slice(0, f.lastIndexOf(".")) : f);
 
+/** Shell that sets ROMS to the first root that contains the given relative folder/file. */
+export const resolveRomRoot = (rel: string) =>
+  `ROMS=""; for _r in ${ROM_ROOTS.join(" ")}; do [ -e "$_r"/${quote(rel)} ] && { ROMS="$_r"; break; }; done`;
+
 const SCRIPT = `
-cd ${ROMS} 2>/dev/null && for d in */; do d=\${d%/}; printf '=D\\t%s\\t%s\\n' "$d" "$(ls -A "$d" 2>/dev/null | wc -l)"; done
+if [ -d /mnt/union/ROMS ]; then
+  cd /mnt/union/ROMS && for d in */; do d=\${d%/}; printf '=D\\t%s\\t%s\\n' "$d" "$(ls -A "$d" 2>/dev/null | wc -l)"; done
+else
+  for _root in /mnt/mmc/ROMS /mnt/sdcard/ROMS; do
+    [ -d "$_root" ] || continue
+    cd "$_root" || continue
+    for d in */; do
+      d=\${d%/}
+      printf '=D\\t%s\\t%s\\n' "$d" "$(ls -A "$d" 2>/dev/null | wc -l)"
+    done
+  done
+fi
 cd ${CONTENT} 2>/dev/null && for f in */*.cfg; do [ -f "$f" ] && { printf '=C\\t%s\\n' "$f"; cat "$f"; echo; }; done
-cd ${ASSIGN} || exit 1
-for f in */*.ini; do printf '=F\\t%s\\n' "$f"; cat "$f"; echo; done
-echo "=J"; cat assign.json 2>/dev/null; echo
+if [ -f ${MANIFEST_CORE} ]; then
+  printf '=M\\n'; cat ${MANIFEST_CORE}; echo
+  echo "=J"
+  cat /run/muos/storage/info/manifest/assign.json 2>/dev/null \\
+    || cat /mnt/mmc/MUOS/info/manifest/assign.json 2>/dev/null \\
+    || cat /opt/muos/share/info/manifest/assign.json 2>/dev/null
+  echo
+elif cd ${ASSIGN} 2>/dev/null; then
+  for f in */*.ini; do [ -f "$f" ] && { printf '=F\\t%s\\n' "$f"; cat "$f"; echo; }; done
+  echo "=J"; cat assign.json 2>/dev/null; echo
+fi
 pgrep -f "/opt/muos/frontend/[m]uxfrontend" >/dev/null && echo "=R"
 echo "=E"
 `;
@@ -32,16 +58,43 @@ interface System { name: string; catalogue: string; lookup: string; defaultCore:
 interface Assigned { so: string; system: string; catalogue: string; lookup: string; key: string }
 interface Override extends Assigned { name: string; file: string }
 
+function parseManifest(json: string, systems: Map<string, System>) {
+  let data: Record<string, {
+    name?: string; catalogue?: string; lookup?: number | string; default?: string; friendly?: string[];
+    libretro?: Record<string, { name?: string; core?: string }>;
+    external?: Record<string, { name?: string; core?: string }>;
+  }>;
+  try { data = JSON.parse(json || "{}"); } catch { return; }
+  for (const [dir, info] of Object.entries(data || {})) {
+    if (!info || typeof info !== "object") continue;
+    const s = systems.get(dir) || systems.set(dir, { name: dir, catalogue: dir, lookup: "0", defaultCore: "", cores: [], aliases: [] }).get(dir)!;
+    s.name = info.name || dir;
+    s.catalogue = info.catalogue || s.name;
+    s.lookup = String(info.lookup ?? "0");
+    s.defaultCore = info.default || "";
+    s.aliases.push(...(info.friendly || []));
+    for (const group of [info.libretro, info.external]) {
+      if (!group) continue;
+      for (const [key, core] of Object.entries(group)) {
+        if (!core) continue;
+        s.cores.push({ key, name: core.name || key, so: core.core || "" });
+      }
+    }
+  }
+}
+
 function parse(out: string) {
   const blocks: [string, string, string[]][] = [];
-  const folders: { name: string; count: number }[] = [];
+  const folderCounts = new Map<string, number>();
   let frontend = false, cur: string[] | null = null;
   for (const line of out.split("\n")) {
-    const m = /^=(D|C|F|J|R|E)(?:\t(.*))?$/.exec(line);
+    const m = /^=(D|C|F|J|M|R|E)(?:\t(.*))?$/.exec(line);
     if (!m) { cur?.push(line); continue; }
     cur = null;
-    if (m[1] === "D") { const [name, count] = (m[2] || "").split("\t"); folders.push({ name, count: Number(count) || 0 }); }
-    else if (m[1] === "R") frontend = true;
+    if (m[1] === "D") {
+      const [name, count] = (m[2] || "").split("\t");
+      if (name) folderCounts.set(name, (folderCounts.get(name) || 0) + (Number(count) || 0));
+    } else if (m[1] === "R") frontend = true;
     else if (m[1] !== "E") { cur = []; blocks.push([m[1], m[2] || "", cur]); }
   }
   const systems = new Map<string, System>();
@@ -49,6 +102,7 @@ function parse(out: string) {
   const content = new Map<string, string[]>();
   for (const [tag, key, lines] of blocks) {
     if (tag === "J") { try { aliases = JSON.parse(lines.join("\n") || "{}"); } catch {} continue; }
+    if (tag === "M") { parseManifest(lines.join("\n"), systems); continue; }
     if (tag === "C") { content.set(key, lines.join("\n").replace(/\n$/, "").split("\n")); continue; }
     const [dir, file] = key.split("/");
     if (!dir || !file) continue;
@@ -67,6 +121,7 @@ function parse(out: string) {
     }
   }
   for (const s of systems.values()) s.cores.sort((a, b) => a.name.localeCompare(b.name));
+  const folders = [...folderCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
   return { folders, systems, aliases, content, frontend };
 }
 
@@ -164,7 +219,9 @@ export async function folderGames(query: URLSearchParams) {
   const { data } = await read();
   if (!data) throw new UserError("Connect the handheld over Wi-Fi with SSH on.");
   if (!data.folders.some((f) => f.name === folder)) throw new UserError(`${folder} is not a ROM folder on the handheld.`);
-  const { out } = await runCommand(`cd ${quote(`${ROMS}/${folder}`)} && for f in *; do [ -f "$f" ] && printf '%s\\n' "$f"; done; echo "=E"`, 30_000);
+  const { out } = await runCommand(`${resolveRomRoot(folder)}
+[ -n "$ROMS" ] || { echo "=E"; exit 0; }
+cd "$ROMS"/${quote(folder)} && for f in *; do [ -f "$f" ] && printf '%s\\n' "$f"; done; echo "=E"`, 30_000);
   return { folder, games: out.split("\n").filter((l) => l && l !== "=E" && !l.startsWith(".")) };
 }
 
@@ -173,10 +230,12 @@ export async function setGameCore(body: Record<string, unknown>) {
   const { folder, system, core } = await context(body);
   const file = String(body.file ?? "");
   if (!file || /[/\n\0]/.test(file) || file.startsWith(".")) throw new UserError(`"${file}" is not a game file name.`);
-  const { code } = await runCommand(`[ -f ${quote(`${ROMS}/${folder}/${file}`)} ]`, 15_000);
-  if (code !== 0) throw new UserError(`${file} is not in ${folder} on the handheld.`);
+  const { out: located } = await runCommand(`${resolveRomRoot(`${folder}/${file}`)}
+[ -n "$ROMS" ] && printf '%s\\n' "$ROMS"; echo "=E"`, 15_000);
+  const romRoot = located.split("\n").find((l) => l.startsWith("/mnt/"));
+  if (!romRoot) throw new UserError(`${file} is not in ${folder} on the handheld.`);
   const name = stripExt(file);
-  await write(gameScript(CONTENT, folder, name), [name, core.so, system.name, system.catalogue, system.lookup, core.key, `${ROMS}/`, folder, file].join("\n"));
+  await write(gameScript(CONTENT, folder, name), [name, core.so, system.name, system.catalogue, system.lookup, core.key, `${romRoot}/`, folder, file].join("\n"));
   say("green", "CORE", `${folder}/${file} now starts with ${core.name}.`);
   return coresJson();
 }

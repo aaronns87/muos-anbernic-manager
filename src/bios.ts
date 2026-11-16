@@ -17,6 +17,7 @@ import { inside, isDir, listDir, removeQuietly, shq as quote } from "./util.ts";
 
 const DEVICE_BIOS = "/run/muos/storage/bios";
 const ASSIGN = "/opt/muos/share/info/assign";
+const MANIFEST_CORE = "/opt/muos/share/info/manifest/core.json";
 const INFO = "/opt/muos/share/emulator/retroarch/info";
 const MAX_HASH = 128 * 1024 * 1024;
 const CATALOG_AGE = 24 * 3600_000;
@@ -26,12 +27,23 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const EXTRA_ALIASES: Record<string, string[]> = { Arcade: ["mame", "hbmame", "fbneo", "fba", "cps1", "cps2", "cps3", "pgm", "pgm2", "varcade"] };
 
 const CATALOG_SCRIPT = `
-cd ${ASSIGN} || exit 1
-for f in */*.ini; do printf '=F\\t%s\\n' "$f"; cat "$f"; echo; done
-echo "=J"; cat assign.json 2>/dev/null; echo
-for c in $(sed -n 's/^core=\\(.*\\)\\.so[[:space:]]*$/\\1/p' */*.ini | sort -u); do
-  [ -f "${INFO}/$c.info" ] && { printf '=I\\t%s\\n' "$c"; grep -E '^(firmware|notes|display_name)' "${INFO}/$c.info"; }
-done
+if [ -f ${MANIFEST_CORE} ]; then
+  printf '=M\\n'; cat ${MANIFEST_CORE}; echo
+  echo "=J"
+  cat /run/muos/storage/info/manifest/assign.json 2>/dev/null \\
+    || cat /mnt/mmc/MUOS/info/manifest/assign.json 2>/dev/null \\
+    || cat /opt/muos/share/info/manifest/assign.json 2>/dev/null
+  echo
+  for c in $(sed -n 's/.*"core"[[:space:]]*:[[:space:]]*"\\([^"]*\\)_libretro\\.so".*/\\1/p' ${MANIFEST_CORE} | sort -u); do
+    [ -f "${INFO}/$c.info" ] && { printf '=I\\t%s\\n' "$c"; grep -E '^(firmware|notes|display_name)' "${INFO}/$c.info"; }
+  done
+elif cd ${ASSIGN} 2>/dev/null; then
+  for f in */*.ini; do [ -f "$f" ] && { printf '=F\\t%s\\n' "$f"; cat "$f"; echo; }; done
+  echo "=J"; cat assign.json 2>/dev/null; echo
+  for c in $(sed -n 's/^core=\\(.*\\)\\.so[[:space:]]*$/\\1/p' */*.ini | sort -u); do
+    [ -f "${INFO}/$c.info" ] && { printf '=I\\t%s\\n' "$c"; grep -E '^(firmware|notes|display_name)' "${INFO}/$c.info"; }
+  done
+fi
 echo "=E"
 `;
 
@@ -84,7 +96,7 @@ export function parseCatalog(out: string, version = ""): Catalog {
   const blocks = new Map<string, string[]>();
   let key = "";
   for (const line of out.split("\n")) {
-    const tag = /^=(F|J|I|E)(?:\t(.*))?$/.exec(line);
+    const tag = /^=(F|J|I|M|E)(?:\t(.*))?$/.exec(line);
     if (tag) { key = tag[1] === "E" ? "" : `${tag[1]}\t${tag[2] ?? ""}`; if (key) blocks.set(key, []); continue; }
     if (key) blocks.get(key)!.push(line);
   }
@@ -103,6 +115,45 @@ export function parseCatalog(out: string, version = ""): Catalog {
   };
   const systems = new Map<string, CatalogSystem>();
   const sys = (name: string) => systems.get(name) || systems.set(name, { name, aliases: [...(EXTRA_ALIASES[name] || [])], defaultCore: "", cores: [], files: [], main: [] }).get(name)!;
+
+  const manifest = blocks.get("M\t")?.join("\n");
+  if (manifest) {
+    try {
+      const data = JSON.parse(manifest || "{}") as Record<string, {
+        name?: string; default?: string; friendly?: string[];
+        bios?: { file?: string; hash?: string }[];
+        libretro?: Record<string, { name?: string; core?: string; bios_required?: number }>;
+        external?: Record<string, { name?: string; core?: string }>;
+      }>;
+      for (const [dir, info] of Object.entries(data || {})) {
+        if (!info || typeof info !== "object") continue;
+        const s = sys(info.name || dir);
+        s.defaultCore = info.default || s.defaultCore;
+        s.aliases.push(...(info.friendly || []));
+        for (const b of info.bios || []) {
+          if (!b?.file) continue;
+          const fk = addFile(b.file, b.hash || "", "");
+          if (!s.files.includes(fk)) s.files.push(fk);
+          if (!s.main.includes(fk)) s.main.push(fk);
+        }
+        for (const [key, core] of Object.entries(info.libretro || {})) {
+          const so = (core.core || "").replace(/\.so$/, "");
+          const ra = infos.get(so);
+          let required = core.bios_required === 1;
+          for (const fw of ra?.firmware || []) {
+            const fk = addFile(fw.path, fw.md5, fw.desc);
+            if (!s.files.includes(fk)) s.files.push(fk);
+            if (!fw.optional) { required = true; if (!s.main.includes(fk)) s.main.push(fk); }
+          }
+          s.cores.push({ key, name: core.name || ra?.name || key, required });
+        }
+        for (const [key, core] of Object.entries(info.external || {})) {
+          s.cores.push({ key, name: core.name || key, required: false });
+        }
+      }
+    } catch { /* ignore bad manifest */ }
+  }
+
   for (const [k, lines] of blocks) {
     if (!k.startsWith("F\t")) continue;
     const [dir, file] = k.slice(2).split("/");

@@ -14,7 +14,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 - **Dependencies** (`package.json`): `ssh2` (SFTP and SSH), `koffi` (libmtp FFI for USB), `yauzl` (zips),
   `saxes` (XML), `@xterm/*` (terminal). Dev: `typescript` for `npm run check` only.
 - **Workspace**: the folder above `muos-anbernic-manager/` holds `Roms/`, `apps/`, `os/`, `bios/`,
-  `backups/`, `themes/` (each can be moved in Settings). `.cache/` inside the manager folder holds settings,
+  `backups/`, `themes/`, `logs/` (each can be moved in Settings). `.cache/` inside the manager folder holds settings,
   logins and downloads.
 
 ## Startup (`src/main.ts`)
@@ -46,7 +46,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | --- | --- |
 | Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep), `shortcut.ts` (the app shortcut in Applications, the Start menu or the app menu) |
 | HTTP | `server.ts`, `ws.ts` (WebSocket for the SSH terminal) |
-| Logging | `log.ts` (`say(badge, LABEL, message)` prints and records to the activity log), `activity.ts` |
+| Logging | `log.ts` (`say(badge, LABEL, message)` prints and records to the activity log), `activity.ts`, `app-log.ts` (daily JSONL diagnostics under workspace `logs/`, console/exception capture, Logs UI APIs) |
 | Jobs and locks | `jobs.ts`: background jobs, one running at a time with the rest queued (`startJob`, `cancelJob`, `requireIdle`, `requireQueueable`, `locks.system`), a history of finished jobs in `.cache/transfers.json`; copy plans |
 | Games library | `games/library.ts` (scan, in-memory library), `games/systems.ts` (ROM folders), `games/metadata.ts` (mamenames, LaunchBox index), `games/add.ts`, `games/actions.ts` (delete), `games/engines.ts` (ScummVM folders), `games/free-scummvm.ts` |
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |

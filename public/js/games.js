@@ -305,12 +305,15 @@ export function render() {
       <header class="system-head" tabindex="0" role="button" aria-expanded="${!collapsed}">
         ${games.length ? sysPick(sys.code) : ""}
         <div class="sys-ico">${consoleIcon(sys.code)}</div>
-        <div class="system-title"><h2>${esc(sys.name)} <span class="code">${esc(sys.code)}</span></h2><p>${meta}</p></div>
-        <div class="system-stats">
-          <div><b>${filtering ? `${games.length}/` : ""}${sys.games.length}</b>games</div>
-          <div><b>${human(sys.bytes)}</b>size</div>
-          <div><b>${artPct}%</b>artwork</div>
-          ${copyable ? `<div><b>${onCount}</b>on ${esc(devWord())}</div>` : app.device.target ? `<div class="na" title="${sys.games.length ? "Not copied to the device" : "No games"}"><b>&ndash;</b>on ${esc(devWord())}</div>` : ""}
+        <div class="system-title">
+          <h2>${esc(sys.name)} <span class="code">${esc(sys.code)}</span></h2>
+          <p>${meta}</p>
+          <div class="system-stats">
+            <div><b>${filtering ? `${games.length}/` : ""}${sys.games.length}</b>games</div>
+            <div><b>${human(sys.bytes)}</b>size</div>
+            <div><b>${artPct}%</b>artwork</div>
+            ${copyable ? `<div><b>${onCount}</b>on ${esc(devWord())}</div>` : app.device.target ? `<div class="na" title="${sys.games.length ? "Not copied to the device" : "No games"}"><b>&ndash;</b>on ${esc(devWord())}</div>` : ""}
+          </div>
         </div>
         ${sys.code === "SCUMMVM" ? `<button class="btn small" data-svm="free" title="Download the freeware ScummVM games">${icon("download")}<span>Free games</span></button>` : ""}
         ${copyable ? `<button class="btn icon sys-transfer" data-code="${esc(sys.code)}" title="Transfer every ${esc(sys.code)} game to ${esc(devName())}" aria-label="Transfer ${esc(sys.name)}">${ICONS.up}</button>` : app.device.target ? `<span class="sys-transfer-gap"></span>` : ""}
@@ -709,11 +712,14 @@ function renderDeviceView() {
       <header class="system-head" tabindex="0" role="button" aria-expanded="${!collapsed}">
         ${sysPick(sys.code)}
         <div class="sys-ico">${consoleIcon(sys.lib ? sys.lib.code : sys.code)}</div>
-        <div class="system-title"><h2>${esc(sys.name)} <span class="code">${esc(sys.folder)}</span></h2><p>ROMS/${esc(sys.folder)} on ${name}${only ? ` &middot; ${only} not in Roms/` : ""}</p></div>
-        <div class="system-stats">
-          <div><b>${games.length === sys.games.length ? "" : `${games.length}/`}${sys.games.length}</b>games</div>
-          <div><b>${human(sys.games.reduce((a, g) => a + g.s, 0))}</b>size</div>
-          <div><b>${sys.games.length ? Math.floor((art / sys.games.length) * 100) : 0}%</b>box art</div>
+        <div class="system-title">
+          <h2>${esc(sys.name)} <span class="code">${esc(sys.folder)}</span></h2>
+          <p>ROMS/${esc(sys.folder)} on ${name}${only ? ` &middot; ${only} not in Roms/` : ""}</p>
+          <div class="system-stats">
+            <div><b>${games.length === sys.games.length ? "" : `${games.length}/`}${sys.games.length}</b>games</div>
+            <div><b>${human(sys.games.reduce((a, g) => a + g.s, 0))}</b>size</div>
+            <div><b>${sys.games.length ? Math.floor((art / sys.games.length) * 100) : 0}%</b>box art</div>
+          </div>
         </div>
         ${chevron}
       </header>

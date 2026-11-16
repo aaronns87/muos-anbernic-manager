@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Full Andromeda Device Settings catalogue, web service status in Connection/Overview |
+| [Unreleased](#unreleased) | | Application logs folder + Logs viewer; UI consolidation; Andromeda Device Settings; web service status |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
@@ -28,11 +28,19 @@ version.
 
 ### Added
 
+- Workspace **logs/** folder streams application diagnostics (errors, warnings, exceptions, `say` lines, browser faults) into daily JSONL files; **Logs** section under Manager searches, filters by level/day, exports, clears and reveals the folder.
 - Device Settings catalogue covers the remaining Andromeda Configuration options (Additional Cores, Advanced gaps, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, Customisation visuals, remote view detail, and related keys), still filtered by config-file presence so Jacaranda keeps its shorter list.
 - Connection panel and Overview show **Web services** status (SSH, SFTP, virtual terminal, Syncthing, landing, mDNS, Tailscale when present): enabled on the handheld, running, and reachable from this computer.
 
+### Fixed
+
+- Emulation Cores / Systems / RetroArch and Game Tuning on **Andromeda**: read `info/manifest/core.json` (and `assign.json`) instead of the removed Jacaranda `info/assign` tree, and locate ROM folders on `/mnt/mmc/ROMS` or `/mnt/sdcard/ROMS` when `/mnt/union/ROMS` is not mounted over SSH.
+- Games: expanding a system no longer adds extra top margin; **Show Transfers** only appears when there is an active or finished transfer.
+
 ### Changed
 
+- Wiki sits directly under Overview in the sidebar (shortcut <kbd>2</kbd> or <kbd>0</kbd>); help articles updated for connection/web services, Transfers visibility, Appearance density, Andromeda cores/manifest, Device Settings presence filter, and related troubleshooting.
+- UI consolidation: semantic design tokens (`--accent`, `--radius-*`, `--ctl` / `--ctl-sm`, theme-aware `--code-bg` / `--canvas-bg`), shared control heights and accent fill for primary/selected states (buttons, segmented, tabs, sidebar, Handheld nav), Soft as density/radius only with full soft-var teardown, compact included in Appearance reset, and aligned spacing on Overview Connection, Games metrics/system headers, Emulation panels, and Settings Appearance.
 - Wiki Troubleshooting and assistant knowledge document the full **Andromeda USB (MTP)** path: Device Link USB Cable off → Wi-Fi + Secure Shell → Device Settings → USB function MTP → unplug/replug (same steps as the connection panel help).
 - Sidebar connection card: keep reconnect/disconnect icons inside the card, move the expand chevron out of the “Connected” label, and stop the open storage list from being clipped under Overview.
 

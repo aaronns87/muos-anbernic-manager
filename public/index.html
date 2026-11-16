@@ -27,6 +27,9 @@
       <a class="section-link" href="#overview" data-section="overview" title="Overview (1)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
         <span class="nav-label">Overview</span></a>
+      <a class="section-link" href="#wiki" data-section="wiki" title="Wiki (2 / 0)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5v-2Z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 7h6M9 11h4"/></svg>
+        <span class="nav-label">Wiki</span></a>
       <div class="nav-group">Library</div>
       <a class="section-link" href="#games" data-section="games" title="Games (2)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M6 12h4M8 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
@@ -70,9 +73,9 @@
       <a class="section-link" href="#settings" data-section="settings" title="Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
         <span class="nav-label">Settings</span></a>
-      <a class="section-link" href="#wiki" data-section="wiki" title="Wiki (0)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5v-2Z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 7h6M9 11h4"/></svg>
-        <span class="nav-label">Wiki</span></a>
+      <a class="section-link" href="#logs" data-section="logs" title="Logs">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M8 9h2"/></svg>
+        <span class="nav-label">Logs</span></a>
     </nav>
     <div class="side-fill"></div>
     <a class="btn nav-help" href="#wiki">Help and shortcuts</a>
@@ -106,13 +109,14 @@
     </section>
     <section class="view" id="view-games" hidden>
       <header class="page-head">
-        <div><div class="stats" id="stats"></div></div>
+        <div><p>Games in your Roms library, grouped by system</p></div>
         <div class="page-actions">
           <div class="dev-chip off" id="games-device" hidden></div>
           <a class="btn ghost" href="#emulation/checks">Library checks</a>
           <span id="games-add"></span>
         </div>
       </header>
+      <div class="stats" id="stats" role="status"></div>
       <div class="toolbar">
         <div class="tool-row">
           <div class="search">
@@ -280,6 +284,13 @@
       </header>
       <nav class="tabs" id="settings-tabs" role="tablist" aria-label="Settings"></nav>
       <div id="settings"></div>
+    </section>
+    <section class="view" id="view-logs" hidden>
+      <header class="page-head">
+        <div><p id="logs-sub">Application diagnostics written to the logs folder</p></div>
+        <div class="page-actions" id="logs-actions"></div>
+      </header>
+      <div class="logs-shell" id="logs"></div>
     </section>
     <section class="view" id="view-wiki" hidden>
       <header class="page-head">

@@ -161,7 +161,7 @@ const SOFT_INK = new Set(["--on-mustard", "--text", "--muted", "--faint"]);
 /** Soften accents to pastel; lift surfaces gently without washing dark themes to white. */
 export function applySoftLook(root, soft, theme) {
   if (!soft) {
-    for (const k of ["--ok", "--warn", "--bad", "--bad-text"]) root.style.removeProperty(k);
+    for (const k of SOFT_COLOR_VARS) root.style.removeProperty(k);
     return;
   }
   const light = theme === "light";

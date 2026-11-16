@@ -69,10 +69,10 @@ function ago(seconds) {
 
 function devicePanel(conn) {
   const c = app.device.target, h = app.device.handheld, o = app.overview, live = isLive(conn);
-  if (!live) return `<section class="panel ov-connect"><div><h2>${icon("plug")} ${esc(conn.title)}</h2><p class="muted-note">Keep working with your local library, or connect to manage the handheld.</p></div><button class="btn" data-connect="files">${icon("plug")} Set up connection</button></section>`;
+  const sub = live ? (conn.tip || conn.sub) : (conn.sub || "Keep working with your local library, or connect to manage the handheld.");
   const head = `<div class="conn-head"><div class="conn-icon">${conn.icon}</div><div class="conn-text">
     <h3>${esc(conn.title)}${conn.code ? ` <span class="code">${esc(conn.code)}</span>` : ""}</h3>
-    <p>${conn.state === "checking" ? `${ICONS.spin} ` : ""}${esc(live ? conn.tip || conn.sub : conn.sub)}</p></div>
+    <p>${conn.state === "checking" ? `${ICONS.spin} ` : ""}${esc(sub)}</p></div>
     <span class="pill ${live ? "ok" : conn.state === "checking" ? "" : conn.cls === "err" ? "bad" : "warn"}">${live ? "Connected" : conn.state === "checking" ? "Checking" : "Not connected"}</span></div>`;
   let body = "";
   if (live) {
@@ -108,7 +108,7 @@ function devicePanel(conn) {
   const actions = live
     ? `<button class="btn primary" data-device="browse">${icon("handheld")}<span>Games on ${esc(devWord())}</span></button>${deviceButtons(conn)}`
     : deviceButtons(conn);
-  return `<section class="panel wide conn ${live ? "live" : conn.cls}">${head}${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
+  return `<section class="panel wide conn ${live ? "live" : `ov-connect ${conn.cls}`}">${head}${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 }
 
 // ---------------------------------------------------------------- library and device side by side

@@ -376,9 +376,9 @@ export function renderSideDevice() {
       <span class="sd-title"><b><span class="dot"></span>${esc(status)}</b><small>${esc(via)} &middot; ${esc(who)}</small></span>`;
   const head = `<div class="sd-head">
       ${live
-        ? `<button type="button" class="sd-toggle" aria-expanded="${open}" title="${open ? "Hide" : "Show"} free space on the cards">${title}${icon("down", "sd-chev")}</button>`
+        ? `<button type="button" class="sd-toggle" aria-expanded="${open}" title="${open ? "Hide" : "Show"} free space on the cards">${title}</button>
+           <div class="sd-btns">${deviceButtons(conn, { iconOnly: true })}</div>`
         : title}
-      ${live ? `<div class="sd-btns">${deviceButtons(conn, { iconOnly: true })}</div>` : ""}
     </div>`;
   box.classList.toggle("open", live && open);
   if (!live) {
@@ -686,11 +686,12 @@ export function renderStatusbar() {
   if (chatConfigured()) {
     parts.push(`<button type="button" class="sb-item sb-chat" data-chat-open title="Open or hide the assistant">${icon("chat")}<span>Assistant</span></button>`);
   }
+  const hasTransfers = !!(app.transfers && (app.transfers.active.length || app.transfers.history.length));
   if (job && job.state === "running") {
     const pct = job.total_bytes ? Math.min(100, Math.floor((job.done_bytes / job.total_bytes) * 100)) : 0;
     const progress = `${job.kind === "art" || job.kind === "artsend" ? "Artwork" : "Transferring"} ${pct}%${waiting > 0 ? ` <small>+${waiting}</small>` : ""}`;
     parts.push(`<button class="sb-item sb-job" data-dock-open title="${esc(job.label || "")}. ${dockLabel}." aria-label="${esc(dockLabel)}">${ICONS.spin}<span>${progress}</span></button>`);
-  } else if (app.transfers) {
+  } else if (hasTransfers || dockOpen) {
     parts.push(`<button class="sb-item sb-job idle" data-dock-open title="${esc(dockLabel)}" aria-label="${esc(dockLabel)}">${icon("download")}<span>${esc(dockLabel)}</span></button>`);
   }
   const sys = app.sysJob;

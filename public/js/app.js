@@ -1,6 +1,6 @@
 // Starts the manager: sections, shared buttons, keyboard, and the first loads.
 
-import { $, app, esc, icon, section, sectionForKey, store, toast, TOKEN, SECTIONS } from "./core.js";
+import { $, api, app, esc, icon, section, sectionForKey, store, toast, TOKEN, SECTIONS } from "./core.js";
 import { deviceAction, handleArtButton, refreshDevice, renderDevice, renderStatusbar, watchDevices } from "./device.js";
 import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
@@ -28,6 +28,7 @@ import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { flushDesigner } from "./theme-designer.js";
 import { openActivity } from "./activity.js";
+import { showLogs, stopLogsPoll } from "./logs.js";
 import { renderOverview } from "./overview.js";
 import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
 import "./combo.js";
@@ -36,7 +37,7 @@ import { bindUi } from "./ui.js";
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play activity", "clock"], artwork: ["Artwork", "image"], os: ["OS", "sd"], apps: ["Apps", "package"],
   handheld: ["Device", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
-  ssh: ["Terminal", "chip"], settings: ["Settings", "wrench"], wiki: ["Wiki", "book"],
+  ssh: ["Terminal", "chip"], settings: ["Settings", "wrench"], logs: ["Logs", "list"], wiki: ["Wiki", "book"],
 };
 
 let routeSequence = 0;
@@ -100,6 +101,8 @@ async function showSection() {
   if (s === "system") showSystem();
   if (s === "ssh") showSsh();
   if (s === "settings") showSettings();
+  if (s === "logs") showLogs();
+  else stopLogsPoll();
   if (s === "wiki") showWiki();
   scrollTo({ top: 0 });
 }
@@ -207,6 +210,22 @@ function bindShared() {
     setTimeout(tick, 60000 - (Date.now() % 60000) + 50);
   })();
 }
+
+/** Best-effort browser diagnostics into the server logs folder; never throws. */
+function reportBrowserLog(level, tag, text, stack) {
+  if (!TOKEN || !text) return;
+  api("logs", { level, tag, text: String(text).slice(0, 8000), stack: stack ? String(stack).slice(0, 16000) : undefined }).catch(() => {});
+}
+
+window.addEventListener("error", (e) => {
+  const err = e.error instanceof Error ? e.error : null;
+  reportBrowserLog("error", "WINDOW", err?.message || e.message || "Script error", err?.stack || (e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : undefined));
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const reason = e.reason;
+  const err = reason instanceof Error ? reason : new Error(String(reason ?? "Unhandled rejection"));
+  reportBrowserLog("error", "PROMISE", err.message, err.stack);
+});
 
 applyView();
 setSideMin(store.get("sideMin", false), false);

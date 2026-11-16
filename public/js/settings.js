@@ -33,7 +33,7 @@ const s = {
 };
 
 const SETTINGS_TABS = [
-  ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups and themes"],
+  ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups, themes and logs"],
   ["behaviour", "sliders", "Behaviour", "Copying, startup, updates and uploaded artwork size"],
   ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
@@ -51,7 +51,7 @@ const SCHEMES = [
   ["ember", "Ember", ["#14110e", "#211c16", "#e07a3a", "#f4efe8"]],
 ];
 const APPEARANCE_DEFAULTS = {
-  theme: "dark", scheme: "mustard", zoom: 100, soft: false,
+  theme: "dark", scheme: "mustard", zoom: 100, soft: false, compact: false,
   clockStyle: "digital", clock: "24", dateFormat: "weekday",
 };
 
@@ -181,6 +181,7 @@ const KINDS = {
   bios: { name: "BIOS folder", workspace: "bios", unit: "file" },
   backups: { name: "backups folder", workspace: "backups", unit: "backup" },
   themes: { name: "themes folder", workspace: "themes", unit: "theme" },
+  logs: { name: "logs folder", workspace: "logs", unit: "log" },
 };
 KINDS.apps.unit = "package";
 
@@ -225,7 +226,8 @@ function otherFoldersPanel(d) {
     + block("os", "OS images", "MustardOS card images (.img, .img.gz) for System Tools. Images one folder down are found too. ")
     + block("bios", "BIOS", "BIOS files the emulators need (PlayStation, Sega CD, Neo Geo&hellip;), ready to send to the handheld. ")
     + block("backups", "Save backups", "Backups of the handheld's saves and save states. ")
-    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. ") + `</div>`);
+    + block("themes", "Themes", "Themes you make in Themes &rsaquo; Designer, one folder per theme. ")
+    + block("logs", "Logs", "Application diagnostic logs written by the manager (JSONL by day). Also browsable under Logs. ") + `</div>`);
 }
 
 function crumbs(b) {
@@ -250,8 +252,8 @@ function browser(d) {
   const rows = b.dirs.length
     ? b.dirs.map((x) => `<button class="dir${x.system ? " sys" : ""}" data-browse="${esc(x.path)}">${FOLDER}<span>${esc(x.name)}</span>${x.system ? `<em>system</em>` : ""}</button>`).join("")
     : `<div class="muted-note dir-empty">No folders in here.</div>`;
-  const verdict = b.which === "bios" || b.which === "backups" || b.which === "themes"
-    ? `<span class="set-chip">Any folder</span> ${b.which === "bios" ? "Put BIOS files directly in it, or in subfolders like dc/ as on the handheld." : b.which === "themes" ? "Each theme is a folder in it, the same layout as MUOS/theme on the handheld." : "Each backup is one .tar.gz file."}`
+  const verdict = b.which === "bios" || b.which === "backups" || b.which === "themes" || b.which === "logs"
+    ? `<span class="set-chip">Any folder</span> ${b.which === "bios" ? "Put BIOS files directly in it, or in subfolders like dc/ as on the handheld." : b.which === "themes" ? "Each theme is a folder in it, the same layout as MUOS/theme on the handheld." : b.which === "logs" ? "Daily manager-YYYY-MM-DD.jsonl files land here." : "Each backup is one .tar.gz file."}`
     : b.which === "apps"
     ? b.apps
       ? `<span class="set-chip ok">${plural(b.apps, "app")}</span> Has MustardOS apps or updates.`
@@ -347,7 +349,7 @@ function appearancePanels() {
       <div class="segmented">${themeSeg}</div></div>
     <div class="set-scheme-block"><span><b>Colour scheme</b><small>Accent and background colours together. Create new opens an editor with a live preview.</small></span>
       <div class="set-schemes">${schemes}</div></div>
-    <label class="set-row set-toggle"><span><b>Softer style</b><small>Pastel accents and rounder controls. Combine with Compact layout for less spacing.</small></span>
+    <label class="set-row set-toggle"><span><b>Softer style</b><small>Pastel accents, rounder corners and airier spacing. Selected controls stay the same accent fill as default.</small></span>
       <span class="switch"><input type="checkbox" role="switch" data-set-soft${app.ui.soft ? " checked" : ""}><span class="switch-track"></span></span></label>
 `)
   }${panel("half", "Density", `
@@ -441,13 +443,13 @@ function historyPanel(d) {
 function resetPanel() {
   const working = s.working === "reset";
   return panel("full set-danger", `${icon("alert")} Factory reset`, `<div class="set-row"><span><b>Start over from scratch</b>
-      <small>Moves your games and every other workspace folder (Roms, apps, OS images, BIOS, backups, themes), plus all of the manager's settings,
+      <small>Moves your games and every other workspace folder (Roms, apps, OS images, BIOS, backups, themes, logs), plus all of the manager's settings,
         Wi-Fi and SSH logins, downloads and history, to the Trash. The manager then creates empty workspace folders and restarts with the setup wizard, as on its first run.
         Nothing on the handheld or its cards is changed.</small></span>
     <button class="btn danger-solid" data-set="reset"${s.working || busy() ? " disabled" : ""}>${working ? `<span class="spinner"></span>` : icon("trash")}<span>${working ? "Resetting&hellip;" : "Factory reset&hellip;"}</span></button></div>`);
 }
 
-const RESET_FOLDERS = [["roms", "Roms", "your game library"], ["apps", "apps", "app packages"], ["os", "os", "MustardOS images"], ["bios", "bios", "BIOS files"], ["backups", "backups", "save backups from the handheld"], ["themes", "themes", "themes you designed"]];
+const RESET_FOLDERS = [["roms", "Roms", "your game library"], ["apps", "apps", "app packages"], ["os", "os", "MustardOS images"], ["bios", "bios", "BIOS files"], ["backups", "backups", "save backups from the handheld"], ["themes", "themes", "themes you designed"], ["logs", "logs", "application diagnostic logs"]];
 
 async function factoryReset() {
   const folders = RESET_FOLDERS.filter(([k]) => s.data.folders[k]?.available);

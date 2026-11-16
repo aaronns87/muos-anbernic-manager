@@ -173,7 +173,7 @@ for a card in a card reader the manager asks once and remembers the answer.
 ### macOS and Linux
 
 1. Pick a folder for your handheld files and clone the repository into it. The manager puts its workspace (`Roms/`,
-   `apps/`, `os/`, `bios/`, `backups/`, `themes/`) next to its own folder, so a dedicated folder keeps things together:
+   `apps/`, `os/`, `bios/`, `backups/`, `themes/`, `logs/`) next to its own folder, so a dedicated folder keeps things together:
 
    ```bash
    mkdir -p ~/Handheld && cd ~/Handheld

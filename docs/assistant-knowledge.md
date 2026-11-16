@@ -17,7 +17,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 
 ### Install and setup wizard
 
-- Installer: `./muos-anbernic-manager/installer.sh` (macOS/Linux) or `installer.cmd` (Windows). Checks Node.js and packages, can install Node via Homebrew/winget and libmtp on Mac for USB. Creates workspace folders `Roms/`, `apps/`, `os/`, `bios/`, `backups/`, `themes/` (existing files left alone).
+- Installer: `./muos-anbernic-manager/installer.sh` (macOS/Linux) or `installer.cmd` (Windows). Checks Node.js and packages, can install Node via Homebrew/winget and libmtp on Mac for USB. Creates workspace folders `Roms/`, `apps/`, `os/`, `bios/`, `backups/`, `themes/`, `logs/` (existing files left alone).
 - Offers an **app shortcut** (Applications / Start menu / app menu). Shortcut opens a terminal that runs the manager; closing the window stops it. Settings > Behaviour can add the shortcut again after moving the folder.
 - First start with a clean cache opens the **setup wizard** (model, folders, connection, optional game data download and shortcut). Skip setup closes it; Settings can open Run setup again.
 - Start later with the shortcut, `./muos-anbernic-manager/run.sh` or `run.cmd`.
@@ -89,6 +89,8 @@ Home page: whether the handheld is connected and how (card reader, USB or Wi-Fi)
 **Wi-Fi settings**: enter the handheld address (Configuration > Wi-Fi Network on the handheld). Address can change after reconnect; **Find on network** searches again. Optional Filebrowser link when SFTP is up.
 
 **Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets.
+
+**Logs** (Manager section): application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`). Search, level/day filter, export, clear, show folder. Captures errors/warnings/exceptions, say() lines and browser faults. Separate from Recent activity.
 
 ## games - Games
 
@@ -289,7 +291,7 @@ Five tabs; subtitle describes the active tab.
 
 ### Folders
 
-Roms folder (library) and other folders: apps, os, bios, backups, themes. Change folder / Choose in Finder / Show in Finder / use default.
+Roms folder (library) and other folders: apps, os, bios, backups, themes, logs. Change folder / Choose in Finder / Show in Finder / use default.
 
 ### Behaviour
 

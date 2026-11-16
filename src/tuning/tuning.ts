@@ -5,7 +5,7 @@
 
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { coresJson } from "../cores.ts";
+import { coresJson, resolveRomRoot } from "../cores.ts";
 import { ctx } from "../context.ts";
 import { runCommand } from "../device/ssh.ts";
 import { UserError } from "../errors.ts";
@@ -17,7 +17,6 @@ import { CORE_FOLDERS, GOVERNORS, PROFILES, RECOMMENDATIONS, profileFor, type Pr
 const CFG = "/opt/muos/share/info/config";
 const INFO = "/opt/muos/share/emulator/retroarch/info";
 const CONTENT = "/opt/muos/share/info/content";
-const ROMS = "/mnt/union/ROMS";
 export const PPSSPP = "/opt/muos/share/emulator/ppsspp/.config/ppsspp/PSP/SYSTEM";
 const GOVS = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
 
@@ -276,9 +275,10 @@ async function readerFor(folder: string, file: string): Promise<[ReadAt, "librar
       return [read, "library", () => h.close()];
     }
   }
-  const remote = quote(`${ROMS}/${folder}/${file}`);
   const read: ReadAt = async (pos, len) => {
-    const { out, code } = await runCommand(`dd if=${remote} bs=65536 iflag=skip_bytes,count_bytes skip=${pos} count=${len} 2>/dev/null | base64`, 30_000);
+    const { out, code } = await runCommand(`${resolveRomRoot(`${folder}/${file}`)}
+[ -n "$ROMS" ] || exit 1
+dd if="$ROMS"/${quote(`${folder}/${file}`)} bs=65536 iflag=skip_bytes,count_bytes skip=${pos} count=${len} 2>/dev/null | base64`, 30_000);
     if (code !== 0) throw new Error("dd failed");
     return Buffer.from(out.replace(/\s+/g, ""), "base64");
   };
@@ -314,7 +314,8 @@ async function gameState(query: { folder: string; file: string; discId?: string 
   const em = emulatorOf(data, query.folder, query.file);
   const name = stem(query.file), p = em.profile;
   const dir = `${CONTENT}/${query.folder}`;
-  const { out: first } = await runCommand(`[ -f ${quote(`${ROMS}/${query.folder}/${query.file}`)} ] && echo =ON; echo =E`, 20_000);
+  const { out: first } = await runCommand(`${resolveRomRoot(`${query.folder}/${query.file}`)}
+[ -n "$ROMS" ] && echo =ON; echo =E`, 20_000);
   const onDevice = first.includes("=ON");
   let id = "", idFrom = "";
   if (p?.kind === "ppsspp") {

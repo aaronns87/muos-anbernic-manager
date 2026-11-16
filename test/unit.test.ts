@@ -25,6 +25,9 @@ import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort
 import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
+import {
+  _resetAppLogForTests, appLog, logsClear, logsDownload, logsJson, logsPost, startAppLog,
+} from "../src/app-log.ts";
 import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
@@ -274,6 +277,35 @@ test("parseCatalog joins assign inis, assign.json and RetroArch firmware", () =>
   assert.equal(cat.files["scph5501.bin"].desc, "PS1 US BIOS");
 });
 
+test("parseCatalog reads Andromeda manifest core.json", () => {
+  const manifest = {
+    "Sony PlayStation": {
+      name: "Sony PlayStation", default: "pcsx rearmed", friendly: ["psx", "ps"],
+      bios: [{ file: "scph1001.bin", hash: "924e392ed05558ffdb115408c263dccf" }],
+      libretro: { "pcsx rearmed": { name: "PCSX ReARMed", core: "pcsx_rearmed_libretro.so", bios_required: 0 } },
+    },
+    "Nintendo NES": {
+      name: "Nintendo NES", default: "fceumm",
+      libretro: { fceumm: { name: "FCEUmm", core: "fceumm_libretro.so" } },
+    },
+  };
+  const out = [
+    "=M", JSON.stringify(manifest),
+    "=J", '{"ps":"Sony PlayStation"}',
+    "=I\tpcsx_rearmed_libretro", 'display_name = "Sony - PlayStation (PCSX ReARMed)"', 'firmware_count = "1"',
+    'firmware0_path = "scph5501.bin"', 'firmware0_desc = "PS1 US BIOS"', 'firmware0_opt = "true"',
+    "=E",
+  ].join("\n");
+  const cat = parseCatalog(out, "2606.0_ANDROMEDA");
+  assert.equal(cat.systems.length, 1);
+  const ps = cat.systems[0];
+  assert.equal(ps.defaultCore, "pcsx rearmed");
+  assert.ok(ps.main.includes("scph1001.bin"));
+  assert.ok(ps.files.includes("scph5501.bin"));
+  assert.ok(ps.aliases.includes("psx") && ps.aliases.includes("ps"));
+  assert.equal(ps.cores[0]?.key, "pcsx rearmed");
+});
+
 const sh = (script: string, input: string) => execFileSync("sh", ["-c", script], { input, encoding: "utf8" });
 
 test("folderScript saves core.cfg and removes the games' own cores unless kept", (t) => {
@@ -432,7 +464,7 @@ test("a clean cache starts the setup wizard, and the workspace gets its folders 
   const [file] = fs.readdirSync(ctx.cacheDir).filter((f) => f.startsWith("settings"));
   assert.ok(file);
   const created = await createWorkspace();
-  for (const f of ["Roms", "apps", "os", "bios", "backups", "Roms/GBA", "Roms/PORTS"]) assert.ok(fs.existsSync(path.join(dir, "ws", f)), f);
+  for (const f of ["Roms", "apps", "os", "bios", "backups", "themes", "logs", "Roms/GBA", "Roms/PORTS"]) assert.ok(fs.existsSync(path.join(dir, "ws", f)), f);
   assert.ok(created.length > 50);
   fs.writeFileSync(path.join(dir, "ws", "Roms", "GBA", "game.gba"), "x");
   assert.deepEqual(await createWorkspace(), []);
@@ -1061,4 +1093,37 @@ test("mapSftpRoots accepts Andromeda Primary/Secondary Storage and older SD1/SD2
   ]);
   assert.deepEqual(mapSftpRoots(["ROMS", "MUOS"]), [{ name: "SD1", root: "/" }]);
   assert.deepEqual(mapSftpRoots(["Internal", "Boot", "History"]), []);
+});
+
+test("app-log writes JSONL, filters, exports and clears", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "muos-applog-"));
+  const before = { root: ctx.root, logs: ctx.logs };
+  t.after(() => {
+    _resetAppLogForTests();
+    setRoot(before.root);
+    ctx.logs = before.logs;
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  setRoot(dir);
+  ctx.logs = path.join(dir, "logs");
+  _resetAppLogForTests();
+  await startAppLog();
+  appLog("error", "app", "TEST", "boom", "stack-line");
+  appLog("warn", "console", "TEST", "careful");
+  appLog("info", "app", "OTHER", "hello");
+  const day = new Date().toISOString().slice(0, 10);
+  const file = path.join(ctx.logs, `manager-${day}.jsonl`);
+  assert.ok(fs.existsSync(file));
+  const listed = await logsJson(new URLSearchParams({ level: "error", day }));
+  assert.equal(listed.total >= 1, true);
+  assert.ok(listed.entries.some((e) => e.text === "boom" && e.stack === "stack-line"));
+  const filtered = await logsJson(new URLSearchParams({ q: "careful", day }));
+  assert.ok(filtered.entries.some((e) => e.level === "warn"));
+  const dl = await logsDownload(new URLSearchParams({ day, format: "txt", q: "boom" }));
+  assert.match(dl.name, /\.txt$/);
+  assert.match(dl.download.toString("utf8"), /boom/);
+  logsPost({ level: "error", tag: "BROWSER", text: "ui broke", stack: "at foo" });
+  assert.throws(() => logsPost({ text: "   " }), UserError);
+  await logsClear({ day });
+  assert.equal(fs.existsSync(file), false);
 });
