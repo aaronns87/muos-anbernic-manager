@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | |
+| [Unreleased](#unreleased) | | README screenshots refreshed for 1.3.1 UI (Logs, OS, Appearance, Wiki, Files, …) |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
@@ -26,6 +26,10 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Changed
+
+- README screenshots retaken for the current UI (Overview through Wiki), including new shots for OS, Play activity, Files, System Tools, Terminal, Appearance, Logs and Wiki; `scripts/capture-screenshots.mjs` refreshes them from a running manager.
 
 ## [1.3.1] - 2026-11-16
 
