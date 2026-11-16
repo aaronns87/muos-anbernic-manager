@@ -1,7 +1,7 @@
 // Overview: the connection, the device, how the library and the device compare, and the workspace.
 
 import { $, app, api, esc, human, plural, initial, icon, ICONS, EXCLUDED, model, modelInfo, cardWord, usbMode, handheldMode, devName, devWord, ready, busy, isOnCard, osVersion, scanWhen, section } from "./core.js";
-import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative } from "./device.js";
+import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative, webServicesBlock } from "./device.js";
 import { specs } from "./devices.js";
 import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
@@ -96,6 +96,7 @@ function devicePanel(conn) {
     const stores = list ? list.map((s) => storeRow(s, { card: c.mode === "card" })).join("")
       : o.infoError ? `<div class="notice err">${esc(o.infoError)}</div>` : `<div class="muted-note">${spinner} Reading the cards&hellip;</div>`;
     body = `<div class="facts">${facts}</div><div class="stores grid">${stores}</div>`;
+    if (app.device.wifi?.host || app.device.services?.host) body += webServicesBlock({ compact: true });
     if (conn.state === "wifi") body += `<details class="wifi-settings"><summary>Wi-Fi settings</summary>${wifiForm()}</details>`;
   } else {
     if (conn.steps.length) body = `<ol class="steps">${conn.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;

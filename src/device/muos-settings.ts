@@ -39,13 +39,13 @@ interface Setting {
   step?: number;
   unit?: string;
   /** Options or limits read from the handheld. */
-  dyn?: "bright" | "volume" | "governors" | "languages";
+  dyn?: "bright" | "volume" | "governors" | "languages" | "soundfonts";
   /** Pattern for text values. */
   pattern?: RegExp;
   /** Asked before saving a change to this option. */
   warn?: string;
   /** Hardware the setting is for; models without it do not show it. */
-  needs?: "stick" | "lid" | "rumble";
+  needs?: "stick" | "lid" | "rumble" | "hdmi" | "bluetooth";
 }
 
 interface Group {
@@ -86,6 +86,21 @@ const SAVER_TYPE: Option[] = [
 const SAVER_SPEED: Option[] = [
   ["30", "Crawl"], ["90", "Cruise"], ["150", "Fast"], ["300", "Turbo"], ["600", "Ludicrous"],
 ];
+const HOTKEY: Option[] = [
+  ["0", "R2 + L2 + A"], ["1", "R2 + L2 + X"], ["2", "L1 + MENU + A"], ["3", "L1 + MENU + X"],
+  ["4", "MENU + START"], ["5", "MENU + SELECT"],
+];
+const PARTITION: Option[] = [["0", "First"], ["1", "Second"], ["2", "Third"], ["3", "Fourth"]];
+const REMOTE_VIEW: Option[] = [
+  ["0", "Disabled"], ["1", "30 seconds"], ["2", "1 minute"], ["3", "3 minutes"], ["4", "5 minutes"],
+  ["5", "10 minutes"], ["6", "30 seconds (alt)"],
+];
+const REMOTE_CONTROL: Option[] = [["0", "Off"], ["1", "Buttons"], ["2", "Buttons and sticks"]];
+const SCROLL: Option[] = [["0", "Off"], ["1", "Slow"], ["2", "Normal"], ["3", "Fast"]];
+const TRANSITION: Option[] = [["0", "None"], ["1", "Fade"], ["2", "Slide"], ["3", "Zoom"]];
+const HDMI_RES: Option[] = [
+  ["0", "640×480"], ["1", "720×480"], ["2", "1280×720"], ["3", "1920×1080"], ["4", "720×720"], ["5", "1024×768"],
+];
 
 export const GROUPS: Group[] = [
   {
@@ -98,6 +113,15 @@ export const GROUPS: Group[] = [
         ["last", "Last game played"], ["resume", "Resume the last game"],
       ]),
       select("settings/general/language", "Language", "The menu language. Shows after a restart.", "reboot", [], { dyn: "languages" }),
+      select("settings/general/orientation", "Screen orientation", "How the menus are rotated on screen (Andromeda).", "reboot", [
+        ["0", "Normal"], ["1", "Left"], ["2", "Right"], ["3", "Upside down"],
+      ]),
+      select("settings/general/audiosink", "Audio sink", "Where menu and system audio plays (Andromeda).", "tweak", [
+        ["0", "Internal speaker"], ["1", "HDMI"], ["2", "USB audio"],
+      ]),
+      select("settings/general/soundfont", "Soundfont", "SF2 used for MIDI menu music when the theme asks for one (Andromeda).", "menu", [], { dyn: "soundfonts" }),
+      select("settings/hotkey/screenshot", "Screenshot hotkey", "Button combo that takes a screenshot while content is running.", "tweak", HOTKEY),
+      select("settings/hotkey/dpad_toggle", "D-pad swap hotkey", "Button combo that switches D-pad / stick mode when D-pad swap is enabled.", "tweak", HOTKEY),
     ],
   },
   {
@@ -112,6 +136,7 @@ export const GROUPS: Group[] = [
       select("settings/power/gov_default", "Default CPU governor", "The governor used while something is happening (Andromeda).", "live", [], { dyn: "governors" }),
       select("settings/power/saver_type", "Screensaver", "What plays after the screen dims (Andromeda Power settings).", "live", SAVER_TYPE),
       select("settings/power/saver_speed", "Screensaver speed", "How fast the screensaver moves when it supports speed.", "live", SAVER_SPEED),
+      toggle("settings/advanced/power_pop", "Power confirmation pop-ups", "Shows a confirm dialog for power actions when Trust Power Choice is off (Andromeda).", "live"),
     ],
   },
   {
@@ -119,7 +144,7 @@ export const GROUPS: Group[] = [
     items: [
       toggle("visual/battery", "Battery icon", "Shows the battery icon in the header.", "menu"),
       toggle("visual/network", "Network icon", "Shows the Wi-Fi icon in the header.", "menu"),
-      toggle("visual/bluetooth", "Bluetooth icon", "Shows the Bluetooth icon in the header when the board supports it (Andromeda).", "menu"),
+      toggle("visual/bluetooth", "Bluetooth icon", "Shows the Bluetooth icon in the header when the board supports it (Andromeda).", "menu", { needs: "bluetooth" }),
       toggle("visual/clock", "Clock", "Shows the clock in the header.", "menu"),
       toggle("visual/pickles_startup_messages", "Pickles startup messages", "Shows messages while Pickles (the Libretro player) starts (Andromeda).", "menu"),
       select("visual/name", "Game names", "Hides extra information from names on screen. Files are not renamed.", "menu", [
@@ -137,6 +162,31 @@ export const GROUPS: Group[] = [
       toggle("visual/hidden", "Hidden content", "Shows files and folders whose names start with . or _.", "menu"),
       toggle("visual/contentcollect", "Collections in Explore Content", "Shows collections inside Explore Content.", "menu"),
       toggle("visual/contenthistory", "History in Explore Content", "Shows the history inside Explore Content.", "menu"),
+      toggle("visual/forwardhistory", "Forward history", "Keeps a forward stack when moving back through Explore Content (Andromeda).", "menu"),
+      toggle("visual/groupcontent", "Group content", "Groups related content entries in lists (Andromeda).", "menu"),
+      toggle("visual/headertitle", "Header title", "Shows the current screen title in the header (Andromeda).", "menu"),
+      toggle("visual/listglyph", "List glyphs", "Shows icons beside list entries (Andromeda).", "menu"),
+      toggle("visual/boldfocus", "Bold focus", "Makes the focused item heavier weight (Andromeda).", "menu"),
+      toggle("visual/shadow", "Text shadow", "Draws a soft shadow under labels (Andromeda).", "menu"),
+      toggle("visual/highcontrast", "High contrast", "Stronger contrast for accessibility (Andromeda).", "menu"),
+      toggle("visual/reducemotion", "Reduce motion", "Cuts back menu motion and transitions (Andromeda).", "menu"),
+      toggle("visual/pageskip", "Page skip", "Lets shoulder buttons skip pages in long lists (Andromeda).", "menu"),
+      select("visual/namescroll", "Name scroll", "How long names scroll when they do not fit (Andromeda).", "menu", SCROLL),
+      select("visual/labelscrollspeed", "Label scroll speed", "How fast scrolling labels move (Andromeda).", "menu", SCROLL),
+      select("visual/notifytime", "Notification time", "How long on-screen notices stay visible (Andromeda).", "menu",
+        [["0", "Brief"], ["1", "Normal"], ["2", "Long"], ["3", "Sticky"]]),
+      select("visual/sortorder", "Sort order", "Default sort for content lists (Andromeda).", "menu",
+        [["0", "Name A–Z"], ["1", "Name Z–A"], ["2", "Recently added"], ["3", "Play time"]]),
+      select("visual/tagorder", "Tag order", "How tags are ordered in lists (Andromeda).", "menu",
+        [["0", "As stored"], ["1", "Alphabetical"], ["2", "Priority"]]),
+      select("visual/selectionstyle", "Selection style", "How the focused row is drawn (Andromeda).", "menu",
+        [["0", "None"], ["1", "Bar"], ["2", "Outline"], ["3", "Fill"], ["4", "Theme default"]]),
+      select("visual/selectionanimation", "Selection animation", "Motion when moving the focus (Andromeda).", "menu", TRANSITION),
+      select("visual/dialoguetransition", "Dialogue transition", "How dialogs appear and leave (Andromeda).", "menu", TRANSITION),
+      select("visual/elementtransition", "Element transition", "How panels and overlays animate (Andromeda).", "menu", TRANSITION),
+      select("visual/savescreenshot", "Save screenshot prompt", "Whether saving a screenshot asks for confirmation (Andromeda).", "menu",
+        [["0", "Never"], ["1", "Ask"], ["2", "Always save"]]),
+      toggle("visual/power_off", "Power-off visual", "Shows the CRT-style power-off effect (Andromeda).", "menu"),
     ],
   },
   {
@@ -149,6 +199,11 @@ export const GROUPS: Group[] = [
         ["1", "Top left"], ["2", "Top middle"], ["3", "Top right"], ["4", "Bottom left"], ["5", "Bottom middle"], ["6", "Bottom right"],
         ["7", "Middle left"], ["8", "Middle right"], ["9", "Center"],
       ]),
+      range("visual/boxartpadding", "Box art padding", "Space between box art and the screen edge, as a percentage (Andromeda).", "menu", 0, 100, { unit: "%" }),
+      select("visual/boxartscale", "Box art scaling", "How box art is fitted (Andromeda).", "menu",
+        [["0", "Fit"], ["1", "Fill"], ["2", "Stretch"], ["3", "Native"]]),
+      toggle("visual/boxartplaceholder", "Box art placeholder", "Shows a placeholder when a game has no artwork (Andromeda).", "menu"),
+      select("visual/boxarttransition", "Box art transition", "How artwork changes when moving the focus (Andromeda).", "menu", TRANSITION),
       toggle("visual/boxarthide", "Hide box art in grid themes", "Hides system artwork in Explore Content when the theme uses a grid.", "menu"),
       toggle("visual/gridmodecontent", "Grid mode for games", "Lets themes show games in a grid.", "menu"),
       toggle("visual/contentwidth", "Full width highlight", "The selection bar spans the whole screen.", "menu"),
@@ -156,6 +211,13 @@ export const GROUPS: Group[] = [
       toggle("visual/launchsplash", "Launch splash", "Shows the splash image when a game starts.", "live"),
       toggle("visual/blackfade", "Fade to black", "Fades to black when a game starts.", "live"),
       select("visual/launch_swap", "Resume from save state", "How to launch a game from its automatic save state.", "menu", [["0", "Press A"], ["1", "Hold A"]]),
+      select("visual/videopreview", "Video preview", "Plays catalogue video previews in Explore Content (Andromeda).", "menu",
+        [["0", "Off"], ["1", "On focus"], ["2", "Auto"]]),
+      toggle("visual/video_wallpaper", "Video wallpaper", "Allows theme video wallpapers (Andromeda).", "menu"),
+      select("visual/background_scale", "Background scale", "How theme backgrounds are fitted (Andromeda).", "menu",
+        [["0", "None"], ["1", "Fit"], ["2", "Fill"], ["3", "Stretch"]]),
+      toggle("visual/overlayimage", "Overlay image", "Draws the catalogue overlay image when one is assigned (Andromeda).", "menu"),
+      range("visual/overlaytransparency", "Overlay transparency", "How transparent the overlay image is (Andromeda).", "menu", 0, 100, { unit: "%" }),
     ],
   },
   {
@@ -167,17 +229,84 @@ export const GROUPS: Group[] = [
       range("settings/general/soundvol", "Navigation sound volume", "Volume of the navigation sounds.", "menu", 0, 100, { unit: "%" }),
       toggle("settings/general/chime", "Startup chime", "Plays a sound when the menu starts.", "boot"),
       toggle("settings/general/rgb", "RGB lighting", "Turns stick and button RGB on where the board supports it (Andromeda).", "tweak"),
+      select("settings/rgb/mode", "RGB mode", "Lighting pattern when RGB is on (Andromeda).", "tweak", [
+        ["0", "Solid"], ["1", "Breath"], ["2", "Rainbow"], ["3", "Pulse"], ["4", "Spiral"], ["5", "Off pattern"],
+      ]),
+      select("settings/rgb/backend", "RGB backend", "Which RGB driver the handheld uses (Andromeda).", "tweak",
+        [["0", "Default"], ["1", "Alternate"]]),
+      range("settings/rgb/speed", "RGB speed", "How fast animated RGB patterns move (Andromeda).", "tweak", 1, 20),
+      range("settings/rgb/breath_speed", "RGB breath speed", "Breath animation speed when that mode is used (Andromeda).", "tweak", 0, 20),
+      range("settings/rgb/bright", "RGB brightness", "Overall stick and button LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_theme", "RGB theme brightness", "Brightness ceiling themes may use for RGB (Andromeda).", "tweak", 0, 255),
+      select("settings/rgb/combo", "RGB combo", "Which LED groups light together (Andromeda).", "tweak",
+        [["0", "All"], ["1", "Sticks only"], ["2", "Buttons only"], ["3", "Shoulders"], ["4", "Custom"]]),
       toggle("visual/backgroundanimation", "Background animation", "Plays the theme's animated background.", "menu"),
       select("settings/general/theme_scaling", "Theme scaling", "How themes made for other screen sizes are fitted.", "menu", [["0", "None"], ["1", "Scale"], ["2", "Stretch"]]),
       select("settings/general/theme_resolution", "Theme resolution preference", "Preferred theme size when more than one is installed (Andromeda).", "menu",
         [["0", "Auto"], ["1", "Native screen"], ["2", "720p"], ["3", "1080p"]]),
+      range("settings/font/scale", "Font scale", "Overall menu font scale as a percentage (Andromeda).", "menu", 50, 200, { unit: "%" }),
+      { key: "settings/font/directory", label: "Font directory", help: "Folder under MUOS/font used for custom faces (Andromeda). Leave blank for built-in fonts.", kind: "text", apply: "menu",
+        pattern: /^[\x20-\x7E]{0,128}$/ },
+      { key: "settings/font/name", label: "Font name", help: "Display name for the active custom font (Andromeda).", kind: "text", apply: "menu",
+        pattern: /^[\x20-\x7E]{0,128}$/ },
+      { key: "settings/font/face", label: "Font face file", help: "Font file name inside the font directory (Andromeda).", kind: "text", apply: "menu",
+        pattern: /^[\x20-\x7E]{0,128}$/ },
+      range("settings/font/header_size", "Header font size", "Header label size (Andromeda).", "menu", 8, 64),
+      range("settings/font/footer_size", "Footer font size", "Footer label size (Andromeda).", "menu", 8, 64),
+      range("settings/font/list_size", "List font size", "Content list label size (Andromeda).", "menu", 8, 64),
+      range("settings/font/panel_size", "Panel font size", "Panel and dialogue label size (Andromeda).", "menu", 8, 64),
+      range("settings/font/width", "Font width", "Horizontal font stretch factor (Andromeda).", "menu", 50, 200, { unit: "%" }),
+      toggle("settings/font/italic", "Italic font", "Uses an italic face when the font provides one (Andromeda).", "menu"),
+      select("settings/advanced/font", "Font preset", "Built-in font size preset used with Customisation fonts (Andromeda).", "menu",
+        [["0", "Small"], ["1", "Medium"], ["2", "Large"], ["3", "Extra large"]]),
+      range("settings/theme/header_height", "Theme header height", "Header bar height in theme units (Andromeda).", "menu", 0, 200),
+      range("settings/theme/footer_height", "Theme footer height", "Footer bar height in theme units (Andromeda).", "menu", 0, 200),
+      range("settings/theme/content_item_count", "Theme content item count", "How many list rows themes reserve (Andromeda).", "menu", 1, 30),
+      range("settings/theme/label_width", "Theme label width", "Content label width in theme units (Andromeda).", "menu", 0, 1000),
+      range("settings/theme/glyph_size", "Theme glyph size", "Default glyph size in theme units (Andromeda).", "menu", 0, 128),
+      range("settings/theme/glyph_size_header", "Theme header glyph size", "Header glyph size (Andromeda).", "menu", 0, 128),
+      range("settings/theme/glyph_size_footer", "Theme footer glyph size", "Footer glyph size (Andromeda).", "menu", 0, 128),
+      range("settings/theme/glyph_size_list", "Theme list glyph size", "List glyph size (Andromeda).", "menu", 0, 128),
+      range("settings/theme/glyph_size_grid", "Theme grid glyph size", "Grid glyph size (Andromeda).", "menu", 0, 128),
+      range("settings/rgb/bright_l", "RGB brightness (left)", "Left stick LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_r", "RGB brightness (right)", "Right stick LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_m", "RGB brightness (middle)", "Middle / logo LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_f1", "RGB brightness (face 1)", "Face button group 1 brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_f2", "RGB brightness (face 2)", "Face button group 2 brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_rs1", "RGB brightness (RS 1)", "Right-side LED group 1 brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_rs2", "RGB brightness (RS 2)", "Right-side LED group 2 brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_shl1", "RGB brightness (shoulder L1)", "Left shoulder LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_shl2", "RGB brightness (shoulder L2)", "Left trigger LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_shr1", "RGB brightness (shoulder R1)", "Right shoulder LED brightness (Andromeda).", "tweak", 0, 255),
+      range("settings/rgb/bright_shr2", "RGB brightness (shoulder R2)", "Right trigger LED brightness (Andromeda).", "tweak", 0, 255),
+      { key: "settings/rgb/colour_l", label: "RGB colour (left)", help: "Left stick LED colour value from the handheld RGB editor (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_r", label: "RGB colour (right)", help: "Right stick LED colour value (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_m", label: "RGB colour (middle)", help: "Middle / logo LED colour value (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_f1", label: "RGB colour (face 1)", help: "Face button group 1 colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_f2", label: "RGB colour (face 2)", help: "Face button group 2 colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_rs1", label: "RGB colour (RS 1)", help: "Right-side LED group 1 colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_rs2", label: "RGB colour (RS 2)", help: "Right-side LED group 2 colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_shl1", label: "RGB colour (shoulder L1)", help: "Left shoulder LED colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_shl2", label: "RGB colour (shoulder L2)", help: "Left trigger LED colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_shr1", label: "RGB colour (shoulder R1)", help: "Right shoulder LED colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/colour_shr2", label: "RGB colour (shoulder R2)", help: "Right trigger LED colour (Andromeda).", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/color_l", label: "RGB color (left, alt key)", help: "Alternate spelling of left stick colour used by some builds.", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/color_r", label: "RGB color (right, alt key)", help: "Alternate spelling of right stick colour used by some builds.", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/color_m", label: "RGB color (middle, alt key)", help: "Alternate spelling of middle LED colour used by some builds.", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/color_f1", label: "RGB color (face 1, alt key)", help: "Alternate spelling of face 1 colour used by some builds.", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
+      { key: "settings/rgb/color_f2", label: "RGB color (face 2, alt key)", help: "Alternate spelling of face 2 colour used by some builds.", kind: "text", apply: "tweak", pattern: /^[\x20-\x7E]{0,32}$/ },
       toggle("settings/advanced/random_theme", "Random theme on boot", "Picks a different installed theme each time the handheld starts.", "boot"),
+      select("settings/advanced/splash_scale", "Splash scale", "How the launch splash is fitted (Andromeda).", "live",
+        [["0", "Fit"], ["1", "Fill"], ["2", "Stretch"]]),
     ],
   },
   {
     id: "clock", title: "Date and time", icon: "clock", intro: "Clock format and internet time.",
     items: [
-      select("clock/notation", "Time format", "How the clock in the header shows the time.", "menu", [["0", "12 hour"], ["1", "24 hour"]]),
+      select("clock/notation", "Time format", "How the clock in the header shows the time.", "menu",
+        [["0", "12 hour"], ["1", "24 hour"], ["2", "Custom"]]),
+      { key: "clock/custom", label: "Custom time format", help: "strftime-style pattern when Time format is Custom (Andromeda), e.g. %H%P %Z.", kind: "text", apply: "menu",
+        pattern: /^[\x20-\x7E]{0,64}$/ },
       toggle("web/ntp", "Set the time from the internet", "Syncs the clock over Wi-Fi.", "network"),
       { key: "clock/pool", label: "Time server", help: "The NTP server used to set the clock, like pool.ntp.org.", kind: "text", apply: "network",
         pattern: /^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/ },
@@ -191,6 +320,17 @@ export const GROUPS: Group[] = [
       toggle("settings/network/monitor", "Connection monitor", "Watches the link and retries when it drops.", "live"),
       toggle("settings/network/async_load", "Async network load", "Loads network services without blocking the menu.", "boot"),
       toggle("settings/network/system_dns", "Use system DNS", "Uses the handheld's DNS settings for lookups.", "network"),
+      toggle("settings/network/compat", "Compatibility mode", "Uses a slower Wi-Fi path that works with more access points (Andromeda).", "network"),
+      range("settings/network/con_retry", "Connection retries", "How many times to retry joining Wi-Fi (Andromeda).", "network", 0, 10),
+      range("settings/network/mod_retry", "Module retries", "How many times to reload the Wi-Fi module on failure (Andromeda).", "network", 0, 10),
+      range("settings/network/wait_timer", "Wait timer", "Seconds to wait for a link before giving up (Andromeda).", "network", 0, 60, { unit: "s" }),
+      toggle("settings/network/proxy_enabled", "Use HTTP proxy", "Routes handheld web traffic through a proxy (Andromeda).", "network"),
+      select("settings/network/proxy_type", "Proxy type", "Proxy protocol when a proxy is enabled.", "network",
+        [["0", "HTTP"], ["1", "HTTPS"], ["2", "SOCKS5"]]),
+      { key: "settings/network/proxy_server", label: "Proxy server", help: "Proxy host:port, e.g. 192.168.0.1:8080. Leave blank when unused.", kind: "text", apply: "network",
+        pattern: /^$|^[A-Za-z0-9][A-Za-z0-9.:_-]{0,252}$/ },
+      { key: "settings/network/proxy_noproxy", label: "Proxy bypass", help: "Comma-separated hosts that skip the proxy (Andromeda).", kind: "text", apply: "network",
+        pattern: /^[\x20-\x7E]{0,512}$/ },
       toggle("settings/network/usb_cable", "USB Cable (Device Link)", "Andromeda Device Link: joins two MustardOS handhelds over USB-C (usblink0). Not for copying files to this computer. Turn this off before USB MTP.", "tweak",
         { warn: "While USB Cable is on, MTP and ADB are paused. Turn it off here (or on the handheld under Connectivity → Device Link), set USB function to MTP below, then unplug and replug the cable." }),
     ],
@@ -208,6 +348,10 @@ export const GROUPS: Group[] = [
       PORT("web/sftp_port", "SFTP port", "TCP port for SFTP file transfers (default 2022).", 2022),
       toggle("web/ttyd", "Virtual terminal", "A terminal in the browser.", "services"),
       PORT("web/ttyd_port", "Virtual terminal port", "Browser terminal port (default 8080).", 8080),
+      { key: "web/ttyd_user", label: "Virtual terminal user", help: "Optional sign-in user for ttyd. Leave blank for the MustardOS default.", kind: "text", apply: "services",
+        pattern: /^[A-Za-z0-9._-]{0,64}$/ },
+      { key: "web/ttyd_pass", label: "Virtual terminal password", help: "Optional sign-in password for ttyd. Leave blank for the MustardOS default.", kind: "text", apply: "services",
+        pattern: /^[\x20-\x7E]{0,128}$/ },
       toggle("web/syncthing", "Syncthing", "Syncs saves and files with other devices.", "services"),
       PORT("web/syncthing_port", "Syncthing port", "Syncthing web interface port (default 7070).", 7070),
       toggle("web/landing", "Web landing page", "Shows the MustardOS landing page on the local network (Andromeda).", "services"),
@@ -216,16 +360,66 @@ export const GROUPS: Group[] = [
       toggle("web/mdns", "mDNS discovery", "Advertises the handheld on the local network for Find on network.", "services"),
       { key: "web/mdns_name", label: "mDNS name", help: "Local hostname advertised over mDNS, without .local.", kind: "text", apply: "services",
         pattern: /^[A-Za-z0-9][A-Za-z0-9-]{0,62}$/ },
-      toggle("web/remote_control", "Remote view", "Allows remote viewing of the handheld screen (Andromeda).", "services"),
+      select("web/remote_view", "Remote view", "How long remote screen sharing stays available (Andromeda).", "services", REMOTE_VIEW),
+      select("web/remote_control", "Remote controls", "Whether the landing page may send button input (Andromeda).", "services", REMOTE_CONTROL),
       toggle("web/remote_sound", "Remote view audio", "Sends audio with remote view when that is on.", "services"),
       toggle("web/remote_privacy", "Remote view privacy", "Blurs or hides sensitive screens in remote view.", "services"),
+      toggle("web/remote_local_priority", "Prefer local remote view", "Favours viewers on the same LAN over remote ones (Andromeda).", "services"),
+      range("web/live_fps", "Live view frame rate", "Frames per second for remote live view (Andromeda).", "services", 1, 60, { unit: "fps" }),
+      range("web/live_quality", "Live view quality", "JPEG quality for remote live view (Andromeda).", "services", 10, 100, { unit: "%" }),
       toggle("web/tailscaled", "Tailscale", "Reach the handheld from anywhere. Log in over SSH first to set it up.", "services"),
+    ],
+  },
+  {
+    id: "hdmi", title: "HDMI", icon: "image", intro: "External display output when the handheld has HDMI (Andromeda).",
+    items: [
+      select("settings/hdmi/resolution", "HDMI resolution", "Output resolution when HDMI is connected.", "tweak", HDMI_RES, { needs: "hdmi" }),
+      select("settings/hdmi/space", "Colour space", "HDMI colour space.", "tweak", [["0", "RGB"], ["1", "YCbCr"]], { needs: "hdmi" }),
+      select("settings/hdmi/depth", "Colour depth", "Bits per channel on HDMI.", "tweak", [["0", "8-bit"], ["1", "10-bit"], ["2", "12-bit"]], { needs: "hdmi" }),
+      select("settings/hdmi/range", "Colour range", "Limited or full HDMI range.", "tweak", [["0", "Limited"], ["1", "Full"]], { needs: "hdmi" }),
+      select("settings/hdmi/scan", "Scan mode", "Progressive or interlaced output where supported.", "tweak", [["0", "Progressive"], ["1", "Interlaced"]], { needs: "hdmi" }),
+      select("settings/hdmi/audio", "HDMI audio", "Whether audio rides the HDMI cable.", "tweak", [["0", "Off"], ["1", "On"]], { needs: "hdmi" }),
+      toggle("settings/hdmi/mirror", "Mirror handheld screen", "Mirrors the built-in panel to HDMI instead of a separate desktop.", "tweak", { needs: "hdmi" }),
+    ],
+  },
+  {
+    id: "colour", title: "Display colour", icon: "eye", intro: "Scheduled colour temperature (Andromeda Display Colour).",
+    items: [
+      select("settings/colour/schedule_mode", "Colour schedule", "Automatic warm/cool shift over the day.", "live",
+        [["0", "Off"], ["1", "Sunrise / sunset"], ["2", "Manual times"]]),
+      range("settings/colour/sunrise_temp", "Sunrise temperature", "Cooler or warmer tint in the morning (higher is warmer).", "live", 0, 255),
+      range("settings/colour/sunset_temp", "Sunset temperature", "Tint in the evening (higher is warmer).", "live", 0, 255),
+      range("settings/colour/sunrise_time", "Sunrise time offset", "Schedule point for the morning shift (device units).", "live", 0, 143),
+      range("settings/colour/sunset_time", "Sunset time offset", "Schedule point for the evening shift (device units).", "live", 0, 143),
+    ],
+  },
+  {
+    id: "overlay", title: "On-screen overlays", icon: "layers", intro: "Brightness, volume and battery stage overlays (Andromeda).",
+    items: [
+      range("settings/overlay/bat_alpha", "Battery overlay opacity", "Opacity of the battery stage overlay.", "live", 0, 255),
+      select("settings/overlay/bat_anchor", "Battery overlay position", "Where the battery overlay sits.", "live",
+        [["0", "Top left"], ["1", "Top right"], ["2", "Bottom left"], ["3", "Bottom right"]]),
+      range("settings/overlay/bat_scale", "Battery overlay scale", "Size of the battery overlay.", "live", 1, 300, { unit: "%" }),
+      range("settings/overlay/bri_alpha", "Brightness overlay opacity", "Opacity of the brightness stage overlay.", "live", 0, 255),
+      select("settings/overlay/bri_anchor", "Brightness overlay position", "Where the brightness overlay sits.", "live",
+        [["0", "Top left"], ["1", "Top right"], ["2", "Bottom left"], ["3", "Bottom right"]]),
+      range("settings/overlay/bri_scale", "Brightness overlay scale", "Size of the brightness overlay.", "live", 1, 300, { unit: "%" }),
+      range("settings/overlay/vol_alpha", "Volume overlay opacity", "Opacity of the volume stage overlay.", "live", 0, 255),
+      select("settings/overlay/vol_anchor", "Volume overlay position", "Where the volume overlay sits.", "live",
+        [["0", "Top left"], ["1", "Top right"], ["2", "Bottom left"], ["3", "Bottom right"]]),
+      range("settings/overlay/vol_scale", "Volume overlay scale", "Size of the volume overlay.", "live", 1, 300, { unit: "%" }),
+      range("settings/overlay/gen_alpha", "Generic overlay opacity", "Opacity for other stage overlays.", "live", 0, 255),
+      select("settings/overlay/gen_anchor", "Generic overlay position", "Where generic stage overlays sit.", "live",
+        [["0", "Top left"], ["1", "Top right"], ["2", "Bottom left"], ["3", "Bottom right"]]),
+      range("settings/overlay/gen_scale", "Generic overlay scale", "Size of generic stage overlays.", "live", 1, 300, { unit: "%" }),
     ],
   },
   {
     id: "advanced", title: "Advanced", icon: "wrench", advanced: true,
     intro: "Options muOS lists under Advanced Settings. Change them only if you know what they do.",
     items: [
+      range("settings/advanced/accelerate", "Menu acceleration", "How quickly held navigation speeds up (Andromeda).", "live", 0, 255),
+      range("settings/advanced/repeat_delay", "Menu repeat delay", "How long a direction is held before it repeats (Andromeda).", "live", 0, 500),
       select("settings/advanced/brightness", "Brightness on boot", "The brightness the handheld starts with.", "boot",
         [["0", "Previous"], ["1", "Low"], ["2", "Medium"], ["3", "High"]]),
       select("settings/advanced/volume", "Volume on boot", "The volume the handheld starts with.", "boot",
@@ -249,18 +443,34 @@ export const GROUPS: Group[] = [
       toggle("settings/advanced/thermal", "Thermal shutdown", "Shuts the handheld down when it gets too hot.", "boot"),
       toggle("settings/advanced/lidswitch", "Lid switch", "Uses the lid sensor to sleep when the lid closes.", "boot", { needs: "lid" }),
       toggle("settings/advanced/disp_suspend", "Display suspend", "Turns the display off while sleeping. Some screens do not like this.", "live"),
+      toggle("settings/advanced/stage_overlay", "Stage overlay", "On-screen brightness, volume and battery indicators (Andromeda). Off also hides Overlay Options.", "live"),
+      range("settings/advanced/boxartpaddiv", "Box art padding divisor", "How much each percent of box art padding is worth (Andromeda). Smaller pushes artwork further.", "live", 1, 20),
       toggle("settings/advanced/audio_swap", "Swap left and right audio", "Reverses the speaker channels.", "tweak"),
       toggle("settings/advanced/audio_suspend", "Suspend audio with sleep", "Stops audio hardware while sleeping (Andromeda).", "live"),
       toggle("settings/advanced/overdrive", "Audio overdrive", "Lets the volume go to 200%.", "tweak"),
       toggle("settings/advanced/maxgpu", "GPU performance mode", "Keeps the GPU at its highest clock.", "tweak"),
+      toggle("settings/advanced/double_buffer", "Double buffering", "Uses a second full-screen draw buffer. Extra memory; for comparing render paths (Andromeda).", "boot"),
+      toggle("settings/advanced/swapfile", "System swapfile", "Adds disk-backed swap for memory-heavy content (Andromeda).", "boot"),
+      toggle("settings/advanced/zramfile", "System ZRam", "Compressed in-memory swap; faster than a swapfile (Andromeda).", "boot"),
+      select("settings/advanced/part_secondary", "Secondary partition", "Partition used when mounting the second card (Andromeda).", "boot", PARTITION),
+      select("settings/advanced/part_external", "External partition", "Partition used when mounting USB storage (Andromeda).", "boot", PARTITION),
       select("settings/advanced/usb_function", "USB function", "What the handheld offers over USB to a computer. On Andromeda this is often not on the handheld menus — set MTP here over SSH, then unplug and replug the cable.", "tweak", [["0", "Disabled"], ["1", "ADB"], ["2", "MTP (file transfer)"]],
         { warn: "The manager copies games over USB with MTP. Turn USB Cable (Device Link) off first if USB shows as Link or usblink0, then set MTP and replug." }),
       toggle("settings/advanced/retrowait", "RetroArch waits for network", "Starts RetroArch only after Wi-Fi connects.", "live"),
       toggle("settings/advanced/retrocache", "RetroArch startup cache", "About 3 s longer boot, faster first RetroArch start.", "boot"),
       toggle("settings/advanced/retrofree", "RetroArch config freedom", "Stops muOS from forcing its settings on RetroArch configs.", "live"),
+      range("settings/advanced/bt_scan_timeout", "Bluetooth scan timeout", "Seconds to keep scanning for nearby Bluetooth devices (Andromeda).", "live", 5, 120, { unit: "s", needs: "bluetooth" }),
+      toggle("settings/advanced/bt_raw", "Bluetooth raw devices", "Lists nearby devices that only show a hardware address (Andromeda).", "live", { needs: "bluetooth" }),
       toggle("settings/advanced/audio_ready", "Wait for audio on boot", "Waits for the audio system during startup.", "boot"),
       toggle("settings/advanced/user_init", "User init scripts", "Runs your own scripts at startup.", "boot"),
       toggle("settings/advanced/verbose", "Verbose messages", "Shows startup and shutdown messages, for finding faults.", "boot"),
+      toggle("settings/advanced/remember_section", "Remember section", "Reopens multi-section screens on the last section you used (Andromeda).", "menu"),
+      toggle("settings/advanced/extracores", "Additional Cores", "Shows extra systems and Libretro cores in Core Assignment and Core Management (Andromeda). Leave off for a shorter list.", "live"),
+      toggle("settings/advanced/trust_modify", "Trust modifications", "Saves settings changes without asking when leaving a screen (Andromeda).", "live"),
+      toggle("settings/advanced/trust_power", "Trust power choice", "Reboots or shuts down without a confirmation (Andromeda).", "live"),
+      toggle("settings/advanced/trust_remove", "Trust removals", "Removes content, history and collections without asking (Andromeda).", "live"),
+      select("settings/remap/layout", "Control remap layout", "Default control remap layout index (Andromeda).", "live",
+        [["0", "Default"], ["1", "Alternate"], ["2", "Custom"]]),
     ],
   },
 ];
@@ -270,9 +480,9 @@ const BY_KEY = new Map(GROUPS.flatMap((g) => g.items.map((s) => [s.key, s] as co
 // ---------------------------------------------------------------- reading
 
 interface Facts {
-  bright: number; audioMax: number; governors: string[]; languages: string[]; version: string; host: string;
-  /** From the board config: analog sticks, and whether there is a lid sensor and a rumble motor (null if unknown). */
-  board: { stick: number | null; lid: boolean | null; rumble: boolean | null };
+  bright: number; audioMax: number; governors: string[]; languages: string[]; soundfonts: string[]; version: string; host: string;
+  /** From the board config: analog sticks, lid, rumble, HDMI and Bluetooth (null if unknown). */
+  board: { stick: number | null; lid: boolean | null; rumble: boolean | null; hdmi: boolean | null; bluetooth: boolean | null };
 }
 
 async function readValues(keys: string[]): Promise<{ values: Record<string, string>; facts: Facts }> {
@@ -283,15 +493,19 @@ async function readValues(keys: string[]): Promise<{ values: Record<string, stri
     `printf '@audiomax\\t%s\\n' "$(cat /opt/muos/device/config/audio/max 2>/dev/null)"`,
     `printf '@gov\\t%s\\n' "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors 2>/dev/null)"`,
     `printf '@lang\\t%s\\n' "$(ls /opt/muos/share/language 2>/dev/null | sed -n 's/\\.json$//p' | tr '\\n' '|')"`,
+    `printf '@soundfonts\\t%s\\n' "$(ls /opt/muos/share/soundfont 2>/dev/null | tr '\\n' '|')"`,
     `printf '@version\\t%s\\n' "$(cat system/version 2>/dev/null)"`,
     `printf '@build\\t%s\\n' "$(cat system/build 2>/dev/null)"`,
-    `B=/opt/muos/device/config/board; printf '@board\\t%s\\t%s\\t%s\\n' "$(cat $B/stick 2>/dev/null)" "$(cat $B/lid 2>/dev/null)" "$(cat $B/rumble 2>/dev/null)"`,
+    `B=/opt/muos/device/config/board; printf '@board\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$(cat $B/stick 2>/dev/null)" "$(cat $B/lid 2>/dev/null)" "$(cat $B/rumble 2>/dev/null)" "$(cat $B/hdmi 2>/dev/null)" "$(cat $B/bluetooth 2>/dev/null)"`,
   ].join("\n");
   const { out, code } = await runCommand(script, 20_000);
   if (out.includes("@missing")) throw new UserError("This handheld has no /opt/muos/config folder. Is it running MustardOS?");
   if (code !== 0 && !out) throw new UserError("Could not read the settings from the handheld.");
   const values: Record<string, string> = {};
-  const facts: Facts = { bright: 255, audioMax: 100, governors: [], languages: [], version: "", host: "", board: { stick: null, lid: null, rumble: null } };
+  const facts: Facts = {
+    bright: 255, audioMax: 100, governors: [], languages: [], soundfonts: [], version: "", host: "",
+    board: { stick: null, lid: null, rumble: null, hdmi: null, bluetooth: null },
+  };
   let build = "";
   for (const line of out.split("\n")) {
     const tab = line.indexOf("\t");
@@ -302,11 +516,18 @@ async function readValues(keys: string[]): Promise<{ values: Record<string, stri
     else if (name === "@audiomax") facts.audioMax = Number(value) || 100;
     else if (name === "@gov") facts.governors = value.split(/\s+/).filter(Boolean);
     else if (name === "@lang") facts.languages = value.split("|").filter(Boolean).sort((a, b) => a.localeCompare(b));
+    else if (name === "@soundfonts") facts.soundfonts = value.split("|").filter(Boolean).sort((a, b) => a.localeCompare(b));
     else if (name === "@version") facts.version = value;
     else if (name === "@build") build = value;
     else if (name === "@board") {
-      const [stick = "", lid = "", rumble = ""] = line.slice(tab + 1).split("\t").map((v) => v.trim());
-      facts.board = { stick: /^\d+$/.test(stick) ? Number(stick) : null, lid: lid ? lid !== "0" : null, rumble: rumble ? rumble !== "0" : null };
+      const [stick = "", lid = "", rumble = "", hdmi = "", bluetooth = ""] = line.slice(tab + 1).split("\t").map((v) => v.trim());
+      facts.board = {
+        stick: /^\d+$/.test(stick) ? Number(stick) : null,
+        lid: lid ? lid !== "0" : null,
+        rumble: rumble ? rumble !== "0" : null,
+        hdmi: hdmi ? hdmi !== "0" : null,
+        bluetooth: bluetooth ? bluetooth !== "0" : null,
+      };
     }
   }
   facts.version = await runningVersion(facts.version, build);
@@ -320,6 +541,9 @@ function resolve(s: Setting, facts: Facts): Setting {
   if (s.dyn === "volume") return { ...s, max: facts.audioMax };
   if (s.dyn === "governors") return { ...s, options: facts.governors.map((g) => [g, g[0].toUpperCase() + g.slice(1)] as Option) };
   if (s.dyn === "languages") return { ...s, options: facts.languages.map((l) => [l, l] as Option) };
+  if (s.dyn === "soundfonts") {
+    return { ...s, options: [["", "Default"], ...facts.soundfonts.map((f) => [f, f] as Option)] };
+  }
   if (s.needs === "stick" && facts.board.stick === 1) return { ...s, options: s.options?.filter(([v]) => ["0", "1", "3"].includes(v)) };
   return s;
 }
@@ -330,6 +554,8 @@ function fitsBoard(s: Setting, facts: Facts): boolean {
   if (s.needs === "stick") return b.stick !== 0;
   if (s.needs === "lid") return b.lid !== false;
   if (s.needs === "rumble") return b.rumble !== false;
+  if (s.needs === "hdmi") return b.hdmi !== false;
+  if (s.needs === "bluetooth") return b.bluetooth !== false;
   return true;
 }
 

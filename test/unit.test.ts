@@ -1019,7 +1019,11 @@ device=/dev/input/event1
 
 test("Andromeda: settings catalogue, themes 2606, muxbak path guards", () => {
   const keys = GROUPS.flatMap((g) => g.items.map((s) => s.key));
-  for (const k of ["settings/power/saver_type", "web/sftp", "web/sftp_port", "settings/advanced/passcode", "visual/bluetooth"]) {
+  for (const k of [
+    "settings/power/saver_type", "web/sftp", "web/sftp_port", "settings/advanced/passcode", "visual/bluetooth",
+    "settings/advanced/extracores", "settings/advanced/swapfile", "settings/network/proxy_enabled",
+    "web/remote_view", "web/live_fps", "settings/hdmi/resolution", "visual/boxartpadding",
+  ]) {
     assert.ok(keys.includes(k), `missing catalogue key ${k}`);
   }
   assert.equal(codenameOf("2606.0_ANDROMEDA"), "Andromeda");

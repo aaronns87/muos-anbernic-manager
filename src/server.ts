@@ -27,6 +27,7 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { webServicesStatus } from "./device/web-services.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
 import {
   controlsSnapshot, controlsState, readJoycal, runCalibrate, saveJoycal,
@@ -77,10 +78,15 @@ const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
 const routes: Record<string, Handler> = {
   "GET /api/status": async () => {
     const [{ cards, rejects }, handheld, wifi] = await Promise.all([findCards(), handheldStatus(), wifiStatus()]);
-    const [hints, wifiModelFound] = await Promise.all([Promise.all(cards.map((c) => cardHint(c.mount))), wifiModel(wifi.reachable)]);
+    const [hints, wifiModelFound, services] = await Promise.all([
+      Promise.all(cards.map((c) => cardHint(c.mount))),
+      wifiModel(wifi.reachable),
+      webServicesStatus().catch(() => ({ host: "", at: Date.now(), services: [] })),
+    ]);
     const models = { usb: handheld ? usbModel(handheld.name) : null, wifi: wifiModelFound };
-    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, models, platform: process.platform };
+    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, services, models, platform: process.platform };
   },
+  "GET /api/ssh/services": () => webServicesStatus(true),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     const s = await saveWifiSettings(body);

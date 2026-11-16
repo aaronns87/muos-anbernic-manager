@@ -250,6 +250,46 @@ function pathPicker() {
     </button>`).join("")}</div>`;
 }
 
+/** Web services row for the connection panel and Overview (SSH, SFTP, …). */
+export function webServicesBlock({ compact = false } = {}) {
+  const pack = app.device.services;
+  const list = pack?.services;
+  if (!pack?.host) {
+    return `<div class="sb-conn-services${compact ? " compact" : ""}">
+      <span class="mode-label">Web services</span>
+      <p class="muted-note">Set the Wi-Fi address to see Secure Shell, SFTP and other services.</p>
+    </div>`;
+  }
+  if (!list) {
+    return `<div class="sb-conn-services${compact ? " compact" : ""}">
+      <span class="mode-label">Web services</span>
+      <p class="muted-note">${ICONS.spin} Checking services on ${esc(pack.host)}&hellip;</p>
+    </div>`;
+  }
+  if (!list.length) {
+    return `<div class="sb-conn-services${compact ? " compact" : ""}">
+      <span class="mode-label">Web services</span>
+      <p class="muted-note">No web services answered on ${esc(pack.host)}.</p>
+    </div>`;
+  }
+  const rows = list.map((s) => {
+    const ok = s.reachable || s.running;
+    const warn = s.enabled && !ok;
+    const cls = ok ? "ok" : warn ? "warn" : "off";
+    const state = ok ? "Active" : warn ? "Enabled" : s.enabled === false ? "Off" : "Inactive";
+    return `<li class="${cls}" title="${esc(s.detail)}">
+      <span class="svc-dot" aria-hidden="true"></span>
+      <span class="svc-text"><b>${esc(s.label)}</b><small>${esc(s.detail || state)}</small></span>
+      <span class="svc-state">${esc(state)}</span>
+    </li>`;
+  }).join("");
+  return `<div class="sb-conn-services${compact ? " compact" : ""}">
+    <span class="mode-label">Web services · ${esc(pack.host)}</span>
+    <ul class="sb-conn-svc-list">${rows}</ul>
+    ${compact ? "" : `<p class="muted-note">Toggles live under Device Settings → Web services. Active means this computer can reach the service, or SSH saw it running.</p>`}
+  </div>`;
+}
+
 function connHelpBlock(conn) {
   const andromedaUsb = app.ui.mode === "usb" && isAndromedaOs();
   const steps = andromedaUsb ? (conn.steps.length ? conn.steps : andromedaUsbSteps()) : conn.steps;
@@ -333,9 +373,11 @@ export function renderSideDevice() {
   const who = live ? (t.mode === "card" ? `${t.name || cardWord()} \u00b7 ${t.fs === "fat" ? "FAT32" : "exFAT"}` : `${conn.title}`) : model().name;
   const open = store.get("sdOpen", false);
   const title = `<span class="sd-ico">${icon(viaIcon)}</span>
-      <span class="sd-title"><b><span class="dot"></span>${esc(status)}${live ? icon("down", "sd-chev") : ""}</b><small>${esc(via)} &middot; ${esc(who)}</small></span>`;
+      <span class="sd-title"><b><span class="dot"></span>${esc(status)}</b><small>${esc(via)} &middot; ${esc(who)}</small></span>`;
   const head = `<div class="sd-head">
-      ${live ? `<button type="button" class="sd-toggle" aria-expanded="${open}" title="${open ? "Hide" : "Show"} free space on the cards">${title}</button>` : title}
+      ${live
+        ? `<button type="button" class="sd-toggle" aria-expanded="${open}" title="${open ? "Hide" : "Show"} free space on the cards">${title}${icon("down", "sd-chev")}</button>`
+        : title}
       ${live ? `<div class="sd-btns">${deviceButtons(conn, { iconOnly: true })}</div>` : ""}
     </div>`;
   box.classList.toggle("open", live && open);
@@ -492,11 +534,12 @@ function paintConnPanel() {
         <span class="mode-label">Actions for ${esc(primaryLabel)}</span>
         <div class="sb-conn-actions">${actions}</div>
       </div>` : ""}
+      ${webServicesBlock()}
       ${connHelpBlock(conn)}
       ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi address</span>${wifiForm({ ids: false })}</div>` : ""}
       <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
     </div>
-    <div class="sb-conn-body" ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}</div>
+    <div class="sb-conn-body" ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}${webServicesBlock({ compact: true })}</div>
   </div>`;
   for (const input of panel.querySelectorAll("input")) {
     const key = (input.closest(".conn-remote-form") ? "ssh:" : "files:") + (input.name || input.dataset.wifi || input.id);
@@ -729,6 +772,7 @@ export async function refreshDevice(force = false) {
     d.rejects = status.rejects;
     d.handheld = status.handheld;
     d.wifi = status.wifi;
+    d.services = status.services || null;
     d.models = status.models || {};
     d.platform = status.platform;
     const h = status.handheld, w = status.wifi, board = d.models.wifi;

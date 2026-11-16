@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Andromeda USB (MTP) steps in Wiki and assistant knowledge |
+| [Unreleased](#unreleased) | | Full Andromeda Device Settings catalogue, web service status in Connection/Overview |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
@@ -26,9 +26,15 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Device Settings catalogue covers the remaining Andromeda Configuration options (Additional Cores, Advanced gaps, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, Customisation visuals, remote view detail, and related keys), still filtered by config-file presence so Jacaranda keeps its shorter list.
+- Connection panel and Overview show **Web services** status (SSH, SFTP, virtual terminal, Syncthing, landing, mDNS, Tailscale when present): enabled on the handheld, running, and reachable from this computer.
+
 ### Changed
 
 - Wiki Troubleshooting and assistant knowledge document the full **Andromeda USB (MTP)** path: Device Link USB Cable off → Wi-Fi + Secure Shell → Device Settings → USB function MTP → unplug/replug (same steps as the connection panel help).
+- Sidebar connection card: keep reconnect/disconnect icons inside the card, move the expand chevron out of the “Connected” label, and stop the open storage list from being clipped under Overview.
 
 ## [1.3.0] - 2026-11-15
 

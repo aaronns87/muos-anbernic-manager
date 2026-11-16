@@ -48,8 +48,9 @@ const ARTICLES = [
         the handheld itself. The handheld's address is set under <b>Wi-Fi settings</b> in Overview; <b>Find on network</b> looks for it.</li>
     </ul>
     <p>USB and Wi-Fi can both be up at once. The top-bar connection chip shows every live link; click it for the connection panel.
-      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path.
-      Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
+      There, <b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for copies, with actions and help for that path,
+      and <b>Web services</b> lists SSH, SFTP and other services with whether they are enabled, running and reachable.
+      Overview shows the same services block. Game copies still use one primary path at a time. Play activity uses any live USB or Wi-Fi link even when Card reader is primary.</p>`],
     ["Supported handhelds", `<p>The manager works with every handheld MustardOS supports. What it shows follows the model: screen size for
       artwork and themes, which ports run, which settings exist, and whether there is a second card slot (TF2) or Wi-Fi.</p>
       <table class="wiki-table">
@@ -250,14 +251,15 @@ const ARTICLES = [
   ["handheld", "sliders", "Device", "handheld", "MustardOS settings, Controls and Benchmark on the handheld over SSH.", [
     ["The tabs", `<p><b>Settings</b> is the MustardOS options. <b>Controls</b> shows live sticks, analog calibration and system input options.
       <b>Benchmark</b> runs connectivity, storage and a short CPU load. All three need Wi-Fi with Secure Shell on.</p>`],
-    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation and more),
+    ["Settings", `<p>The same options as the handheld's own ${path("Configuration")} screens (General Settings, Power, Interface, Customisation, Connectivity, HDMI, overlays, Advanced and more),
       changed over Wi-Fi with SSH. The list adapts to the connected build: Jacaranda keeps the options whose config files exist; Andromeda (2606.0) adds
-      groups such as Bluetooth, screensavers, passcode, web service ports, fonts and storage toggles. A release badge shows MustardOS version and codename.
+      Bluetooth, screensavers, passcode, web service ports, <b>Additional Cores</b>, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, remote-view detail, fonts and storage toggles.
+      A release badge shows MustardOS version and codename.
       If the handheld's SSH or SFTP ports differ from the manager defaults, <b>Use handheld ports</b> copies them into connection setup.</p>
       <p>Change as many as you like; they are written together when you save. Each option says when the change takes
       effect: right away, the next time a menu screen loads, the next time Wi-Fi connects, or the next time the handheld starts.
       <b>Undo last save</b> puts back the values from before your last save. Use the search box to find an option; <b>Advanced</b> shows options most people never need.
-      Wasabi media and deep Pickles hotkeys stay on the handheld; related config keys can still appear here when the files exist.</p>`],
+      Wasabi media, Core Management install/update, and deep Pickles hotkey editors stay on the handheld; related config keys can still appear here when the files exist.</p>`],
     ["Controls", `<p>Live left/right stick pads and a button grid sampled over SSH from the handheld's input device. <b>Calibrate analogs</b> runs
       MustardOS's experimental <code>joycal</code> tool (rest, then full circles), then lets you review and apply <code>joycal.json</code>.
       You can also edit or remove that file by hand. <b>Input settings</b> cover menu stick navigation, D-pad swap and rumble (the same keys as in Settings).

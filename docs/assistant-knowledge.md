@@ -29,7 +29,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 2. **USB** - Needs MTP. On Andromeda, USB Function is often missing on the handheld menus — use the Andromeda MTP steps below. Older MustardOS: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
 3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**). Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, ttyd, Syncthing, landing, mDNS, Tailscale when present) with enabled/running/reachable status. Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
 
 ### Andromeda USB (MTP) — set MTP from the manager
 
@@ -178,7 +178,7 @@ Sidebar **Device** (was Device Settings). Tabs need Wi-Fi + Secure Shell.
 
 ### Settings tab
 
-Same options as handheld Configuration screens (General, Power, Interface, Customisation, ...). List adapts by config-file presence: Jacaranda shows today's options; Andromeda (2606.0) adds Bluetooth, screensavers, passcode, web ports, fonts, storage toggles, etc. Release badge shows MustardOS version · codename. **Use handheld ports** copies SSH/SFTP ports from the device into connection setup when they differ. Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options. Wasabi playback and deep Pickles hotkeys stay on-device; related keys can appear when files exist.
+Same options as handheld Configuration screens (General, Power, Interface, Customisation, Connectivity, HDMI, overlays, Advanced, ...). List adapts by config-file presence: Jacaranda shows today's options; Andromeda (2606.0) adds Bluetooth, screensavers, passcode, web ports, Additional Cores, network proxy/retries, hotkeys, HDMI, colour schedule, overlays, remote-view detail, fonts/storage toggles, and related keys. Release badge shows MustardOS version · codename. **Use handheld ports** copies SSH/SFTP ports from the device into connection setup when they differ. Change many, save once. Each option says when it applies: immediate, next menu load, next Wi-Fi connect, or reboot. Undo last save. Search box; Advanced shows rare options. Wasabi playback, Core Management install/update, and deep Pickles hotkey editors stay on-device; related keys can appear when files exist.
 
 ### Controls tab
 
