@@ -12,7 +12,8 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; UI Soft/density |
+| [Unreleased](#unreleased) | | |
+| [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
 | [1.2.5](#125---2026-10-18) | 2026-10-18 | Device Controls, full RetroArch Menu+X options, Device Benchmark |
@@ -26,6 +27,8 @@ version.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-16
+
 ### Added
 
 - Workspace **logs/** folder streams application diagnostics (errors, warnings, exceptions, `say` lines, browser faults) into daily JSONL files; **Logs** section under Manager searches, filters by level/day, exports, clears and reveals the folder.
@@ -38,11 +41,14 @@ version.
 - Games: expanding a system no longer adds extra top margin; **Show Transfers** only appears when there is an active or finished transfer.
 - Logs: the Logs view no longer stays visible under other sections after you leave it (`#view-logs` only uses flex when it is not hidden).
 - Emulation → Saves: device backup no longer stays on “Creating…” forever — BusyBox `pgrep` was matching the status checker itself; detection now uses MustardOS `foreground_process` plus a pidfile.
+- Appearance: custom colour schemes keep their chosen accent; turning Softer style off no longer clears scheme CSS variables, and Soft does not pastel custom schemes.
+- Offline Overview: **Set up connection** opens the connection panel again (`data-connect="files"`).
+- Narrow layouts use 44px-tall controls (including Filters) even when the OS pointer is fine, and clip horizontal overflow so the back-to-top control cannot widen the page.
 
 ### Changed
 
 - Wiki sits directly under Overview in the sidebar (shortcut <kbd>2</kbd> or <kbd>0</kbd>); help articles updated for Logs, connection/web services, Transfers visibility, Appearance Soft/density, Andromeda cores/manifest, Device Settings presence filter, and related troubleshooting.
-- UI consolidation: semantic design tokens (`--accent`, `--radius-*`, `--ctl` / `--ctl-sm`, theme-aware `--code-bg` / `--canvas-bg`), shared control heights and accent fill for primary/selected states (buttons, segmented, tabs, sidebar, Handheld nav), Softer style as pastel accents plus density/radius (soft-var teardown for selected states), compact included in Appearance reset, and aligned spacing on Overview Connection, Games metrics/system headers, Emulation panels, and Settings Appearance.
+- UI consolidation: semantic design tokens (`--accent`, `--radius-*`, `--ctl` / `--ctl-sm`, theme-aware `--code-bg` / `--canvas-bg`), shared control heights and accent fill for primary/selected states (buttons, segmented, tabs, sidebar, Handheld nav), Softer style as pastel accents plus density/radius (Soft leaves custom-scheme colours alone), compact included in Appearance reset, and aligned spacing on Overview Connection, Games metrics/system headers, Emulation panels, and Settings Appearance.
 - Wiki Troubleshooting and assistant knowledge document the full **Andromeda USB (MTP)** path: Device Link USB Cable off → Wi-Fi + Secure Shell → Device Settings → USB function MTP → unplug/replug (same steps as the connection panel help).
 - Sidebar connection card: keep reconnect/disconnect icons inside the card, drop the free-space expand chevron (click **Connected** to open or close storage), and stop the open storage list from being clipped under Overview.
 
@@ -429,7 +435,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.0...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.1...changes/unreleased
+[1.3.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.1
 [1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
 [1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6
 [1.2.5]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.5
