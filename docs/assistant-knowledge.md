@@ -131,7 +131,7 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 ### Play in browser
 
-Light systems only: GB, GBC, GBA, FC (NES), SFC (SNES), SMS, GG, MD, NGP, WS, PCE. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap (no handheld save sync). Hidden for `.cue`/`.m3u` and heavy/disc systems.
+Light systems only: GB, GBC, GBA, FC (NES), SFC (SNES), SMS, GG, MD, NGP, WS, PCE. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. No handheld save sync. Hidden for `.cue`/`.m3u` and heavy/disc systems.
 
 ### Game viewer
 

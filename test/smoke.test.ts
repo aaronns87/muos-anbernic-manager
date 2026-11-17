@@ -179,6 +179,7 @@ test("smoke: index and source keep roadmap UI wiring", () => {
   const play = fs.readFileSync(path.join(managerDir, "public", "js", "play-browser.js"), "utf8");
   assert.match(play, /canPlayInBrowser|openPlayBrowser|EJS_defaultControls|cdn\.emulatorjs\.org/);
   assert.match(play, /return \{ 0: player0, 1: \{\}, 2: \{\}, 3: \{\} \}/);
+  assert.match(play, /play-pad|play-bind|requestClosePlay|cancel/);
 
   const overview = fs.readFileSync(path.join(managerDir, "public", "js", "overview.js"), "utf8");
   assert.match(overview, /data-uptodate/);

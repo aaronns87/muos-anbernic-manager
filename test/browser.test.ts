@@ -586,7 +586,11 @@ test("smoke: roadmap UI surfaces stay wired", { skip: !CHROME && "Chrome not fou
   await cdp.eval(`document.querySelector(".card-play").click()`);
   await cdp.until(`document.getElementById("playbrowser")?.open === true`);
   assert.ok(await cdp.eval<boolean>(`!!document.getElementById("play-ejs")`));
-  await cdp.eval(`document.querySelector('#playbrowser [data-play="close"]')?.click(); document.getElementById("playbrowser")?.close()`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".play-pad, .play-bind")`));
+  assert.ok(await cdp.eval<boolean>(`(() => { const d=document.getElementById("playbrowser"); const e=new Event("cancel",{cancelable:true}); d.dispatchEvent(e); return d.open && e.defaultPrevented; })()`), "Esc/cancel must not close play");
+  await cdp.eval(`document.querySelector('#playbrowser [data-play="close"]')?.click()`);
+  await cdp.until(`document.getElementById("confirm")?.open === true`);
+  await cdp.eval(`document.getElementById("c-ok").click()`);
   await cdp.until(`!document.getElementById("playbrowser")?.open`);
   await cdp.eval(`document.getElementById("add-games").click()`);
   await cdp.until(`!!document.querySelector('[data-ag="free-homebrew"]')`);

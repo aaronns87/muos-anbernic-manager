@@ -48,6 +48,7 @@ version.
 ### Fixed
 
 - **Play in browser**: closed dialog no longer stuck at the bottom of the page; keyboard control fields fit the grid; ROM API answers EmulatorJS `HEAD` so games load instead of a black screen; session key map uses the EmulatorJS control shape so keyboard input and the in-emulator control settings work.
+- **Play in browser** controls: graphical controller layout (click a button, then press a key); Esc no longer closes the play window — leave only via the close control with a confirm.
 
 ### Changed
 

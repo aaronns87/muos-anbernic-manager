@@ -1,6 +1,7 @@
 // In-browser play for light systems via EmulatorJS (CDN cores + local ROM stream).
 
-import { $, esc, icon, TOKEN, toast } from "./core.js";
+import { confirmBox } from "./art-images.js";
+import { $, esc, TOKEN, toast } from "./core.js";
 
 /** Manager system folder → EmulatorJS core. Keep in sync with src/games/play-rom.ts. */
 export const PLAY_CORES = {
@@ -16,23 +17,22 @@ const OK = new Set([
 
 const EJS_DATA = "https://cdn.emulatorjs.org/stable/data/";
 
-/** Button index → { id, label } for the session key map UI. */
-const CONTROL_ROWS = [
-  [4, "Up"], [5, "Down"], [6, "Left"], [7, "Right"],
-  [8, "A (confirm)"], [0, "B (back)"], [9, "X"], [1, "Y"],
-  [3, "Start"], [2, "Select"],
-  [10, "L"], [11, "R"],
-];
-
 const DEFAULT_KEYS = {
   0: "x", 1: "s", 2: "shift", 3: "enter",
   4: "up arrow", 5: "down arrow", 6: "left arrow", 7: "right arrow",
   8: "z", 9: "a", 10: "q", 11: "e",
 };
 
+const KEY_PRETTY = {
+  "up arrow": "↑", "down arrow": "↓", "left arrow": "←", "right arrow": "→",
+  enter: "Enter", shift: "Shift", space: "Space", escape: "Esc", tab: "Tab",
+  backspace: "⌫", ctrl: "Ctrl", alt: "Alt", meta: "Meta",
+};
+
 let sessionKeys = { ...DEFAULT_KEYS };
 let bound = false;
 let loaderEl = null;
+let listeningBtn = null;
 
 function extOf(file) {
   const i = file.lastIndexOf(".");
@@ -100,28 +100,111 @@ function focusPlayPlayer() {
   try { host.focus({ preventScroll: true }); } catch { host.focus(); }
 }
 
+function prettyKey(name) {
+  const n = String(name || "").toLowerCase();
+  if (!n) return "—";
+  if (KEY_PRETTY[n]) return KEY_PRETTY[n];
+  return n.length === 1 ? n.toUpperCase() : n;
+}
+
+function bindBtn(index, role, face = "") {
+  const key = sessionKeys[index] ?? "";
+  const faceHtml = face ? `<span class="play-bind-label">${esc(face)}</span>` : "";
+  return `<button type="button" class="play-bind play-bind-${esc(role)}" data-play-key="${index}" data-face="${esc(face)}"
+    title="Click, then press a key" aria-label="${esc(face || role)}: ${esc(prettyKey(key))}">
+    ${faceHtml}<span class="play-bind-key">${esc(prettyKey(key))}</span>
+  </button>`;
+}
+
 function controlsFormHtml() {
-  const rows = CONTROL_ROWS.map(([i, label]) => `<label class="play-key"><span>${esc(label)}</span>
-    <input class="control" type="text" data-play-key="${i}" value="${esc(sessionKeys[i] ?? "")}" spellcheck="false" autocomplete="off"></label>`).join("");
-  return `<details class="play-controls"><summary>Keyboard controls (this session)</summary>
-    <p class="muted-note">Click a field and press a key, or type the EmulatorJS key name (for example <code>up arrow</code>, <code>enter</code>). Changes apply on Restart.</p>
-    <div class="play-key-grid">${rows}</div>
-    <div class="play-controls-actions">
-      <button type="button" class="btn small" data-play="defaults">Reset defaults</button>
-      <button type="button" class="btn small primary" data-play="restart">Restart with these keys</button>
-    </div></details>`;
+  return `<details class="play-controls">
+    <summary><span class="play-controls-title">Keyboard controls</span><span class="play-controls-badge">This session</span></summary>
+    <div class="play-pad">
+      <p class="play-pad-hint">Click a button, then press a key. Apply with <b>Restart with these keys</b>. Click the game screen afterwards so keys reach the emulator.</p>
+      <div class="play-pad-shell" aria-label="Controller key map">
+        <div class="play-pad-shoulders">
+          ${bindBtn(10, "shoulder", "L")}
+          ${bindBtn(11, "shoulder", "R")}
+        </div>
+        <div class="play-pad-main">
+          <div class="play-pad-dpad" aria-label="D-pad">
+            <span class="play-pad-cluster-label">D-pad</span>
+            <div class="play-dpad">
+              <span class="play-dpad-gap"></span>${bindBtn(4, "dir", "Up")}
+              <span class="play-dpad-gap"></span>
+              ${bindBtn(6, "dir", "Left")}<span class="play-dpad-hub" aria-hidden="true"></span>${bindBtn(7, "dir", "Right")}
+              <span class="play-dpad-gap"></span>${bindBtn(5, "dir", "Down")}
+              <span class="play-dpad-gap"></span>
+            </div>
+          </div>
+          <div class="play-pad-meta" aria-label="System">
+            ${bindBtn(2, "meta", "Select")}
+            ${bindBtn(3, "meta", "Start")}
+          </div>
+          <div class="play-pad-face" aria-label="Face buttons">
+            <span class="play-pad-cluster-label">Face</span>
+            <div class="play-face">
+              <span class="play-face-gap"></span>${bindBtn(9, "face", "X")}
+              <span class="play-face-gap"></span>
+              ${bindBtn(1, "face", "Y")}<span class="play-face-hub" aria-hidden="true"></span>${bindBtn(8, "face", "A")}
+              <span class="play-face-gap"></span>${bindBtn(0, "face", "B")}
+              <span class="play-face-gap"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="play-controls-actions">
+        <button type="button" class="btn small" data-play="defaults">Reset defaults</button>
+        <button type="button" class="btn small primary" data-play="restart">Restart with these keys</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+function clearListening() {
+  if (listeningBtn) {
+    listeningBtn.classList.remove("listening");
+    listeningBtn.removeAttribute("aria-pressed");
+    const idx = Number(listeningBtn.dataset.playKey);
+    const keyEl = listeningBtn.querySelector(".play-bind-key");
+    if (keyEl) keyEl.textContent = prettyKey(sessionKeys[idx] ?? "");
+    listeningBtn = null;
+  }
+  const status = document.querySelector(".play-pad-status");
+  if (status) status.hidden = true;
+}
+
+function setListening(btn) {
+  clearListening();
+  listeningBtn = btn;
+  btn.classList.add("listening");
+  btn.setAttribute("aria-pressed", "true");
+  const keyEl = btn.querySelector(".play-bind-key");
+  if (keyEl) keyEl.textContent = "…";
+  let status = document.querySelector(".play-pad-status");
+  if (!status) {
+    status = document.createElement("p");
+    status.className = "play-pad-status";
+    document.querySelector(".play-pad")?.prepend(status);
+  }
+  const face = btn.dataset.face || "Button";
+  status.hidden = false;
+  status.innerHTML = `Listening for <b>${esc(face)}</b> — press a key (<kbd>Esc</kbd> cancels)`;
+  btn.focus({ preventScroll: true });
 }
 
 function readKeysFromForm() {
   const next = { ...sessionKeys };
-  for (const input of document.querySelectorAll("[data-play-key]")) {
-    next[Number(input.dataset.playKey)] = input.value.trim().toLowerCase();
+  for (const el of document.querySelectorAll("[data-play-key]")) {
+    const idx = Number(el.dataset.playKey);
+    if (Number.isFinite(idx) && sessionKeys[idx] !== undefined) next[idx] = sessionKeys[idx];
   }
   sessionKeys = next;
   return sessionKeys;
 }
 
 function teardown() {
+  clearListening();
   try { window.EJS_emulator?.pause?.(); } catch { /* ignore */ }
   try { window.EJS_emulator?.exit?.(); } catch { /* ignore */ }
   if (loaderEl) { loaderEl.remove(); loaderEl = null; }
@@ -181,25 +264,59 @@ export function openPlayBrowser(sys, g) {
   requestAnimationFrame(() => startEmulator(sys, g));
 }
 
+async function requestClosePlay() {
+  const dlg = $("playbrowser");
+  if (!dlg?.open) return;
+  clearListening();
+  const title = $("play-title")?.textContent || "this game";
+  const ok = await confirmBox({
+    title: "Leave this game?",
+    html: `<p>Stop playing <b>${esc(title)}</b> in the browser? Progress in this session is not saved to the handheld.</p>`,
+    ok: "Leave game",
+  });
+  if (ok && dlg.open) dlg.close();
+  else if (dlg.open) focusPlayPlayer();
+}
+
 export function bindPlayBrowser() {
   if (bound) return;
   bound = true;
   const dlg = $("playbrowser");
   dlg?.addEventListener("close", () => teardown());
+  // Esc must not dismiss play — only the close control after confirm.
+  dlg?.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    if (listeningBtn) clearListening();
+  });
   dlg?.addEventListener("click", (e) => {
     if (e.target.closest("#play-ejs") && !e.target.closest("[data-play-key]")) focusPlayPlayer();
   });
   document.addEventListener("click", (e) => {
     const close = e.target.closest("[data-play=\"close\"]");
-    if (close) { dlg?.close(); return; }
+    if (close && dlg?.open) {
+      e.preventDefault();
+      requestClosePlay();
+      return;
+    }
+    const bind = e.target.closest("[data-play-key]");
+    if (bind && dlg?.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (listeningBtn === bind) clearListening();
+      else setListening(bind);
+      return;
+    }
+    if (listeningBtn && !e.target.closest(".play-controls")) clearListening();
     const act = e.target.closest("[data-play]");
     if (!act || !dlg?.open) return;
     if (act.dataset.play === "defaults") {
+      clearListening();
       sessionKeys = { ...DEFAULT_KEYS };
       $("play-controls-wrap").innerHTML = controlsFormHtml();
       return;
     }
     if (act.dataset.play === "restart") {
+      clearListening();
       const cur = dlg.dataset.code && dlg.dataset.file
         ? { code: dlg.dataset.code, file: dlg.dataset.file, name: dlg.dataset.name, title: $("play-title").textContent }
         : null;
@@ -208,21 +325,31 @@ export function bindPlayBrowser() {
     }
   });
   document.addEventListener("keydown", (e) => {
-    if (!dlg?.open) return;
-    const input = e.target.closest("[data-play-key]");
-    if (!input) return;
+    if (!dlg?.open || !listeningBtn) return;
     e.preventDefault();
     e.stopPropagation();
+    if (e.key === "Escape") { clearListening(); return; }
     const name = keyEventName(e);
     if (!name) return;
-    input.value = name;
-    sessionKeys[Number(input.dataset.playKey)] = name;
+    const idx = Number(listeningBtn.dataset.playKey);
+    sessionKeys[idx] = name;
+    const btn = listeningBtn;
+    clearListening();
+    const keyEl = btn.querySelector(".play-bind-key");
+    if (keyEl) keyEl.textContent = prettyKey(name);
+    btn.setAttribute("aria-label", `${btn.dataset.face || "Button"}: ${prettyKey(name)}`);
+    btn.classList.add("just-set");
+    setTimeout(() => btn.classList.remove("just-set"), 450);
   }, true);
 }
 
 function keyEventName(e) {
   const k = e.key;
-  if (!k || k === "Shift" || k === "Control" || k === "Alt" || k === "Meta") return "";
+  if (!k) return "";
+  if (k === "Shift") return "shift";
+  if (k === "Control") return "ctrl";
+  if (k === "Alt") return "alt";
+  if (k === "Meta") return "meta";
   if (k === " ") return "space";
   if (k === "ArrowUp") return "up arrow";
   if (k === "ArrowDown") return "down arrow";

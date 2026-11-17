@@ -182,9 +182,9 @@ const ARTICLES = [
       <b>Neo Geo Pocket</b>, <b>WonderSwan</b> and <b>PC Engine</b>. On a game card, the play control is bottom-left (transfer stays bottom-right);
       in the game view, <b>Play in browser</b> is the primary action when that game is supported.</p>
       <p>The play dialog loads <b>EmulatorJS</b> cores from the EmulatorJS CDN the first time (needs a network connection once; the browser caches them).
-      Your ROM stays on this computer and is streamed locally. You can remap the keyboard for the current session (D-pad, A/B/X/Y, Start/Select, L/R)
-      and restart with those keys. Saves stay in the browser session only — nothing is synced to the handheld yet. Disc sheets
-      (<code>.cue</code>, <code>.m3u</code>) and heavier systems (PlayStation, N64, Dreamcast and so on) are not offered.</p>`],
+      Your ROM stays on this computer and is streamed locally. Open <b>Keyboard controls</b> for a controller-style map: click a button, press a key, then
+      <b>Restart with these keys</b>. Esc does not leave the game — use the close control and confirm. Saves stay in the browser session only.
+      Disc sheets (<code>.cue</code>, <code>.m3u</code>) and heavier systems (PlayStation, N64, Dreamcast and so on) are not offered.</p>`],
     ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
       (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>
       <p>With the handheld connected, cards at the top show whether the game is on it, the core it starts with, how long you have played
