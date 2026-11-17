@@ -203,8 +203,24 @@ function readKeysFromForm() {
   return sessionKeys;
 }
 
+function setPlayFocus(on) {
+  const dlg = $("playbrowser");
+  if (!dlg) return;
+  dlg.classList.toggle("play-focus", !!on);
+  dlg.querySelectorAll('[data-play="focus"]').forEach((btn) => {
+    const focused = !!on;
+    btn.setAttribute("aria-pressed", focused ? "true" : "false");
+    if (btn.closest(".play-head-actions")) {
+      btn.title = focused ? "Show controls" : "Focus on game";
+      btn.setAttribute("aria-label", focused ? "Show controls" : "Focus on game");
+    }
+  });
+  if (on) requestAnimationFrame(() => focusPlayPlayer());
+}
+
 function teardown() {
   clearListening();
+  setPlayFocus(false);
   try { window.EJS_emulator?.pause?.(); } catch { /* ignore */ }
   try { window.EJS_emulator?.exit?.(); } catch { /* ignore */ }
   if (loaderEl) { loaderEl.remove(); loaderEl = null; }
@@ -259,6 +275,7 @@ export function openPlayBrowser(sys, g) {
   $("play-sub").textContent = `${sys.name || sys.code} · ${g.f} · needs a network connection the first time for emulator cores`;
   $("play-controls-wrap").innerHTML = controlsFormHtml();
   const dlg = $("playbrowser");
+  setPlayFocus(false);
   if (!dlg.open) dlg.showModal();
   // Let the dialog paint at full size before EmulatorJS measures #play-ejs.
   requestAnimationFrame(() => startEmulator(sys, g));
@@ -296,6 +313,12 @@ export function bindPlayBrowser() {
     if (close && dlg?.open) {
       e.preventDefault();
       requestClosePlay();
+      return;
+    }
+    const focusBtn = e.target.closest("[data-play=\"focus\"]");
+    if (focusBtn && dlg?.open) {
+      e.preventDefault();
+      setPlayFocus(!dlg.classList.contains("play-focus"));
       return;
     }
     const bind = e.target.closest("[data-play-key]");

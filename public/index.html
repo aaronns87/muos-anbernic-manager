@@ -370,12 +370,17 @@
   </div>
 </dialog>
 <dialog id="playbrowser" class="playbrowser" aria-labelledby="play-title">
-  <header class="help-head">
+  <header class="help-head play-head">
     <div>
       <h2 id="play-title">Play</h2>
       <p id="play-sub" class="muted-note"></p>
     </div>
-    <button type="button" class="icon-btn help-x" data-play="close" aria-label="Leave game"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <div class="play-head-actions">
+      <button type="button" class="icon-btn" data-play="focus" title="Focus on game" aria-label="Focus on game" aria-pressed="false">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3 14 10"/><path d="m3 21 7-7"/></svg>
+      </button>
+      <button type="button" class="icon-btn help-x" data-play="close" aria-label="Leave game"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
   </header>
   <div class="play-body">
     <div id="play-ejs" class="play-ejs"></div>
@@ -386,6 +391,14 @@
     <span class="grow"></span>
     <button type="button" class="btn" data-play="close">Leave game</button>
   </footer>
+  <div class="play-float" aria-label="Play controls">
+    <button type="button" class="icon-btn" data-play="focus" title="Show controls" aria-label="Show controls" aria-pressed="true">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="m14 10 7-7"/><path d="M3 21l7-7"/></svg>
+    </button>
+    <button type="button" class="icon-btn" data-play="close" title="Leave game" aria-label="Leave game">
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
 </dialog>
 <dialog id="transfer" aria-labelledby="t-title">
   <div class="t-body">
