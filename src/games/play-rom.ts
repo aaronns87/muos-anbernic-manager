@@ -1,4 +1,4 @@
-// Stream a library ROM for in-browser EmulatorJS play (light systems only).
+// Stream a library ROM for in-browser EmulatorJS play (cartridge / light systems).
 
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -6,31 +6,55 @@ import { ctx } from "../context.ts";
 import { UserError } from "../errors.ts";
 import { inside, safePart, splitName } from "../util.ts";
 
-/** Manager system folder → EmulatorJS core id. */
+/**
+ * Manager system folder → EmulatorJS core id.
+ * Keep in sync with public/js/play-browser.js. Disc / heavy systems stay out.
+ */
 export const PLAY_CORES: Record<string, string> = {
+  // Nintendo
   GB: "gb",
   GBC: "gb",
   GBA: "gba",
   FC: "nes",
+  FDS: "nes",
   SFC: "snes",
+  VB: "vb",
+  // Sega
   SMS: "segaMS",
   GG: "segaGG",
   MD: "segaMD",
-  NGP: "ngp",
-  WS: "ws",
+  SEGA32X: "sega32x",
+  // NEC / Bandai / SNK
   PCE: "pce",
+  WS: "ws",
+  NGP: "ngp",
+  // Atari
+  A2600: "atari2600",
+  A5200: "a5200",
+  A7800: "atari7800",
+  LYNX: "lynx",
+  // Commodore
+  C64: "c64",
+  VIC20: "vic20",
 };
 
-const BLOCKED_EXT = new Set(["cue", "m3u", "ccd", "toc", "gdi", "chd", "iso", "bin", "img", "wav", "ogg", "mp3"]);
+const BLOCKED_EXT = new Set(["cue", "m3u", "ccd", "toc", "gdi", "chd", "iso", "img", "wav", "ogg", "mp3"]);
 
 const OK_EXT = new Set([
+  // Nintendo
   "gb", "gbc", "gba", "nes", "unf", "unif", "fds",
   "smc", "sfc", "fig", "swc",
-  "sms", "gg", "md", "gen", "smd",
-  "ngp", "ngc", "npc",
-  "ws", "wsc",
-  "pce",
-  "zip", "7z",
+  "vb", "vboy",
+  // Sega
+  "sms", "gg", "md", "gen", "smd", "32x",
+  // NEC / Bandai / SNK
+  "pce", "ws", "wsc", "ngp", "ngc", "npc",
+  // Atari
+  "a26", "a52", "a78", "lnx", "lyx",
+  // Commodore
+  "d64", "t64", "crt", "prg", "tap",
+  // Shared / archives (and Atari/32X loose dumps)
+  "bin", "rom", "zip", "7z",
 ]);
 
 export function playCoreFor(code: string): string | "" {

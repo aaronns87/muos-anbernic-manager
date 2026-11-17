@@ -47,9 +47,10 @@ per-session token. Nothing is uploaded anywhere.
   Add games by drag and drop, copy them to the handheld, see what is on the device and what is missing, and remove games.
   **Update handheld…** plans scrape, artwork sync and copying games that are not on the device yet.
   **Free & homebrew** (under Add games) downloads curated legal freeware into the right `Roms/` system folder.
-  **Play in browser** on light systems (GB, GBC, GBA, NES/FC, SNES/SFC, SMS, GG, Mega Drive, Neo Geo Pocket, WonderSwan, PC Engine)
+  **Play in browser** on cartridge-era systems (Game Boy family, NES/FDS, SNES, Virtual Boy, Master System, Game Gear,
+  Mega Drive, 32X, PC Engine, WonderSwan, Neo Geo Pocket, Atari 2600/5200/7800/Lynx, C64, VIC-20)
   opens EmulatorJS in a modal; cores load from the EmulatorJS CDN on first use (needs network once; browser caches them).
-  Session keyboard remapping only — no save sync with the handheld yet.
+  Session keyboard remapping only — no save sync with the handheld yet. Disc and heavy systems stay handheld-only.
 - **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
   with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves (with
   per-game pull, push, delete and prune). Related games (other versions, series, developer, genre) are one click away.

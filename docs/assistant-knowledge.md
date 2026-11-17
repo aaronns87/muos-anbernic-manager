@@ -131,7 +131,7 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 ### Play in browser
 
-Light systems only: GB, GBC, GBA, FC (NES), SFC (SNES), SMS, GG, MD, NGP, WS, PCE. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. No handheld save sync. Hidden for `.cue`/`.m3u` and heavy/disc systems.
+Cartridge-era systems: GB, GBC, GBA, FC, FDS, SFC, VB, SMS, GG, MD, SEGA32X, PCE, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. No handheld save sync. Hidden for `.cue`/`.m3u` and heavy/disc systems (PS, N64, Saturn, Dreamcast, PSP, NDS, arcade, …).
 
 ### Game viewer
 

@@ -5,14 +5,21 @@ import { $, esc, TOKEN, toast } from "./core.js";
 
 /** Manager system folder → EmulatorJS core. Keep in sync with src/games/play-rom.ts. */
 export const PLAY_CORES = {
-  GB: "gb", GBC: "gb", GBA: "gba", FC: "nes", SFC: "snes",
-  SMS: "segaMS", GG: "segaGG", MD: "segaMD", NGP: "ngp", WS: "ws", PCE: "pce",
+  GB: "gb", GBC: "gb", GBA: "gba", FC: "nes", FDS: "nes", SFC: "snes", VB: "vb",
+  SMS: "segaMS", GG: "segaGG", MD: "segaMD", SEGA32X: "sega32x",
+  PCE: "pce", WS: "ws", NGP: "ngp",
+  A2600: "atari2600", A5200: "a5200", A7800: "atari7800", LYNX: "lynx",
+  C64: "c64", VIC20: "vic20",
 };
 
-const BLOCKED = new Set(["cue", "m3u", "ccd", "toc", "gdi", "chd", "iso", "bin", "img", "wav", "ogg", "mp3"]);
+const BLOCKED = new Set(["cue", "m3u", "ccd", "toc", "gdi", "chd", "iso", "img", "wav", "ogg", "mp3"]);
 const OK = new Set([
-  "gb", "gbc", "gba", "nes", "unf", "unif", "fds", "smc", "sfc", "fig", "swc",
-  "sms", "gg", "md", "gen", "smd", "ngp", "ngc", "npc", "ws", "wsc", "pce", "zip", "7z",
+  "gb", "gbc", "gba", "nes", "unf", "unif", "fds", "smc", "sfc", "fig", "swc", "vb", "vboy",
+  "sms", "gg", "md", "gen", "smd", "32x",
+  "ngp", "ngc", "npc", "ws", "wsc", "pce",
+  "a26", "a52", "a78", "lnx", "lyx",
+  "d64", "t64", "crt", "prg", "tap",
+  "bin", "rom", "zip", "7z",
 ]);
 
 const EJS_DATA = "https://cdn.emulatorjs.org/stable/data/";
