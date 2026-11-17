@@ -6,6 +6,10 @@ import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
 import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
+import { bindTips, checkTips } from "./tips.js";
+import { bindSideFlyout, hideSideFlyout, syncSideFlyout } from "./side-flyout.js";
+import { bindDigest, bindProfiles } from "./profiles.js";
+import { bindUpToDate } from "./uptodate.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
@@ -17,6 +21,7 @@ import { showSsh } from "./ssh.js";
 import { showSettings } from "./settings.js";
 import { bindSystem, showSystem, watchSystemJob } from "./system.js";
 import { bindAddGames } from "./add-games.js";
+import { bindPlayBrowser } from "./play-browser.js";
 import { showDevice } from "./device-section.js";
 import { showApps, countApps } from "./apps.js";
 import { bindOs, showOs, countOs } from "./os.js";
@@ -115,9 +120,11 @@ function setSideMin(min, animate = true) {
   if (!animate) { void shell.offsetWidth; shell.style.transition = ""; }
   store.set("sideMin", min);
   const t = $("side-toggle"), label = min ? "Expand sidebar" : "Collapse sidebar";
-  t.title = `${label} ([)`;
-  t.setAttribute("aria-label", label);
+  t.removeAttribute("title");
+  t.setAttribute("aria-label", `${label} ([)`);
   t.setAttribute("aria-expanded", String(!min));
+  syncSideFlyout();
+  if (!min) hideSideFlyout();
 }
 
 function go(el) {
@@ -231,17 +238,23 @@ applyView();
 setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
 bindShared();
+bindSideFlyout();
+bindProfiles();
+bindDigest();
+bindUpToDate();
 bindUi();
 bindModelPicker();
 bindGames();
 bindCopy();
 bindChat();
 bindWhatsNew();
+bindTips();
 bindArtwork();
 bindArtworkView();
 bindSystem();
 bindOs();
 bindAddGames();
+bindPlayBrowser();
 showSection();
 
 if (!TOKEN) {
@@ -253,7 +266,7 @@ if (!TOKEN) {
   startLibraryLoad();
   refreshDevice();
   loadChatConfig();
-  checkWizard().then(() => checkWhatsNew());
+  checkWizard().then(() => checkWhatsNew().then(() => checkTips()));
   startManagerChecks();
   if (section() !== "apps") countApps();
   if (section() !== "os") countOs();

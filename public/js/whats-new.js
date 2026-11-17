@@ -1,6 +1,7 @@
 // Shows CHANGELOG notes once after the manager version goes up (see `.cache/seen-version`).
 
-import { $, api, esc, icon } from "./core.js";
+import { $, api, esc } from "./core.js";
+import { checkTips } from "./tips.js";
 
 let bound = false;
 
@@ -32,6 +33,7 @@ function render(data) {
 async function dismiss() {
   try { await api("whats-new/dismiss", {}); } catch {}
   $("whats-new")?.close();
+  checkTips();
 }
 
 export function openWhatsNew(data) {

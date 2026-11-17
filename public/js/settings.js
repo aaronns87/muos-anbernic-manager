@@ -9,6 +9,7 @@ import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
 import { reloadOs } from "./os.js";
 import { openWizard } from "./wizard.js";
+import { openTips, setTipsOnStartup, tipsOnStartup } from "./tips.js";
 import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
 import { forgetPlay } from "./play.js";
@@ -17,6 +18,7 @@ import {
   ZOOM_LEVELS, SCHEME_ROLES, defaultRoles, loadCustomSchemes, saveCustomSchemes, schemeChips,
   rolesToVars, applyVars, newSchemeId, resolveSchemeId,
 } from "./appearance.js";
+import { recipesPanelHtml, bindRecipes } from "./recipes.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -34,7 +36,7 @@ const s = {
 
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups, themes and logs"],
-  ["behaviour", "sliders", "Behaviour", "Copying, startup, updates and uploaded artwork size"],
+  ["behaviour", "sliders", "Behaviour", "Copying, library recipes, startup, updates and uploaded artwork size"],
   ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
   ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
@@ -113,7 +115,7 @@ function render() {
   const d = s.data, [tab, , , sub] = settingsTab();
   $("settings-sub").textContent = sub;
   const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
-    : tab === "behaviour" ? `${copyPanel(d)}${imagesPanel()}`
+    : tab === "behaviour" ? `${copyPanel(d)}${recipesPanelHtml()}${imagesPanel()}`
     : tab === "appearance" ? appearancePanels()
     : tab === "assistant" ? assistantPanel()
     : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}`
@@ -294,6 +296,10 @@ function copyPanel(d) {
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
+    + `<div class="set-row"><span><b>Show tips at start</b><small>After the setup wizard and What's new, open the Hints and tips walkthrough. You can also turn this off in the tips dialog.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" data-set-tips${tipsOnStartup() ? " checked" : ""}><span class="switch-track"></span></span></div>`
+    + `<div class="set-row"><span><b>Hints and tips</b><small>Walk through the manager's main features again.</small></span>
+      <button class="btn" data-set="tips">${icon("star")}<span>Open tips</span></button></div>`
     + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
       "Every few hours the manager reads the version number on GitHub and shows Update in the top bar when there is a newer one. Nothing else is sent.")
     + shortcutRow(d.shortcut, "set", s.working === "shortcut", !!s.working));
@@ -959,6 +965,7 @@ function bind() {
   bindKnowledgeDialog();
   bindSchemeEditor();
   const root = $("view-settings");
+  bindRecipes(root);
   $("settings-tabs")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-settings-tab]");
     if (!b || b.classList.contains("on")) return;
@@ -1025,6 +1032,7 @@ function bind() {
     if (action === "browse") browse(s.data.folders[which].path, which);
     else if (action === "cancel") { s.browse = null; render(); }
     else if (action === "wizard") openWizard();
+    else if (action === "tips") openTips({ force: true });
     else if (action === "shortcut") makeShortcut();
     else if (action === "reset") factoryReset();
     else if (action === "appearance-reset") resetAppearance();
@@ -1062,6 +1070,10 @@ function bind() {
       app.ui.compact = t.checked;
       store.set("compact", app.ui.compact);
       applyView();
+    }
+    else if (t.dataset.setTips !== undefined) {
+      setTipsOnStartup(t.checked);
+      toast(t.checked ? "Tips will show at start" : "Tips will not show at start", 2200);
     }
     else if (t.dataset.setArtmax !== undefined) { artMax.set(t.value); toast("Saved"); }
     else if (t.dataset.setDate !== undefined) { app.ui.dateFormat = t.value; store.set("dateFormat", t.value); renderStatusbar(); }

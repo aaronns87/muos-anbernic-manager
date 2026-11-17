@@ -42,12 +42,23 @@ per-session token. Nothing is uploaded anywhere.
 ## Features
 
 **Library**
-- **Games**: browse the whole `Roms/` library by system, with search, filters (artwork, genre, rating, year) and grid or list views.
+- **Games**: browse the whole `Roms/` library by system, with search, filters (artwork, genre, rating, year), **favourites**
+  and **smart lists** (never copied, no art, bad dump, needs tuning, on device only) and grid or list views.
   Add games by drag and drop, copy them to the handheld, see what is on the device and what is missing, and remove games.
+  **Update handheld…** plans scrape, artwork sync and copying games that are not on the device yet.
+  **Free & homebrew** (under Add games) downloads curated legal freeware into the right `Roms/` system folder.
+  **Play in browser** on cartridge, disc and heavy systems EmulatorJS supports (Game Boy family, NES/FDS, SNES, Virtual Boy,
+  N64, DS, Master System, Game Gear, Mega Drive, 32X, Sega CD, Saturn, PC Engine/CD, WonderSwan, Neo Geo Pocket,
+  Atari 2600/5200/7800/Lynx, C64, VIC-20, PlayStation, PSP) opens EmulatorJS in a modal; cores load from the EmulatorJS CDN
+  on first use (needs network once; browser caches them). Disc games stream locally (CHD/ISO/cue+tracks); PS / Sega CD /
+  Saturn / PCE CD need BIOS in `bios/`. While the play window is open, arrow keys, space and page keys stay with the game
+  (the library behind does not scroll). Session keyboard remapping only — no save sync with the handheld yet.
+  Dreamcast and arcade stay handheld-only.
 - **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
-  with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves. Related
-  games (other versions, series, developer, genre) are one click away. You can write your own description, drop in new
-  artwork, or **rename the ROM file** from Details (matching artwork and descriptions rename with it).
+  with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves (with
+  per-game pull, push, delete and prune). Related games (other versions, series, developer, genre) are one click away.
+  You can write your own description, drop in new artwork, or **rename the ROM file** from Details (matching artwork and
+  descriptions rename with it). **Play in browser** appears for the same supported systems as on the game cards.
 - **Artwork**: fetch box art, screenshots and descriptions for every game (libretro thumbnails, LaunchBox Games Database),
   in the size your handheld's screen needs, and sync them to the device.
 - **OS**: local MustardOS release folders under `os/mustardos_<version>/`, add or remove images, release notes, and
@@ -57,6 +68,9 @@ per-session token. Nothing is uploaded anywhere.
   one-click download, and the PortMaster catalogue with install and uninstall over Wi-Fi.
 
 **Handheld**
+- **Connection**: Wi-Fi setup as **Handheld on this network** (status, sign-in details, Save and connect, Find on network),
+  named **device profiles**, web services status with **Open Syncthing** when reachable, and an optional wait until
+  Syncthing is idle before large copies. Overview **Since last connect** summarises what changed since the last live link.
 - **Apps**: an app market of popular MustardOS apps and packages (including Void Desk, Dolphin Rt:Core and MustardTube) with
   screenshots and release notes, picking the package for your handheld and MustardOS release; install `.muxapp` apps
   and `.muxupd` updates, and check for new MustardOS releases.
@@ -68,12 +82,13 @@ per-session token. Nothing is uploaded anywhere.
   variants and screen sizes. Themes are kept in the `themes/` folder; export them as `.muxthm` or install and apply them.
   Failed autosaves keep your edits in the editor with **Retry**; switching themes, exporting and installing wait until they save.
 - **Emulation**: back up and restore saves and save states (including Andromeda **`.muxbak`** device backups in
-  `ARCHIVE` when `backup.sh` is present), check BIOS files in the workspace `bios/` folder (**Fix names** corrects
-  casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game (Andromeda reads
-  `info/manifest/core.json`; Jacaranda used `info/assign`), edit RetroArch picture/play and Menu+X **core options**
-  per folder, and run a health check of your library (verify dumps, duplicates, and PlayStation **disc layouts** for
-  orphaned `.bin` / broken `.cue` sheets / archives, with **Fix…** and **Convert to CHD** when `p7zip` / `chdman` are
-  installed). **Systems** lists every system with what the handheld can run, and why a system is missing when it cannot.
+  `ARCHIVE` when `backup.sh` is present, plus a per-game **save browser**), check BIOS files in the workspace `bios/`
+  folder (**Fix names** corrects casing like `SCPH5501.BIN` → `scph5501.bin`), choose emulator cores per system or game
+  (Andromeda reads `info/manifest/core.json`; Jacaranda used `info/assign`), edit RetroArch picture/play and Menu+X
+  **core options** per folder, and run a health check of your library (verify dumps, duplicates, and PlayStation
+  **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Make playlist…** for multi-disc sets,
+  **Fix…** and **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the
+  handheld can run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
   Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
 - **Game Tuning**: per-game Menu+X core options for any RetroArch core (full catalogue from the handheld; presets for
@@ -98,12 +113,16 @@ per-session token. Nothing is uploaded anywhere.
 **Manager**
 - **Wiki**: built-in help for every page, a glossary and troubleshooting. Sits under Overview in the sidebar
   (shortcuts <kbd>2</kbd> or <kbd>0</kbd>); every page also has a **?** button for its article.
-- **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour**, **Appearance**
-  (theme, colour schemes, zoom, Softer style, compact layout, digital or analog clock), **Assistant** (API key, model,
-  system prompt, view knowledge base), **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour** (show tips at start,
+  **library recipes** that chain scrape / copy / rescan after add games or scrape), **Appearance** (theme, colour schemes,
+  zoom, Softer style, compact layout, digital or analog clock), **Assistant** (API key, model, system prompt, view
+  knowledge base), **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Hints and tips**: a short graphical walkthrough of the main features after the setup wizard and What's new. Uncheck
+  **Show tips when the manager starts** in the dialog or under Settings → Behaviour; reopen from Help (<kbd>?</kbd>) or
+  Behaviour → Open tips.
 - **Logs**: application diagnostics written to workspace `logs/` as daily JSONL files. Search, filter by level or day,
-  expand stacks, export, clear, and open the folder. Captures errors, warnings, exceptions, manager actions and browser faults
-  (separate from Overview **Recent activity**).
+  expand stacks, export, **Support pack** (zip for bug reports), clear, and open the folder. Captures errors, warnings,
+  exceptions, manager actions and browser faults (separate from Overview **Recent activity**).
 - **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
   base plus your library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the
   bottom-right corner or **Assistant** in the top bar. View the knowledge base read-only from Settings → Assistant.
@@ -119,37 +138,61 @@ per-session token. Nothing is uploaded anywhere.
 ## Screenshots
 
 <p align="center"><img src="docs/screenshots/overview.jpg" width="100%" alt="Overview"></p>
-<p align="center"><em>Overview: the connected handheld, its cards and free space, and how much of your library is on the device.</em></p>
+<p align="center"><em>Overview: library tasks while offline, Roms/ counts, artwork coverage and what to do next — connect when you want to transfer.</em></p>
 
 <p align="center"><img src="docs/screenshots/game.jpg" width="100%" alt="Game details"></p>
-<p align="center"><em>The game view: box art, description, rating and library check, the game's state on the handheld (core, play time, saves), and tabs for details, handheld data and related games.</em></p>
+<p align="center"><em>Game view: box art, description, rating and library check, with tabs for details, handheld data and related games.</em></p>
 
 <p align="center"><img src="docs/screenshots/artwork.jpg" width="100%" alt="Artwork coverage"></p>
 <p align="center"><em>Artwork: coverage per system, scraping what is missing, and syncing box art with the handheld.</em></p>
 
-<p align="center"><img src="docs/screenshots/designer.jpg" width="100%" alt="Theme Designer quick style"></p>
-<p align="center"><em>Theme Designer: start from a catalogue theme or a blank one, pick a palette and see the handheld's screens update live.</em></p>
+<p align="center"><img src="docs/screenshots/os.jpg" width="100%" alt="OS library"></p>
+<p align="center"><em>OS: local MustardOS release folders, release notes and the OS market for official downloads.</em></p>
 
-<p align="center"><img src="docs/screenshots/designer-edit.jpg" width="100%" alt="Theme Designer scheme settings"></p>
-<p align="center"><em>Theme Designer: every scheme setting MustardOS reads, grouped by part of the screen, with the preview following the screen you edit.</em></p>
-
-<p align="center"><img src="docs/screenshots/themes.jpg" width="100%" alt="Theme browser"></p>
-<p align="center"><em>Themes: the MustardOS community themes that fit your screen, ready to preview, install and apply.</em></p>
-
-<p align="center"><img src="docs/screenshots/tuning.jpg" width="100%" alt="Game Tuning"></p>
-<p align="center"><em>Game Tuning: per-game emulator settings and CPU governor, with Fastest, Balanced and Best looking presets and a recommendation for known heavy games.</em></p>
-
-<p align="center"><img src="docs/screenshots/emulation.jpg" width="100%" alt="Emulation systems"></p>
-<p align="center"><em>Emulation: which systems the handheld can run, and how to get the missing ones going. Saves, BIOS, cores, RetroArch and the library check sit in the other tabs.</em></p>
+<p align="center"><img src="docs/screenshots/play.jpg" width="100%" alt="Play activity"></p>
+<p align="center"><em>Play activity: play time, recently played games and collections from the handheld.</em></p>
 
 <p align="center"><img src="docs/screenshots/apps.jpg" width="100%" alt="App market"></p>
 <p align="center"><em>Apps: the app market with screenshots and release notes, picking the right package for your handheld.</em></p>
 
 <p align="center"><img src="docs/screenshots/handheld.jpg" width="100%" alt="Device"></p>
-<p align="center"><em>Device: Settings, Controls (live sticks and calibration) and Benchmark over Wi-Fi with SSH.</em></p>
+<p align="center"><em>Device: MustardOS settings, Controls and Benchmark over Wi-Fi with SSH (needs the handheld reachable).</em></p>
+
+<p align="center"><img src="docs/screenshots/themes.jpg" width="100%" alt="Theme browser"></p>
+<p align="center"><em>Themes: the MustardOS community themes that fit your screen, ready to preview, install and apply.</em></p>
+
+<p align="center"><img src="docs/screenshots/designer.jpg" width="100%" alt="Theme Designer quick style"></p>
+<p align="center"><em>Theme Designer: Quick style palettes and colours with a live preview of the handheld's main menu.</em></p>
+
+<p align="center"><img src="docs/screenshots/designer-edit.jpg" width="100%" alt="Theme Designer scheme settings"></p>
+<p align="center"><em>Theme Designer: every scheme setting MustardOS reads, grouped by part of the screen, with the preview following along.</em></p>
+
+<p align="center"><img src="docs/screenshots/emulation.jpg" width="100%" alt="Emulation systems"></p>
+<p align="center"><em>Emulation: which systems the handheld can run. Saves, BIOS, cores, RetroArch and the library check sit in the other tabs.</em></p>
+
+<p align="center"><img src="docs/screenshots/files.jpg" width="100%" alt="Files"></p>
+<p align="center"><em>Files: this computer and the handheld side by side — copy, rename, delete, preview and edit.</em></p>
+
+<p align="center"><img src="docs/screenshots/tuning.jpg" width="100%" alt="Game Tuning"></p>
+<p align="center"><em>Game Tuning: per-game emulator settings, cheats and CPU governor, with Fastest, Balanced and Best looking presets.</em></p>
+
+<p align="center"><img src="docs/screenshots/system.jpg" width="100%" alt="System Tools"></p>
+<p align="center"><em>System Tools: install MustardOS, set up TF2 or wipe a card, with confirmations and live progress.</em></p>
+
+<p align="center"><img src="docs/screenshots/terminal.jpg" width="100%" alt="Terminal"></p>
+<p align="center"><em>Terminal: an SSH shell on the handheld in the browser, plus a quick look at its system.</em></p>
+
+<p align="center"><img src="docs/screenshots/appearance.jpg" width="100%" alt="Settings Appearance"></p>
+<p align="center"><em>Settings → Appearance: colour schemes (including custom), Softer style, zoom, compact layout and clock.</em></p>
 
 <p align="center"><img src="docs/screenshots/settings.jpg" width="100%" alt="Settings Assistant"></p>
 <p align="center"><em>Settings → Assistant: bring-your-own-key chat, Edit prompt and View knowledge base.</em></p>
+
+<p align="center"><img src="docs/screenshots/logs.jpg" width="100%" alt="Logs"></p>
+<p align="center"><em>Logs: application diagnostics in the workspace logs/ folder — search, filter, export and clear.</em></p>
+
+<p align="center"><img src="docs/screenshots/wiki.jpg" width="100%" alt="Wiki"></p>
+<p align="center"><em>Wiki: built-in help for every section, glossary and troubleshooting (also under Overview in the sidebar).</em></p>
 
 <p align="center"><img src="docs/screenshots/wizard.jpg" width="100%" alt="Setup wizard"></p>
 <p align="center"><em>Setup wizard: the first start asks for your handheld, folders and connection.</em></p>
@@ -381,6 +424,7 @@ the tests and type check first, and keep changes that write to the handheld behi
 - [ScummVM](https://www.scummvm.org/) and the authors who released their games for free.
 - [xterm.js](https://xtermjs.org/), [ssh2](https://github.com/mscdex/ssh2), [koffi](https://koffi.dev/), [libmtp](https://libmtp.sourceforge.net/),
   [saxes](https://github.com/lddubeau/saxes) and [yauzl](https://github.com/thejoshwolfe/yauzl).
+- [EmulatorJS](https://emulatorjs.org/) (GPL-3.0) for in-browser play; cores load from their CDN.
 
 This project is not affiliated with MustardOS, Anbernic or TrimUI.
 

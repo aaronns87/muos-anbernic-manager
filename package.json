@@ -1,6 +1,6 @@
 {
   "name": "muos-anbernic-manager",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Local manager for Anbernic and TrimUI handhelds running MustardOS: games, artwork, apps, themes, ports and settings over a card reader, USB or Wi-Fi.",
   "license": "AGPL-3.0-or-later",
   "repository": {
@@ -16,9 +16,12 @@
   "scripts": {
     "start": "node src/main.ts",
     "check": "tsc --noEmit -p .",
+    "smoke": "bash scripts/smoke.sh",
+    "smoke:full": "SMOKE_BROWSER=1 bash scripts/smoke.sh",
     "test": "node --test test/*.test.ts"
   },
   "dependencies": {
+    "@emulatorjs/emulatorjs": "^4.2.3",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-unicode11": "^0.9.0",

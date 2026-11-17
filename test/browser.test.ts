@@ -89,10 +89,12 @@ before(async () => {
   cdp.attach(sessionId);
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
-  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem("manager.mode", JSON.stringify("card"));` });
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem("manager.mode", JSON.stringify("card"));
+localStorage.setItem("manager.tipsOnStartup", JSON.stringify(false));` });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: `${srv.base}/?token=${srv.token}#overview` });
   await cdp.until(`document.readyState === "complete" && !!document.querySelector('a[href="#games"]')`);
+  await cdp.eval(`document.getElementById("tips")?.close(); document.getElementById("whats-new")?.close(); document.getElementById("wizard")?.close()`);
 });
 
 after(async () => {
@@ -175,6 +177,23 @@ test("sidebar order and number keys follow the sections", { skip: !CHROME && "Ch
   }
 });
 
+test("collapsed sidebar shows a rich hover tab instead of a title tooltip", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.eval(`document.getElementById("side-toggle").click()`);
+  await cdp.until(`document.body.classList.contains("side-min")`);
+  assert.equal(await cdp.eval<string | null>(`document.querySelector('.section-link[data-section="games"]').getAttribute("title")`), null);
+  await cdp.eval(`document.querySelector('.section-link[data-section="games"]').dispatchEvent(new PointerEvent("pointerover", { bubbles: true }))`);
+  await cdp.until(`!!document.getElementById("side-flyout") && !document.getElementById("side-flyout").hidden`);
+  const text = await cdp.eval<string>(`document.getElementById("side-flyout").innerText`);
+  assert.match(text, /Games/);
+  assert.match(text, /game/i);
+  await cdp.eval(`document.getElementById("side-toggle").click()`);
+  await cdp.until(`!document.body.classList.contains("side-min")`);
+  assert.equal(await cdp.eval<boolean>(`!document.getElementById("side-flyout") || document.getElementById("side-flyout").hidden`), true);
+  assert.deepEqual(errors(), []);
+});
+
 test("shared tabs support keyboard navigation and Settings folders use a desktop grid", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
@@ -190,6 +209,29 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   await cdp.eval(`document.querySelector('[data-skip-content]').click()`);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "main-content");
   assert.equal(await cdp.eval<string>(`location.hash`), "#settings/folders");
+});
+
+test("Hints and tips carousel advances and remembers the startup preference", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`location.hash = "#settings/behaviour"`);
+  await cdp.until(`!!document.querySelector('[data-set="tips"]')`);
+  await cdp.eval(`document.querySelector('[data-set="tips"]').click()`);
+  await cdp.until(`document.getElementById("tips")?.open === true`);
+  assert.match(await cdp.eval<string>(`document.getElementById("tips-sub").textContent`), /Tip 1 of/);
+  await cdp.eval(`document.getElementById("tips-next").click()`);
+  await cdp.until(`document.getElementById("tips-sub").textContent.includes("Tip 2 of")`);
+  await cdp.eval(`(() => { const box = document.getElementById("tips-startup"); box.checked = false; box.dispatchEvent(new Event("change", { bubbles: true })); document.querySelector('[data-tips="close"]').click(); })()`);
+  await cdp.until(`!document.getElementById("tips").open`);
+  assert.equal(await cdp.eval<boolean>(`JSON.parse(localStorage.getItem("manager.tipsOnStartup")) === false`), true);
+  await cdp.eval(`document.querySelector("[data-help]").click()`);
+  await cdp.until(`document.getElementById("help")?.open === true`);
+  await cdp.eval(`document.getElementById("help-tips").click()`);
+  await cdp.until(`document.getElementById("tips")?.open === true && !document.getElementById("help").open`);
+  assert.match(await cdp.eval<string>(`document.getElementById("tips-stage").innerText`), /Welcome to the manager|Connect how you like/);
+  await cdp.eval(`document.querySelector('[data-tips="close"]').click()`);
+  await cdp.until(`!document.getElementById("tips").open`);
+  await cdp.eval(`document.getElementById("help-wiki").innerHTML = ""`);
+  assert.deepEqual(errors(), []);
 });
 
 test("Settings Appearance applies colour scheme and zoom", { skip: !CHROME && "Chrome not found" }, async () => {
@@ -341,11 +383,11 @@ test("Designer keeps failed edits until Retry succeeds and blocks switching and 
 
 test("wiki search narrows the pages and the table of contents", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.eval(`location.hash = "#wiki"`);
-  await cdp.until(`document.querySelectorAll(".wiki-article").length > 10`);
+  await cdp.until(`document.querySelectorAll("#wiki .wiki-article").length > 10`);
   await cdp.eval(`(() => { const q = document.getElementById("wiki-q"); q.value = "bios"; q.dispatchEvent(new Event("input", { bubbles: true })); })()`);
-  const ids = await cdp.eval<string[]>(`[...document.querySelectorAll(".wiki-article")].map((a) => a.id)`);
+  const ids = await cdp.eval<string[]>(`[...document.querySelectorAll("#wiki .wiki-article")].map((a) => a.id)`);
   assert.ok(ids.includes("wiki-emulation") && !ids.includes("wiki-artwork"), ids.join());
-  assert.equal(await cdp.eval<number>(`document.querySelectorAll(".wiki-toc a").length`), ids.length);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll("#wiki .wiki-toc a").length`), ids.length);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "wiki-q");
   assert.deepEqual(errors(), []);
 });
@@ -444,6 +486,23 @@ test("direct tab routes restore history and expose labelled panels and choices",
   assert.ok(await cdp.eval<boolean>(`document.getElementById('sys-go').disabled && !document.querySelector('.sys-prerequisites').open`));
 });
 
+test("Wi-Fi form shows Save and connect as primary and Find on network as secondary", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`location.hash = "#overview"`);
+  await cdp.until(`!!document.querySelector(".wifi-form, [data-conn-panel]")`);
+  await cdp.eval(`document.querySelector("[data-conn-panel]")?.click()`);
+  await cdp.until(`!!document.querySelector("#sb-conn-panel .wifi-form") || !!document.querySelector(".wifi-form")`);
+  const form = `#sb-conn-panel .wifi-form, .wifi-form`;
+  await cdp.until(`!!document.querySelector("${form.split(",")[0].trim()}") || !!document.querySelector(".wifi-form .wifi-save")`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".wifi-form-title") && document.querySelector(".wifi-form-title").textContent.includes("Handheld on this network")`));
+  assert.ok(await cdp.eval<boolean>(`document.querySelector(".wifi-save")?.classList.contains("primary")`));
+  assert.match(await cdp.eval<string>(`document.querySelector(".wifi-save")?.textContent || ""`), /Save and connect/);
+  assert.match(await cdp.eval<string>(`document.querySelector(".wifi-find")?.textContent || ""`), /Find on network/);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".wifi-sign-in")`));
+  await cdp.eval(`document.querySelector("[data-conn-close]")?.click()`);
+  assert.deepEqual(errors(), []);
+});
+
 test("remote connection setup stays in the task and preserves input on a failed save", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.eval(`location.hash='#emulation/saves'`);
   await cdp.until(`!!document.querySelector('#view-emulation [data-connect="ssh"]')`);
@@ -508,5 +567,56 @@ test("offline Overview offers local work and Apps uses a consistent primary acti
   assert.ok(await cdp.eval<boolean>(`[...document.querySelectorAll('#view-apps [data-ap="market"]')].every(b=>b.classList.contains('primary'))`));
   assert.ok(await cdp.eval<boolean>(`[...document.querySelectorAll('#view-apps [data-ap="add"]')].every(b=>!b.classList.contains('primary'))`));
   assert.ok(await cdp.eval<boolean>(`document.querySelector('.apps-location code').textContent.includes(${JSON.stringify(srv.root)})`));
+  assert.deepEqual(errors(), []);
+});
+
+/** Detailed UI smoke for roadmap surfaces — extend when adding user-visible features. */
+test("smoke: roadmap UI surfaces stay wired", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+
+  await cdp.eval(`location.hash = "#games"`);
+  await cdp.until(`!!document.getElementById("smart-list")`);
+  const smart = await cdp.eval<string[]>(`[...document.getElementById("smart-list").options].map((o) => o.value)`);
+  for (const v of ["all", "fav", "never", "no-art", "bad", "tuning", "device-only"]) {
+    assert.ok(smart.includes(v), `smart-list missing ${v}`);
+  }
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector("#games-add [data-uptodate]")`));
+  await cdp.until(`!!document.querySelector(".card-play")`, 15_000);
+  await cdp.eval(`document.querySelector(".card-play").click()`);
+  await cdp.until(`document.getElementById("playbrowser")?.open === true`);
+  assert.ok(await cdp.eval<boolean>(`!!document.getElementById("play-ejs")`));
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".play-pad, .play-bind")`));
+  assert.ok(await cdp.eval<boolean>(`(() => { const d=document.getElementById("playbrowser"); const e=new Event("cancel",{cancelable:true}); d.dispatchEvent(e); return d.open && e.defaultPrevented; })()`), "Esc/cancel must not close play");
+  await cdp.eval(`document.querySelector('#playbrowser [data-play="close"]')?.click()`);
+  await cdp.until(`document.getElementById("confirm")?.open === true`);
+  await cdp.eval(`document.getElementById("c-ok").click()`);
+  await cdp.until(`!document.getElementById("playbrowser")?.open`);
+  await cdp.eval(`document.getElementById("add-games").click()`);
+  await cdp.until(`!!document.querySelector('[data-ag="free-homebrew"]')`);
+  await cdp.eval(`document.querySelector('[data-ag="free-homebrew"]').click()`);
+  await cdp.until(`document.getElementById("hbfree")?.open === true`);
+  assert.match(await cdp.eval<string>(`document.getElementById("hbf-title")?.textContent || ""`), /homebrew/i);
+  await cdp.eval(`document.getElementById("hbf-close").click()`);
+  await cdp.until(`!document.getElementById("hbfree")?.open`);
+  await cdp.eval(`document.querySelector('#addgames [data-ag="close"]')?.click(); document.getElementById("addgames")?.close()`);
+
+  await cdp.eval(`location.hash = "#settings/behaviour"`);
+  await cdp.until(`!!document.querySelector(".recipe-panel")`);
+  assert.match(await cdp.eval<string>(`document.querySelector(".recipe-panel h2")?.textContent || ""`), /Library recipes/);
+
+  await cdp.eval(`location.hash = "#logs"`);
+  await cdp.until(`!!document.querySelector('[data-logs="support"]')`);
+  assert.match(await cdp.eval<string>(`document.querySelector('[data-logs="support"]')?.textContent || ""`), /Support pack/);
+
+  await cdp.eval(`location.hash = "#emulation/saves"`);
+  await cdp.until(`document.querySelector('#emu-tabs [data-tab="saves"].on') && !!document.querySelector(".sv-game-panel, .sv-location, [data-connect]")`, 15_000);
+  assert.match(await cdp.eval<string>(`document.getElementById("emu-body").innerText`), /Save browser|Back up|backup|Connect|Wi-Fi/i);
+
+  await cdp.eval(`location.hash = "#emulation/checks"`);
+  await cdp.until(`document.getElementById("emu-body")?.innerText.trim().length > 10`);
+
+  await cdp.eval(`location.hash = "#overview"`);
+  await cdp.until(`!!document.querySelector(".wifi-form-title, .ov-offline")`);
   assert.deepEqual(errors(), []);
 });

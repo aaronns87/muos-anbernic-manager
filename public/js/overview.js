@@ -6,6 +6,7 @@ import { specs } from "./devices.js";
 import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
 import { activityPanel } from "./activity.js";
+import { digestPanelHtml } from "./profiles.js";
 
 let loadToken = 0;
 
@@ -142,7 +143,8 @@ function syncPanel(conn) {
         <li><i></i><b>${s.missing.toLocaleString()}</b> not transferred <span>${human(s.bytes)}</span></li>
         ${s.differ ? `<li><i class="warn"></i><b>${s.differ.toLocaleString()}</b> differ from Roms/</li>` : ""}
       </ul></div>`,
-    s.missing ? `<button class="btn" data-go="not-on-device">${icon("select")}<span>Pick games to transfer</span></button>` : `<span class="muted-note">${icon("check")} Everything in Roms/ is on ${esc(devName())}.</span>`,
+    `${s.missing ? `<button class="btn" data-go="not-on-device">${icon("select")}<span>Pick games to transfer</span></button>` : `<span class="muted-note">${icon("check")} Everything in Roms/ is on ${esc(devName())}.</span>`}
+     <button type="button" class="btn primary" data-uptodate title="Scrape missing art, sync artwork, and copy games not on the handheld">${icon("sync")}<span>Update handheld&hellip;</span></button>`,
     "sync");
 }
 
@@ -250,11 +252,12 @@ export function renderOverview() {
   const open = !!$("overview").querySelector(".wifi-settings[open]");
   $("overview").innerHTML = [
     devicePanel(conn), live ? syncPanel(conn) : localTasksPanel(),
+    digestPanelHtml(),
     libraryPanel(), live ? onDevicePanel(conn) : "",
     recentPanel(), artworkPanel(),
     workspacePanel(), live ? hardwarePanel() : "",
     activityPanel()
-  ].join("");
+  ].filter(Boolean).join("");
   for (const [id, value] of typed) if ($(id)) $(id).value = value;
   if (open && $("overview").querySelector(".wifi-settings")) $("overview").querySelector(".wifi-settings").open = true;
   if (focused && $(focused)) $(focused).focus();

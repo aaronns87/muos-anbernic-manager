@@ -16,11 +16,14 @@ MustardOS paths the code relies on. Each source file opens with a comment saying
 
 ```bash
 npm install                 # once; run.sh does it too
+npm run smoke               # pre-commit: tsc + smoke + file-safety (extend test/smoke.test.ts with features)
+npm run smoke:full          # smoke + browser roadmap UI smoke (needs Chrome)
 npm test                    # all tests (node --test test/*.test.ts)
 npm run check               # TypeScript type check (tsc --noEmit)
 node --test --test-name-pattern=VERSION test/unit.test.ts     # one file / matching tests
 node --check public/js/<file>.js                              # syntax of a front-end module
 bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Windows twins: *.ps1, see shell-scripts rule)
+./scripts/install-git-hooks.sh  # once per clone: pre-commit runs npm run smoke
 ./run.sh                    # start the manager (port 8765)
 ```
 
@@ -38,7 +41,8 @@ bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Wi
    decorators; use `import type`; import local files with the `.ts` extension.
 6. **No new runtime dependencies** without a strong reason; the front end has none.
 7. **Every feature change updates its test and its wiki article** (`public/js/wiki.js`), `docs/assistant-knowledge.md`
-   when the Assistant should know, and the README when users would notice.
+   when the Assistant should know, **CHANGELOG** Unreleased, and the **README** Features list when users would notice.
+   After committing on `changes/unreleased`, **push** unless the user says not to (see `docs-and-push` rule).
 
 ## Where to change things
 
@@ -61,7 +65,7 @@ Codex uses copied rules in `.codex/rules/` and copied skills in `.agents/skills/
 The `.codex/rules/` folder is not an automatic rule loader: read rules through this guide.
 Paths below are relative to this repository; run workflow commands from its root.
 
-- Always read `project.mdc`, `safety.mdc`, `versioning.mdc` and `branching.mdc` in `.codex/rules/`.
+- Always read `project.mdc`, `safety.mdc`, `versioning.mdc`, `branching.mdc` and `docs-and-push.mdc` in `.codex/rules/`.
 - For `src/**/*.ts`, also read `.codex/rules/server.mdc`.
 - For `public/**`, also read `.codex/rules/frontend.mdc`.
 - For `test/**`, also read `.codex/rules/testing.mdc`.

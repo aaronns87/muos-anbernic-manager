@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.3.2](#132---2026-11-17) | 2026-11-17 | Play in browser (cartridge + disc/heavy); favourites & smart lists; saves browser; disc playlists; hints; recipes; free homebrew |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
@@ -26,6 +27,45 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.3.2] - 2026-11-17
+
+### Added
+
+- **Play in browser** for EmulatorJS-supported systems (GB, GBC, GBA, FC/FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP): play button on game cards (bottom-left) and in the game viewer; EmulatorJS cores from the CDN on first use; streamed ROM/BIOS APIs (large CHD/ISO); `.cue`/`.m3u` sidecar tracks; BIOS from workspace `bios/` for PS / Sega CD / Saturn / PCE CD; session keyboard remapping in the play dialog. Dreamcast and arcade stay handheld-only.
+- **Emulation → Library check → Disc layouts**: **Make playlist…** for multi-disc sets (No-Intro / Redump **Disc N** naming) without a `.m3u`; preview, write beside the ROMs, per-system batch. CHD convert already follows `.m3u`.
+- **Emulation → Saves** and the game viewer **Handheld** tab: per-game save browser (`.srm` and save states over SSH), pull to `backups/saves-pulled/`, push, delete with confirm, and prune save states (complements `.muxbak` and tar backups).
+- **Games**: **Favourites** (stored in this browser, `system/filename` id) on cards and in the viewer; **Smart lists** filter chips — Never copied, No art, Bad dump, Needs tuning, On device only — with **Select shown** / transfer / artwork actions.
+- **Hints and tips** carousel after the setup wizard and What's new: walks through connection, Games, **Play in the browser**, Artwork, OS, Apps, Device, Themes, Emulation, Files, Game Tuning, Appearance, Logs and Wiki. Checkbox **Show tips when the manager starts** (also Settings → Behaviour); reopen from Help or Behaviour → Open tips.
+- **Library recipes** (Settings → Behaviour): named automations that chain scrape, copy and rescan after add-games or scrape, with canned presets, step toggles and **Run now**; respects USB single-transfer and optional Syncthing idle wait.
+- **Free & homebrew** catalogue (Games → Add): curated legal ROMs from `data/free-homebrew.json` into `Roms/<system>/`, same download flow as Free ScummVM.
+- **Syncthing ops** in Connection: **Open Syncthing** when the web UI is reachable; **Wait for Syncthing idle** before large copies and recipe transfers; clearer **Active** copy in the services footer (no remote start/stop).
+- **Logs → Support pack**: zip of filtered day logs, VERSION, platform, connection snapshot (optional host redaction) and recent activity excerpt.
+- **Device profiles**: save named Wi-Fi (and related) connection sets in the Connection panel; switch, update or delete profiles without retyping the address.
+- **Since last connect** on Overview: remembers play totals, save hints and library-vs-device counts when a link is live, then summarises what changed next time (with links to Play, Saves, Games and Transfers).
+- **Update handheld…** on Overview and Games: plan dialog to open Scrape for missing art, sync artwork to the device, and queue copies for games not on the handheld.
+- **Multi-disc playlists**: Emulation > Library check > Disc layouts detects sibling discs without a `.m3u`, with **Make playlist…**, preview, and batch write beside the ROMs (CHD convert understands the new playlist).
+- **Save browser**: Emulation > Saves lists one game's saves and save states over SSH (pull to `backups/saves-pulled/`, push, delete, prune); the game viewer **Handheld** tab offers the same per-file actions. Full-device tar.gz and `.muxbak` backups are unchanged.
+- **Games smart lists**: **Smart lists** filter (favourites, never copied, no art, bad dump, needs tuning, on device only); star on game cards and in the viewer; **Select shown** for bulk transfer or scrape.
+
+### Fixed
+
+- **Play in browser** (PlayStation and other disc games): ROM/BIOS URLs put the real filename in the path so EmulatorJS no longer saves them as extensionless `rom`/`bios` and drops into the RetroArch menu instead of the game.
+- **Play in browser**: arrow keys, space and page keys no longer scroll the page or dialog behind the game; page scroll is locked while the play modal is open. Hints and tips, Wiki and README mention the behaviour.
+- **Games** cards: Play stays available in select mode; clearing the last selected game leaves select mode so Play and Transfer show again.
+- **Play in browser**: closed dialog no longer stuck at the bottom of the page; keyboard control fields fit the grid; ROM API answers EmulatorJS `HEAD` so games load instead of a black screen; session key map uses the EmulatorJS control shape so keyboard input and the in-emulator control settings work.
+- **Play in browser** controls: graphical controller layout (click a button, then press a key); Esc no longer closes the play window — leave only via the close control with a confirm; **Focus** hides header/footer/controls so only the game stays, with floating restore and leave buttons.
+- **Play in browser** keyboard map: ignore EmulatorJS localStorage and re-apply the session key map on start so Control Settings no longer show `undefined` on some systems.
+
+### Changed
+
+- **Testing**: `npm run smoke` (and optional `smoke:full` with Chrome) is the pre-commit gate — type-check plus a detailed
+  API/UI wiring suite in `test/smoke.test.ts` that must be extended with each user-visible feature; install with
+  `./scripts/install-git-hooks.sh`.
+- **Connection**: Wi-Fi setup is **Handheld on this network** with a live status line, Sign-in details behind a disclosure, a clear primary **Save and connect**, and **Find on network** with Use and connect on each result.
+- Collapsed sidebar: hovering a nav icon shows an immediate rich tab (name and live counts such as games / artwork %) instead of the browser tooltip.
+- **Logs**: Hide routine (on by default) filters startup/queue noise; routine `say()` tags log as Info instead of Warnings; USB / Wi-Fi / card connect edges and API 4xx/5xx failures are recorded; row UI drops the redundant APP chip and strengthens timestamps.
+- README screenshots retaken for the current UI (Overview through Wiki), including new shots for OS, Play activity, Files, System Tools, Terminal, Appearance, Logs and Wiki; `scripts/capture-screenshots.mjs` refreshes them from a running manager.
 
 ## [1.3.1] - 2026-11-16
 
@@ -435,7 +475,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.1...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.2...changes/unreleased
+[1.3.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.2
 [1.3.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.1
 [1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
 [1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6

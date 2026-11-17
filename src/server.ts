@@ -6,7 +6,7 @@ import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
-import { logsClear, logsDownload, logsJson, logsPost, logsReveal } from "./app-log.ts";
+import { appLog, logsClear, logsDownload, logsJson, logsPost, logsReveal, logsSupportPack, noteStatusLinks } from "./app-log.ts";
 import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
@@ -28,6 +28,7 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { syncthingIdleJson, waitSyncthingIdle } from "./device/syncthing-idle.ts";
 import { webServicesStatus } from "./device/web-services.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
 import {
@@ -43,7 +44,14 @@ import { deleteGame, renameGame } from "./games/actions.ts";
 import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./games/add.ts";
 import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
+import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
+import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
+import { gamesFlagsJson } from "./games/flags.ts";
+import { playBiosDownload, playBiosHead, playBiosList, playRomDownload, playRomHead } from "./games/play-rom.ts";
+import {
+  deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
+} from "./saves-game.ts";
 import { chdJson, startChdConvert } from "./games/chd.ts";
 import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from "./games/disc-fix.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
@@ -71,7 +79,9 @@ import { dismissWhatsNew, whatsNewStatus } from "./whats-new.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
-type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string };
+type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string }
+  | { head: { length: number; name: string; type?: string } }
+  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -85,9 +95,13 @@ const routes: Record<string, Handler> = {
       webServicesStatus().catch(() => ({ host: "", at: Date.now(), services: [] })),
     ]);
     const models = { usb: handheld ? usbModel(handheld.name) : null, wifi: wifiModelFound };
-    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, services, models, platform: process.platform };
+    const listed = cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" }));
+    noteStatusLinks({ handheld, wifi, cards: listed });
+    return { cards: listed, rejects, handheld, wifi, services, models, platform: process.platform };
   },
   "GET /api/ssh/services": () => webServicesStatus(true),
+  "GET /api/ssh/syncthing-idle": () => syncthingIdleJson(),
+  "POST /api/ssh/syncthing-idle/wait": async () => waitSyncthingIdle(),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     const s = await saveWifiSettings(body);
@@ -98,6 +112,7 @@ const routes: Record<string, Handler> = {
   "GET /api/activity": (q) => activityJson(q),
   "GET /api/logs": (q) => logsJson(q),
   "GET /api/logs/download": (q) => logsDownload(q),
+  "GET /api/logs/support-pack": (q) => logsSupportPack(q),
   "POST /api/logs": (_, body) => logsPost(body),
   "POST /api/logs/clear": (_, body) => logsClear(body),
   "POST /api/logs/reveal": () => logsReveal(),
@@ -164,6 +179,14 @@ const routes: Record<string, Handler> = {
   "POST /api/ports/uninstall": (_, body) => uninstallPort(body),
   "PUT /api/ports/upload": (query, _, req) => uploadPortFile(req, query),
   "GET /api/games": async () => ({ raw: await libraryJson() }),
+  "GET /api/games/flags": () => gamesFlagsJson(),
+  "GET /api/games/rom": (q) => playRomDownload(q),
+  "HEAD /api/games/rom": (q) => playRomHead(q),
+  "GET /api/games/bios": (q) => {
+    if (q.has("list") || q.get("list") === "1" || (!q.get("file") && q.get("code"))) return playBiosList(q);
+    return playBiosDownload(q);
+  },
+  "HEAD /api/games/bios": (q) => playBiosHead(q),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -273,6 +296,9 @@ const routes: Record<string, Handler> = {
   "GET /api/checks": (query) => checksJson(query),
   "POST /api/checks/verify": (_, body) => startVerify(body),
   "POST /api/checks/trash": (_, body) => trashGames(body),
+  "POST /api/disc-m3u/preview": (_, body) => previewM3u(body),
+  "POST /api/disc-m3u/write": (_, body) => writeM3uPlaylist(body),
+  "POST /api/disc-m3u/batch": (_, body) => writeM3uBatch(body),
   "GET /api/chd": () => chdJson(),
   "POST /api/chd/convert": (_, body) => startChdConvert(body),
   "GET /api/disc-fix": () => discFixJson(),
@@ -286,6 +312,8 @@ const routes: Record<string, Handler> = {
   "PUT /api/games/upload": (query, _, req) => uploadGame(req, query),
   "GET /api/scummvm/free": () => freeGamesJson(),
   "POST /api/scummvm/free/install": (_, body) => installFreeGame(body),
+  "GET /api/homebrew/free": () => freeHomebrewJson(),
+  "POST /api/homebrew/free/install": (_, body) => installFreeHomebrew(body),
 
   "GET /api/apps": () => appsJson(),
   "PUT /api/apps/upload": (query, _, req) => uploadApp(req, query),
@@ -295,6 +323,13 @@ const routes: Record<string, Handler> = {
   "POST /api/apps/device/delete": (_, body) => deleteDeviceApp(body),
   "POST /api/apps/device/uninstall": (_, body) => uninstallDeviceApp(body),
   "GET /api/saves": () => savesJson(),
+  "GET /api/saves/game": (q) => gameSavesJson(q),
+  "POST /api/saves/game/pull": (_, body) => pullGameSave(body),
+  "POST /api/saves/game/push": (_, body) => pushGameSave(body),
+  "POST /api/saves/game/delete": (_, body) => deleteGameSave(body),
+  "POST /api/saves/game/prune": (_, body) => pruneGameStates(body),
+  "POST /api/saves/game/trash-pulled": (_, body) => trashPulledSave(body),
+  "POST /api/saves/game/reveal-pulled": () => revealPulled(),
   "POST /api/saves/backup": () => backupSaves(),
   "GET /api/saves/backup": (query) => backupContents(query),
   "POST /api/saves/restore": (_, body) => restoreSaves(body),
@@ -415,9 +450,15 @@ const MIME: Record<string, string> = {
 };
 
 function send(res: http.ServerResponse, status: number, body: string | Buffer, type: string): void {
-  res.writeHead(status, {
+  const headers: Record<string, string | number> = {
     "Content-Type": type, "Content-Length": Buffer.byteLength(body), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-  });
+  };
+  // SharedArrayBuffer for EmulatorJS threaded cores (PSP); credentialless keeps CDN cores loadable.
+  if (type.startsWith("text/html")) {
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    headers["Cross-Origin-Embedder-Policy"] = "credentialless";
+  }
+  res.writeHead(status, headers);
   res.end(body);
 }
 
@@ -458,10 +499,31 @@ function tokenOk(given: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** EmulatorJS names files from the URL path (strip query). Put the real name last: /api/games/rom/CODE/file.pbp */
+function playAssetPath(url: URL): string {
+  const rom = url.pathname.match(/^\/api\/games\/rom\/([^/]+)\/([^/]+)$/);
+  if (rom) {
+    try {
+      url.searchParams.set("code", decodeURIComponent(rom[1]));
+      url.searchParams.set("file", decodeURIComponent(rom[2]));
+    } catch { /* keep raw */ }
+    return "/api/games/rom";
+  }
+  const bios = url.pathname.match(/^\/api\/games\/bios\/([^/]+)$/);
+  if (bios) {
+    try {
+      url.searchParams.set("file", decodeURIComponent(bios[1]));
+    } catch { /* keep raw */ }
+    return "/api/games/bios";
+  }
+  return url.pathname;
+}
+
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
-  const route = `${req.method} ${url.pathname}`;
+  const pathname = playAssetPath(url);
+  const route = `${req.method} ${pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom" || route === "GET /api/games/bios" || route === "HEAD /api/games/bios")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });
@@ -477,6 +539,25 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       const { image, name } = result as { image: Buffer; name: string };
       return send(res, 200, image, MIME[path.extname(name).toLowerCase()] ?? "image/png");
     }
+    if (result && typeof result === "object" && "head" in result) {
+      const { head } = result as { head: { length: number; name: string; type?: string } };
+      res.setHeader("Content-Length", String(head.length));
+      res.setHeader("Content-Type", head.type ?? "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${head.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(head.name)}`);
+      res.writeHead(200);
+      return void res.end();
+    }
+    if (result && typeof result === "object" && "downloadStream" in result) {
+      const { downloadStream, name, type, length } = result as { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
+      res.setHeader("Content-Length", String(length));
+      res.setHeader("Content-Type", type ?? "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.writeHead(200);
+      downloadStream.on("error", () => { try { res.destroy(); } catch { /* ignore */ } });
+      return void downloadStream.pipe(res);
+    }
     if (result && typeof result === "object" && "download" in result && Buffer.isBuffer(result.download)) {
       const { download, name, type } = result as { download: Buffer; name: string; type?: string };
       res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
@@ -484,10 +565,16 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
     }
     sendJson(res, 200, result);
   } catch (error) {
-    if (error instanceof SshError) sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
-    else if (error instanceof UserError || error instanceof MtpError) sendJson(res, 400, { error: error.message });
-    else {
+    const skipLog = route === "POST /api/logs";
+    if (error instanceof SshError) {
+      if (!skipLog) appLog("warn", "http", "API", `${route}: ${error.message}`);
+      sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
+    } else if (error instanceof UserError || error instanceof MtpError) {
+      if (!skipLog) appLog("warn", "http", "API", `${route}: ${error.message}`);
+      sendJson(res, 400, { error: error.message });
+    } else {
       const err = error instanceof Error ? error : new Error(String(error));
+      if (!skipLog) appLog("error", "http", "API", `${route}: ${err.message}`, err.stack);
       console.error(`${route} failed:`, error);
       sendJson(res, 500, { error: `Server error: ${err.message}` });
     }

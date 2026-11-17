@@ -7,6 +7,8 @@ import { artMax, pngData, pickImage, confirmBox } from "./art-images.js";
 import { compose, imageUrl, scrapeLook, STYLES } from "./art-scrape.js";
 import { consoleIcon } from "./consoles.js";
 import { openFreeScummvm } from "./free-scummvm.js";
+import { openFreeHomebrew } from "./free-homebrew.js";
+import { fireRecipes } from "./recipes.js";
 import { openPortMaster } from "./ports.js";
 
 const NOT_GAMES = new Set(["xml", "txt", "db", "ini", "cfg", "json", "png", "jpg", "jpeg", "gif", "webp", "nfo", "srm", "sav",
@@ -349,7 +351,11 @@ async function addAll() {
   try { await api("games/rescan", {}); await loadLibrary(); } catch {}
   A.adding = false;
   const done = A.items.filter((it) => it.state === "done");
-  if (done.length) A.finished = { done, failed: A.items.filter((it) => it.state === "failed") };
+  if (done.length) {
+    A.finished = { done, failed: A.items.filter((it) => it.state === "failed") };
+    const added = done.map((it) => ({ code: it.code, stem: it.stem.trim(), file: finalName(it) }));
+    fireRecipes("after-add", { added }).catch(() => {});
+  }
   render();
 }
 
@@ -402,7 +408,8 @@ function emptyView() {
     <p>ROMs, zipped games and disc images (a .cue with its .bin tracks, .chd, .iso), or a ScummVM game's folder. The platform is detected from each file, and you can change it.</p>
     <div class="ag-empty-btns"><button class="btn primary" data-ag="browse">${icon("file")}Choose files&hellip;</button>
       <button class="btn" data-ag="browse-folder">${icon("folder")}Choose a ScummVM game folder&hellip;</button>
-      <button class="btn ghost" data-ag="free-scummvm">${icon("download")}Free ScummVM games&hellip;</button></div>
+      <button class="btn ghost" data-ag="free-scummvm">${icon("download")}Free ScummVM games&hellip;</button>
+      <button class="btn ghost" data-ag="free-homebrew">${icon("download")}Free &amp; homebrew&hellip;</button></div>
     <ol class="ag-how">
       <li><b>1</b><span>Add files</span></li>
       <li><b>2</b><span>Check the platform, description and artwork</span></li>
@@ -697,6 +704,7 @@ async function act(el) {
   const what = el.dataset.ag, it = selected();
   if (what === "browse") return browse();
   if (what === "free-scummvm") { openFreeScummvm(); return; }
+  if (what === "free-homebrew") { openFreeHomebrew(); return; }
   if (what === "browse-folder") { const input = $("ag-folder"); input.value = ""; input.click(); return; }
   if (what === "cancel") return close();
   if (what === "add") return addAll();

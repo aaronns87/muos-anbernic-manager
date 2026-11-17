@@ -5,6 +5,8 @@ import { $, api, app, clock, esc, formatDate, formatTime, human, icon, plural, s
 import { artMax, confirmBox, droppedImage, pickImage, pngData } from "./art-images.js";
 import { noteKind, systemNote, useCore, useSystem } from "./system-notes.js";
 import { focusTuningGame } from "./tuning.js";
+import { isFavourite, toggleFavourite } from "./lists.js";
+import { canPlayInBrowser, openPlayBrowserFor } from "./play-browser.js";
 import {
   catalogueDirty, draftFromOwn, optGroupsHtml, valuesPayload,
 } from "./opt-editor.js";
@@ -17,7 +19,7 @@ const baseOf = (p) => String(p).split("/").pop() || "";
 
 const V = {
   tab: store.get("viewerTab", "about"), cur: null, back: [], nav: false, editing: false, renaming: false, video: false, expanded: false, fixing: false, saving: false,
-  details: new Map(), dataRef: null, rel: [], dev: { key: "", at: 0, seq: 0 },
+  details: new Map(), dataRef: null, rel: [], dev: { key: "", at: 0, seq: 0, saveSeq: 0, gameSaveDetail: null },
   tune: { key: "", loading: false, error: "", game: null, draft: null, gov: "", optQ: "", saving: false },
 };
 let hooks = { open: () => {}, reload: async () => {} };
@@ -73,8 +75,24 @@ function loadDevice(force = false) {
   } else d.play = d.cols = null;
   if (wifi) {
     api("cores").then((r) => set("cores")(r.reachable ? r : null), fail("cores"));
-    api("saves").then((r) => set("saves")(r.device?.reachable ? r.device : null), fail("saves"));
+    api("saves").then((r) => {
+      set("saves")(r.device?.reachable ? r.device : null);
+      loadGameSaves();
+    }, fail("saves"));
   } else d.cores = d.saves = null;
+}
+
+function loadGameSaves() {
+  if (!V.cur || !app.device.wifi?.reachable) {
+    V.dev.gameSaveDetail = null;
+    return;
+  }
+  const { sys, g } = V.cur;
+  const seq = ++V.dev.saveSeq;
+  api(`saves/game?code=${enc(sys.code)}&file=${enc(g.f)}`).then(
+    (detail) => { if (seq === V.dev.saveSeq) { V.dev.gameSaveDetail = detail; paint("device"); } },
+    () => { if (seq === V.dev.saveSeq) V.dev.gameSaveDetail = null; },
+  );
 }
 
 const deviceKnown = () => !!handheldVolume() || !!app.device.wifi?.reachable;
@@ -517,16 +535,26 @@ function collectionsSection() {
 }
 
 function savesSection() {
-  const s = savesOf(), link = go("saves", "Open Saves");
+  const s = savesOf(), link = go("saves", "Open full Saves tab");
+  const detail = V.dev.gameSaveDetail;
   if (s === undefined) return sec("Saves", "save", loading("Listing saves&hellip;"));
   if (s === null || s.error) return sec("Saves", "save", note(esc(s?.error || "Connect over Wi-Fi with SSH on to see save files.")));
   if (!s.files.length) return sec("Saves", "save", note("No save files or save states on the handheld."), link);
+  const pulled = new Map((detail?.pulled || []).map((p) => [p.path, p.local]));
   const rows = [...s.files].sort((a, b) => b.mtime - a.mtime).map((f) => {
     const parts = f.path.split("/");
     const kind = /(^|\/)state\//.test(f.path) ? (/\.png$/i.test(f.path) ? "State picture" : "Save state") : "Save";
-    return `<li>${chip(kind === "Save" ? "ok" : "", kind)}<span class="v-file-meta"><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}</small></span></li>`;
+    const hasPull = pulled.get(f.path);
+    return `<li class="v-save-row">${chip(kind === "Save" ? "ok" : "", kind)}<span class="v-file-meta"><code>${esc(parts[parts.length - 1])}</code><small>${esc(parts.slice(2, -1).join(" / ") || parts[1] || "")} &middot; ${human(f.size)} &middot; ${esc(when(f.mtime))}${hasPull ? " &middot; on this computer" : ""}</small></span>
+      <span class="v-save-actions">
+        <button class="btn small ghost" data-vsave="pull" data-path="${esc(f.path)}" title="Copy to backups/saves-pulled">Pull</button>
+        ${hasPull ? `<button class="btn small" data-vsave="push" data-path="${esc(f.path)}" title="Push pulled copy to the handheld">Push</button>` : ""}
+        <button class="btn icon small ghost" data-vsave="delete" data-path="${esc(f.path)}" title="Delete on the handheld">${icon("trash")}</button>
+      </span></li>`;
   }).join("");
-  return sec("Saves", "save", `<ul class="v-files">${rows}</ul>`, link);
+  const prune = s.states.length > 5
+    ? `<div class="v-note"><button class="btn small" data-vsave="prune">Prune states</button><span class="muted-note">Keep the 5 newest of ${s.states.length} save states.</span></div>` : "";
+  return sec("Saves", "save", `<ul class="v-files v-saves-browser">${rows}</ul>${prune}`, link);
 }
 
 function relatedPane(groups) {
@@ -576,14 +604,23 @@ export function syncTransferButton() {
       : `Transfer to ${devName()}`;
 }
 
+function syncPlayButton() {
+  const btn = $("v-play");
+  if (!btn) return;
+  if (!V.cur) { btn.hidden = true; return; }
+  btn.hidden = !canPlayInBrowser(V.cur.sys, V.cur.g);
+}
+
 /** Redraws the parts that depend on what changed: "all", "details" or "device". */
 function paint(what = "all") {
   if (!V.cur || !$("viewer").open) return;
   const groups = relatedGroups();
-  $("v-tags").innerHTML = tagsHtml();
+  const favOn = V.cur && isFavourite(V.cur.key);
+  $("v-tags").innerHTML = tagsHtml() + (V.cur ? `<button class="btn small ghost v-fav${favOn ? " on" : ""}" type="button" data-vfav aria-pressed="${favOn}">${icon("star")}<span>${favOn ? "Favourited" : "Favourite"}</span></button>` : "");
   $("v-cards").innerHTML = cardsHtml();
   $("v-tabs").innerHTML = tabsHtml(groups.reduce((n, [, items]) => n + items.length, 0));
   syncTransferButton();
+  syncPlayButton();
   const panes = { about: ["all"], details: ["all", "details"], handheld: ["all", "device"], related: ["all", "details"] }[V.tab];
   if (!panes.includes(what)) return;
   const pane = $("v-pane");
@@ -713,6 +750,44 @@ async function resetTune() {
   }
 }
 
+async function saveBrowserAction(action, path) {
+  if (!V.cur) return;
+  const { sys, g } = V.cur;
+  const base = { code: sys.code, file: g.f };
+  if (action === "delete") {
+    const ok = await confirmBox({
+      title: "Delete on the handheld?",
+      html: `<p>Removes <code>${esc(path.split("/").pop())}</code> from the handheld. Pull a copy first if you want a backup on this computer.</p>`,
+      ok: "Delete", danger: true,
+    });
+    if (!ok) return;
+    await api("saves/game/delete", { ...base, paths: [path] });
+    toast("Deleted on the handheld", 2600);
+  } else if (action === "pull") {
+    await api("saves/game/pull", { ...base, paths: [path] });
+    toast("Pulled to backups/saves-pulled", 2600);
+  } else if (action === "push") {
+    const ok = await confirmBox({
+      title: "Push to the handheld?",
+      html: `<p>Replaces the handheld's copy of <code>${esc(path.split("/").pop())}</code> with the file from <code>backups/saves-pulled/</code>.</p>`,
+      ok: "Push",
+    });
+    if (!ok) return;
+    await api("saves/game/push", { ...base, paths: [path] });
+    toast("Pushed to the handheld", 2600);
+  } else if (action === "prune") {
+    const ok = await confirmBox({
+      title: "Prune save states?",
+      html: `<p>Keeps the <b>5 newest</b> save states for this game on the handheld and deletes older ones.</p>`,
+      ok: "Prune", danger: true,
+    });
+    if (!ok) return;
+    const res = await api("saves/game/prune", { ...base, keep: 5 });
+    toast(`Pruned ${res.pruned} state${res.pruned === 1 ? "" : "s"}`, 2600);
+  }
+  loadDevice(true);
+}
+
 async function fixCore() {
   const code = V.cur.sys.code, c = V.dev.cores, info = coreOf();
   const name = useSystem(code), system = c?.systems?.find((s) => s.name === name);
@@ -793,6 +868,10 @@ export function bindGameView(h) {
   const viewer = $("viewer");
   viewer.addEventListener("close", () => { if (V.video) { V.video = false; if (V.tab === "about") $("v-pane").innerHTML = aboutPane(); } });
   viewer.addEventListener("click", (e) => {
+    if (e.target.closest("#v-play") && V.cur) {
+      openPlayBrowserFor(V.cur.sys, V.cur.g);
+      return;
+    }
     const vt = e.target.closest("[data-vtune]");
     if (vt && !vt.disabled) {
       e.stopPropagation();
@@ -800,8 +879,15 @@ export function bindGameView(h) {
       else if (vt.dataset.vtune === "reset") resetTune();
       return;
     }
-    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vrename], [data-vvideo], [data-vrefresh], #v-more, #v-back, #v-reveal, #v-art-replace");
+    const vs = e.target.closest("[data-vsave]");
+    if (vs && !vs.disabled) {
+      e.stopPropagation();
+      saveBrowserAction(vs.dataset.vsave, vs.dataset.path).catch((err) => toast(err.message, 4500));
+      return;
+    }
+    const t = e.target.closest("[data-vtab], [data-vrel], [data-vgo], [data-vfix], [data-vedit], [data-vrename], [data-vvideo], [data-vrefresh], [data-vfav], #v-more, #v-back, #v-reveal, #v-art-replace");
     if (!t || t.disabled) return;
+    if (t.matches("[data-vfav]")) { toggleFavourite(V.cur.key); paint(); return; }
     if (t.matches("[data-vfix]")) { e.stopPropagation(); fixCore(); }
     else if (t.matches("[data-vtab]")) { V.tab = t.dataset.vtab; store.set("viewerTab", V.tab); paint(); }
     else if (t.matches("[data-vrel]")) openRelated(+t.dataset.vrel);

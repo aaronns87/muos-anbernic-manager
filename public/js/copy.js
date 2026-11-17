@@ -96,6 +96,12 @@ async function startTransfer() {
   start.disabled = true;
   start.innerHTML = `<span class="spinner"></span> Starting`;
   try {
+    if (store.get("waitSyncthingIdle", false) === true) {
+      try {
+        const gate = await api("ssh/syncthing-idle/wait");
+        if (gate.waited) toast("Waited for Syncthing to finish syncing", 3000);
+      } catch { /* non-fatal */ }
+    }
     const result = await api("games/copy", {
       volume: app.device.target.id, targets: pending.targets, label: pending.label,
       replace: $("t-replace")?.checked || false

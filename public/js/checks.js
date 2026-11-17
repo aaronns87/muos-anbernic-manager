@@ -128,6 +128,9 @@ function discRow(g, code, toolOk) {
   const [cls, ico, label] = DISC[g.state] || DISC.ok;
   const busy = C.converting || !!C.data?.chd?.run?.running || !!C.data?.fix?.run?.running;
   let action = "";
+  if (g.m3u) {
+    action = `<button class="btn small primary" data-ck="m3u-one" data-code="${esc(code)}" data-group="${esc(g.m3u.group)}"${busy ? " disabled" : ""}>${icon("list")}<span>Make playlist&hellip;</span></button>${action}`;
+  }
   if (archiveFixable(g)) {
     action = `<button class="btn small primary" data-ck="fix-one" data-code="${esc(code)}" data-file="${esc(g.f)}"${busy ? " disabled" : ""}>${icon("wrench")}<span>Fix...</span></button>`;
   } else if (chdReady(g)) {
@@ -136,7 +139,8 @@ function discRow(g, code, toolOk) {
       : `<button class="btn small" disabled title="Install chdman (rom-tools), then Refresh tooling">${icon("wrench")}<span>CHD</span></button>`;
   }
   const arch = g.archive ? `<span class="tag" title="Archive format">${esc(g.archive)}</span> ` : "";
-  return `<div class="chk-game"><div><b title="${esc(g.p)}">${esc(g.f)}</b><small>${arch}${esc(g.note || g.t)}</small></div>
+  const m3uNote = g.m3u ? `<span class="tag" title="Multi-disc set">Disc ${g.m3u.disc}</span> ` : "";
+  return `<div class="chk-game"><div><b title="${esc(g.p)}">${esc(g.f)}</b><small>${arch}${m3uNote}${esc(g.note || g.t)}</small></div>
     <span class="set-chip ${cls}">${icon(ico)}${label}</span>${action}</div>`;
 }
 
@@ -145,6 +149,7 @@ function chdTooling(d) {
   const fix = d.fix, tools = fix?.tools, fixRun = fix?.run;
   const ready = chdReadyList(d);
   const archives = archiveFixList(d);
+  const m3uCount = (d.disc?.systems || []).reduce((n, s) => n + (s.m3uNeed || 0), 0);
   const busy = C.converting || !!run?.running || !!fixRun?.running;
   const chdChip = !tool ? "" : tool.present
     ? `<span class="set-chip ok" title="${esc(tool.path)}">${icon("check")}chdman${tool.version ? ` ${esc(tool.version)}` : ""}</span>`
@@ -165,6 +170,7 @@ function chdTooling(d) {
     <button class="link-btn" data-ck="chd-refresh"${C.loading || busy ? " disabled" : ""}>Refresh tooling</button>
     <span class="grow"></span>
     ${archives.length ? `<button class="btn small primary" data-ck="fix-all"${busy ? " disabled" : ""}>${icon("wrench")}<span>Fix ${archives.length} archive${archives.length === 1 ? "" : "s"}</span></button>` : ""}
+    ${m3uCount ? `<button class="btn small primary" data-ck="m3u-all"${busy ? " disabled" : ""}>${icon("list")}<span>Make ${m3uCount} playlist${m3uCount === 1 ? "" : "s"}</span></button>` : ""}
     ${tool?.present && ready.length ? `<button class="btn small" data-ck="chd-all"${busy ? " disabled" : ""}>${busy && run?.running ? `<span class="spinner sm"></span><span>Converting&hellip;</span>` : `${icon("wrench")}<span>Convert ${ready.length} to CHD</span>`}</button>` : ""}
   </div>`;
   const noneReady = !archives.length && tool?.present && !ready.length && !run?.running && !fixRun?.running
@@ -208,7 +214,9 @@ function discPanel(d) {
             ${s.counts.ok ? `<span class="set-chip ok">${icon("check")}${s.counts.ok}</span>` : ""}</span>
           ${icon(open ? "down" : "right")}
         </button>
-        ${open ? `<div class="chk-games">${games.map((g) => discRow(g, s.code, toolOk)).join("")}</div>` : ""}
+        ${open ? `<div class="chk-games">${s.m3uNeed ? `<div class="chk-bulk"><span class="muted-note">${plural(s.m3uNeed, "multi-disc set")} need a .m3u playlist to launch as one game.</span>
+          <button class="btn small primary" data-ck="m3u-sys" data-code="${esc(s.code)}"${busy ? " disabled" : ""}>${icon("list")}<span>Make ${s.m3uNeed} playlist${s.m3uNeed === 1 ? "" : "s"}</span></button></div>` : ""}
+          ${games.map((g) => discRow(g, s.code, toolOk)).join("")}</div>` : ""}
       </div>`;
     }).join("")}</div>
   </section>`;
@@ -298,6 +306,62 @@ async function startVerify() {
     toast(error.message, 4000);
   }
   C.starting = false;
+  load();
+}
+
+const m3uSystems = (d) => (d.disc?.systems || []).filter((s) => s.m3uNeed);
+
+async function writeM3u(code, group) {
+  const prev = await api("disc-m3u/preview", { code, group });
+  const ok = await confirmBox({
+    title: `Write ${prev.m3uName}?`,
+    html: `<p>Creates a .m3u beside the discs in <code>Roms/${esc(code)}</code>. Launch the playlist (or convert it to CHD later).</p>
+      <pre class="chk-m3u"><code>${esc(prev.preview)}</code></pre>`,
+    ok: "Write playlist",
+  });
+  if (!ok) return;
+  C.converting = true;
+  render();
+  try {
+    await api("disc-m3u/write", { code, group });
+    toast(`Wrote ${prev.m3uName}`, 3000);
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  C.converting = false;
+  load();
+}
+
+async function writeM3uBatch(code) {
+  const systems = code ? [{ code, m3uNeed: C.data?.disc?.systems?.find((s) => s.code === code)?.m3uNeed ?? 0 }] : m3uSystems(C.data);
+  const need = code ? systems[0].m3uNeed : systems.reduce((n, s) => n + s.m3uNeed, 0);
+  if (!need) return;
+  const ok = await confirmBox({
+    title: need === 1 ? "Write one .m3u playlist?" : `Write ${need} .m3u playlists?`,
+    html: `<p>One playlist per multi-disc set in ${code ? `<code>Roms/${esc(code)}</code>` : "your library"}, using No-Intro / Redump disc order.</p>
+      <p class="muted-note">Existing playlists are left alone. CHD convert understands .m3u.</p>`,
+    ok: "Write playlists",
+  });
+  if (!ok) return;
+  C.converting = true;
+  render();
+  try {
+    if (code) {
+      const res = await api("disc-m3u/batch", { code });
+      toast(res.failed?.length ? `Wrote ${res.written}; ${res.failed.length} failed` : `Wrote ${plural(res.written, "playlist")}`, 4000);
+    } else {
+      let written = 0, failed = 0;
+      for (const s of m3uSystems(C.data)) {
+        const res = await api("disc-m3u/batch", { code: s.code });
+        written += res.written;
+        failed += res.failed?.length || 0;
+      }
+      toast(failed ? `Wrote ${written}; ${failed} failed` : `Wrote ${plural(written, "playlist")}`, 4000);
+    }
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  C.converting = false;
   load();
 }
 
@@ -405,7 +469,8 @@ export function bindChecks(viewEl) {
     } else if (ck === "fix-all") {
       const list = archiveFixList(C.data);
       if (list.length) openDiscFixWizard({ code: list[0].code || "PS", files: list.map((g) => g.f), onDone: () => load() });
-    }
+    } else if (ck === "m3u-one") writeM3u(code || el.dataset.code || "PS", el.dataset.group);
+    else if (ck === "m3u-sys" || ck === "m3u-all") writeM3uBatch(ck === "m3u-sys" ? code : "");
   });
   viewEl.addEventListener("change", (e) => {
     const t = e.target;

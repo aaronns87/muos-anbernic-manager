@@ -8,19 +8,26 @@ description: How to test muOS Anbernic Manager - automated tests (node:test, ser
 ## Automated
 
 ```bash
+npm run smoke                              # pre-commit gate: check + test/smoke.test.ts + file-safety
+npm run smoke:full                         # also browser "smoke: roadmap UI" (needs Chrome)
 npm test                                   # everything; browser tests skip without Chrome
 npm run check                              # tsc over src/ and test/
 node --test test/server.test.ts            # one file
 node --test --test-name-pattern "wizard" test/*.test.ts
 CHROME_PATH=/path/to/chrome npm test       # browser tests with a specific Chrome
+./scripts/install-git-hooks.sh             # once: .git/hooks/pre-commit runs smoke
 ```
 
+- **`test/smoke.test.ts`**: detailed API/source contracts for wired features. **Extend it whenever you add a
+  user-visible feature** (new route, dialog id, button, or panel). Browser counterpart:
+  `smoke: roadmap UI surfaces stay wired` in `test/browser.test.ts`.
 - `test/helpers.ts`: `startServer(roms)` boots `src/main.ts` with `--no-open` on a free port, a throwaway
   workspace (`roms` = `{ SYSTEM: [file names] }`) and cache; returns `{ base, token, root, api, stop }`.
   Stop it in `t.after()`.
 - Unit tests that use `ctx`: point `setRoot()` / `ctx.cacheDir` at a temp folder and restore both afterwards.
 - The browser test fails on script errors and on sideways scrolling at phone width; fix the layout, not the
   test.
+- Agents and the Cursor `beforeShellExecution` hook run smoke before `git commit` (see `.cursor/hooks.json`).
 
 ## Manual check on a temp server
 

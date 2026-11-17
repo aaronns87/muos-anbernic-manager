@@ -11,6 +11,9 @@ import { fixBiosNames, parseCatalog, parseIni } from "../src/bios.ts";
 import { chdInstallHelp, convertibleFromDisc, isChdConvertible, probeChdman, trashBasenamesForSheet } from "../src/games/chd.ts";
 import { classifyMembers, relAfterFlatten } from "../src/games/disc-fix.ts";
 import { gameDiscLayout, sheetRefs, sniffArchive } from "../src/games/disc-layout.ts";
+import { discNumberFromGame, discSetStem, findM3uGroups, proposeM3uName } from "../src/games/disc-m3u.ts";
+import { savesForStem } from "../src/saves-game.ts";
+import { tuningHintKey } from "../src/games/smart-lists.ts";
 import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
@@ -26,8 +29,9 @@ import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } 
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import {
-  _resetAppLogForTests, appLog, logsClear, logsDownload, logsJson, logsPost, startAppLog,
+  _resetAppLogForTests, appLog, appLogFromSay, logsClear, logsDownload, logsJson, logsPost, logsSupportPack, noteStatusLinks, startAppLog,
 } from "../src/app-log.ts";
+import { freeHomebrewJson } from "../src/games/free-homebrew.ts";
 import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
@@ -801,6 +805,34 @@ const discGame = (f: string, x: string): Game => ({
   t: splitName(f)[0], k: f.toLowerCase(), f, x, s: 1, m: 0, g: [], a: "", i: "", p: f, lb: "",
 });
 
+test("multi-disc m3u grouping detects siblings and proposes playlist names", () => {
+  const d1 = discGame("Final Fantasy VII (USA) (Disc 1).cue", "cue");
+  d1.g = ["USA", "Disc 1"];
+  d1.t = "Final Fantasy VII (USA) (Disc 1)";
+  const d2 = discGame("Final Fantasy VII (USA) (Disc 2).cue", "cue");
+  d2.g = ["USA", "Disc 2"];
+  d2.t = "Final Fantasy VII (USA) (Disc 2)";
+  assert.equal(discNumberFromGame(d1), 1);
+  assert.equal(discSetStem(d1), "Final Fantasy VII (USA)");
+  assert.equal(proposeM3uName(discSetStem(d1)), "Final Fantasy VII (USA).m3u");
+  const groups = findM3uGroups([d1, d2], new Map());
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].discs.length, 2);
+  assert.equal(groups[0].discs[0].f, "Final Fantasy VII (USA) (Disc 1).cue");
+  assert.equal(groups[0].covered, false);
+});
+
+test("savesForStem matches stem and numbered state files", () => {
+  const stem = "Castlevania";
+  const files = [
+    { path: "save/file/PCSX-ReARMed/Castlevania.srm", size: 1, mtime: 1 },
+    { path: "save/state/PCSX-ReARMed/Castlevania.state0", size: 2, mtime: 2 },
+    { path: "save/state/PCSX-ReARMed/Other.state0", size: 3, mtime: 3 },
+  ];
+  assert.equal(savesForStem(files, "Castlevania.cue").length, 2);
+  assert.ok(tuningHintKey("PS", { f: "Castlevania.cue", t: "Castlevania", k: "castlevania" }));
+});
+
 test("sheetRefs parses quoted and unquoted cue FILE lines and m3u entries", () => {
   assert.deepEqual(
     sheetRefs("cue", 'FILE "game.bin" BINARY\nFILE track02.wav WAVE\n'),
@@ -1111,6 +1143,9 @@ test("app-log writes JSONL, filters, exports and clears", async (t) => {
   appLog("error", "app", "TEST", "boom", "stack-line");
   appLog("warn", "console", "TEST", "careful");
   appLog("info", "app", "OTHER", "hello");
+  appLogFromSay("yellow", "SCANNED", "Roms/ (12 games)");
+  appLogFromSay("yellow", "RESTART", "Stopped the other manager.");
+  appLogFromSay("green", "SENT", "1 file to the handheld.");
   const day = new Date().toISOString().slice(0, 10);
   const file = path.join(ctx.logs, `manager-${day}.jsonl`);
   assert.ok(fs.existsSync(file));
@@ -1119,11 +1154,35 @@ test("app-log writes JSONL, filters, exports and clears", async (t) => {
   assert.ok(listed.entries.some((e) => e.text === "boom" && e.stack === "stack-line"));
   const filtered = await logsJson(new URLSearchParams({ q: "careful", day }));
   assert.ok(filtered.entries.some((e) => e.level === "warn"));
+  const levels = await logsJson(new URLSearchParams({ day }));
+  assert.ok(levels.entries.some((e) => e.tag === "SCANNED" && e.level === "info"));
+  assert.ok(levels.entries.some((e) => e.tag === "RESTART" && e.level === "warn"));
+  assert.ok(levels.entries.some((e) => e.tag === "SENT" && e.level === "done"));
+  const actions = await logsJson(new URLSearchParams({ day, routine: "0" }));
+  assert.ok(actions.entries.some((e) => e.tag === "SENT"));
+  assert.ok(!actions.entries.some((e) => e.tag === "SCANNED"));
+  assert.ok(actions.total < levels.total);
   const dl = await logsDownload(new URLSearchParams({ day, format: "txt", q: "boom" }));
   assert.match(dl.name, /\.txt$/);
   assert.match(dl.download.toString("utf8"), /boom/);
+  noteStatusLinks({ handheld: null, wifi: { configured: false, reachable: false }, cards: [] });
+  noteStatusLinks({ handheld: { name: "RG40XX H" }, wifi: { configured: true, reachable: true, host: "192.168.1.10" }, cards: [{ id: "tf2", name: "TF2" }] });
+  const links = await logsJson(new URLSearchParams({ day, routine: "0" }));
+  assert.ok(links.entries.some((e) => e.tag === "USB" && /connected/i.test(e.text)));
+  assert.ok(links.entries.some((e) => e.tag === "WIFI" && /reachable/i.test(e.text)));
+  assert.ok(links.entries.some((e) => e.tag === "CARD" && /connected/i.test(e.text)));
   logsPost({ level: "error", tag: "BROWSER", text: "ui broke", stack: "at foo" });
   assert.throws(() => logsPost({ text: "   " }), UserError);
   await logsClear({ day });
   assert.equal(fs.existsSync(file), false);
+  const pack = await logsSupportPack(new URLSearchParams({ day, routine: "0" }));
+  assert.match(pack.name, /\.zip$/);
+  assert.ok(pack.download.length > 100);
+  assert.match(pack.download.subarray(0, 4).toString("binary"), /^PK/);
+});
+
+test("free homebrew catalogue lists legal entries", async () => {
+  const json = await freeHomebrewJson();
+  assert.ok(json.games.length >= 4);
+  assert.ok(json.games.every((g: { system: string; file: string }) => g.system && g.file));
 });
