@@ -824,7 +824,9 @@ function togglePick(el, range) {
   } else if (on) app.sel.add(el.dataset.k);
   else app.sel.delete(el.dataset.k);
   lastPick = index;
-  app.selecting = true;
+  // Leave select mode when the last pick is cleared so Play / Transfer return without Done / Esc.
+  app.selecting = app.sel.size > 0;
+  if (!app.sel.size) lastPick = -1;
   syncSelection();
 }
 
@@ -832,7 +834,8 @@ function toggleSystem(sec) {
   const games = [...sec.querySelectorAll(".game[data-k]")];
   const all = games.every((el) => app.sel.has(el.dataset.k));
   games.forEach((el) => (all ? app.sel.delete(el.dataset.k) : app.sel.add(el.dataset.k)));
-  app.selecting = true;
+  app.selecting = app.sel.size > 0;
+  if (!app.sel.size) lastPick = -1;
   syncSelection();
 }
 

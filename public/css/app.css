@@ -1185,7 +1185,7 @@ svg.console .f, svg.plat-ico .f { fill: currentColor; stroke: none; }
 .game:hover .card-play, .game:focus-within .card-play { opacity: 1; }
 .card-play:hover { background: var(--mustard); color: var(--on-mustard); }
 .games.list .card-play { width: 26px; height: 26px; left: 4px; bottom: 4px; }
-#games-list.selecting .card-play { display: none; }
+/* Keep Play visible in select mode (click already stops propagation). Transfer stays hidden — bulk bar covers it. */
 
 /* While play is open: freeze the page so held arrows don't scroll the library behind the modal. */
 html.play-open, html.play-open body {

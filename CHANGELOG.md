@@ -49,6 +49,7 @@ version.
 
 - **Play in browser** (PlayStation and other disc games): ROM/BIOS URLs put the real filename in the path so EmulatorJS no longer saves them as extensionless `rom`/`bios` and drops into the RetroArch menu instead of the game.
 - **Play in browser**: arrow keys, space and page keys no longer scroll the page or dialog behind the game; page scroll is locked while the play modal is open. Hints and tips, Wiki and README mention the behaviour.
+- **Games** cards: Play stays available in select mode; clearing the last selected game leaves select mode so Play and Transfer show again.
 - **Play in browser**: closed dialog no longer stuck at the bottom of the page; keyboard control fields fit the grid; ROM API answers EmulatorJS `HEAD` so games load instead of a black screen; session key map uses the EmulatorJS control shape so keyboard input and the in-emulator control settings work.
 - **Play in browser** controls: graphical controller layout (click a button, then press a key); Esc no longer closes the play window — leave only via the close control with a confirm; **Focus** hides header/footer/controls so only the game stays, with floating restore and leave buttons.
 - **Play in browser** keyboard map: ignore EmulatorJS localStorage and re-apply the session key map on start so Control Settings no longer show `undefined` on some systems.
