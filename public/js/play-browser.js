@@ -49,7 +49,7 @@ export function canPlayInBrowser(sys, g) {
 
 function romUrl(code, file) {
   const q = new URLSearchParams({ code, file, token: TOKEN });
-  return `/api/games/rom?${q}`;
+  return new URL(`/api/games/rom?${q}`, location.origin).href;
 }
 
 function buildDefaultControls(keys) {
@@ -103,6 +103,7 @@ function teardown() {
   delete window.EJS_defaultControls;
   delete window.EJS_Buttons;
   delete window.EJS_color;
+  delete window.EJS_ready;
 }
 
 function startEmulator(sys, g) {
@@ -118,8 +119,10 @@ function startEmulator(sys, g) {
   window.EJS_startOnLoaded = true;
   window.EJS_defaultControls = buildDefaultControls(readKeysFromForm());
   window.EJS_color = "#c4a35a";
+  window.EJS_ready = () => { /* EmulatorJS chrome is up */ };
   loaderEl = document.createElement("script");
-  loaderEl.src = `${EJS_DATA}loader.js`;
+  // Cache-bust so Restart re-runs loader.js after a previous session.
+  loaderEl.src = `${EJS_DATA}loader.js?v=${Date.now()}`;
   loaderEl.async = true;
   loaderEl.onerror = () => toast("Could not load the emulator. Check your network connection.", 5000);
   document.body.appendChild(loaderEl);
@@ -138,7 +141,8 @@ export function openPlayBrowser(sys, g) {
   $("play-controls-wrap").innerHTML = controlsFormHtml();
   const dlg = $("playbrowser");
   if (!dlg.open) dlg.showModal();
-  startEmulator(sys, g);
+  // Let the dialog paint at full size before EmulatorJS measures #play-ejs.
+  requestAnimationFrame(() => startEmulator(sys, g));
 }
 
 export function bindPlayBrowser() {

@@ -44,8 +44,7 @@ export function canPlayFile(code: string, file: string): boolean {
   return OK_EXT.has(ext);
 }
 
-/** Resolve a playable ROM under Roms/<code>/; returns file bytes for the download helper. */
-export async function playRomDownload(query: URLSearchParams) {
+function resolvePlayRom(query: URLSearchParams): { code: string; file: string; full: string } {
   const code = String(query.get("code") ?? "");
   const file = String(query.get("file") ?? "");
   if (!safePart(code) || !PLAY_CORES[code]) throw new UserError("That system cannot be played in the browser.");
@@ -55,6 +54,25 @@ export async function playRomDownload(query: URLSearchParams) {
   if (!canPlayFile(code, file)) throw new UserError("That file type cannot be played in the browser.");
   const full = path.join(ctx.roms, code, file);
   if (!inside(ctx.roms, full)) throw new UserError("That path is outside Roms/.");
+  return { code, file, full };
+}
+
+/** EmulatorJS probes with HEAD before GET; answer size without reading the file. */
+export async function playRomHead(query: URLSearchParams) {
+  const { file, full } = resolvePlayRom(query);
+  let size: number;
+  try {
+    size = (await fsp.stat(full)).size;
+  } catch {
+    throw new UserError(`${path.basename(path.dirname(full))}/${file} is not in Roms/.`);
+  }
+  if (!size) throw new UserError("That ROM file is empty.");
+  return { head: { length: size, name: file, type: "application/octet-stream" } };
+}
+
+/** Resolve a playable ROM under Roms/<code>/; returns file bytes for the download helper. */
+export async function playRomDownload(query: URLSearchParams) {
+  const { code, file, full } = resolvePlayRom(query);
   let data: Buffer;
   try {
     data = await fsp.readFile(full);

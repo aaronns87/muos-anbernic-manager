@@ -45,6 +45,10 @@ version.
 - **Save browser**: Emulation > Saves lists one game's saves and save states over SSH (pull to `backups/saves-pulled/`, push, delete, prune); the game viewer **Handheld** tab offers the same per-file actions. Full-device tar.gz and `.muxbak` backups are unchanged.
 - **Games smart lists**: **Smart lists** filter (favourites, never copied, no art, bad dump, needs tuning, on device only); star on game cards and in the viewer; **Select shown** for bulk transfer or scrape.
 
+### Fixed
+
+- **Play in browser**: closed dialog no longer stuck at the bottom of the page; keyboard control fields fit the grid; ROM API answers EmulatorJS `HEAD` so games load instead of a black screen.
+
 ### Changed
 
 - **Testing**: `npm run smoke` (and optional `smoke:full` with Chrome) is the pre-commit gate — type-check plus a detailed

@@ -1187,16 +1187,26 @@ svg.console .f, svg.plat-ico .f { fill: currentColor; stroke: none; }
 .games.list .card-play { width: 26px; height: 26px; left: 4px; bottom: 4px; }
 #games-list.selecting .card-play { display: none; }
 
-dialog.playbrowser { width: min(960px, calc(100vw - 24px)); max-height: min(92dvh, 900px); padding: 0; display: flex; flex-direction: column; }
-dialog.playbrowser[open] { display: flex; }
+dialog.playbrowser {
+  width: min(960px, calc(100vw - 24px));
+  height: min(90dvh, 860px);
+  max-height: min(90dvh, 860px);
+  padding: 0;
+}
+dialog.playbrowser[open] { display: flex; flex-direction: column; }
 .play-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 12px; min-height: 0; flex: 1; overflow: auto; }
-.play-ejs { width: 100%; min-height: min(56dvh, 480px); background: #0c0a09; border-radius: var(--radius-sm); overflow: hidden; }
+.play-ejs {
+  width: 100%; flex: 1 1 auto; min-height: 220px; height: min(48dvh, 420px);
+  background: #0c0a09; border-radius: var(--radius-sm); overflow: hidden; position: relative;
+}
 .play-ejs > div, .play-ejs canvas, .play-ejs iframe { max-width: 100%; }
-.play-controls { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; background: var(--panel-2); }
+.play-controls { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; background: var(--panel-2); flex: none; }
 .play-controls summary { cursor: pointer; font-weight: 700; font-size: 13px; }
-.play-key-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 10px 0; }
-.play-key { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.play-key-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
+.play-key { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; min-width: 0; }
+.play-key .control { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .play-controls-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.playbrowser .fv-foot { flex: none; }
 .badge-on, .no-art, .sort-badge { position: absolute; font: 800 9.5px/1 var(--mono); padding: 4px 6px; border-radius: 5px; letter-spacing: .03em; }
 .badge-on { left: 8px; bottom: 8px; color: #fff; background: color-mix(in srgb, var(--ok) 92%, transparent); }
 .game:has(.card-play) .badge-on { bottom: 48px; }

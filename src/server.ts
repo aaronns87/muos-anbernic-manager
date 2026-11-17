@@ -48,7 +48,7 @@ import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts"
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
 import { gamesFlagsJson } from "./games/flags.ts";
-import { playRomDownload } from "./games/play-rom.ts";
+import { playRomDownload, playRomHead } from "./games/play-rom.ts";
 import {
   deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
 } from "./saves-game.ts";
@@ -79,7 +79,8 @@ import { dismissWhatsNew, whatsNewStatus } from "./whats-new.ts";
 import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
-type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string };
+type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string }
+  | { head: { length: number; name: string; type?: string } };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -179,6 +180,7 @@ const routes: Record<string, Handler> = {
   "GET /api/games": async () => ({ raw: await libraryJson() }),
   "GET /api/games/flags": () => gamesFlagsJson(),
   "GET /api/games/rom": (q) => playRomDownload(q),
+  "HEAD /api/games/rom": (q) => playRomHead(q),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -488,7 +490,7 @@ function tokenOk(given: string): boolean {
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const route = `${req.method} ${url.pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });
@@ -503,6 +505,14 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
     if (result && typeof result === "object" && "image" in result && Buffer.isBuffer(result.image)) {
       const { image, name } = result as { image: Buffer; name: string };
       return send(res, 200, image, MIME[path.extname(name).toLowerCase()] ?? "image/png");
+    }
+    if (result && typeof result === "object" && "head" in result) {
+      const { head } = result as { head: { length: number; name: string; type?: string } };
+      res.setHeader("Content-Length", String(head.length));
+      res.setHeader("Content-Type", head.type ?? "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${head.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(head.name)}`);
+      res.writeHead(200);
+      return void res.end();
     }
     if (result && typeof result === "object" && "download" in result && Buffer.isBuffer(result.download)) {
       const { download, name, type } = result as { download: Buffer; name: string; type?: string };

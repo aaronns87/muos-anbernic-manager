@@ -96,12 +96,18 @@ test("smoke: Syncthing idle probe answers offline", async () => {
 });
 
 test("smoke: play ROM stream for light systems", async () => {
-  const ok = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("Tetris (World).gb")}&token=${srv.token}`);
+  const romQs = `code=GB&file=${encodeURIComponent("Tetris (World).gb")}&token=${srv.token}`;
+  const head = await fetch(`${srv.base}/api/games/rom?${romQs}`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.ok(Number(head.headers.get("content-length")) > 0);
+
+  const ok = await fetch(`${srv.base}/api/games/rom?${romQs}`);
   assert.equal(ok.status, 200);
   assert.match(ok.headers.get("content-type") || "", /octet-stream|application\//);
   const body = Buffer.from(await ok.arrayBuffer());
   assert.ok(body.length > 0);
   assert.match(body.toString("utf8"), /rom data for Tetris/);
+  assert.equal(body.length, Number(head.headers.get("content-length")));
 
   const badPath = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("../etc/passwd")}&token=${srv.token}`);
   assert.equal(badPath.status, 400);
