@@ -1193,11 +1193,23 @@ dialog.playbrowser {
   max-height: min(90dvh, 860px);
   padding: 0;
   position: relative;
+  border: 1px solid color-mix(in srgb, var(--mustard) 32%, var(--line-2));
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 7%, transparent),
+    0 28px 70px -24px rgba(0, 0, 0, .9);
+  overflow: hidden;
 }
 dialog.playbrowser[open] { display: flex; flex-direction: column; }
-.play-head { position: relative; z-index: 2; }
+.play-head {
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: nowrap; flex-shrink: 0;
+}
+.play-head > div:first-child { flex: 1 1 auto; min-width: 0; }
 .play-head-actions {
-  display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto;
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  flex: 0 0 auto; margin-left: auto;
 }
 /* .icon-btn is absolute for the game viewer; keep play chrome in normal flow. */
 .play-head-actions .icon-btn,
@@ -1213,14 +1225,18 @@ dialog.playbrowser[open] { display: flex; flex-direction: column; }
 }
 .play-ejs > div, .play-ejs canvas, .play-ejs iframe { max-width: 100%; }
 .play-float {
-  display: none; position: absolute; top: 14px; right: 14px; left: auto; z-index: 6;
+  display: none; position: absolute; top: 12px; right: 12px; left: auto; z-index: 6;
   flex-direction: column; gap: 8px; padding: 8px; border-radius: 16px;
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent);
   box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .75);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
+  opacity: .14;
+  transition: opacity .18s ease;
 }
+.play-float:hover,
+.play-float:focus-within { opacity: 1; }
 .play-float .icon-btn {
   width: 38px; height: 38px; border-radius: 11px;
   background: color-mix(in srgb, var(--panel-3) 88%, transparent); color: var(--text);
@@ -1230,14 +1246,13 @@ dialog.playbrowser.play-focus {
   width: min(1100px, calc(100vw - 24px));
   height: min(94dvh, 920px);
   max-height: min(94dvh, 920px);
-  overflow: visible;
 }
 dialog.playbrowser.play-focus > .play-head,
 dialog.playbrowser.play-focus > .fv-foot,
 dialog.playbrowser.play-focus #play-controls-wrap { display: none !important; }
 dialog.playbrowser.play-focus .play-body { padding: 0; gap: 0; overflow: hidden; }
 dialog.playbrowser.play-focus .play-ejs {
-  height: auto; min-height: 0; flex: 1; border-radius: var(--radius-sm); background: #000;
+  height: auto; min-height: 0; flex: 1; border-radius: 0; background: #000;
 }
 dialog.playbrowser.play-focus .play-float { display: flex; }
 .play-controls {
