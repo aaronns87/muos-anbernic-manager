@@ -16,6 +16,7 @@ import { openFreeScummvm } from "./free-scummvm.js";
 import { applyColourScheme, applySoftLook, resolveSchemeId } from "./appearance.js";
 import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
 import { syncGameFilters } from "./ui.js";
+import { applySmartListSideEffects, isFavourite, toggleFavourite, matchLibrarySmartList, matchDeviceSmartList } from "./lists.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -38,6 +39,10 @@ export async function loadLibrary() {
   }
   app.data = data;
   app.libraryError = "";
+  api("games/flags").then((f) => {
+    app.flags = { bad: new Set(f.bad || []), tuning: new Set(f.tuning || []) };
+    if (section() === "games") render();
+  }).catch(() => { app.flags ??= { bad: new Set(), tuning: new Set() }; });
   fillMetaFilters();
   resetListing();
   renderStats();
@@ -88,6 +93,7 @@ export function renderStats() {
     <span class="hstat"><b>${human(t.bytes)}</b></span>
     <span class="hstat built" id="scan-state" title="Scanned ${esc(data.generated)} from ${esc(data.roms || data.root + "/Roms")}"></span>`;
   $("games-add").innerHTML = `<button class="btn" id="open-ports" title="Browse and install PortMaster ports on the handheld">${icon("web")}<span>Ports</span></button>
+    <button type="button" class="btn" data-uptodate title="Scrape missing art, sync artwork, and copy games not on the handheld">${icon("sync")}<span>Update handheld&hellip;</span></button>
     <button class="btn primary" id="add-games" title="Add game files to the library">${icon("plus")}<span>Add games</span></button>`;
   renderScanState();
 }
@@ -223,6 +229,7 @@ const sorters = {
 
 function matches(g, sys) {
   const ui = app.ui;
+  if (ui.smartList !== "all" && !matchLibrarySmartList(g, sys, ui, app.device, app.flags, keyOf, isOnCard, EXCLUDED)) return false;
   if (ui.art === "with" && !g.i) return false;
   if (ui.art === "without" && g.i) return false;
   if (ui.onCard !== "all" && app.device.target) {
@@ -254,8 +261,10 @@ function card(g, si, idx) {
   const copy = canCopy(sys)
     ? `<button class="card-transfer" data-v="${idx}" title="Transfer to ${esc(devName())}" aria-label="Transfer ${esc(g.t)} to ${esc(devName())}">${ICONS.up}</button>` : "";
   const key = keyOf(sys, g), on = app.sel.has(key);
+  const fav = isFavourite(key) ? `<button class="fav on" type="button" data-fav="${esc(key)}" title="Favourite" aria-label="Remove from favourites">${icon("star")}</button>`
+    : `<button class="fav" type="button" data-fav="${esc(key)}" title="Add to favourites" aria-label="Favourite">${icon("star")}</button>`;
   return `<article class="game${on ? " sel" : ""}" tabindex="0" data-v="${idx}" data-k="${esc(key)}">
-    <div class="art">${art}${pickBox(on)}${sortBadge(g)}${badge}${copy}</div>
+    <div class="art">${art}${fav}${pickBox(on)}${sortBadge(g)}${badge}${copy}</div>
     <div class="info"><h3 title="${esc(g.t)}">${highlight(g.t, q)}</h3>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
       <div class="file" title="${esc(g.f)}">${highlight(g.f, q)} &middot; ${human(g.s)}</div></div>
@@ -334,17 +343,23 @@ export function render() {
 
 function isFiltering() {
   const ui = app.ui;
-  return !!ui.q || ui.art !== "all" || metaFiltering() || (ui.onCard !== "all" && !!app.device.target);
+  return !!ui.q || ui.art !== "all" || ui.smartList !== "all" || metaFiltering() || (ui.onCard !== "all" && !!app.device.target);
 }
 
 function isDevFiltering() {
   const ui = app.ui;
-  return !!ui.q || ui.art !== "all" || metaFiltering() || ui.devFilter !== "all";
+  return !!ui.q || ui.art !== "all" || ui.smartList !== "all" || metaFiltering() || ui.devFilter !== "all";
 }
 
 function setNote(text, clearable) {
   const ui = app.ui;
-  $("note").innerHTML = esc(text) + (clearable ? ` <button class="link-btn" data-clear-filters>Clear filters</button>` : "");
+  const smart = app.ui.smartList !== "all" ? [
+    `<button class="link-btn" data-smart="select">Select shown</button>`,
+    app.ui.smartList === "no-art" ? `<button class="link-btn" data-smart="scrape">Scrape artwork</button>` : "",
+    app.ui.smartList === "never" ? `<button class="link-btn" data-smart="copy">Select for transfer</button>` : "",
+  ].filter(Boolean).join(" ") : "";
+  $("note").innerHTML = esc(text) + (clearable ? ` <button class="link-btn" data-clear-filters>Clear filters</button>` : "") + (smart ? ` ${smart}` : "");
+  $("smart-list")?.classList.toggle("active", ui.smartList !== "all");
   $("art").classList.toggle("active", ui.art !== "all");
   $("copied-filter").classList.toggle("active", ui.onCard !== "all");
   $("dev-filter").classList.toggle("active", ui.devFilter !== "all");
@@ -353,9 +368,9 @@ function setNote(text, clearable) {
 
 export function clearFilters(draw = true) {
   const ui = app.ui;
-  Object.assign(ui, { q: "", art: "all", onCard: "all", devFilter: "all", genre: "all", rating: "all", year: "all" });
+  Object.assign(ui, { q: "", art: "all", onCard: "all", devFilter: "all", genre: "all", rating: "all", year: "all", smartList: "all" });
   $("q").value = "";
-  for (const id of ["art", "copied-filter", "dev-filter", "genre", "rating", "year"]) $(id).value = "all";
+  for (const id of ["smart-list", "art", "copied-filter", "dev-filter", "genre", "rating", "year"]) if ($(id)) $(id).value = "all";
   if (draw) render();
 }
 
@@ -657,8 +672,10 @@ const devSorters = {
   oldest: viaLib((a, b) => (a.year || 9999) - (b.year || 9999))
 };
 
-function devMatches(g) {
+function devMatches(g, sys) {
   const ui = app.ui;
+  const libKey = g.lib ? keyOf(sys.lib || sys, g.lib) : devKey(sys, g);
+  if (ui.smartList !== "all" && !matchDeviceSmartList(g, libKey, ui, isFavourite)) return false;
   if (ui.art === "with" && !g.art.box) return false;
   if (ui.art === "without" && g.art.box) return false;
   if (ui.devFilter === "lib" && g.st === "device") return false;
@@ -700,7 +717,7 @@ function renderDeviceView() {
   let shown = 0, total = 0;
   listing.data.systems.forEach((sys) => {
     total += sys.games.length;
-    const games = sys.games.filter(devMatches).sort(devSorters[ui.sort]);
+    const games = sys.games.filter((g) => devMatches(g, sys)).sort(devSorters[ui.sort]);
     if (sys.lib) counts[app.data.systems.indexOf(sys.lib)] = games.length;
     if (!games.length) return;
     shown += games.length;
@@ -1099,6 +1116,7 @@ export function applyView() {
   $("view-list").classList.toggle("on", ui.view === "list");
   $("card-size").value = ui.card;
   $("sort").value = ui.sort;
+  if ($("smart-list")) $("smart-list").value = ui.smartList;
   $("show-empty").checked = ui.empty;
   $("collapse-all").textContent = ui.collapsed.size ? "Expand all" : "Collapse all";
 }
@@ -1115,6 +1133,14 @@ export function bindGames() {
     timer = setTimeout(() => { ui.q = e.target.value.trim().toLowerCase(); render(); }, 120);
   });
   $("art").addEventListener("change", (e) => { ui.art = e.target.value; render(); });
+  $("smart-list")?.addEventListener("change", (e) => {
+    ui.smartList = e.target.value;
+    store.set("smartList", ui.smartList);
+    applySmartListSideEffects(ui, !!app.device.target, setWhere);
+    if (ui.smartList === "never" && app.device.target) $("copied-filter").value = "missing";
+    if (ui.smartList === "no-art") $("art").value = "without";
+    render();
+  });
   for (const key of ["genre", "rating", "year"]) $(key).addEventListener("change", (e) => { ui[key] = e.target.value; render(); });
   $("sort").addEventListener("change", (e) => { ui.sort = e.target.value; store.set("sort", ui.sort); render(); });
   $("show-empty").addEventListener("change", (e) => { ui.empty = e.target.checked; store.set("empty", ui.empty); render(); });
@@ -1159,7 +1185,13 @@ export function bindGames() {
   document.addEventListener("click", (e) => { if (platOpen() && !plat.contains(e.target)) openPlatforms(false); });
   $("copied-filter").addEventListener("change", (e) => { ui.onCard = e.target.value; render(); });
   $("dev-filter").addEventListener("change", (e) => { ui.devFilter = e.target.value; render(); });
-  $("note").addEventListener("click", (e) => { if (e.target.closest("[data-clear-filters]")) clearFilters(); });
+  $("note").addEventListener("click", (e) => {
+    const smart = e.target.closest("[data-smart]");
+    if (smart?.dataset.smart === "select") { selectAllShown(); return; }
+    if (smart?.dataset.smart === "scrape") { setSelecting(true); selectAllShown(); location.hash = "#artwork"; return; }
+    if (smart?.dataset.smart === "copy") { setSelecting(true); selectAllShown(); return; }
+    if (e.target.closest("[data-clear-filters]")) clearFilters();
+  });
   $("where").addEventListener("click", (e) => {
     const where = e.target.closest("[data-where]")?.dataset.where;
     if (where && where !== ui.where) setWhere(where);
@@ -1173,6 +1205,8 @@ export function bindGames() {
   $("games-list").addEventListener("click", (e) => {
     const pickSys = e.target.closest(".sys-pick");
     if (pickSys) { toggleSystem(pickSys.closest(".system")); return; }
+    const fav = e.target.closest("[data-fav]");
+    if (fav) { e.stopPropagation(); toggleFavourite(fav.dataset.fav); render(); return; }
     const pick = e.target.closest(".pick");
     if (pick) { togglePick(pick.closest(".game"), e.shiftKey); return; }
     if (app.selecting && !e.target.closest(".card-transfer, .system-head")) {

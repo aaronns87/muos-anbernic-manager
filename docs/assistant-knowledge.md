@@ -29,9 +29,9 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 
 1. **Card reader** - TF2 games card (or the only card on one-slot models) in this computer. Fastest for many games. Needed for Install MustardOS and for card wipes from a reader.
 2. **USB** - Needs MTP. On Andromeda, USB Function is often missing on the handheld menus — use the Andromeda MTP steps below. Older MustardOS: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
-3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set address under Overview > Wi-Fi settings (or Find on network). Wake the handheld; sleep drops Wi-Fi.
+3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set the handheld under Overview / Connection → **Handheld on this network** (Save and connect, or Find on network then Use and connect). Sign-in details (user, password, SFTP port) sit behind a disclosure. Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, ttyd, Syncthing, landing, mDNS, Tailscale when present) with enabled/running/reachable status. Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, ttyd, Syncthing, landing, mDNS, Tailscale when present) with enabled/running/reachable status; **Open Syncthing** when its web UI answers; optional **Wait for Syncthing idle** before large copies (manager does not start/stop Syncthing—use Device Settings → Web services). Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
 
 ### Andromeda USB (MTP) — set MTP from the manager
 
@@ -88,9 +88,13 @@ The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-F
 
 Home page: whether the handheld is connected and how (card reader, USB or Wi-Fi), free space, how many systems have games and artwork, empty systems, MustardOS images in `os/`, apps with updates. Top-bar chip opens the connection panel; Overview is the full connection page.
 
-**Wi-Fi settings**: enter the handheld address (Configuration > Wi-Fi Network on the handheld). Address can change after reconnect; **Find on network** searches again. Optional Filebrowser link when SFTP is up.
+**Handheld on this network**: enter the address (Configuration > Wi-Fi Network on the handheld). Status shows connected / saved-but-unreachable / not set. **Save and connect** stores details and probes; **Find on network** scans LAN for SFTP (port 2022) with **Use and connect** on each hit. Sign-in details disclosure for user/password/port. Optional Filebrowser link when SFTP is up. **Device profiles** save named Wi-Fi sets in the Connection panel (switch / update / delete).
 
-**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets. Separate from Manager → Logs.
+**Update handheld…** (Overview and Games): plan dialog — open Scrape for missing art, sync artwork to the device, queue copies for games not on the handheld.
+
+**Since last connect**: Overview card remembers play/saves/library-vs-device counts while linked, then summarises changes next time (links to Play, Saves, Games, Transfers).
+
+**Recent activity**: last copies, deletes, settings, installs, failures. Show all opens the full log with search and warning/error filter. Log lives in the manager cache (last few thousand entries). Clear from Settings > Resets. Separate from Manager → Logs (which can **Export support pack** as a zip).
 
 ## games - Games
 
@@ -100,7 +104,7 @@ Every game under `Roms/<SYSTEM>/`, grouped by system, with box art and LaunchBox
 
 ### Finding and selecting
 
-Search matches titles, file names, regions, systems. Filters: platform, genre, year. **Roms/ library** vs **On TF2** switches computer vs handheld card. **Select** (or `S`) then Transfer, Trash, or delete from TF2.
+Search matches titles, file names, regions, systems. Filters: platform, genre, year. **Smart lists**: Favourites (star on card/viewer, stored locally), Never copied, No art, Bad dump (Library check), Needs tuning, On device only; **Select shown** for bulk transfer/scrape. **Roms/ library** vs **On TF2** switches computer vs handheld card. **Select** (or `S`) then Transfer, Trash, or delete from TF2.
 On phones, **Filters** reveals filters and the card-size slider and shows the active filter count. Hiding it keeps the selections. Wider screens always show the filters.
 
 ### Copying and Transfers
@@ -109,7 +113,7 @@ Picked games (with art) copy into handheld `ROMS` over the active connection. FA
 
 ### Add games
 
-**Add games** drops files into the right system folder and looks up description/art.
+**Add games** drops files into the right system folder and looks up description/art. **Free ScummVM games** and **Free & homebrew** catalogues download legal titles into Roms/ (homebrew into normal system folders). **Library recipes** (Settings → Behaviour) can scrape missing art and queue copies after add games or after Scrape saves.
 
 ### ScummVM
 
@@ -129,7 +133,9 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed.
 
-Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, Menu+X core options when the game is on the handheld and starts RetroArch or PPSSPP, play stats, collections, saves, Open Game Tuning, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
+Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, Menu+X core options when the game is on the handheld and starts RetroArch or PPSSPP, play stats, collections, **saves with pull/push/delete/prune**, Open Game Tuning, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
+
+**Emulation > Saves > Save browser**: per-game `.srm` and save states over SSH; pull to `backups/saves-pulled/`, push, delete, prune states (confirm). Complements tar.gz backups and `.muxbak`; does not replace them.
 
 ### Deleting
 
@@ -214,6 +220,8 @@ Themes folder (Settings). Defaults to MustardOS **2606.0 Andromeda** (or connect
 
 **Device backups (Andromeda 2606+, backup.sh present):** `.muxbak` in ARCHIVE on the handheld (same as MustardOS Backup / Archive Manager). List, download to `backups/`, create (sections + SD1/SD2/USB, optional merge), restore on device (overwrites matching sections). TF2 setup still creates legacy `BACKUP/` for older zips; Andromeda system backups use ARCHIVE.
 
+**Per-game save browser (Wi-Fi+SSH):** game viewer Handheld tab and Emulation > Saves note. Lists `.srm` and save states for that ROM; **Pull** to `backups/saves-pulled/`, **Push** back, delete on device, **Prune** to keep last N states. Complements tar backups and `.muxbak`; does not replace them.
+
 ### JAVA / FreeJ2ME
 
 Andromeda: FreeJ2ME core in Pickles (external launchers removed). Older builds: Extra Cores → FreeJ2ME.
@@ -244,6 +252,8 @@ Per ROM folder: **Picture and play** (aspect, integer scale, smooth, shader, ove
 
 **Convert to CHD**: needs chdman on PATH. Refresh tooling in Disc layouts. Multi-disc: one .chd per disc + .m3u.
 
+**Make playlist** (Disc layouts): sibling No-Intro/Redump Disc N sheets without .m3u; preview and write; batch per system or all.
+
 **Duplicates**: suggest keep by preferred region then good dumps; Move to Trash selected. Arcade skipped.
 
 ## files - Files
@@ -254,7 +264,7 @@ Copy to handheld / Copy to computer into open folder; confirm overwrites; appear
 
 ## logs - Logs
 
-Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, **Hide routine** (default on: drops SERVING/SCANNED/CLOSED and similar), Show more, export (txt), clear day or all, Show folder. Captures say() lines (routine tags as Info), USB/Wi-Fi/card connect edges, console.warn/error, uncaught exceptions, unhandled rejections, API 4xx/5xx and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
+Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, **Hide routine** (default on: drops SERVING/SCANNED/CLOSED and similar), Show more, export (txt), **Support pack** zip (logs + VERSION + connection snapshot with optional IP redaction + recent activity + platform), clear day or all, Show folder. Captures say() lines (routine tags as Info), USB/Wi-Fi/card connect edges, console.warn/error, uncaught exceptions, unhandled rejections, API 4xx/5xx and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
 
 ## tuning - Game Tuning
 
@@ -299,7 +309,7 @@ Roms folder (library) and other folders: apps, os, bios, backups, themes, logs. 
 
 ### Behaviour
 
-Transfers, startup and updates (app shortcut, update check, **Show tips at start**, **Open tips** walkthrough). Images: uploaded artwork size.
+Transfers, startup and updates (app shortcut, update check, **Show tips at start**, **Open tips** walkthrough). **Library recipes**: enable canned chains (scrape, queue copy, rescan) with a simple step editor and **Run now**. Images: uploaded artwork size.
 
 ### Appearance
 

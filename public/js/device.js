@@ -19,6 +19,7 @@ import { renderTuning } from "./tuning.js";
 import { settingsDeviceChanged } from "./settings.js";
 import { openArtSync, openKeepOnCard } from "./artwork.js";
 import { viewerDeviceChanged } from "./game-view.js";
+import { noteLiveConnection, profileSwitcherHtml } from "./profiles.js";
 
 const LIBMTP = {
   darwin: "brew install libmtp",
@@ -257,7 +258,7 @@ export function webServicesBlock({ compact = false } = {}) {
   if (!pack?.host) {
     return `<div class="sb-conn-services${compact ? " compact" : ""}">
       <span class="mode-label">Web services</span>
-      <p class="muted-note">Set the Wi-Fi address to see Secure Shell, SFTP and other services.</p>
+      <p class="muted-note">Set the handheld on this network to see Secure Shell, SFTP and other services.</p>
     </div>`;
   }
   if (!list) {
@@ -272,21 +273,33 @@ export function webServicesBlock({ compact = false } = {}) {
       <p class="muted-note">No web services answered on ${esc(pack.host)}.</p>
     </div>`;
   }
+  const waitIdle = store.get("waitSyncthingIdle", false) === true;
   const rows = list.map((s) => {
     const ok = s.reachable || s.running;
     const warn = s.enabled && !ok;
     const cls = ok ? "ok" : warn ? "warn" : "off";
     const state = ok ? "Active" : warn ? "Enabled" : s.enabled === false ? "Off" : "Inactive";
+    const syncthing = s.id === "syncthing" && s.reachable && s.port;
+    const openBtn = syncthing
+      ? `<a class="btn small ghost svc-open" href="http://${esc(pack.host)}:${s.port}/" target="_blank" rel="noopener" title="Syncthing web UI on the handheld">${icon("external")}<span>Open</span></a>`
+      : "";
     return `<li class="${cls}" title="${esc(s.detail)}">
       <span class="svc-dot" aria-hidden="true"></span>
       <span class="svc-text"><b>${esc(s.label)}</b><small>${esc(s.detail || state)}</small></span>
-      <span class="svc-state">${esc(state)}</span>
+      <span class="svc-state">${esc(state)}${openBtn}</span>
     </li>`;
   }).join("");
+  const syncthingOn = list.some((s) => s.id === "syncthing" && (s.reachable || s.running));
+  const idleToggle = syncthingOn && !compact
+    ? `<label class="set-row set-toggle svc-idle"><span><b>Wait for Syncthing idle</b><small>Before large copies and recipe transfers, wait until Syncthing is not syncing (up to 90s).</small></span>
+        <span class="switch"><input type="checkbox" role="switch" data-syncthing-idle${waitIdle ? " checked" : ""}><span class="switch-track"></span></span></label>`
+    : "";
   return `<div class="sb-conn-services${compact ? " compact" : ""}">
     <span class="mode-label">Web services · ${esc(pack.host)}</span>
     <ul class="sb-conn-svc-list">${rows}</ul>
-    ${compact ? "" : `<p class="muted-note">Toggles live under Device Settings → Web services. Active means this computer can reach the service, or SSH saw it running.</p>`}
+    ${idleToggle}
+    ${compact ? "" : `<p class="muted-note"><b>Active</b> means this computer can open the port or SSH saw the process running.
+      Turn services on or off under Device Settings → Web services. The manager does not start or stop Syncthing for you.</p>`}
   </div>`;
 }
 
@@ -536,7 +549,7 @@ function paintConnPanel() {
       </div>` : ""}
       ${webServicesBlock()}
       ${connHelpBlock(conn)}
-      ${showWifi ? `<div class="sb-conn-section sb-conn-wifi"><span class="mode-label">Wi-Fi address</span>${wifiForm({ ids: false })}</div>` : ""}
+      ${showWifi ? `<div class="sb-conn-section sb-conn-wifi">${wifiForm({ ids: false })}</div>` : ""}
       <a class="sb-conn-overview" href="#overview" data-conn-overview>Open Overview</a>
     </div>
     <div class="sb-conn-body" ${connTab === "ssh" ? "" : "hidden"}>${remoteSetup()}${webServicesBlock({ compact: true })}</div>
@@ -605,6 +618,12 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel(false);
+});
+
+document.addEventListener("change", (e) => {
+  const idle = e.target.closest("[data-syncthing-idle]");
+  if (!idle) return;
+  store.set("waitSyncthingIdle", idle.checked);
 });
 
 document.addEventListener("keydown", (e) => {
@@ -784,6 +803,7 @@ export async function refreshDevice(force = false) {
     else d.target = h && h.mtp && h.ready && h.libmtp && !h.released ? { id: "usb", mode: "usb", name: h.name, free: 0, total: 0, art: "" } : null;
     await loadIndex();
     d.status = "ready";
+    noteLiveConnection(!!d.target || !!(w && w.reachable));
   } catch (error) {
     d.status = error.offline ? "offline" : "error";
     d.error = error.message;
@@ -828,29 +848,55 @@ export function modePicker() {
   </div>`;
 }
 
-/** The Wi-Fi settings: the handheld's address and SFTPGo login. Pass ids:false in the status-bar panel to avoid clashing with Overview. */
+const wifiFound = { list: null, busy: false, openDetails: false };
+
+function wifiStatusLine(w) {
+  if (w.reachable) return { cls: "ok", text: `Connected at ${w.host}` };
+  if (w.configured) return { cls: "warn", text: `Saved ${w.host}, but not answering right now` };
+  return { cls: "off", text: "Not set — enter the handheld's address or find it on this network" };
+}
+
+/** The Wi-Fi settings: the handheld's address and SFTP login. Pass ids:false in the status-bar panel to avoid clashing with Overview. */
 export function wifiForm({ ids = true } = {}) {
   const w = app.device.wifi || {}, dis = busy() ? " disabled" : "";
   const id = (name) => (ids ? ` id="wifi-${name}"` : "");
+  const status = wifiStatusLine(w);
+  const openDetails = wifiFound.openDetails || !w.configured || (!!w.configured && !w.reachable);
   const found = wifiFound.list
     ? wifiFound.list.length
-      ? `<div class="wifi-found">Found: ${wifiFound.list.map((f) => `<button class="btn" data-device="wifi-use" data-host="${esc(f.host)}">${esc(f.host)}</button>`).join("")}</div>`
-      : `<div class="wifi-found nil">Nothing on this network answers on port 2022. Check that the handheld is awake and Secure File Transfer (or SFTP + Filebrowser) is enabled.</div>`
+      ? `<div class="wifi-found" role="list">
+          <span class="wifi-found-label">Found on this network</span>
+          ${wifiFound.list.map((f) => `<div class="wifi-found-row" role="listitem">
+            <code>${esc(f.host)}</code>
+            <button type="button" class="btn small primary" data-device="wifi-use" data-host="${esc(f.host)}"${dis}>${icon("plug")}<span>Use and connect</span></button>
+          </div>`).join("")}
+        </div>`
+      : `<div class="wifi-found nil">Nothing on this network answers on port 2022. Wake the handheld and enable Secure File Transfer (or SFTP + Filebrowser).</div>`
     : "";
   return `<div class="wifi-form">
-    <label>Address<input class="control"${id("host")} data-wifi="host" placeholder="192.168.0.32" value="${esc(w.host || "")}" spellcheck="false" autocomplete="off"></label>
-    <label>User<input class="control"${id("user")} data-wifi="user" value="${esc(w.user || "muos")}" spellcheck="false" autocomplete="off"></label>
-    <label>Password<input class="control"${id("pass")} data-wifi="pass" type="password" placeholder="${w.configured ? "saved" : "muos"}" autocomplete="off"></label>
-    <label>SFTP port<input class="control"${id("port")} data-wifi="port" inputmode="numeric" value="${esc(String(w.port || 2022))}"></label>
+    <div class="wifi-form-head">
+      <b class="wifi-form-title">Handheld on this network</b>
+      <p class="wifi-form-status ${status.cls}">${esc(status.text)}</p>
+    </div>
+    ${profileSwitcherHtml()}
+    <label class="wifi-host">Address<input class="control"${id("host")} data-wifi="host" placeholder="192.168.0.32" value="${esc(w.host || "")}" spellcheck="false" autocomplete="off"></label>
+    <details class="wifi-sign-in"${openDetails ? " open" : ""}>
+      <summary>Sign-in details</summary>
+      <div class="wifi-sign-in-grid">
+        <label>User<input class="control"${id("user")} data-wifi="user" value="${esc(w.user || "muos")}" spellcheck="false" autocomplete="off"></label>
+        <label>Password<input class="control"${id("pass")} data-wifi="pass" type="password" placeholder="${w.configured ? "saved" : "muos"}" autocomplete="off"></label>
+        <label>SFTP port<input class="control"${id("port")} data-wifi="port" inputmode="numeric" value="${esc(String(w.port || 2022))}"></label>
+      </div>
+    </details>
     <div class="wifi-actions">
-      <button class="btn${w.reachable ? "" : " primary"}" data-device="wifi-save"${dis}>${icon("plug")}<span>Save and connect</span></button>
-      <button class="btn" data-device="wifi-find"${dis || (wifiFound.busy ? " disabled" : "")} title="Look for SFTPGo on this computer's local networks">${wifiFound.busy ? `${ICONS.spin}<span>Looking</span>` : `${icon("search")}<span>Find on network</span>`}</button>
+      <button type="button" class="btn primary wifi-save" data-device="wifi-save"${dis}>${icon("plug")}<span>Save and connect</span></button>
+      <p class="wifi-action-note">Store these details and check that the handheld answers over Wi-Fi.</p>
+      <button type="button" class="btn wifi-find" data-device="wifi-find"${dis || (wifiFound.busy ? " disabled" : "")}>${wifiFound.busy ? `${ICONS.spin}<span>Looking&hellip;</span>` : `${icon("search")}<span>Find on network</span>`}</button>
+      <p class="wifi-action-note">Scan this Wi-Fi for a MustardOS SFTP service (port 2022).</p>
     </div>
     ${found}
   </div>`;
 }
-
-const wifiFound = { list: null, busy: false };
 
 async function saveWifi(el, host) {
   const form = el?.closest?.(".wifi-form");
@@ -866,15 +912,18 @@ async function saveWifi(el, host) {
   try {
     await api("device/wifi", body);
   } catch (error) {
+    wifiFound.openDetails = true;
     toast(error.message, 4000);
     return renderDevice();
   }
   wifiFound.list = null;
+  wifiFound.openDetails = false;
   const hostInput = field("host"), passInput = field("pass");
   if (hostInput) hostInput.value = body.host;
   if (passInput) passInput.value = "";
   await refreshDevice(true);
   const conn = connection();
+  if (!(app.device.wifi && app.device.wifi.reachable)) wifiFound.openDetails = true;
   toast(conn.state === "wifi" ? `${conn.title} is connected over Wi-Fi` : conn.state === "error" ? conn.sub : conn.title, 4000);
 }
 

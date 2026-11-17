@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Hints and tips; richer Logs; collapsed sidebar hover tabs; README screenshots |
+| [Unreleased](#unreleased) | | Connection Wi-Fi UX; roadmap features (profiles, up-to-date, m3u, saves, …); hints; Logs; sidebar tabs |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
@@ -29,10 +29,24 @@ version.
 
 ### Added
 
+- **Emulation → Library check → Disc layouts**: **Make playlist…** for multi-disc sets (No-Intro / Redump **Disc N** naming) without a `.m3u`; preview, write beside the ROMs, per-system batch. CHD convert already follows `.m3u`.
+- **Emulation → Saves** and the game viewer **Handheld** tab: per-game save browser (`.srm` and save states over SSH), pull to `backups/saves-pulled/`, push, delete with confirm, and prune save states (complements `.muxbak` and tar backups).
+- **Games**: **Favourites** (stored in this browser, `system/filename` id) on cards and in the viewer; **Smart lists** filter chips — Never copied, No art, Bad dump, Needs tuning, On device only — with **Select shown** / transfer / artwork actions.
 - **Hints and tips** carousel after the setup wizard and What's new: walks through connection, Games, Artwork, OS, Apps, Device, Themes, Emulation, Files, Game Tuning, Appearance, Logs and Wiki. Checkbox **Show tips when the manager starts** (also Settings → Behaviour); reopen from Help or Behaviour → Open tips.
+- **Library recipes** (Settings → Behaviour): named automations that chain scrape, copy and rescan after add-games or scrape, with canned presets, step toggles and **Run now**; respects USB single-transfer and optional Syncthing idle wait.
+- **Free & homebrew** catalogue (Games → Add): curated legal ROMs from `data/free-homebrew.json` into `Roms/<system>/`, same download flow as Free ScummVM.
+- **Syncthing ops** in Connection: **Open Syncthing** when the web UI is reachable; **Wait for Syncthing idle** before large copies and recipe transfers; clearer **Active** copy in the services footer (no remote start/stop).
+- **Logs → Support pack**: zip of filtered day logs, VERSION, platform, connection snapshot (optional host redaction) and recent activity excerpt.
+- **Device profiles**: save named Wi-Fi (and related) connection sets in the Connection panel; switch, update or delete profiles without retyping the address.
+- **Since last connect** on Overview: remembers play totals, save hints and library-vs-device counts when a link is live, then summarises what changed next time (with links to Play, Saves, Games and Transfers).
+- **Update handheld…** on Overview and Games: plan dialog to open Scrape for missing art, sync artwork to the device, and queue copies for games not on the handheld.
+- **Multi-disc playlists**: Emulation > Library check > Disc layouts detects sibling discs without a `.m3u`, with **Make playlist…**, preview, and batch write beside the ROMs (CHD convert understands the new playlist).
+- **Save browser**: Emulation > Saves lists one game's saves and save states over SSH (pull to `backups/saves-pulled/`, push, delete, prune); the game viewer **Handheld** tab offers the same per-file actions. Full-device tar.gz and `.muxbak` backups are unchanged.
+- **Games smart lists**: **Smart lists** filter (favourites, never copied, no art, bad dump, needs tuning, on device only); star on game cards and in the viewer; **Select shown** for bulk transfer or scrape.
 
 ### Changed
 
+- **Connection**: Wi-Fi setup is **Handheld on this network** with a live status line, Sign-in details behind a disclosure, a clear primary **Save and connect**, and **Find on network** with Use and connect on each result.
 - Collapsed sidebar: hovering a nav icon shows an immediate rich tab (name and live counts such as games / artwork %) instead of the browser tooltip.
 - **Logs**: Hide routine (on by default) filters startup/queue noise; routine `say()` tags log as Info instead of Warnings; USB / Wi-Fi / card connect edges and API 4xx/5xx failures are recorded; row UI drops the redundant APP chip and strengthens timestamps.
 - README screenshots retaken for the current UI (Overview through Wiki), including new shots for OS, Play activity, Files, System Tools, Terminal, Appearance, Logs and Wiki; `scripts/capture-screenshots.mjs` refreshes them from a running manager.

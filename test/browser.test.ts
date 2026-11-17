@@ -486,6 +486,23 @@ test("direct tab routes restore history and expose labelled panels and choices",
   assert.ok(await cdp.eval<boolean>(`document.getElementById('sys-go').disabled && !document.querySelector('.sys-prerequisites').open`));
 });
 
+test("Wi-Fi form shows Save and connect as primary and Find on network as secondary", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`location.hash = "#overview"`);
+  await cdp.until(`!!document.querySelector(".wifi-form, [data-conn-panel]")`);
+  await cdp.eval(`document.querySelector("[data-conn-panel]")?.click()`);
+  await cdp.until(`!!document.querySelector("#sb-conn-panel .wifi-form") || !!document.querySelector(".wifi-form")`);
+  const form = `#sb-conn-panel .wifi-form, .wifi-form`;
+  await cdp.until(`!!document.querySelector("${form.split(",")[0].trim()}") || !!document.querySelector(".wifi-form .wifi-save")`);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".wifi-form-title") && document.querySelector(".wifi-form-title").textContent.includes("Handheld on this network")`));
+  assert.ok(await cdp.eval<boolean>(`document.querySelector(".wifi-save")?.classList.contains("primary")`));
+  assert.match(await cdp.eval<string>(`document.querySelector(".wifi-save")?.textContent || ""`), /Save and connect/);
+  assert.match(await cdp.eval<string>(`document.querySelector(".wifi-find")?.textContent || ""`), /Find on network/);
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector(".wifi-sign-in")`));
+  await cdp.eval(`document.querySelector("[data-conn-close]")?.click()`);
+  assert.deepEqual(errors(), []);
+});
+
 test("remote connection setup stays in the task and preserves input on a failed save", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.eval(`location.hash='#emulation/saves'`);
   await cdp.until(`!!document.querySelector('#view-emulation [data-connect="ssh"]')`);

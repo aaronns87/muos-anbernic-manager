@@ -12,7 +12,7 @@ import { platform } from "./platform/index.ts";
 import { safeEntries, tarGzEntries, type TarEntry } from "./tar.ts";
 import { isDir, listDir, removeQuietly, shq as quote } from "./util.ts";
 
-const STORAGE = "/run/muos/storage";
+export const STORAGE = "/run/muos/storage";
 const ROOT = "save";
 const BACKUP = /^saves-[\w.-]+\.tar\.gz$/;
 
@@ -25,7 +25,7 @@ echo "=E"
 
 export interface DeviceSave { path: string; size: number; mtime: number }
 
-async function deviceSaves() {
+export async function deviceSaves() {
   const status = await sshStatus();
   if (!status.configured || !status.reachable) return { reachable: false, host: status.host, files: [] as DeviceSave[], frontend: false };
   const { out } = await runCommand(LIST_SCRIPT, 60_000);

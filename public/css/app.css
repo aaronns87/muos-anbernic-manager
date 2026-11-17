@@ -627,6 +627,17 @@ a.sb-item:hover, button.sb-item:hover { background: var(--panel-2); }
 }
 .sb-conn-svc-list li.ok .svc-state { color: var(--ok); }
 .sb-conn-svc-list li.warn .svc-state { color: var(--mustard); }
+.sb-conn-svc-list .svc-state { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.sb-conn-svc-list .svc-open { margin-left: 4px; }
+.sb-conn-services .svc-idle { margin-top: 10px; }
+.recipe-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.recipe-row { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.recipe-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; justify-content: space-between; }
+.recipe-toggle { flex: 1; min-width: min(100%, 260px); margin: 0; }
+.recipe-flow { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 12.5px; }
+.recipe-flow .i { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.recipe-steps { margin-top: 8px; font-size: 13px; }
+.recipe-step { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; }
 .ov-connect .sb-conn-services, .panel.conn .sb-conn-services { margin-top: 14px; }
 .panel.conn .sb-conn-svc-list { background: var(--panel); }
 .sb-conn-panel .conn-help {
@@ -663,9 +674,7 @@ a.sb-item:hover, button.sb-item:hover { background: var(--panel-2); }
 .sb-conn-wifi {
   padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2);
 }
-.sb-conn-wifi .wifi-form { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 0; }
-.sb-conn-wifi .wifi-form label:first-child { grid-column: 1 / -1; }
-.sb-conn-wifi .wifi-form label { font-size: 12px; }
+.sb-conn-wifi .wifi-form { margin-top: 0; }
 .sb-conn-overview {
   display: block; margin: 2px 0 0; padding-top: 14px; border-top: 1px solid var(--line);
   color: var(--mustard); font-size: 13px; font-weight: 700; text-decoration: none; line-height: 1.4;
@@ -961,12 +970,42 @@ summary { cursor: pointer; }
 .recent-item small { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; }
 .recent-item .code { font-size: 9px; padding: 2px 4px; }
 .battery { display: inline-flex; align-items: center; gap: 8px; }
-.wifi-form { display: grid; grid-template-columns: 2fr 1fr 1fr 90px; gap: var(--space-3); align-items: end; margin-top: 4px; }
+.profile-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.profile-pick { display: grid; gap: 4px; flex: 1 1 140px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 600; }
+.profile-pick .control { width: 100%; height: var(--ctl-sm); font-size: 12.5px; }
+.digest-panel .digest-list { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 1.45; }
+.digest-panel .digest-list .link-btn { margin-left: 6px; }
+.wifi-form { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.wifi-form-head { display: flex; flex-direction: column; gap: 4px; }
+.wifi-form-title { font-size: 13.5px; font-weight: 800; letter-spacing: -.01em; }
+.wifi-form-status { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.wifi-form-status.ok { color: var(--ok); }
+.wifi-form-status.warn { color: var(--warn); }
 .wifi-form label, .ssh-form label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .wifi-form .control, .ssh-form .control { width: 100%; min-width: 0; height: var(--ctl-sm); font-size: 12.5px; border-radius: calc(var(--radius-sm) - 1px); }
-.wifi-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
-.wifi-found { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
-.wifi-found.nil { color: var(--muted); }
+.wifi-host { width: 100%; }
+.wifi-sign-in { border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 55%, transparent); padding: 0 12px; }
+.wifi-sign-in summary {
+  cursor: pointer; list-style: none; padding: 10px 0; color: var(--text); font-size: 13px; font-weight: 700;
+}
+.wifi-sign-in summary::-webkit-details-marker { display: none; }
+.wifi-sign-in summary::after { content: ""; float: right; width: 0; height: 0; margin-top: 6px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid var(--muted); }
+.wifi-sign-in[open] summary::after { transform: rotate(180deg); }
+.wifi-sign-in-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 0 12px; }
+.wifi-sign-in-grid label:last-child { grid-column: 1 / -1; max-width: 160px; }
+.wifi-actions { display: flex; flex-direction: column; gap: 6px; }
+.wifi-actions .wifi-save { width: 100%; justify-content: center; }
+.wifi-actions .wifi-find { width: 100%; justify-content: center; }
+.wifi-action-note { margin: 0 0 6px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.wifi-found { display: flex; flex-direction: column; gap: 8px; font-size: 13px; padding-top: 4px; border-top: 1px solid var(--line); }
+.wifi-found-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.wifi-found-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2);
+}
+.wifi-found-row code { font-size: 13px; }
+.wifi-found.nil { color: var(--muted); border-top: 0; padding-top: 0; }
 .wifi-settings summary { color: var(--muted); font-size: 13px; }
 .wifi-settings[open] summary { margin-bottom: 8px; }
 .conn .nil { color: var(--muted); }
@@ -1106,6 +1145,14 @@ svg.console .f, svg.plat-ico .f { fill: currentColor; stroke: none; }
 .game:hover .pick, .game:focus-visible .pick, #games-list.selecting .pick { opacity: 1; }
 .game .pick:hover { border-color: var(--mustard); }
 .game.sel .pick { opacity: 1; background: var(--mustard); border-color: var(--mustard); color: var(--on-mustard); }
+.game .fav { position: absolute; right: 8px; top: 8px; z-index: 2; width: 28px; height: 28px; border: none; border-radius: 8px; background: rgba(12, 10, 9, .55); color: rgba(255, 255, 255, .75); opacity: 0; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.game .fav.on, .game:hover .fav, .game:focus-visible .fav { opacity: 1; }
+.game .fav.on { color: var(--mustard); background: rgba(12, 10, 9, .75); }
+.v-fav.on { color: var(--mustard); }
+.sv-game-pick { display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: flex-end; margin: .75rem 0; }
+.sv-game-pick .field { flex: 1 1 8rem; margin: 0; }
+.v-saves-browser .v-save-row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+.v-save-actions { display: flex; gap: .25rem; margin-left: auto; }
 #games-list.selecting .card-transfer { display: none; }
 .info { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .info h3 { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -2391,7 +2438,8 @@ body.in-ssh #view-ssh { flex: 1; min-height: 0; display: flex; flex-direction: c
 }
 @media (max-width: 800px) {
   .panel, .panel.wide, .panel.half { grid-column: 1 / -1; }
-  .wifi-form { grid-template-columns: 1fr 1fr; }
+  .wifi-sign-in-grid { grid-template-columns: 1fr; }
+  .wifi-sign-in-grid label:last-child { max-width: none; }
   .d-art { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .art-kpis { grid-template-columns: 1fr; }
 }
@@ -3014,6 +3062,10 @@ body.has-hh-bar #view-handheld { padding-bottom: 90px; }
 .chk-prefer { display: inline-flex; align-items: center; gap: 8px; font: 500 12px var(--font); text-transform: none; letter-spacing: 0; color: var(--muted); }
 .chk-prefer select { height: 30px; }
 .chk-confirm { margin: 8px 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
+.chk-m3u { margin: 8px 0; padding: 10px 12px; background: var(--code-bg, var(--panel)); border-radius: var(--radius-sm); font-size: 12px; max-height: 160px; overflow: auto; white-space: pre-wrap; }
+.v-saves-browser .v-save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.v-save-actions { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+.v-fav.on { color: var(--mustard); }
 @media (max-width: 720px) {
   #emu-tabs .i { display: none; }
   #emu-tabs button { padding-left: 11px; padding-right: 11px; }
@@ -3878,12 +3930,17 @@ dialog { max-height: 90dvh; }
   #view-games .page-head { gap: 10px; }
   #view-games .stats { gap: 8px; font-size: 12px; }
   #games-device { display: none; }
-  #view-games .page-actions { gap: 6px; flex-wrap: wrap; }
+  #view-games .page-actions { gap: 6px; flex-wrap: wrap; max-width: 100%; }
+  #games-add { flex-wrap: wrap; max-width: 100%; }
+  #games-add [data-uptodate] span { display: none; }
   .tool-end { display: none; }
   .tool-row { gap: 8px; }
   .toolbar { padding-top: 0; }
   .sb-job:not(.idle) span { max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
   .sb-ver.new { max-width: 75px; overflow: hidden; }
+}
+@media (max-width: 420px) {
+  #view-games .page-actions > a.btn.ghost { display: none; }
 }
 
 /* Connection setup keeps the current task in view. */

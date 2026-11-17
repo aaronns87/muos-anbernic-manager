@@ -1,12 +1,17 @@
 // Saves tab: back up the handheld's saves and save states over SSH, and put them back from a backup.
 // On Andromeda, also list / create / download / restore .muxbak device backups in ARCHIVE.
 
-import { $, api, esc, formatDate, formatTime, human, icon, plural, setKeepingScroll, toast } from "./core.js";
+import { $, api, esc, formatDate, formatTime, human, icon, plural, setKeepingScroll, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
+import { openViewerGame } from "./game-view.js";
 
 const S = {
   data: null, error: "", loading: false, work: "", open: "", contents: {}, picked: new Set(), wifi: undefined,
   muxbak: null, muxSections: null, muxDest: "SD1", muxMerge: true, muxPoll: 0,
+  browse: {
+    code: store.get("svGameCode", ""), file: store.get("svGameFile", ""), data: null, picked: new Set(),
+    keep: Number(store.get("svKeepStates", 5)) || 5, loading: false,
+  },
 };
 const KINDS = { file: "Saves", state: "Save states", drastic: "DraStic (NDS)", "drastic-legacy": "DraStic (NDS)", game: "Game data", pico8: "PICO-8" };
 
@@ -99,7 +104,7 @@ function render() {
   const muxNote = S.muxbak?.supported ? " Device backups (.muxbak) use ARCHIVE on Andromeda." : "";
   $("emu-sub").textContent = `${plural(d.backups.length, "save backup")} on this computer (save games only).${muxNote}`;
   const locationOpen = root.querySelector(".sv-location")?.open;
-  setKeepingScroll(root, `<details class="sv-location"${locationOpen ? " open" : ""}><summary>Backup folder</summary><code>${esc(d.folder)}</code><a href="#settings/folders">Change in Settings</a></details>${muxbakPanel()}<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
+  setKeepingScroll(root, `<details class="sv-location"${locationOpen ? " open" : ""}><summary>Backup folder</summary><code>${esc(d.folder)}</code><a href="#settings/folders">Change in Settings</a></details>${muxbakPanel()}${gameBrowsePanel()}<div class="apps-layout">${backupsPanel()}${devicePanel()}</div>`, ".sv-file-list");
 }
 
 function backupHint() {
@@ -208,7 +213,127 @@ function devicePanel() {
     <div class="dev-apps">${[...groups].sort((a, b) => b[1].newest - a[1].newest).map(([name, g]) => `<div class="dev-app">
       <div><b>${esc(name)}</b><small>${[g.saves && plural(g.saves, "save"), g.states && plural(g.states, "state"), g.other && plural(g.other, "file")].filter(Boolean).join(" \u00b7 ")}
         &middot; ${esc(formatDate(new Date(g.newest * 1000), "long"))}</small></div></div>`).join("")}</div>
+    <p class="muted-note">Use <b>Save browser</b> above to work with one game&rsquo;s files; this summary is every save on the device.</p>
   </section>`;
+}
+
+// ---------------------------------------------------------------- per-game save browser
+
+function saveKind(path) {
+  if (/\.png$/i.test(path)) return "screenshot";
+  if (/(^|\/)state\//.test(path)) return "state";
+  return "save";
+}
+
+function gameBrowsePanel() {
+  const b = S.browse, d = dev(), busy = S.work.startsWith("game-") || b.loading;
+  const picked = b.data?.files?.filter((f) => b.picked.has(f.path)).length || 0;
+  const form = `<div class="sv-game-pick">
+      <label class="field"><span>System</span><input class="control" data-sv="game-code" value="${esc(b.code)}" placeholder="PS" autocomplete="off"${busy ? " disabled" : ""}></label>
+      <label class="field"><span>ROM file</span><input class="control" data-sv="game-file" value="${esc(b.file)}" placeholder="Final Fantasy VII (Disc 1).chd" autocomplete="off"${busy ? " disabled" : ""}></label>
+      <button class="btn small primary" data-sv="game-load"${busy || !b.code || !b.file ? " disabled" : ""}>${b.loading ? `<span class="spinner sm"></span>` : icon("search")}<span>Load</span></button>
+      <button class="btn small ghost" data-sv="game-viewer"${busy ? " disabled" : ""}>${icon("layers")}<span>Use open game</span></button>
+    </div>`;
+  let body = `<p class="muted-note">List .srm and save states for one game over SSH. Pull copies into <code>backups/saves-pulled/</code>; push puts them back. Full-device tar.gz backups above are unchanged.</p>${form}`;
+  if (!d?.reachable && !b.data) {
+    body += `<p class="muted-note">Connect the handheld over Wi-Fi with SSH on to browse saves per game.</p>`;
+    return `<section class="panel sv-game-panel">${body}</section>`;
+  }
+  if (b.data?.error) body += `<div class="notice err">${esc(b.data.error)}</div>`;
+  else if (b.data && !b.data.files.length) body += `<p class="muted-note">No save files on the handheld for this ROM yet.</p>`;
+  else if (b.data?.files?.length) {
+    const rows = [...b.data.files].sort((a, b) => b.mtime - a.mtime).map((f) => {
+      const p = parts(f.path), kind = saveKind(f.path);
+      const pulled = b.data.pulled?.find((x) => x.path === f.path)?.local;
+      return `<label class="sv-file">
+        <input type="checkbox" data-sv-game-pick="${esc(f.path)}"${b.picked.has(f.path) ? " checked" : ""}>
+        <span class="sv-name"><b title="${esc(f.path)}">${esc(p.name)}</b><small>${kind === "screenshot" ? "State picture" : kind === "state" ? "Save state" : "Save"} &middot; ${esc([KINDS[p.kind] || p.kind, p.core].filter(Boolean).join(" \u00b7 "))}</small></span>
+        <span class="sv-meta">${human(f.size)}<small>${esc(formatDate(new Date(f.mtime * 1000), "iso"))}</small></span>
+        ${pulled ? `<span class="set-chip ok">${icon("check")}Pulled</span>` : ""}
+      </label>`;
+    }).join("");
+    body += `<div class="sv-files"><div class="sv-files-head"><span class="muted-note">${plural(b.data.files.length, "file")}${picked ? `, ${picked} selected` : ""}</span>
+        <span class="grow"></span>
+        <label class="field inline"><span>Keep states</span><input class="control sv-keep" type="number" min="1" max="99" data-sv="game-keep" value="${b.keep}"${busy ? " disabled" : ""}></label>
+        <button class="btn small" data-sv="game-pull"${picked && !busy ? "" : " disabled"}>${icon("download")}<span>Pull</span></button>
+        <button class="btn small" data-sv="game-push"${picked && !busy ? "" : " disabled"}>${icon("upload")}<span>Push</span></button>
+        <button class="btn small danger" data-sv="game-delete"${picked && !busy ? "" : " disabled"}>${icon("trash")}<span>Delete</span></button>
+        <button class="btn small" data-sv="game-prune"${!busy && b.data.files.some((f) => saveKind(f.path) === "state") ? "" : " disabled"}>${icon("wrench")}<span>Prune states</span></button>
+        <button class="link-btn" data-sv="reveal-pulled">Show pulled folder</button>
+      </div><div class="sv-file-list">${rows}</div></div>`;
+  }
+  return `<section class="panel sv-game-panel"><h2>${icon("game")}Save browser</h2>${body}</section>`;
+}
+
+async function loadGameBrowse(fromViewer = false) {
+  if (fromViewer) {
+    const g = openViewerGame();
+    if (!g) { toast("Open a game in Games first", 3000); return; }
+    S.browse.code = g.code;
+    S.browse.file = g.file;
+    store.set("svGameCode", g.code);
+    store.set("svGameFile", g.file);
+  } else {
+    const code = document.querySelector("[data-sv='game-code']")?.value?.trim() || S.browse.code;
+    const file = document.querySelector("[data-sv='game-file']")?.value?.trim() || S.browse.file;
+    if (!code || !file) { toast("Enter the system folder and ROM file name", 3000); return; }
+    S.browse.code = code;
+    S.browse.file = file;
+    store.set("svGameCode", code);
+    store.set("svGameFile", file);
+  }
+  S.browse.loading = true;
+  S.browse.picked.clear();
+  render();
+  try {
+    S.browse.data = await api(`saves/game?code=${encodeURIComponent(S.browse.code)}&file=${encodeURIComponent(S.browse.file)}`);
+  } catch (error) {
+    S.browse.data = { error: error.message, files: [] };
+  }
+  S.browse.loading = false;
+  render();
+}
+
+async function gamePathsAction(kind) {
+  const b = S.browse;
+  const paths = [...b.picked];
+  if (!paths.length && kind !== "prune") return;
+  const body = { code: b.code, file: b.file, paths };
+  if (kind === "delete") {
+    const ok = await confirmBox({
+      title: paths.length === 1 ? "Delete this save file?" : `Delete ${paths.length} save files?`,
+      html: `<p>Removes them from the handheld permanently. Pull them first if you want a copy on this computer.</p>`,
+      ok: "Delete on handheld", danger: true,
+    });
+    if (!ok) return;
+  } else if (kind === "prune") {
+    const states = b.data?.files?.filter((f) => saveKind(f.path) === "state").length || 0;
+    const ok = await confirmBox({
+      title: "Prune old save states?",
+      html: `<p>Keeps the <b>${b.keep}</b> newest save states for this game and deletes older ones on the handheld.</p>
+        <p class="muted-note">${states} state file${states === 1 ? "" : "s"} listed now.</p>`,
+      ok: "Prune", danger: true,
+    });
+    if (!ok) return;
+  }
+  S.work = `game-${kind}`;
+  render();
+  try {
+    const route = { pull: "saves/game/pull", push: "saves/game/push", delete: "saves/game/delete", prune: "saves/game/prune" }[kind];
+    const payload = kind === "prune" ? { code: b.code, file: b.file, keep: b.keep } : body;
+    const res = await api(route, payload);
+    b.data = res;
+    if (kind !== "prune") b.picked.clear();
+    const msg = { pull: "Pulled to backups", push: "Pushed to handheld", delete: "Deleted on handheld", prune: `Pruned${res.pruned ? ` (${res.pruned} removed)` : ""}` }[kind];
+    toast(msg, 2800);
+    if (kind === "delete" || kind === "prune") {
+      S.data = await api("saves");
+    }
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  S.work = "";
+  render();
 }
 
 // ---------------------------------------------------------------- Andromeda .muxbak
@@ -413,9 +538,27 @@ export function bindSaves(view) {
     else if (sv === "mux-create") muxCreate();
     else if (sv === "mux-dl") muxDownload(filePath);
     else if (sv === "mux-restore") muxRestore(filePath);
+    else if (sv === "reveal-pulled") api("saves/game/reveal-pulled", {}).catch((error) => toast(error.message, 3000));
+    else if (sv === "game-load") loadGameBrowse(false);
+    else if (sv === "game-viewer") loadGameBrowse(true);
+    else if (sv === "game-pull") gamePathsAction("pull");
+    else if (sv === "game-push") gamePathsAction("push");
+    else if (sv === "game-delete") gamePathsAction("delete");
+    else if (sv === "game-prune") gamePathsAction("prune");
   });
   view.addEventListener("change", (e) => {
     const t = e.target;
+    const gp = t.dataset?.svGamePick;
+    if (gp !== undefined) {
+      if (t.checked) S.browse.picked.add(gp); else S.browse.picked.delete(gp);
+      render();
+      return;
+    }
+    if (t.dataset?.sv === "game-keep") {
+      S.browse.keep = Math.max(1, Math.min(99, Number(t.value) || 5));
+      store.set("svKeepStates", S.browse.keep);
+      return;
+    }
     const p = t.dataset?.svPick;
     if (p !== undefined) {
       if (t.checked) S.picked.add(p); else S.picked.delete(p);

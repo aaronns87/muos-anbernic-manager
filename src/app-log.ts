@@ -3,10 +3,17 @@
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { activityJson } from "./activity.ts";
 import { ctx } from "./context.ts";
+import { webServicesStatus } from "./device/web-services.ts";
+import { wifiStatus } from "./device/sftp.ts";
+import { handheldStatus } from "./device/target.ts";
 import { UserError } from "./errors.ts";
+import { runningVersion } from "./manager-update.ts";
 import { platform } from "./platform/index.ts";
+import { writeZip, type ZipItem } from "./zip.ts";
 
 export type LogLevel = "debug" | "info" | "done" | "warn" | "error";
 export type LogSource = "app" | "console" | "http" | "browser" | "process";
@@ -308,6 +315,63 @@ export async function logsClear(body: Record<string, unknown>) {
   day = "";
   file = "";
   return { ok: true, cleared: "all", count: days.length };
+}
+
+const redactHosts = (text: string, redact: boolean) => {
+  if (!redact) return text;
+  return text
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "x.x.x.x")
+    .replace(/\b[a-f0-9]{2}(?::[a-f0-9]{2}){5,}\b/gi, "[mac]");
+};
+
+/** Zip diagnostic bundle for GitHub/Discord support (logs, VERSION, connection, activity). */
+export async function logsSupportPack(query: URLSearchParams) {
+  const redact = query.get("redact") !== "0";
+  const level = query.get("level") ?? "";
+  if (level && !LEVELS.includes(level as LogLevel)) throw new UserError("Unknown log level.");
+  const hideRoutine = hideRoutineOf(query);
+  const q = query.get("q") ?? "";
+  const days = await listDays();
+  const wanted = query.get("day") || days[0] || isoDay();
+  if (!DAY_RE.test(wanted)) throw new UserError("Day must be YYYY-MM-DD.");
+  const logEntries = filterEntries((await readDay(wanted)).toReversed(), q, level, hideRoutine);
+  const [version, handheld, wifi, services] = await Promise.all([
+    runningVersion(),
+    handheldStatus(),
+    wifiStatus(),
+    webServicesStatus().catch(() => ({ host: "", at: Date.now(), services: [] })),
+  ]);
+  const activity = activityJson(new URLSearchParams({ limit: "100" }));
+  const snapshot = { at: new Date().toISOString(), handheld, wifi, services };
+  const items: ZipItem[] = [
+    { name: "README.txt", data: Buffer.from("muOS Anbernic Manager support pack. Share only if you are comfortable; redacted hosts when redact=1.\n", "utf8") },
+    { name: "VERSION.txt", data: Buffer.from(`${version}\n`, "utf8") },
+    {
+      name: "platform.json",
+      data: Buffer.from(redactHosts(JSON.stringify({
+        platform: process.platform,
+        node: process.version,
+        arch: process.arch,
+        hostname: redact ? "[redacted]" : os.hostname(),
+        workspace: ctx.root,
+      }, null, 2), redact), "utf8"),
+    },
+    {
+      name: "connection.json",
+      data: Buffer.from(redactHosts(JSON.stringify(snapshot, null, 2), redact), "utf8"),
+    },
+    { name: "activity.json", data: Buffer.from(JSON.stringify(activity.entries, null, 2), "utf8") },
+    {
+      name: `logs/manager-${wanted}.jsonl`,
+      data: Buffer.from(logEntries.map((e) => JSON.stringify(e)).join("\n") + (logEntries.length ? "\n" : ""), "utf8"),
+    },
+  ];
+  const tmp = path.join(ctx.cacheDir, `.support-${Date.now()}.zip`);
+  await writeZip(tmp, items);
+  const download = await fsp.readFile(tmp);
+  await fsp.rm(tmp, { force: true });
+  const name = `muos-manager-support-${wanted}${redact ? "" : "-full"}.zip`;
+  return { download, name, type: "application/zip" };
 }
 
 /** Opens the logs folder in the system file manager. */

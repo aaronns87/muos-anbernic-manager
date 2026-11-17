@@ -71,6 +71,7 @@ function toolbar() {
 function actions() {
   return `<button class="btn" data-logs="refresh" title="Refresh">${icon("refresh")}<span>Refresh</span></button>
     <button class="btn" data-logs="export" title="Download the current filter as a file"${L.list.length || L.total ? "" : " disabled"}>${icon("download")}<span>Export</span></button>
+    <button class="btn" data-logs="support" title="Zip logs, VERSION, connection snapshot and recent activity">${icon("layers")}<span>Support pack</span></button>
     <button class="btn" data-logs="reveal" title="Show the logs folder">${icon("external")}<span>Show folder</span></button>
     <button class="btn ghost" data-logs="clear" title="Delete log files">${icon("trash")}<span>Clear</span></button>`;
 }
@@ -132,6 +133,40 @@ async function load(more = false) {
   }
   L.loading = false;
   render();
+}
+
+async function exportSupportPack() {
+  const ok = await confirmBox({
+    title: "Export support pack?",
+    html: `<p>Creates a zip with today's filtered logs, VERSION, platform info, a connection snapshot, and recent activity.</p>
+      <label class="check"><input type="checkbox" name="logs-redact" checked>
+        <span><b>Redact IP addresses</b> in the connection snapshot (recommended for public posts).</span></label>`,
+    ok: "Download zip",
+  });
+  if (!ok) return;
+  const redactHosts = $("c-body")?.querySelector('[name="logs-redact"]')?.checked !== false;
+  const params = queryParams();
+  if (!redactHosts) params.set("redact", "0");
+  try {
+    const res = await fetch(`/api/logs/support-pack?${params}`, {
+      cache: "no-store",
+      headers: { "X-Manager-Token": TOKEN },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || res.statusText);
+    }
+    const blob = await res.blob();
+    const name = (res.headers.get("Content-Disposition") || "").match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i)?.[1];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = decodeURIComponent(name || "muos-manager-support.zip");
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Support pack downloaded", 2500);
+  } catch (error) {
+    toast(error.message, 5000);
+  }
 }
 
 async function exportLogs() {
@@ -216,6 +251,7 @@ function bind() {
     if (action === "refresh") load();
     else if (action === "more") load(true);
     else if (action === "export") exportLogs();
+    else if (action === "support") exportSupportPack();
     else if (action === "reveal") {
       try { await api("logs/reveal", {}); toast("Opened logs folder", 2000); }
       catch (error) { toast(error.message, 5000); }

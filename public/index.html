@@ -159,6 +159,15 @@
               <div class="plat-track" id="plat-track"></div>
             </div>
           </div>
+          <select id="smart-list" class="control" aria-label="Smart list">
+            <option value="all">Smart lists</option>
+            <option value="fav">Favourites</option>
+            <option value="never">Never copied</option>
+            <option value="no-art">No art</option>
+            <option value="bad">Bad dump</option>
+            <option value="tuning">Needs tuning</option>
+            <option value="device-only">On device only</option>
+          </select>
           <select id="art" class="control" aria-label="Artwork filter">
             <option value="all">Any artwork</option>
             <option value="with">With artwork</option>
@@ -590,6 +599,14 @@
   </header>
   <div class="fv-body thv-body pmv-body" id="amv-body"></div>
   <footer class="fv-foot" id="amv-foot"></footer>
+</dialog>
+<dialog id="hbfree" class="fv svf" aria-labelledby="hbf-title">
+  <header class="help-head">
+    <div><h2 id="hbf-title">Free &amp; homebrew</h2><p>Legal freeware and homebrew ROMs, saved into Roms/ like any other game.</p></div>
+    <button class="icon-btn help-x" id="hbf-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="fv-body svf-body" id="hbf-body"></div>
+  <footer class="fv-foot"><span class="muted-note" id="hbf-note"></span><span class="grow"></span><button class="btn" data-hbf="close">Close</button></footer>
 </dialog>
 <dialog id="svmfree" class="fv svf" aria-labelledby="svf-title">
   <header class="help-head">

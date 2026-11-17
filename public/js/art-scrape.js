@@ -121,6 +121,33 @@ async function save(item) {
   }
 }
 
+/** Headless scrape-and-save for library recipes (respects an optional match filter). */
+export async function recipeScrapeMissing({ systems = [], match = null, max = 80 } = {}) {
+  const plan = await api("scrape/plan", { systems, only: "missing" });
+  let items = plan.items.filter(usable);
+  if (match) items = items.filter(match);
+  if (items.length > max) items = items.slice(0, max);
+  let saved = 0, failed = 0;
+  for (const item of items) {
+    if (busy()) break;
+    try {
+      await save(item);
+      saved++;
+    } catch {
+      failed++;
+    }
+  }
+  if (saved) {
+    invalidateLocal();
+    noteLibraryChange();
+    try {
+      await api("games/rescan", {});
+      await loadLibrary();
+    } catch { /* non-fatal */ }
+  }
+  return { saved, failed, total: items.length };
+}
+
 // ---------------------------------------------------------------- panels
 
 /** A tiny drawing of each style: background and box positions. */
@@ -341,6 +368,7 @@ async function saveAll() {
   } catch (error) {
     toast(error.message || "Could not refresh the games library after saving artwork.", 4500);
   }
+  if (state.saved) import("./recipes.js").then((m) => m.fireRecipes("after-scrape")).catch(() => {});
   redraw();
 }
 

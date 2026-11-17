@@ -11,6 +11,9 @@ import { fixBiosNames, parseCatalog, parseIni } from "../src/bios.ts";
 import { chdInstallHelp, convertibleFromDisc, isChdConvertible, probeChdman, trashBasenamesForSheet } from "../src/games/chd.ts";
 import { classifyMembers, relAfterFlatten } from "../src/games/disc-fix.ts";
 import { gameDiscLayout, sheetRefs, sniffArchive } from "../src/games/disc-layout.ts";
+import { discNumberFromGame, discSetStem, findM3uGroups, proposeM3uName } from "../src/games/disc-m3u.ts";
+import { savesForStem } from "../src/saves-game.ts";
+import { tuningHintKey } from "../src/games/smart-lists.ts";
 import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
 import { cleanName, cleanParts } from "../src/files.ts";
@@ -26,8 +29,9 @@ import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } 
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import {
-  _resetAppLogForTests, appLog, appLogFromSay, logsClear, logsDownload, logsJson, logsPost, noteStatusLinks, startAppLog,
+  _resetAppLogForTests, appLog, appLogFromSay, logsClear, logsDownload, logsJson, logsPost, logsSupportPack, noteStatusLinks, startAppLog,
 } from "../src/app-log.ts";
+import { freeHomebrewJson } from "../src/games/free-homebrew.ts";
 import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
 import { folderItems, unzipTo, writeZip, zipNames } from "../src/zip.ts";
@@ -801,6 +805,34 @@ const discGame = (f: string, x: string): Game => ({
   t: splitName(f)[0], k: f.toLowerCase(), f, x, s: 1, m: 0, g: [], a: "", i: "", p: f, lb: "",
 });
 
+test("multi-disc m3u grouping detects siblings and proposes playlist names", () => {
+  const d1 = discGame("Final Fantasy VII (USA) (Disc 1).cue", "cue");
+  d1.g = ["USA", "Disc 1"];
+  d1.t = "Final Fantasy VII (USA) (Disc 1)";
+  const d2 = discGame("Final Fantasy VII (USA) (Disc 2).cue", "cue");
+  d2.g = ["USA", "Disc 2"];
+  d2.t = "Final Fantasy VII (USA) (Disc 2)";
+  assert.equal(discNumberFromGame(d1), 1);
+  assert.equal(discSetStem(d1), "Final Fantasy VII (USA)");
+  assert.equal(proposeM3uName(discSetStem(d1)), "Final Fantasy VII (USA).m3u");
+  const groups = findM3uGroups([d1, d2], new Map());
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].discs.length, 2);
+  assert.equal(groups[0].discs[0].f, "Final Fantasy VII (USA) (Disc 1).cue");
+  assert.equal(groups[0].covered, false);
+});
+
+test("savesForStem matches stem and numbered state files", () => {
+  const stem = "Castlevania";
+  const files = [
+    { path: "save/file/PCSX-ReARMed/Castlevania.srm", size: 1, mtime: 1 },
+    { path: "save/state/PCSX-ReARMed/Castlevania.state0", size: 2, mtime: 2 },
+    { path: "save/state/PCSX-ReARMed/Other.state0", size: 3, mtime: 3 },
+  ];
+  assert.equal(savesForStem(files, "Castlevania.cue").length, 2);
+  assert.ok(tuningHintKey("PS", { f: "Castlevania.cue", t: "Castlevania", k: "castlevania" }));
+});
+
 test("sheetRefs parses quoted and unquoted cue FILE lines and m3u entries", () => {
   assert.deepEqual(
     sheetRefs("cue", 'FILE "game.bin" BINARY\nFILE track02.wav WAVE\n'),
@@ -1143,4 +1175,14 @@ test("app-log writes JSONL, filters, exports and clears", async (t) => {
   assert.throws(() => logsPost({ text: "   " }), UserError);
   await logsClear({ day });
   assert.equal(fs.existsSync(file), false);
+  const pack = await logsSupportPack(new URLSearchParams({ day, routine: "0" }));
+  assert.match(pack.name, /\.zip$/);
+  assert.ok(pack.download.length > 100);
+  assert.match(pack.download.subarray(0, 4).toString("binary"), /^PK/);
+});
+
+test("free homebrew catalogue lists legal entries", async () => {
+  const json = await freeHomebrewJson();
+  assert.ok(json.games.length >= 4);
+  assert.ok(json.games.every((g: { system: string; file: string }) => g.system && g.file));
 });

@@ -6,6 +6,7 @@ import path from "node:path";
 import { ctx } from "../context.ts";
 import type { Game, Library } from "./library.ts";
 import { listDir, splitName } from "../util.ts";
+import { attachM3uHints, groupsForSystem, type M3uGroup } from "./disc-m3u.ts";
 
 export type DiscState = "ok" | "bad" | "tip";
 /** Real container format when it differs from the file extension (e.g. 7z named .zip). */
@@ -22,6 +23,8 @@ export interface DiscGame {
   fixable?: boolean;
   /** Detected archive kind for zip/7z/rar rows. */
   archive?: ArchiveKind;
+  /** Multi-disc set missing a .m3u playlist. */
+  m3u?: { group: string; m3uName: string; disc: number };
 }
 
 export interface DiscSystem {
@@ -29,6 +32,8 @@ export interface DiscSystem {
   name: string;
   games: DiscGame[];
   counts: { ok: number; bad: number; tip: number };
+  m3uGroups: M3uGroup[];
+  m3uNeed: number;
 }
 
 /** Systems that ship a Disc layouts check in the UI (helper works for any cue-based folder). */
@@ -195,12 +200,23 @@ export async function discLayoutReport(library: Library): Promise<{ systems: Dis
     if (!DISC_CHECK_SYSTEMS.has(sys.code) || !sys.games.length) continue;
     const folder = path.join(ctx.roms, sys.code);
     const names = await folderNames(folder);
+    const m3uGroups = await groupsForSystem(sys.code, sys.games);
+    const hints = attachM3uHints(
+      m3uGroups.flatMap((gr) => gr.discs),
+      m3uGroups,
+    );
     const games: DiscGame[] = [];
-    for (const g of sys.games) games.push(await judgeGame(folder, names, g));
+    for (const g of sys.games) {
+      const row = await judgeGame(folder, names, g);
+      const hint = hints.get(g.f);
+      if (hint) row.m3u = { group: hint.id, m3uName: hint.m3uName, disc: hint.disc };
+      games.push(row);
+    }
     games.sort((a, b) => (a.state === "bad" ? 0 : a.state === "tip" ? 1 : 2) - (b.state === "bad" ? 0 : b.state === "tip" ? 1 : 2) || a.f.localeCompare(b.f));
     const counts = { ok: 0, bad: 0, tip: 0 };
     for (const g of games) counts[g.state]++;
-    systems.push({ code: sys.code, name: sys.name, games, counts });
+    const m3uNeed = m3uGroups.filter((gr) => !gr.covered).length;
+    systems.push({ code: sys.code, name: sys.name, games, counts, m3uGroups, m3uNeed });
   }
   return { systems };
 }

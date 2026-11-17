@@ -6,7 +6,7 @@ import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
-import { appLog, logsClear, logsDownload, logsJson, logsPost, logsReveal, noteStatusLinks } from "./app-log.ts";
+import { appLog, logsClear, logsDownload, logsJson, logsPost, logsReveal, logsSupportPack, noteStatusLinks } from "./app-log.ts";
 import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
@@ -28,6 +28,7 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { syncthingIdleJson, waitSyncthingIdle } from "./device/syncthing-idle.ts";
 import { webServicesStatus } from "./device/web-services.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
 import {
@@ -43,7 +44,13 @@ import { deleteGame, renameGame } from "./games/actions.ts";
 import { detectGames, saveDescription, searchDescriptions, uploadGame } from "./games/add.ts";
 import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
+import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
+import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
+import { gamesFlagsJson } from "./games/flags.ts";
+import {
+  deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
+} from "./saves-game.ts";
 import { chdJson, startChdConvert } from "./games/chd.ts";
 import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from "./games/disc-fix.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
@@ -90,6 +97,8 @@ const routes: Record<string, Handler> = {
     return { cards: listed, rejects, handheld, wifi, services, models, platform: process.platform };
   },
   "GET /api/ssh/services": () => webServicesStatus(true),
+  "GET /api/ssh/syncthing-idle": () => syncthingIdleJson(),
+  "POST /api/ssh/syncthing-idle/wait": async () => waitSyncthingIdle(),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     const s = await saveWifiSettings(body);
@@ -100,6 +109,7 @@ const routes: Record<string, Handler> = {
   "GET /api/activity": (q) => activityJson(q),
   "GET /api/logs": (q) => logsJson(q),
   "GET /api/logs/download": (q) => logsDownload(q),
+  "GET /api/logs/support-pack": (q) => logsSupportPack(q),
   "POST /api/logs": (_, body) => logsPost(body),
   "POST /api/logs/clear": (_, body) => logsClear(body),
   "POST /api/logs/reveal": () => logsReveal(),
@@ -166,6 +176,7 @@ const routes: Record<string, Handler> = {
   "POST /api/ports/uninstall": (_, body) => uninstallPort(body),
   "PUT /api/ports/upload": (query, _, req) => uploadPortFile(req, query),
   "GET /api/games": async () => ({ raw: await libraryJson() }),
+  "GET /api/games/flags": () => gamesFlagsJson(),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -275,6 +286,9 @@ const routes: Record<string, Handler> = {
   "GET /api/checks": (query) => checksJson(query),
   "POST /api/checks/verify": (_, body) => startVerify(body),
   "POST /api/checks/trash": (_, body) => trashGames(body),
+  "POST /api/disc-m3u/preview": (_, body) => previewM3u(body),
+  "POST /api/disc-m3u/write": (_, body) => writeM3uPlaylist(body),
+  "POST /api/disc-m3u/batch": (_, body) => writeM3uBatch(body),
   "GET /api/chd": () => chdJson(),
   "POST /api/chd/convert": (_, body) => startChdConvert(body),
   "GET /api/disc-fix": () => discFixJson(),
@@ -288,6 +302,8 @@ const routes: Record<string, Handler> = {
   "PUT /api/games/upload": (query, _, req) => uploadGame(req, query),
   "GET /api/scummvm/free": () => freeGamesJson(),
   "POST /api/scummvm/free/install": (_, body) => installFreeGame(body),
+  "GET /api/homebrew/free": () => freeHomebrewJson(),
+  "POST /api/homebrew/free/install": (_, body) => installFreeHomebrew(body),
 
   "GET /api/apps": () => appsJson(),
   "PUT /api/apps/upload": (query, _, req) => uploadApp(req, query),
@@ -297,6 +313,13 @@ const routes: Record<string, Handler> = {
   "POST /api/apps/device/delete": (_, body) => deleteDeviceApp(body),
   "POST /api/apps/device/uninstall": (_, body) => uninstallDeviceApp(body),
   "GET /api/saves": () => savesJson(),
+  "GET /api/saves/game": (q) => gameSavesJson(q),
+  "POST /api/saves/game/pull": (_, body) => pullGameSave(body),
+  "POST /api/saves/game/push": (_, body) => pushGameSave(body),
+  "POST /api/saves/game/delete": (_, body) => deleteGameSave(body),
+  "POST /api/saves/game/prune": (_, body) => pruneGameStates(body),
+  "POST /api/saves/game/trash-pulled": (_, body) => trashPulledSave(body),
+  "POST /api/saves/game/reveal-pulled": () => revealPulled(),
   "POST /api/saves/backup": () => backupSaves(),
   "GET /api/saves/backup": (query) => backupContents(query),
   "POST /api/saves/restore": (_, body) => restoreSaves(body),

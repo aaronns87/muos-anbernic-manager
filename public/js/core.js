@@ -157,7 +157,7 @@ export const app = {
   data: null,
   all: [],
   ui: {
-    q: "", art: "all", onCard: "all", devFilter: "all", genre: "all", rating: "all", year: "all", where: sessionStorage.getItem("manager.where") || "library",
+    q: "", art: "all", onCard: "all", devFilter: "all", smartList: store.get("smartList", "all"), genre: "all", rating: "all", year: "all", where: sessionStorage.getItem("manager.where") || "library",
     sort: store.get("sort", "title"), view: store.get("view", "grid"),
     card: store.get("card", 180), empty: store.get("empty", false), theme: store.get("theme", "dark"),
     scheme: store.get("scheme", "mustard") || "mustard",

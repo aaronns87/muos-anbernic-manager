@@ -1,0 +1,64 @@
+{
+  "games": [
+    {
+      "id": "powder",
+      "title": "Powder",
+      "year": 2003,
+      "maker": "Jeff Lait",
+      "about": "A roguelike for Game Boy Advance. Explore the dungeon, collect spells and survive.",
+      "system": "GBA",
+      "file": "Powder.gba",
+      "url": "https://powd.tuxfamily.org/android/powder12.gba",
+      "size": 524288,
+      "zip": false
+    },
+    {
+      "id": "alterego",
+      "title": "Alter Ego",
+      "year": 2006,
+      "maker": "Olivier Debon",
+      "about": "NES platformer released for the 2006 NEO Compo; swap between two characters to solve puzzles.",
+      "system": "NES",
+      "file": "Alter Ego.nes",
+      "url": "https://downloads.pdroms.de/nes/alterego.zip",
+      "size": 131072,
+      "zip": true
+    },
+    {
+      "id": "lockjaw",
+      "title": "Lockjaw: The Overdose",
+      "year": 2004,
+      "maker": "NGP",
+      "about": "Tetris-inspired falling-block puzzler for Game Boy Advance, ranked in several homebrew competitions.",
+      "system": "GBA",
+      "file": "Lockjaw.gba",
+      "url": "https://downloads.pdroms.de/gba/lockjaw.zip",
+      "size": 1048576,
+      "zip": true
+    },
+    {
+      "id": "nomolos",
+      "title": "Nomolos: Storming the Castle",
+      "year": 2009,
+      "maker": "WYPT / Flatgub",
+      "about": "Short but polished NES action platformer made for the NEO Compo 2009.",
+      "system": "NES",
+      "file": "Nomolos.nes",
+      "url": "https://downloads.pdroms.de/nes/nomolos.zip",
+      "size": 262144,
+      "zip": true
+    },
+    {
+      "id": "blindjump",
+      "title": "Blind Jump",
+      "year": 2015,
+      "maker": "Shiru",
+      "about": "Minimalist Game Boy jumper where platforms are hidden until you are close.",
+      "system": "GB",
+      "file": "BlindJump.gb",
+      "url": "https://downloads.pdroms.de/gameboy/blindjump.zip",
+      "size": 32768,
+      "zip": true
+    }
+  ]
+}

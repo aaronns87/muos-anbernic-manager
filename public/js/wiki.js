@@ -88,7 +88,7 @@ const ARTICLES = [
     </ul>`],
     ["Navigation and connection", `<p>On smaller screens, Menu opens all sections. Close menu or Escape returns to the current task. Play activity shows play history and collections; Terminal contains SSH tools.</p>
       <p>Section tabs have direct links, such as <a href="#emulation/checks">Library checks</a> and <a href="#settings/appearance">Appearance</a>. Browser Back and Forward return to previous tabs.</p>
-      <p>The connection button opens Files (transfer path cards, Wi-Fi address, Andromeda USB help) or Remote controls (SSH settings, Test sign-in, Trust host key). Setup stays beside your current page.</p>`],
+      <p>The connection button opens Files (transfer path cards, handheld on this network, Andromeda USB help) or Remote controls (SSH settings, Test sign-in, Trust host key). Setup stays beside your current page.</p>`],
     ["Layout and recovery", `<p>Apps leads with App market; Import packages adds files you already have. Apps and Saves keep full folder paths in expandable details. Settings separates visual style from density, provides Copy path, and warns about low text contrast in custom palettes.</p>
       <p>Themes offers Preview when disconnected and keeps failed actions visible with Retry. Designer starts with your handheld's screen size; expand advanced targets for other sizes and versions. System Tools highlights the next prerequisite; Review safety checks shows the full checklist. Install MustardOS, Set up TF2 and Reset card each ask for a final confirmation modal (Install then uses sudo on macOS). You can skip read-back verification before or during install.</p>`],
     ["Keyboard shortcuts", `<ul>
@@ -112,13 +112,20 @@ const ARTICLES = [
         <li><b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for game and file copies (one path at a time).</li>
         <li>Actions for the active path: reconnect, disconnect, eject, Andromeda USB help, and links into Device Settings when SSH is up.</li>
         <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, landing page, mDNS and Tailscale (when present): whether each is
-          enabled on the handheld, running, and reachable from this computer. Overview shows the same block when Wi-Fi or SSH is known.</li>
-        <li><b>Wi-Fi address</b> and <b>Remote controls</b> (SSH user, ports, Test sign-in, Trust host key) when you use those paths.</li>
+          enabled on the handheld, running, and reachable from this computer. <b>Active</b> means this computer can reach the port or SSH saw it running.
+          Syncthing shows <b>Open</b> when its web UI answers. <b>Wait for Syncthing idle</b> (optional) pauses large game copies for up to 90 seconds while
+          Syncthing finishes syncing; turn services on or off under Device Settings — the manager does not start or stop Syncthing for you. Overview shows the same block when Wi-Fi or SSH is known.</li>
+        <li><b>Handheld on this network</b> (address, optional sign-in details, Save and connect, Find on network) and <b>Remote controls</b> (SSH user, ports, Test sign-in, Trust host key) when you use those paths.</li>
+        <li><b>Device profiles</b> save named Wi-Fi details so you can switch handhelds without retyping the address.</li>
       </ul>
       <p>Play activity can use any live USB or Wi-Fi link even when Card reader is the primary transfer path.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
       when the handheld reconnects; <b>Find on network</b> searches for it again. <b>Use handheld ports</b> (Device Settings) copies SSH/SFTP ports
       from Andromeda into this setup when they differ from the defaults.</p>`],
+    ["Update handheld", `<p>When a link is live, <b>Update handheld&hellip;</b> on Overview (Library on the device) and Games opens a plan: open Scrape for missing box art,
+      sync artwork to the handheld, and queue copies for games not transferred yet. Transfers shows copy progress.</p>`],
+    ["Since last connect", `<p>While USB, Wi-Fi or a games card is live, Overview remembers play totals, save hints and library-vs-device counts.
+      Next time you connect, <b>Since last connect</b> summarises what changed, with links to Play, Saves, Games and Transfers.</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
       anything that failed. <b>Show all</b> opens the full log with a search box and a filter for warnings and errors. The log is kept on this computer
       in the manager's cache folder and holds the last few thousand entries.</p>`],
@@ -128,7 +135,8 @@ const ARTICLES = [
       database. The controls next to the search box switch between grid and list view, show <b>Empty systems</b> (folders with no games yet),
       expand or collapse every system, and make the cards bigger or smaller with the slider.</p>`],
     ["Finding games", `<p>Type in the search box to match titles, file names, regions such as <i>Japan</i>, or systems. The filters narrow the list by
-      platform, genre and year. On phones, <b>Filters</b> opens these controls and the card-size slider; the button shows how many filters are active.
+      platform, genre and year. <b>Smart lists</b> jump to favourites, games not on the card yet, missing art, bad dumps (from Library check), discs that may need Game Tuning, or games only on the handheld; use <b>Select shown</b> to transfer or scrape.</p>
+      <p>Click the star on a card (or in the game viewer) to mark a <b>favourite</b>; favourites are stored in this browser only. On phones, <b>Filters</b> opens these controls and the card-size slider; the button shows how many filters are active.
       Collapsing filters keeps your choices, and on a wider screen they are always shown.
       <b>Roms/ library</b> and <b>On TF2</b> switch between the games on this computer and the games on the handheld's card.</p>`],
     ["Picking several games", `<p>Press <b>Select</b> (or <kbd>S</kbd>), tick games, then choose what to do with all of them at once: copy them to the
@@ -143,7 +151,9 @@ const ARTICLES = [
       thin progress bar, or hide it with the close control. <b>Show Transfers</b> appears in the top bar only when there is something active or finished;
       with an empty history the control stays hidden. Clear finished items from the dock when you no longer need them. Over USB the handheld takes one
       copy at a time, so the next starts when the current one finishes.</p>`],
-    ["Adding new games", `<p><b>Add games</b> takes game files you drop on it, puts each in the right system folder, and looks up its description and box art.</p>`],
+    ["Adding new games", `<p><b>Add games</b> takes game files you drop on it, puts each in the right system folder, and looks up its description and box art.
+      <b>Free ScummVM games</b> and <b>Free &amp; homebrew</b> open catalogues of legal downloads (into <code>Roms/SCUMMVM</code> or normal system folders).
+      After you add games, enabled <b>library recipes</b> under ${path("Settings", "Behaviour")} can scrape missing box art and queue copies when a link is live.</p>`],
     ["ScummVM games", `<p>A ScummVM game is a folder of data files, not a single ROM. Drop the game's folder on <b>Add games</b> (or use
       <b>Choose a ScummVM game folder</b>): it becomes <code>Roms/SCUMMVM/&lt;Name&gt;.scummvm</code>, an empty file the handheld lists, plus the
       data in <code>Roms/SCUMMVM/.&lt;Name&gt;/</code>. The handheld's ScummVM detects which game it is on first start. Copying and deleting a ScummVM
@@ -151,6 +161,8 @@ const ARTICLES = [
       <p><b>Free games</b> in the ScummVM system lists the freeware games from scummvm.org (Beneath a Steel Sky, Flight of the Amazon Queen,
       Lure of the Temptress, Drascula, Dreamweb and more) and downloads one straight into <code>Roms/SCUMMVM</code>. Copy it to the handheld like
       any other game. Saves stay on the handheld in MustardOS's save folder, not in the game folder.</p>`],
+    ["Free and homebrew ROMs", `<p><b>Free &amp; homebrew</b> in Add games lists legal freeware and competition homebrew from <code>data/free-homebrew.json</code>
+      (NES, Game Boy, GBA and similar). Each download lands in the right <code>Roms/&lt;SYSTEM&gt;/</code> file. Scrape its box art from Artwork when you like.</p>`],
     ["Ports (PortMaster)", `<p>Ports are PC games rebuilt for handhelds. MustardOS installs them with its own <b>PortMaster</b> app, so the
       <b>Ports</b> system in Games shows what is installed on the handheld instead of files in <code>Roms/</code>. It needs the handheld over Wi-Fi
       with ${SSH_ON} on.</p>
@@ -338,6 +350,9 @@ const ARTICLES = [
           handheld, the same as MustardOS Backup / Archive Manager. List them, download a copy to <code>backups/</code>, create one (sections and
           destination), or restore on the handheld (replaces matching sections). TF2 still creates a legacy <code>BACKUP</code> folder for older zip
           backups; Andromeda system backups live under <code>ARCHIVE</code>.</li>
+        <li><b>Save browser</b>: pick a ROM (or <b>Use open game</b>) to list that title's <code>.srm</code> files and save states over SSH. <b>Pull</b> copies
+          into <code>backups/saves-pulled/</code>; <b>Push</b> puts them back; <b>Delete</b> and <b>Prune states</b> ask for confirmation. The game viewer
+          <b>Handheld</b> tab has the same actions per file.</li>
       </ul>`],
     ["BIOS", `<p>Some systems (PlayStation, Sega CD, Game Boy Advance and others) need a BIOS file: a copy of the original console's startup chip.
       Without it, games for that system may not start (PlayStation often shows a black screen).</p>
@@ -408,6 +423,7 @@ const ARTICLES = [
         <li><b>Tip</b>: the cue is complete; convert to <code>.chd</code> when you can.</li>
         <li><b>OK</b>: <code>.chd</code>, <code>.pbp</code>, or a complete sheet.</li>
       </ul>
+      <p>Multi-disc sets named <code>(Disc 1)</code>, <code>(Disc 2)</code> and so on without a <code>.m3u</code> show <b>Make playlist&hellip;</b> (preview, then write beside the ROMs). Use batch on the system row or toolbar for every set at once.</p>
       <p>Use <b>Fix&hellip;</b> on archives (extract / convert) or <b>CHD</b> on complete cue sheets. See <b>Convert to CHD</b> and <b>Fix PlayStation archives</b>.</p>`],
     ["Fix PlayStation archives", `<p>Roms dumped as <code>.zip</code> or <code>.7z</code> (sometimes a 7z file wrongly named <code>.zip</code>) cannot be started by PlayStation cores.
       Disc layouts marks them as problems and offers <b>Fix&hellip;</b>.</p>
@@ -533,8 +549,10 @@ const ARTICLES = [
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups, themes you design and application logs are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, whether <b>Hints and tips</b> open at
-      start, and adds the app shortcut. Use <b>Open tips</b> to walk through the manager's features again. <b>Images</b> sets the size
-      uploaded artwork is saved at.</p>`],
+      start, and adds the app shortcut. Use <b>Open tips</b> to walk through the manager's features again.</p>
+      <p><b>Library recipes</b> run small chains after you add games or save scraped artwork (scrape missing box art, queue a copy when a link is live).
+      Edit steps per recipe or run one manually. Over USB, only one transfer runs at a time; extras wait in Transfers.</p>
+      <p><b>Images</b> sets the size uploaded artwork is saved at.</p>`],
     ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
       that changes accents and surfaces together. Selected controls (primary buttons, tabs, segmented buttons, sidebar) always use the scheme accent fill.
       <b>Create new</b> opens an editor with colour pickers, contrast guidance and a live preview; custom schemes can be edited or deleted later.</p>
@@ -573,6 +591,7 @@ const ARTICLES = [
     ["Using the viewer", `<p>Open <b>Logs</b> under Manager in the sidebar. Search by tag, message or stack text; filter by level (Errors, Warnings, Info&hellip;);
       and pick a day. <b>Hide routine</b> (on by default) drops startup noise such as SERVING, SCANNED and CLOSED so copies, installs and connection changes stand out.
       The list refreshes while the page is open. Expand a row's stack when present. <b>Export</b> downloads the current filter as a text file;
+      <b>Support pack</b> zips the filtered day's logs with VERSION, platform info, a connection snapshot (optional IP redaction) and recent activity for bug reports;
       <b>Show folder</b> opens <code>logs/</code> in the file manager; <b>Clear</b> deletes the selected day or every log file.</p>`],
     ["What is recorded", `<p>Terminal <code>say</code> lines (with routine tags stored as Info rather than Warnings), USB / Wi-Fi / card connect and disconnect edges,
       <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections on the server, API failures (4xx/5xx),

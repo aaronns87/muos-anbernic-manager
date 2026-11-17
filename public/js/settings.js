@@ -18,6 +18,7 @@ import {
   ZOOM_LEVELS, SCHEME_ROLES, defaultRoles, loadCustomSchemes, saveCustomSchemes, schemeChips,
   rolesToVars, applyVars, newSchemeId, resolveSchemeId,
 } from "./appearance.js";
+import { recipesPanelHtml, bindRecipes } from "./recipes.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -35,7 +36,7 @@ const s = {
 
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups, themes and logs"],
-  ["behaviour", "sliders", "Behaviour", "Copying, startup, updates and uploaded artwork size"],
+  ["behaviour", "sliders", "Behaviour", "Copying, library recipes, startup, updates and uploaded artwork size"],
   ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
   ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
@@ -114,7 +115,7 @@ function render() {
   const d = s.data, [tab, , , sub] = settingsTab();
   $("settings-sub").textContent = sub;
   const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
-    : tab === "behaviour" ? `${copyPanel(d)}${imagesPanel()}`
+    : tab === "behaviour" ? `${copyPanel(d)}${recipesPanelHtml()}${imagesPanel()}`
     : tab === "appearance" ? appearancePanels()
     : tab === "assistant" ? assistantPanel()
     : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}`
@@ -964,6 +965,7 @@ function bind() {
   bindKnowledgeDialog();
   bindSchemeEditor();
   const root = $("view-settings");
+  bindRecipes(root);
   $("settings-tabs")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-settings-tab]");
     if (!b || b.classList.contains("on")) return;

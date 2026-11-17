@@ -8,6 +8,8 @@ import { startManagerChecks } from "./manager-update.js";
 import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
 import { bindTips, checkTips } from "./tips.js";
 import { bindSideFlyout, hideSideFlyout, syncSideFlyout } from "./side-flyout.js";
+import { bindDigest, bindProfiles } from "./profiles.js";
+import { bindUpToDate } from "./uptodate.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
@@ -236,6 +238,9 @@ setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
 bindShared();
 bindSideFlyout();
+bindProfiles();
+bindDigest();
+bindUpToDate();
 bindUi();
 bindModelPicker();
 bindGames();
