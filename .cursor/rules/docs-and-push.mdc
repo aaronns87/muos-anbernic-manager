@@ -1,0 +1,13 @@
+---
+description: After user-visible manager work, update docs and push changes/unreleased
+alwaysApply: true
+---
+
+# Docs and push
+
+When finishing user-visible work on `changes/unreleased` (features, UX, or behaviour the user can see):
+
+1. Update **CHANGELOG.md** Unreleased, in-app **Wiki**, and **docs/assistant-knowledge.md** (already expected per the feature UX bar).
+2. Update **README.md** Features (and any other README section that would otherwise be wrong) so public docs match the app.
+3. After the user asks to commit — or after committing when they asked to ship the work — **push** `changes/unreleased` to origin unless they explicitly say not to push.
+4. Do not skip README because wiki/CHANGELOG were updated; keep all three in sync for the same change set.

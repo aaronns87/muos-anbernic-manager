@@ -38,7 +38,8 @@ bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Wi
    decorators; use `import type`; import local files with the `.ts` extension.
 6. **No new runtime dependencies** without a strong reason; the front end has none.
 7. **Every feature change updates its test and its wiki article** (`public/js/wiki.js`), `docs/assistant-knowledge.md`
-   when the Assistant should know, and the README when users would notice.
+   when the Assistant should know, **CHANGELOG** Unreleased, and the **README** Features list when users would notice.
+   After committing on `changes/unreleased`, **push** unless the user says not to (see `docs-and-push` rule).
 
 ## Where to change things
 
@@ -61,7 +62,7 @@ Codex uses copied rules in `.codex/rules/` and copied skills in `.agents/skills/
 The `.codex/rules/` folder is not an automatic rule loader: read rules through this guide.
 Paths below are relative to this repository; run workflow commands from its root.
 
-- Always read `project.mdc`, `safety.mdc`, `versioning.mdc` and `branching.mdc` in `.codex/rules/`.
+- Always read `project.mdc`, `safety.mdc`, `versioning.mdc`, `branching.mdc` and `docs-and-push.mdc` in `.codex/rules/`.
 - For `src/**/*.ts`, also read `.codex/rules/server.mdc`.
 - For `public/**`, also read `.codex/rules/frontend.mdc`.
 - For `test/**`, also read `.codex/rules/testing.mdc`.
