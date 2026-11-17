@@ -177,6 +177,14 @@ const ARTICLES = [
       </ul>
       <p>Ports land on TF2 when it is in (<code>/mnt/sdcard/ports</code>), otherwise on SD1. Files you put in <code>Roms/PORTS</code> on this computer
       are not copied.</p>`],
+    ["Play in browser", `<p>Light systems can be tried in the manager without the handheld: <b>Game Boy</b>, <b>Game Boy Color</b>, <b>Game Boy Advance</b>,
+      <b>NES / Famicom</b>, <b>SNES / Super Famicom</b>, <b>Master System</b>, <b>Game Gear</b>, <b>Mega Drive / Genesis</b>,
+      <b>Neo Geo Pocket</b>, <b>WonderSwan</b> and <b>PC Engine</b>. On a game card, the play control is bottom-left (transfer stays bottom-right);
+      in the game view, <b>Play in browser</b> is the primary action when that game is supported.</p>
+      <p>The play dialog loads <b>EmulatorJS</b> cores from the EmulatorJS CDN the first time (needs a network connection once; the browser caches them).
+      Your ROM stays on this computer and is streamed locally. You can remap the keyboard for the current session (D-pad, A/B/X/Y, Start/Select, L/R)
+      and restart with those keys. Saves stay in the browser session only — nothing is synced to the handheld yet. Disc sheets
+      (<code>.cue</code>, <code>.m3u</code>) and heavier systems (PlayStation, N64, Dreamcast and so on) are not offered.</p>`],
     ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
       (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>
       <p>With the handheld connected, cards at the top show whether the game is on it, the core it starts with, how long you have played

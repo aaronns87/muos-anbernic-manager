@@ -129,9 +129,13 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 - **Remove** deletes port folder, script, art and added game files permanently.
 - Ports land on TF2 `/mnt/sdcard/ports` when present, else SD1. Files in `Roms/PORTS` on the computer are not copied.
 
+### Play in browser
+
+Light systems only: GB, GBC, GBA, FC (NES), SFC (SNES), SMS, GG, MD, NGP, WS, PCE. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap (no handheld save sync). Hidden for `.cue`/`.m3u` and heavy/disc systems.
+
 ### Game viewer
 
-Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed.
+Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed. **Play in browser** when the system is light and the file is a single ROM (not a disc sheet).
 
 Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, Menu+X core options when the game is on the handheld and starts RetroArch or PPSSPP, play stats, collections, **saves with pull/push/delete/prune**, Open Game Tuning, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
 

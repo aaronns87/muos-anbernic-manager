@@ -21,6 +21,7 @@ import { showSsh } from "./ssh.js";
 import { showSettings } from "./settings.js";
 import { bindSystem, showSystem, watchSystemJob } from "./system.js";
 import { bindAddGames } from "./add-games.js";
+import { bindPlayBrowser } from "./play-browser.js";
 import { showDevice } from "./device-section.js";
 import { showApps, countApps } from "./apps.js";
 import { bindOs, showOs, countOs } from "./os.js";
@@ -253,6 +254,7 @@ bindArtworkView();
 bindSystem();
 bindOs();
 bindAddGames();
+bindPlayBrowser();
 showSection();
 
 if (!TOKEN) {

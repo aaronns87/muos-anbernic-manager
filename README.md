@@ -47,11 +47,14 @@ per-session token. Nothing is uploaded anywhere.
   Add games by drag and drop, copy them to the handheld, see what is on the device and what is missing, and remove games.
   **Update handheld…** plans scrape, artwork sync and copying games that are not on the device yet.
   **Free & homebrew** (under Add games) downloads curated legal freeware into the right `Roms/` system folder.
+  **Play in browser** on light systems (GB, GBC, GBA, NES/FC, SNES/SFC, SMS, GG, Mega Drive, Neo Geo Pocket, WonderSwan, PC Engine)
+  opens EmulatorJS in a modal; cores load from the EmulatorJS CDN on first use (needs network once; browser caches them).
+  Session keyboard remapping only — no save sync with the handheld yet.
 - **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
   with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves (with
   per-game pull, push, delete and prune). Related games (other versions, series, developer, genre) are one click away.
   You can write your own description, drop in new artwork, or **rename the ROM file** from Details (matching artwork and
-  descriptions rename with it).
+  descriptions rename with it). **Play in browser** appears for the same light systems as on the game cards.
 - **Artwork**: fetch box art, screenshots and descriptions for every game (libretro thumbnails, LaunchBox Games Database),
   in the size your handheld's screen needs, and sync them to the device.
 - **OS**: local MustardOS release folders under `os/mustardos_<version>/`, add or remove images, release notes, and
@@ -417,6 +420,7 @@ the tests and type check first, and keep changes that write to the handheld behi
 - [ScummVM](https://www.scummvm.org/) and the authors who released their games for free.
 - [xterm.js](https://xtermjs.org/), [ssh2](https://github.com/mscdex/ssh2), [koffi](https://koffi.dev/), [libmtp](https://libmtp.sourceforge.net/),
   [saxes](https://github.com/lddubeau/saxes) and [yauzl](https://github.com/thejoshwolfe/yauzl).
+- [EmulatorJS](https://emulatorjs.org/) (GPL-3.0) for in-browser play of light systems; cores load from their CDN.
 
 This project is not affiliated with MustardOS, Anbernic or TrimUI.
 

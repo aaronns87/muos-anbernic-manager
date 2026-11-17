@@ -6,6 +6,7 @@ import { artMax, confirmBox, droppedImage, pickImage, pngData } from "./art-imag
 import { noteKind, systemNote, useCore, useSystem } from "./system-notes.js";
 import { focusTuningGame } from "./tuning.js";
 import { isFavourite, toggleFavourite } from "./lists.js";
+import { canPlayInBrowser, openPlayBrowserFor } from "./play-browser.js";
 import {
   catalogueDirty, draftFromOwn, optGroupsHtml, valuesPayload,
 } from "./opt-editor.js";
@@ -603,6 +604,13 @@ export function syncTransferButton() {
       : `Transfer to ${devName()}`;
 }
 
+function syncPlayButton() {
+  const btn = $("v-play");
+  if (!btn) return;
+  if (!V.cur) { btn.hidden = true; return; }
+  btn.hidden = !canPlayInBrowser(V.cur.sys, V.cur.g);
+}
+
 /** Redraws the parts that depend on what changed: "all", "details" or "device". */
 function paint(what = "all") {
   if (!V.cur || !$("viewer").open) return;
@@ -612,6 +620,7 @@ function paint(what = "all") {
   $("v-cards").innerHTML = cardsHtml();
   $("v-tabs").innerHTML = tabsHtml(groups.reduce((n, [, items]) => n + items.length, 0));
   syncTransferButton();
+  syncPlayButton();
   const panes = { about: ["all"], details: ["all", "details"], handheld: ["all", "device"], related: ["all", "details"] }[V.tab];
   if (!panes.includes(what)) return;
   const pane = $("v-pane");
@@ -859,6 +868,10 @@ export function bindGameView(h) {
   const viewer = $("viewer");
   viewer.addEventListener("close", () => { if (V.video) { V.video = false; if (V.tab === "about") $("v-pane").innerHTML = aboutPane(); } });
   viewer.addEventListener("click", (e) => {
+    if (e.target.closest("#v-play") && V.cur) {
+      openPlayBrowserFor(V.cur.sys, V.cur.g);
+      return;
+    }
     const vt = e.target.closest("[data-vtune]");
     if (vt && !vt.disabled) {
       e.stopPropagation();

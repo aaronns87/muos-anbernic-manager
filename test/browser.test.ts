@@ -582,6 +582,12 @@ test("smoke: roadmap UI surfaces stay wired", { skip: !CHROME && "Chrome not fou
     assert.ok(smart.includes(v), `smart-list missing ${v}`);
   }
   assert.ok(await cdp.eval<boolean>(`!!document.querySelector("#games-add [data-uptodate]")`));
+  await cdp.until(`!!document.querySelector(".card-play")`, 15_000);
+  await cdp.eval(`document.querySelector(".card-play").click()`);
+  await cdp.until(`document.getElementById("playbrowser")?.open === true`);
+  assert.ok(await cdp.eval<boolean>(`!!document.getElementById("play-ejs")`));
+  await cdp.eval(`document.querySelector('#playbrowser [data-play="close"]')?.click(); document.getElementById("playbrowser")?.close()`);
+  await cdp.until(`!document.getElementById("playbrowser")?.open`);
   await cdp.eval(`document.getElementById("add-games").click()`);
   await cdp.until(`!!document.querySelector('[data-ag="free-homebrew"]')`);
   await cdp.eval(`document.querySelector('[data-ag="free-homebrew"]').click()`);

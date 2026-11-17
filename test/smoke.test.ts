@@ -95,6 +95,24 @@ test("smoke: Syncthing idle probe answers offline", async () => {
   assert.ok("detail" in json);
 });
 
+test("smoke: play ROM stream for light systems", async () => {
+  const ok = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("Tetris (World).gb")}&token=${srv.token}`);
+  assert.equal(ok.status, 200);
+  assert.match(ok.headers.get("content-type") || "", /octet-stream|application\//);
+  const body = Buffer.from(await ok.arrayBuffer());
+  assert.ok(body.length > 0);
+  assert.match(body.toString("utf8"), /rom data for Tetris/);
+
+  const badPath = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("../etc/passwd")}&token=${srv.token}`);
+  assert.equal(badPath.status, 400);
+
+  const unsupported = await fetch(`${srv.base}/api/games/rom?code=PS&file=${encodeURIComponent("Final Fantasy VII (USA) (Disc 1).cue")}&token=${srv.token}`);
+  assert.equal(unsupported.status, 400);
+
+  const blocked = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("sheet.cue")}&token=${srv.token}`);
+  assert.equal(blocked.status, 400);
+});
+
 test("smoke: multi-disc m3u preview and write beside ROMs", async () => {
   const lib = await api("games");
   const systems = lib.json.raw?.systems ?? lib.json.systems;
@@ -125,7 +143,7 @@ test("smoke: workspace and activity endpoints respond", async () => {
 test("smoke: roadmap front-end modules parse", () => {
   const dir = path.join(managerDir, "public", "js");
   for (const f of [
-    "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js",
+    "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js", "play-browser.js",
     "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js",
   ]) {
     execFileSync(process.execPath, ["--check", path.join(dir, f)], { stdio: "pipe" });
@@ -134,10 +152,11 @@ test("smoke: roadmap front-end modules parse", () => {
 
 test("smoke: index and source keep roadmap UI wiring", () => {
   const html = fs.readFileSync(path.join(managerDir, "public", "index.html"), "utf8");
-  for (const id of ["smart-list", "hbfree", "hbf-body", "hbf-close", "confirm", "view-logs", "view-games", "view-emulation"]) {
+  for (const id of ["smart-list", "hbfree", "hbf-body", "hbf-close", "confirm", "view-logs", "view-games", "view-emulation", "playbrowser", "play-ejs", "v-play"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} missing from index.html`);
   }
   assert.match(html, /Favourites|Never copied|No art|Bad dump|Needs tuning|On device only/);
+  assert.match(html, /Play in browser/);
 
   const device = fs.readFileSync(path.join(managerDir, "public", "js", "device.js"), "utf8");
   assert.match(device, /Handheld on this network/);
@@ -149,6 +168,10 @@ test("smoke: index and source keep roadmap UI wiring", () => {
   assert.match(games, /data-uptodate/);
   assert.match(games, /smart-list|smartList/);
   assert.match(games, /data-fav|toggleFavourite/);
+  assert.match(games, /card-play|openPlayBrowserFor|data-play-card/);
+
+  const play = fs.readFileSync(path.join(managerDir, "public", "js", "play-browser.js"), "utf8");
+  assert.match(play, /canPlayInBrowser|openPlayBrowser|EJS_defaultControls|cdn\.emulatorjs\.org/);
 
   const overview = fs.readFileSync(path.join(managerDir, "public", "js", "overview.js"), "utf8");
   assert.match(overview, /data-uptodate/);
@@ -172,10 +195,11 @@ test("smoke: index and source keep roadmap UI wiring", () => {
   const server = fs.readFileSync(path.join(managerDir, "src", "server.ts"), "utf8");
   for (const route of [
     "games/flags", "homebrew/free", "disc-m3u/preview", "disc-m3u/write", "disc-m3u/batch",
-    "saves/game", "logs/support-pack", "ssh/syncthing-idle",
+    "saves/game", "logs/support-pack", "ssh/syncthing-idle", "games/rom",
   ]) {
     assert.match(server, new RegExp(route.replace(/\//g, "\\/")), `route ${route} missing from server.ts`);
   }
+  assert.match(server, /GET \/api\/games\/rom/);
 });
 
 test("smoke: data/free-homebrew.json is valid curated catalogue", () => {

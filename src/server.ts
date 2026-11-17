@@ -48,6 +48,7 @@ import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts"
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
 import { gamesFlagsJson } from "./games/flags.ts";
+import { playRomDownload } from "./games/play-rom.ts";
 import {
   deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
 } from "./saves-game.ts";
@@ -177,6 +178,7 @@ const routes: Record<string, Handler> = {
   "PUT /api/ports/upload": (query, _, req) => uploadPortFile(req, query),
   "GET /api/games": async () => ({ raw: await libraryJson() }),
   "GET /api/games/flags": () => gamesFlagsJson(),
+  "GET /api/games/rom": (q) => playRomDownload(q),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -486,7 +488,7 @@ function tokenOk(given: string): boolean {
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
   const route = `${req.method} ${url.pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });

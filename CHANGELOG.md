@@ -29,6 +29,7 @@ version.
 
 ### Added
 
+- **Play in browser** for light systems (GB, GBC, GBA, FC/NES, SFC/SNES, SMS, GG, MD, NGP, WS, PCE): play button on game cards (bottom-left) and in the game viewer; EmulatorJS cores from the CDN on first use; session keyboard remapping in the play dialog. Disc sheets and heavy systems stay handheld-only.
 - **Emulation → Library check → Disc layouts**: **Make playlist…** for multi-disc sets (No-Intro / Redump **Disc N** naming) without a `.m3u`; preview, write beside the ROMs, per-system batch. CHD convert already follows `.m3u`.
 - **Emulation → Saves** and the game viewer **Handheld** tab: per-game save browser (`.srm` and save states over SSH), pull to `backups/saves-pulled/`, push, delete with confirm, and prune save states (complements `.muxbak` and tar backups).
 - **Games**: **Favourites** (stored in this browser, `system/filename` id) on cards and in the viewer; **Smart lists** filter chips — Never copied, No art, Bad dump, Needs tuning, On device only — with **Select shown** / transfer / artwork actions.

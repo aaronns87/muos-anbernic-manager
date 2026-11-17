@@ -17,6 +17,7 @@ import { applyColourScheme, applySoftLook, resolveSchemeId } from "./appearance.
 import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
 import { syncGameFilters } from "./ui.js";
 import { applySmartListSideEffects, isFavourite, toggleFavourite, matchLibrarySmartList, matchDeviceSmartList } from "./lists.js";
+import { canPlayInBrowser, openPlayBrowserFor } from "./play-browser.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -260,11 +261,13 @@ function card(g, si, idx) {
     ? `<span class="badge-on${cardState === "changed" ? " changed" : ""}">${cardState === "changed" ? "DIFFERS" : `ON ${devWord().toUpperCase()}`}</span>` : "";
   const copy = canCopy(sys)
     ? `<button class="card-transfer" data-v="${idx}" title="Transfer to ${esc(devName())}" aria-label="Transfer ${esc(g.t)} to ${esc(devName())}">${ICONS.up}</button>` : "";
+  const play = canPlayInBrowser(sys, g)
+    ? `<button class="card-play" type="button" data-play-card="${idx}" title="Play in browser" aria-label="Play ${esc(g.t)} in the browser">${icon("play")}</button>` : "";
   const key = keyOf(sys, g), on = app.sel.has(key);
   const fav = isFavourite(key) ? `<button class="fav on" type="button" data-fav="${esc(key)}" title="Favourite" aria-label="Remove from favourites">${icon("star")}</button>`
     : `<button class="fav" type="button" data-fav="${esc(key)}" title="Add to favourites" aria-label="Favourite">${icon("star")}</button>`;
   return `<article class="game${on ? " sel" : ""}" tabindex="0" data-v="${idx}" data-k="${esc(key)}">
-    <div class="art">${art}${fav}${pickBox(on)}${sortBadge(g)}${badge}${copy}</div>
+    <div class="art">${art}${fav}${pickBox(on)}${sortBadge(g)}${badge}${play}${copy}</div>
     <div class="info"><h3 title="${esc(g.t)}">${highlight(g.t, q)}</h3>
       ${tags ? `<div class="tags">${tags}</div>` : ""}
       <div class="file" title="${esc(g.f)}">${highlight(g.f, q)} &middot; ${human(g.s)}</div></div>
@@ -1207,9 +1210,16 @@ export function bindGames() {
     if (pickSys) { toggleSystem(pickSys.closest(".system")); return; }
     const fav = e.target.closest("[data-fav]");
     if (fav) { e.stopPropagation(); toggleFavourite(fav.dataset.fav); render(); return; }
+    const playCard = e.target.closest("[data-play-card]");
+    if (playCard) {
+      e.stopPropagation();
+      const [si, g] = app.visible[+playCard.dataset.playCard];
+      openPlayBrowserFor(app.data.systems[si], g);
+      return;
+    }
     const pick = e.target.closest(".pick");
     if (pick) { togglePick(pick.closest(".game"), e.shiftKey); return; }
-    if (app.selecting && !e.target.closest(".card-transfer, .system-head")) {
+    if (app.selecting && !e.target.closest(".card-transfer, .card-play, .system-head")) {
       const el = e.target.closest(".game");
       if (el) { togglePick(el, e.shiftKey); return; }
     }
