@@ -7,6 +7,7 @@ import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
 import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
 import { bindTips, checkTips } from "./tips.js";
+import { bindSideFlyout, hideSideFlyout, syncSideFlyout } from "./side-flyout.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
@@ -116,9 +117,11 @@ function setSideMin(min, animate = true) {
   if (!animate) { void shell.offsetWidth; shell.style.transition = ""; }
   store.set("sideMin", min);
   const t = $("side-toggle"), label = min ? "Expand sidebar" : "Collapse sidebar";
-  t.title = `${label} ([)`;
-  t.setAttribute("aria-label", label);
+  t.removeAttribute("title");
+  t.setAttribute("aria-label", `${label} ([)`);
   t.setAttribute("aria-expanded", String(!min));
+  syncSideFlyout();
+  if (!min) hideSideFlyout();
 }
 
 function go(el) {
@@ -232,6 +235,7 @@ applyView();
 setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
 bindShared();
+bindSideFlyout();
 bindUi();
 bindModelPicker();
 bindGames();

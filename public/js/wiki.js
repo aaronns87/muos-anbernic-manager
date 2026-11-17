@@ -96,7 +96,7 @@ const ARTICLES = [
       or Home/End for the first or last tab.</li>
       <li><kbd>1</kbd> to <kbd>9</kbd> jump down the sidebar (1 Overview, 2 Wiki, 3 Games &hellip; through Themes); <kbd>0</kbd> always opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on (the matching Wiki article in a dialog).</li>
-      <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back.</li>
+      <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back. On the icon bar, hover an item to see a rich tab with its name and live counts (for example how many games are in the library).</li>
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
     </ul>`],
   ]],

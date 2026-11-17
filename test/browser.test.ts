@@ -177,6 +177,23 @@ test("sidebar order and number keys follow the sections", { skip: !CHROME && "Ch
   }
 });
 
+test("collapsed sidebar shows a rich hover tab instead of a title tooltip", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+  await cdp.eval(`document.getElementById("side-toggle").click()`);
+  await cdp.until(`document.body.classList.contains("side-min")`);
+  assert.equal(await cdp.eval<string | null>(`document.querySelector('.section-link[data-section="games"]').getAttribute("title")`), null);
+  await cdp.eval(`document.querySelector('.section-link[data-section="games"]').dispatchEvent(new PointerEvent("pointerover", { bubbles: true }))`);
+  await cdp.until(`!!document.getElementById("side-flyout") && !document.getElementById("side-flyout").hidden`);
+  const text = await cdp.eval<string>(`document.getElementById("side-flyout").innerText`);
+  assert.match(text, /Games/);
+  assert.match(text, /game/i);
+  await cdp.eval(`document.getElementById("side-toggle").click()`);
+  await cdp.until(`!document.body.classList.contains("side-min")`);
+  assert.equal(await cdp.eval<boolean>(`!document.getElementById("side-flyout") || document.getElementById("side-flyout").hidden`), true);
+  assert.deepEqual(errors(), []);
+});
+
 test("shared tabs support keyboard navigation and Settings folders use a desktop grid", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
