@@ -12,7 +12,8 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | Connection Wi-Fi UX; roadmap features (profiles, up-to-date, m3u, saves, …); hints; Logs; sidebar tabs |
+| [Unreleased](#unreleased) | | |
+| [1.3.2](#132---2026-11-17) | 2026-11-17 | Play in browser (cartridge + disc/heavy); favourites & smart lists; saves browser; disc playlists; hints; recipes; free homebrew |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
@@ -26,6 +27,8 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.3.2] - 2026-11-17
 
 ### Added
 
@@ -472,7 +475,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.1...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.2...changes/unreleased
+[1.3.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.2
 [1.3.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.1
 [1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
 [1.2.6]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.2.6
