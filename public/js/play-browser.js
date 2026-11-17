@@ -52,19 +52,52 @@ function romUrl(code, file) {
   return new URL(`/api/games/rom?${q}`, location.origin).href;
 }
 
+/**
+ * EmulatorJS shape is { playerIndex: { buttonIndex: { value, value2 } } }.
+ * Do not nest a keyboard/gamepad layer under the player — that blanks the settings UI
+ * and leaves simulateInput with no keyCodes.
+ */
 function buildDefaultControls(keys) {
-  const pad = {};
-  for (let i = 0; i <= 20; i++) {
-    pad[i] = { value: keys[i] ?? "", value2: "nul" };
-  }
-  // Keep EmulatorJS button2 labels for display inside its own UI where used
-  const labels = {
-    0: "BUTTON_2", 1: "BUTTON_4", 2: "SELECT", 3: "START",
-    4: "DPAD_UP", 5: "DPAD_DOWN", 6: "DPAD_LEFT", 7: "DPAD_RIGHT",
-    8: "BUTTON_1", 9: "BUTTON_3", 10: "LEFT_TOP_SHOULDER", 11: "RIGHT_TOP_SHOULDER",
+  const player0 = {
+    0: { value: keys[0] ?? "x", value2: "BUTTON_2" },
+    1: { value: keys[1] ?? "s", value2: "BUTTON_4" },
+    2: { value: keys[2] ?? "shift", value2: "SELECT" },
+    3: { value: keys[3] ?? "enter", value2: "START" },
+    4: { value: keys[4] ?? "up arrow", value2: "DPAD_UP" },
+    5: { value: keys[5] ?? "down arrow", value2: "DPAD_DOWN" },
+    6: { value: keys[6] ?? "left arrow", value2: "DPAD_LEFT" },
+    7: { value: keys[7] ?? "right arrow", value2: "DPAD_RIGHT" },
+    8: { value: keys[8] ?? "z", value2: "BUTTON_1" },
+    9: { value: keys[9] ?? "a", value2: "BUTTON_3" },
+    10: { value: keys[10] ?? "q", value2: "LEFT_TOP_SHOULDER" },
+    11: { value: keys[11] ?? "e", value2: "RIGHT_TOP_SHOULDER" },
+    12: { value: "tab", value2: "LEFT_BOTTOM_SHOULDER" },
+    13: { value: "r", value2: "RIGHT_BOTTOM_SHOULDER" },
+    14: { value: "", value2: "LEFT_STICK" },
+    15: { value: "", value2: "RIGHT_STICK" },
+    16: { value: "h", value2: "LEFT_STICK_X:+1" },
+    17: { value: "f", value2: "LEFT_STICK_X:-1" },
+    18: { value: "g", value2: "LEFT_STICK_Y:+1" },
+    19: { value: "t", value2: "LEFT_STICK_Y:-1" },
+    20: { value: "l", value2: "RIGHT_STICK_X:+1" },
+    21: { value: "j", value2: "RIGHT_STICK_X:-1" },
+    22: { value: "k", value2: "RIGHT_STICK_Y:+1" },
+    23: { value: "i", value2: "RIGHT_STICK_Y:-1" },
+    24: { value: "1" },
+    25: { value: "2" },
+    26: { value: "3" },
+    27: {},
+    28: {},
+    29: {},
   };
-  for (const [i, lab] of Object.entries(labels)) pad[i].value2 = lab;
-  return { 0: { 0: pad, 1: {}, 2: {}, 3: {} }, 1: {}, 2: {}, 3: {} };
+  return { 0: player0, 1: {}, 2: {}, 3: {} };
+}
+
+function focusPlayPlayer() {
+  const host = $("play-ejs");
+  if (!host) return;
+  host.setAttribute("tabindex", "-1");
+  try { host.focus({ preventScroll: true }); } catch { host.focus(); }
 }
 
 function controlsFormHtml() {
@@ -104,6 +137,7 @@ function teardown() {
   delete window.EJS_Buttons;
   delete window.EJS_color;
   delete window.EJS_ready;
+  delete window.EJS_onGameStart;
 }
 
 function startEmulator(sys, g) {
@@ -119,7 +153,9 @@ function startEmulator(sys, g) {
   window.EJS_startOnLoaded = true;
   window.EJS_defaultControls = buildDefaultControls(readKeysFromForm());
   window.EJS_color = "#c4a35a";
-  window.EJS_ready = () => { /* EmulatorJS chrome is up */ };
+  // EmulatorJS listens for keys on #play-ejs; keep focus there so arrows/A/B reach the core.
+  window.EJS_ready = () => focusPlayPlayer();
+  window.EJS_onGameStart = () => focusPlayPlayer();
   loaderEl = document.createElement("script");
   // Cache-bust so Restart re-runs loader.js after a previous session.
   loaderEl.src = `${EJS_DATA}loader.js?v=${Date.now()}`;
@@ -150,6 +186,9 @@ export function bindPlayBrowser() {
   bound = true;
   const dlg = $("playbrowser");
   dlg?.addEventListener("close", () => teardown());
+  dlg?.addEventListener("click", (e) => {
+    if (e.target.closest("#play-ejs") && !e.target.closest("[data-play-key]")) focusPlayPlayer();
+  });
   document.addEventListener("click", (e) => {
     const close = e.target.closest("[data-play=\"close\"]");
     if (close) { dlg?.close(); return; }
