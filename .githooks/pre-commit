@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Runs the manager smoke suite before allowing a commit.
+# Install once: ./scripts/install-git-hooks.sh
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+exec ./scripts/smoke.sh

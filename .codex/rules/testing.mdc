@@ -11,10 +11,12 @@ alwaysApply: false
 
 | File | Covers |
 | --- | --- |
+| `test/smoke.test.ts` | **Pre-commit smoke**: API contracts, roadmap routes, module parse, source wiring; extend with each feature |
 | `test/unit.test.ts` | pure functions and small modules (parsers, settings, versions, device list) |
 | `test/server.test.ts` | the real server via `startServer()` from `test/helpers.ts`: API, static files, index.html ids |
 | `test/checks.test.ts` | library checks: DAT parsing, CRCs, duplicates |
-| `test/browser.test.ts` | headless Chrome over CDP: every section at desktop and phone width; skipped without Chrome |
+| `test/file-safety.test.ts` | path / trash safety helpers |
+| `test/browser.test.ts` | headless Chrome over CDP: layout + **smoke: roadmap UI**; skipped without Chrome |
 
 ## Rules
 
@@ -25,7 +27,10 @@ alwaysApply: false
   throwaway workspace and cache. Call `srv.api(route, body?)`.
 - Name tests as a sentence describing behaviour: `test("trash refuses empty or unsafe requests without touching files", ...)`.
 - A new dialog or view adds its element ids to the list in `test/server.test.ts`.
+- **User-visible features also extend `test/smoke.test.ts`** (API/source contracts) and the browser test
+  `smoke: roadmap UI surfaces stay wired` when there is a new control or panel.
 - A bug fix adds a test that failed before the fix when practical.
+- Before committing: `npm run smoke` (type-check + smoke + file-safety). Optional: `npm run smoke:full` for browser.
 - Run one file or test: `node --test test/unit.test.ts --test-name-pattern "workspace"`.
 
 For manual checks in a browser (temp server, fake TF2 card, cleanup) use the `manager-testing` skill.

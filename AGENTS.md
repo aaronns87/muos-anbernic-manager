@@ -16,11 +16,14 @@ MustardOS paths the code relies on. Each source file opens with a comment saying
 
 ```bash
 npm install                 # once; run.sh does it too
+npm run smoke               # pre-commit: tsc + smoke + file-safety (extend test/smoke.test.ts with features)
+npm run smoke:full          # smoke + browser roadmap UI smoke (needs Chrome)
 npm test                    # all tests (node --test test/*.test.ts)
 npm run check               # TypeScript type check (tsc --noEmit)
 node --test --test-name-pattern=VERSION test/unit.test.ts     # one file / matching tests
 node --check public/js/<file>.js                              # syntax of a front-end module
 bash -n run.sh installer.sh scripts/common.sh                 # shell syntax (Windows twins: *.ps1, see shell-scripts rule)
+./scripts/install-git-hooks.sh  # once per clone: pre-commit runs npm run smoke
 ./run.sh                    # start the manager (port 8765)
 ```
 

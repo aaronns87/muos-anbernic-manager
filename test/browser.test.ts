@@ -569,3 +569,44 @@ test("offline Overview offers local work and Apps uses a consistent primary acti
   assert.ok(await cdp.eval<boolean>(`document.querySelector('.apps-location code').textContent.includes(${JSON.stringify(srv.root)})`));
   assert.deepEqual(errors(), []);
 });
+
+/** Detailed UI smoke for roadmap surfaces — extend when adding user-visible features. */
+test("smoke: roadmap UI surfaces stay wired", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+
+  await cdp.eval(`location.hash = "#games"`);
+  await cdp.until(`!!document.getElementById("smart-list")`);
+  const smart = await cdp.eval<string[]>(`[...document.getElementById("smart-list").options].map((o) => o.value)`);
+  for (const v of ["all", "fav", "never", "no-art", "bad", "tuning", "device-only"]) {
+    assert.ok(smart.includes(v), `smart-list missing ${v}`);
+  }
+  assert.ok(await cdp.eval<boolean>(`!!document.querySelector("#games-add [data-uptodate]")`));
+  await cdp.eval(`document.getElementById("add-games").click()`);
+  await cdp.until(`!!document.querySelector('[data-ag="free-homebrew"]')`);
+  await cdp.eval(`document.querySelector('[data-ag="free-homebrew"]').click()`);
+  await cdp.until(`document.getElementById("hbfree")?.open === true`);
+  assert.match(await cdp.eval<string>(`document.getElementById("hbf-title")?.textContent || ""`), /homebrew/i);
+  await cdp.eval(`document.getElementById("hbf-close").click()`);
+  await cdp.until(`!document.getElementById("hbfree")?.open`);
+  await cdp.eval(`document.querySelector('#addgames [data-ag="close"]')?.click(); document.getElementById("addgames")?.close()`);
+
+  await cdp.eval(`location.hash = "#settings/behaviour"`);
+  await cdp.until(`!!document.querySelector(".recipe-panel")`);
+  assert.match(await cdp.eval<string>(`document.querySelector(".recipe-panel h2")?.textContent || ""`), /Library recipes/);
+
+  await cdp.eval(`location.hash = "#logs"`);
+  await cdp.until(`!!document.querySelector('[data-logs="support"]')`);
+  assert.match(await cdp.eval<string>(`document.querySelector('[data-logs="support"]')?.textContent || ""`), /Support pack/);
+
+  await cdp.eval(`location.hash = "#emulation/saves"`);
+  await cdp.until(`document.querySelector('#emu-tabs [data-tab="saves"].on') && !!document.querySelector(".sv-game-panel, .sv-location, [data-connect]")`, 15_000);
+  assert.match(await cdp.eval<string>(`document.getElementById("emu-body").innerText`), /Save browser|Back up|backup|Connect|Wi-Fi/i);
+
+  await cdp.eval(`location.hash = "#emulation/checks"`);
+  await cdp.until(`document.getElementById("emu-body")?.innerText.trim().length > 10`);
+
+  await cdp.eval(`location.hash = "#overview"`);
+  await cdp.until(`!!document.querySelector(".wifi-form-title, .ov-offline")`);
+  assert.deepEqual(errors(), []);
+});

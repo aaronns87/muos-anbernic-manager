@@ -46,6 +46,9 @@ version.
 
 ### Changed
 
+- **Testing**: `npm run smoke` (and optional `smoke:full` with Chrome) is the pre-commit gate — type-check plus a detailed
+  API/UI wiring suite in `test/smoke.test.ts` that must be extended with each user-visible feature; install with
+  `./scripts/install-git-hooks.sh`.
 - **Connection**: Wi-Fi setup is **Handheld on this network** with a live status line, Sign-in details behind a disclosure, a clear primary **Save and connect**, and **Find on network** with Use and connect on each result.
 - Collapsed sidebar: hovering a nav icon shows an immediate rich tab (name and live counts such as games / artwork %) instead of the browser tooltip.
 - **Logs**: Hide routine (on by default) filters startup/queue noise; routine `say()` tags log as Info instead of Warnings; USB / Wi-Fi / card connect edges and API 4xx/5xx failures are recorded; row UI drops the redundant APP chip and strengthens timestamps.
