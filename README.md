@@ -51,7 +51,8 @@ per-session token. Nothing is uploaded anywhere.
   N64, DS, Master System, Game Gear, Mega Drive, 32X, Sega CD, Saturn, PC Engine/CD, WonderSwan, Neo Geo Pocket,
   Atari 2600/5200/7800/Lynx, C64, VIC-20, PlayStation, PSP) opens EmulatorJS in a modal; cores load from the EmulatorJS CDN
   on first use (needs network once; browser caches them). Disc games stream locally (CHD/ISO/cue+tracks); PS / Sega CD /
-  Saturn / PCE CD need BIOS in `bios/`. Session keyboard remapping only — no save sync with the handheld yet.
+  Saturn / PCE CD need BIOS in `bios/`. While the play window is open, arrow keys, space and page keys stay with the game
+  (the library behind does not scroll). Session keyboard remapping only — no save sync with the handheld yet.
   Dreamcast and arcade stay handheld-only.
 - **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
   with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves (with

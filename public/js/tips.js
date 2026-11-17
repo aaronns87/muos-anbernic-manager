@@ -27,6 +27,14 @@ export const TIPS = [
     goLabel: "Open Games",
   },
   {
+    id: "play-browser",
+    icon: "play",
+    title: "Play in the browser",
+    body: "Many systems can be tried here without the handheld (including PlayStation, N64, DS and PSP when EmulatorJS supports them). Open Play on a card or in the game view. Arrow keys and space stay with the game — the page behind does not scroll. Disc systems need BIOS in bios/; Dreamcast and arcade stay on the handheld.",
+    go: "#games",
+    goLabel: "Open Games",
+  },
+  {
     id: "artwork",
     icon: "image",
     title: "Box art and descriptions",

@@ -131,7 +131,7 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 ### Play in browser
 
-Supported systems: GB, GBC, GBA, FC, FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM/BIOS stream (large CHD/ISO streamed, not buffered in the manager). `.cue`/`.m3u` pull sibling tracks via `EJS_externalFiles`. PS / MDCD / SATURN / PCECD need BIOS in workspace `bios/`. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. No handheld save sync. Dreamcast and arcade not offered (no EmulatorJS core).
+Supported systems: GB, GBC, GBA, FC, FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM/BIOS stream (large CHD/ISO streamed, not buffered in the manager). `.cue`/`.m3u` pull sibling tracks via `EJS_externalFiles`. PS / MDCD / SATURN / PCECD need BIOS in workspace `bios/`. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. While open, arrow/space/page keys are kept for the game (page scroll locked). No handheld save sync. Dreamcast and arcade not offered (no EmulatorJS core).
 
 ### Game viewer
 

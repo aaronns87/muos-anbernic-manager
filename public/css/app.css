@@ -1187,12 +1187,19 @@ svg.console .f, svg.plat-ico .f { fill: currentColor; stroke: none; }
 .games.list .card-play { width: 26px; height: 26px; left: 4px; bottom: 4px; }
 #games-list.selecting .card-play { display: none; }
 
+/* While play is open: freeze the page so held arrows don't scroll the library behind the modal. */
+html.play-open, html.play-open body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
 dialog.playbrowser {
   width: min(960px, calc(100vw - 24px));
   height: min(90dvh, 860px);
   max-height: min(90dvh, 860px);
   padding: 0;
   position: relative;
+  overscroll-behavior: contain;
   border: 1px solid color-mix(in srgb, var(--mustard) 32%, var(--line-2));
   border-radius: var(--radius);
   background: var(--panel);
@@ -1218,10 +1225,11 @@ dialog.playbrowser[open] { display: flex; flex-direction: column; }
 }
 .play-head-actions .icon-btn .i,
 .play-float .icon-btn .i { width: 18px; height: 18px; }
-.play-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 12px; min-height: 0; flex: 1; overflow: auto; }
+.play-body { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 12px; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
 .play-ejs {
   width: 100%; flex: 1 1 auto; min-height: 220px; height: min(48dvh, 420px);
   background: #0c0a09; border-radius: var(--radius-sm); overflow: hidden; position: relative;
+  outline: none;
 }
 .play-ejs > div, .play-ejs canvas, .play-ejs iframe { max-width: 100%; }
 .play-float {

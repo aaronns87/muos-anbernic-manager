@@ -45,7 +45,7 @@ const ARTICLES = [
         <code>CHANGELOG.md</code>). It only appears once per version. You can also open the full changelog from the manager updates
         dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>
       <p><b>Hints and tips.</b> After the setup wizard and What's new, a short walkthrough covers the main features (connection,
-        Games, Artwork, apps, themes, Emulation, Appearance, Logs and more). Uncheck <b>Show tips when the manager starts</b> in that
+        Games, Play in the browser, Artwork, apps, themes, Emulation, Appearance, Logs and more). Uncheck <b>Show tips when the manager starts</b> in that
         dialog, or under ${path("Settings", "Behaviour")}, to skip it next time. Open it again from Help (<kbd>?</kbd>),
         ${path("Settings", "Behaviour", "Open tips")}, or this article.</p>`],
     ["Three ways to connect", `<ul>
@@ -185,7 +185,8 @@ const ARTICLES = [
       Your ROM stays on this computer and is streamed locally (including large <code>.chd</code> / <code>.iso</code> files). Disc sheets (<code>.cue</code>, <code>.m3u</code>)
       load their sibling track files automatically. PlayStation, Sega CD, Saturn and PC Engine CD need the matching BIOS in your workspace <code>bios/</code> folder
       (same files as for the handheld). Open <b>Keyboard controls</b> for a controller-style map: click a button, press a key, then
-      <b>Restart with these keys</b>. Esc does not leave the game — use the close control and confirm. Saves stay in the browser session only.
+      <b>Restart with these keys</b>. Esc does not leave the game — use the close control and confirm. Arrow keys and space stay with the game
+      (the page behind does not scroll). Saves stay in the browser session only.
       Dreamcast and arcade ROM sets are not offered (no EmulatorJS core). Large discs need enough browser memory; PSP runs best when the page can use threads.</p>`],
     ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
       (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>

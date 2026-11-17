@@ -322,9 +322,32 @@ function setPlayFocus(on) {
   if (on) requestAnimationFrame(() => focusPlayPlayer());
 }
 
+/** Lock page scroll while the play dialog is open (arrows/space otherwise scroll the library behind). */
+function setPlayOpen(on) {
+  document.documentElement.classList.toggle("play-open", !!on);
+}
+
+/** Keys that scroll the page or dialog; block their browser default while playing. */
+const SCROLL_KEYS = new Set([
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  " ", "Spacebar", "PageUp", "PageDown", "Home", "End",
+]);
+
+function playScrollKeyGuard(e) {
+  const dlg = $("playbrowser");
+  if (!dlg?.open || listeningBtn) return;
+  const el = e.target;
+  if (el?.closest?.("input, textarea, select, [contenteditable='true']") || el?.isContentEditable) return;
+  if (!SCROLL_KEYS.has(e.key)) return;
+  e.preventDefault();
+  // Keep EmulatorJS focused unless the user is editing the on-screen key map.
+  if (!el?.closest?.(".play-controls")) focusPlayPlayer();
+}
+
 function teardown() {
   clearListening();
   setPlayFocus(false);
+  setPlayOpen(false);
   try { window.EJS_emulator?.pause?.(); } catch { /* ignore */ }
   try { window.EJS_emulator?.exit?.(); } catch { /* ignore */ }
   if (loaderEl) { loaderEl.remove(); loaderEl = null; }
@@ -429,9 +452,13 @@ export function openPlayBrowser(sys, g) {
   $("play-controls-wrap").innerHTML = controlsFormHtml();
   const dlg = $("playbrowser");
   setPlayFocus(false);
+  setPlayOpen(true);
   if (!dlg.open) dlg.showModal();
   // Let the dialog paint at full size before EmulatorJS measures #play-ejs.
-  requestAnimationFrame(() => { void startEmulator(sys, g); });
+  requestAnimationFrame(() => {
+    focusPlayPlayer();
+    void startEmulator(sys, g);
+  });
 }
 
 async function requestClosePlay() {
@@ -461,6 +488,8 @@ export function bindPlayBrowser() {
     e.preventDefault();
     if (listeningBtn) clearListening();
   });
+  // Capture: stop arrows/space scrolling the page or dialog while the game is open.
+  window.addEventListener("keydown", playScrollKeyGuard, { capture: true });
   dlg?.addEventListener("click", (e) => {
     if (e.target.closest("#play-ejs") && !e.target.closest("[data-play-key]")) focusPlayPlayer();
   });

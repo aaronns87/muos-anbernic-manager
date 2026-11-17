@@ -184,7 +184,7 @@ test("smoke: workspace and activity endpoints respond", async () => {
 test("smoke: roadmap front-end modules parse", () => {
   const dir = path.join(managerDir, "public", "js");
   for (const f of [
-    "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js", "play-browser.js",
+    "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js", "play-browser.js", "tips.js",
     "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js",
   ]) {
     execFileSync(process.execPath, ["--check", path.join(dir, f)], { stdio: "pipe" });
@@ -214,8 +214,11 @@ test("smoke: index and source keep roadmap UI wiring", () => {
   const play = fs.readFileSync(path.join(managerDir, "public", "js", "play-browser.js"), "utf8");
   assert.match(play, /canPlayInBrowser|openPlayBrowser|EJS_defaultControls|cdn\.emulatorjs\.org/);
   assert.match(play, /return \{ 0: player0, 1: \{\}, 2: \{\}, 3: \{\} \}/);
-  assert.match(play, /play-pad|play-bind|requestClosePlay|cancel|setPlayFocus|play-focus|EJS_disableLocalStorage|applySessionControls/);
+  assert.match(play, /play-pad|play-bind|requestClosePlay|cancel|setPlayFocus|play-focus|EJS_disableLocalStorage|applySessionControls|playScrollKeyGuard|play-open/);
   assert.match(html, /data-play="focus"|play-float/);
+
+  const tips = fs.readFileSync(path.join(managerDir, "public", "js", "tips.js"), "utf8");
+  assert.match(tips, /id: "play-browser"|Play in the browser|page behind does not scroll/);
 
   const overview = fs.readFileSync(path.join(managerDir, "public", "js", "overview.js"), "utf8");
   assert.match(overview, /data-uptodate/);
