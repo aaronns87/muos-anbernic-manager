@@ -177,13 +177,16 @@ const ARTICLES = [
       </ul>
       <p>Ports land on TF2 when it is in (<code>/mnt/sdcard/ports</code>), otherwise on SD1. Files you put in <code>Roms/PORTS</code> on this computer
       are not copied.</p>`],
-    ["Play in browser", `<p>Cartridge-era systems can be tried in the manager without the handheld: Game Boy family, NES / FDS, SNES, Virtual Boy,
-      Master System, Game Gear, Mega Drive, 32X, PC Engine, WonderSwan, Neo Geo Pocket, Atari 2600 / 5200 / 7800 / Lynx, Commodore 64 and VIC-20.
+    ["Play in browser", `<p>Many systems can be tried in the manager without the handheld: Game Boy family, NES / FDS, SNES, Virtual Boy, N64, DS,
+      Master System, Game Gear, Mega Drive, 32X, Sega CD, Saturn, PC Engine / CD, WonderSwan, Neo Geo Pocket,
+      Atari 2600 / 5200 / 7800 / Lynx, Commodore 64 and VIC-20, PlayStation and PSP.
       On a game card, the play control is bottom-left (transfer stays bottom-right); in the game view, <b>Play in browser</b> is the primary action when supported.</p>
       <p>The play dialog loads <b>EmulatorJS</b> cores from the EmulatorJS CDN the first time (needs a network connection once; the browser caches them).
-      Your ROM stays on this computer and is streamed locally. Open <b>Keyboard controls</b> for a controller-style map: click a button, press a key, then
+      Your ROM stays on this computer and is streamed locally (including large <code>.chd</code> / <code>.iso</code> files). Disc sheets (<code>.cue</code>, <code>.m3u</code>)
+      load their sibling track files automatically. PlayStation, Sega CD, Saturn and PC Engine CD need the matching BIOS in your workspace <code>bios/</code> folder
+      (same files as for the handheld). Open <b>Keyboard controls</b> for a controller-style map: click a button, press a key, then
       <b>Restart with these keys</b>. Esc does not leave the game — use the close control and confirm. Saves stay in the browser session only.
-      Disc sheets (<code>.cue</code>, <code>.m3u</code>) and heavier systems (PlayStation, N64, Saturn, Dreamcast, PSP, DS and so on) are not offered.</p>`],
+      Dreamcast and arcade ROM sets are not offered (no EmulatorJS core). Large discs need enough browser memory; PSP runs best when the page can use threads.</p>`],
     ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
       (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>
       <p>With the handheld connected, cards at the top show whether the game is on it, the core it starts with, how long you have played

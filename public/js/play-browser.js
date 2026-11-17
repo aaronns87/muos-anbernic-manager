@@ -1,24 +1,46 @@
-// In-browser play for light systems via EmulatorJS (CDN cores + local ROM stream).
+// In-browser play via EmulatorJS (CDN cores + local ROM/BIOS stream).
 
 import { confirmBox } from "./art-images.js";
 import { $, esc, TOKEN, toast } from "./core.js";
 
 /** Manager system folder → EmulatorJS core. Keep in sync with src/games/play-rom.ts. */
 export const PLAY_CORES = {
+  // Nintendo
   GB: "gb", GBC: "gb", GBA: "gba", FC: "nes", FDS: "nes", SFC: "snes", VB: "vb",
+  N64: "n64", NDS: "nds",
+  // Sega
   SMS: "segaMS", GG: "segaGG", MD: "segaMD", SEGA32X: "sega32x",
-  PCE: "pce", WS: "ws", NGP: "ngp",
+  MDCD: "segaCD", SATURN: "segaSaturn",
+  // NEC / Bandai / SNK
+  PCE: "pce", PCECD: "pce", WS: "ws", NGP: "ngp",
+  // Atari
   A2600: "atari2600", A5200: "a5200", A7800: "atari7800", LYNX: "lynx",
+  // Commodore
   C64: "c64", VIC20: "vic20",
+  // Sony
+  PS: "psx", PSP: "psp",
 };
 
-const BLOCKED = new Set(["cue", "m3u", "ccd", "toc", "gdi", "chd", "iso", "img", "wav", "ogg", "mp3"]);
+/** Preferred BIOS basenames under workspace bios/ (first hit wins). Keep in sync with play-rom.ts. */
+const PLAY_BIOS = {
+  PS: ["scph5501.bin", "scph5502.bin", "scph5500.bin", "scph1001.bin", "scph7001.bin", "scph101.bin", "PSXONPSP660.bin"],
+  SATURN: ["saturn_bios.bin", "sega_101.bin", "mpr-17933.bin", "mpr-17933c.bin"],
+  MDCD: ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"],
+  PCECD: ["syscard3.pce", "syscard2.pce", "syscard1.pce", "syscard3u.pce", "syscard2u.pce"],
+};
+
+const DISC_EXT = new Set(["chd", "iso", "cso", "pbp", "cue", "m3u"]);
+const DISC_SYSTEMS = new Set(["PS", "SATURN", "MDCD", "PCECD", "PSP"]);
+
+const BLOCKED = new Set(["ccd", "toc", "gdi", "img", "wav", "ogg", "mp3"]);
 const OK = new Set([
   "gb", "gbc", "gba", "nes", "unf", "unif", "fds", "smc", "sfc", "fig", "swc", "vb", "vboy",
+  "z64", "n64", "v64", "nds",
   "sms", "gg", "md", "gen", "smd", "32x",
   "ngp", "ngc", "npc", "ws", "wsc", "pce",
   "a26", "a52", "a78", "lnx", "lyx",
   "d64", "t64", "crt", "prg", "tap",
+  "chd", "iso", "cso", "pbp", "cue", "m3u",
   "bin", "rom", "zip", "7z",
 ]);
 
@@ -40,6 +62,7 @@ let sessionKeys = { ...DEFAULT_KEYS };
 let bound = false;
 let loaderEl = null;
 let listeningBtn = null;
+let startGen = 0;
 
 function extOf(file) {
   const i = file.lastIndexOf(".");
@@ -51,12 +74,75 @@ export function canPlayInBrowser(sys, g) {
   if (!PLAY_CORES[sys.code]) return false;
   const x = (g.x || extOf(g.f)).toLowerCase();
   if (BLOCKED.has(x)) return false;
+  if (DISC_EXT.has(x) && !DISC_SYSTEMS.has(sys.code)) return false;
   return OK.has(x);
 }
 
+/**
+ * EmulatorJS derives the VFS filename from the last URL path segment (before ?).
+ * Query-only URLs became literally "rom" / "bios" with no extension → PS core opened the RetroArch menu.
+ */
 function romUrl(code, file) {
-  const q = new URLSearchParams({ code, file, token: TOKEN });
-  return new URL(`/api/games/rom?${q}`, location.origin).href;
+  const q = new URLSearchParams({ token: TOKEN });
+  return new URL(`/api/games/rom/${encodeURIComponent(code)}/${encodeURIComponent(file)}?${q}`, location.origin).href;
+}
+
+function biosUrl(file) {
+  const q = new URLSearchParams({ token: TOKEN });
+  return new URL(`/api/games/bios/${encodeURIComponent(file)}?${q}`, location.origin).href;
+}
+
+/** First preferred BIOS present in workspace bios/, or "". */
+async function resolveBiosUrl(code) {
+  const preferred = PLAY_BIOS[code];
+  if (!preferred?.length) return "";
+  try {
+    const q = new URLSearchParams({ list: "1", code, token: TOKEN });
+    const res = await fetch(new URL(`/api/games/bios?${q}`, location.origin));
+    if (!res.ok) return "";
+    const data = await res.json();
+    const have = Array.isArray(data.bios) ? data.bios : [];
+    const pick = preferred.find((n) => have.includes(n)) || have[0];
+    return pick ? biosUrl(pick) : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Parse .cue / .m3u for sibling filenames and map them to ROM API URLs. */
+async function resolveExternalFiles(code, file) {
+  const x = extOf(file);
+  if (x !== "cue" && x !== "m3u") return null;
+  let text = "";
+  try {
+    const res = await fetch(romUrl(code, file));
+    if (!res.ok) return null;
+    text = await res.text();
+  } catch {
+    return null;
+  }
+  const names = new Set();
+  if (x === "cue") {
+    for (const m of text.matchAll(/FILE\s+"([^"]+)"/gi)) names.add(m[1].trim());
+    for (const m of text.matchAll(/FILE\s+([^\s"]+)\s+/gi)) {
+      const n = m[1].trim();
+      if (n && !n.includes('"')) names.add(n);
+    }
+  } else {
+    for (const line of text.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const base = t.replace(/^.*[/\\]/, "");
+      if (base) names.add(base);
+    }
+  }
+  const map = {};
+  for (const n of names) {
+    if (!n || n.includes("..") || n.includes("/") || n.includes("\\")) continue;
+    if (n.toLowerCase() === file.toLowerCase()) continue;
+    map[n] = romUrl(code, n);
+  }
+  return Object.keys(map).length ? map : null;
 }
 
 /**
@@ -257,14 +343,36 @@ function teardown() {
   delete window.EJS_ready;
   delete window.EJS_onGameStart;
   delete window.EJS_disableLocalStorage;
+  delete window.EJS_biosUrl;
+  delete window.EJS_externalFiles;
+  delete window.EJS_disableCue;
+  delete window.EJS_threads;
 }
 
-function startEmulator(sys, g) {
+async function startEmulator(sys, g) {
+  const gen = ++startGen;
   teardown();
   const host = $("play-ejs");
   host.innerHTML = "";
   const core = PLAY_CORES[sys.code];
   readKeysFromForm();
+
+  const needsBios = !!PLAY_BIOS[sys.code];
+  const bios = needsBios ? await resolveBiosUrl(sys.code) : "";
+  if (gen !== startGen) return;
+  if (needsBios && !bios) {
+    const hint = PLAY_BIOS[sys.code][0];
+    toast(`Add a BIOS for ${sys.name || sys.code} to bios/ first (e.g. ${hint}), then try again.`, 6000);
+    return;
+  }
+
+  const x = extOf(g.f);
+  let external = null;
+  if (x === "cue" || x === "m3u") {
+    external = await resolveExternalFiles(sys.code, g.f);
+    if (gen !== startGen) return;
+  }
+
   window.EJS_player = "#play-ejs";
   window.EJS_core = core;
   window.EJS_gameUrl = romUrl(sys.code, g.f);
@@ -278,6 +386,16 @@ function startEmulator(sys, g) {
   window.EJS_disableLocalStorage = true;
   window.EJS_defaultControls = buildDefaultControls(sessionKeys);
   window.EJS_color = "#c4a35a";
+  if (bios) window.EJS_biosUrl = bios;
+  if (external) {
+    window.EJS_externalFiles = external;
+    // Real .cue sheets must not be replaced by EmulatorJS auto-cue.
+    if (x === "cue") window.EJS_disableCue = true;
+  }
+  // PSP (and optional N64) benefit from threads when SharedArrayBuffer is available (COEP on HTML).
+  if ((sys.code === "PSP" || sys.code === "N64") && typeof SharedArrayBuffer !== "undefined") {
+    window.EJS_threads = true;
+  }
   // EmulatorJS listens for keys on #play-ejs; keep focus there so arrows/A/B reach the core.
   window.EJS_ready = () => {
     applySessionControls();
@@ -304,13 +422,16 @@ export function openPlayBrowser(sys, g) {
   bindPlayBrowser();
   notePlayTarget(sys, g);
   $("play-title").textContent = g.t || g.f;
-  $("play-sub").textContent = `${sys.name || sys.code} · ${g.f} · needs a network connection the first time for emulator cores`;
+  const bits = [`${sys.name || sys.code}`, g.f];
+  if (PLAY_BIOS[sys.code]) bits.push("needs BIOS in bios/");
+  bits.push("needs a network connection the first time for emulator cores");
+  $("play-sub").textContent = bits.join(" · ");
   $("play-controls-wrap").innerHTML = controlsFormHtml();
   const dlg = $("playbrowser");
   setPlayFocus(false);
   if (!dlg.open) dlg.showModal();
   // Let the dialog paint at full size before EmulatorJS measures #play-ejs.
-  requestAnimationFrame(() => startEmulator(sys, g));
+  requestAnimationFrame(() => { void startEmulator(sys, g); });
 }
 
 async function requestClosePlay() {
@@ -331,7 +452,10 @@ export function bindPlayBrowser() {
   if (bound) return;
   bound = true;
   const dlg = $("playbrowser");
-  dlg?.addEventListener("close", () => teardown());
+  dlg?.addEventListener("close", () => {
+    startGen += 1;
+    teardown();
+  });
   // Esc must not dismiss play — only the close control after confirm.
   dlg?.addEventListener("cancel", (e) => {
     e.preventDefault();
@@ -376,7 +500,7 @@ export function bindPlayBrowser() {
         ? { code: dlg.dataset.code, file: dlg.dataset.file, name: dlg.dataset.name, title: $("play-title").textContent }
         : null;
       if (!cur) return;
-      startEmulator({ code: cur.code, name: cur.name }, { f: cur.file, t: cur.title });
+      void startEmulator({ code: cur.code, name: cur.name }, { f: cur.file, t: cur.title });
     }
   });
   document.addEventListener("keydown", (e) => {

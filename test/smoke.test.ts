@@ -95,13 +95,14 @@ test("smoke: Syncthing idle probe answers offline", async () => {
   assert.ok("detail" in json);
 });
 
-test("smoke: play ROM stream for light systems", async () => {
-  const romQs = `code=GB&file=${encodeURIComponent("Tetris (World).gb")}&token=${srv.token}`;
-  const head = await fetch(`${srv.base}/api/games/rom?${romQs}`, { method: "HEAD" });
+test("smoke: play ROM stream for light and disc systems", async () => {
+  // Path form keeps the real filename for EmulatorJS (query-only URLs were named "rom").
+  const romPath = `/api/games/rom/GB/${encodeURIComponent("Tetris (World).gb")}?token=${srv.token}`;
+  const head = await fetch(`${srv.base}${romPath}`, { method: "HEAD" });
   assert.equal(head.status, 200);
   assert.ok(Number(head.headers.get("content-length")) > 0);
 
-  const ok = await fetch(`${srv.base}/api/games/rom?${romQs}`);
+  const ok = await fetch(`${srv.base}${romPath}`);
   assert.equal(ok.status, 200);
   assert.match(ok.headers.get("content-type") || "", /octet-stream|application\//);
   const body = Buffer.from(await ok.arrayBuffer());
@@ -109,14 +110,48 @@ test("smoke: play ROM stream for light systems", async () => {
   assert.match(body.toString("utf8"), /rom data for Tetris/);
   assert.equal(body.length, Number(head.headers.get("content-length")));
 
-  const badPath = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("../etc/passwd")}&token=${srv.token}`);
+  const badPath = await fetch(`${srv.base}/api/games/rom/GB/${encodeURIComponent("../etc/passwd")}?token=${srv.token}`);
   assert.equal(badPath.status, 400);
 
-  const unsupported = await fetch(`${srv.base}/api/games/rom?code=PS&file=${encodeURIComponent("Final Fantasy VII (USA) (Disc 1).cue")}&token=${srv.token}`);
-  assert.equal(unsupported.status, 400);
+  const disc = await fetch(`${srv.base}/api/games/rom/PS/${encodeURIComponent("Final Fantasy VII (USA) (Disc 1).cue")}?token=${srv.token}`);
+  assert.equal(disc.status, 200);
+  assert.match(Buffer.from(await disc.arrayBuffer()).toString("utf8"), /Final Fantasy VII/);
 
-  const blocked = await fetch(`${srv.base}/api/games/rom?code=GB&file=${encodeURIComponent("sheet.cue")}&token=${srv.token}`);
+  const blocked = await fetch(`${srv.base}/api/games/rom/GB/${encodeURIComponent("sheet.cue")}?token=${srv.token}`);
   assert.equal(blocked.status, 400);
+
+  const dreamcast = await fetch(`${srv.base}/api/games/rom/DC/${encodeURIComponent("Sonic.chd")}?token=${srv.token}`);
+  assert.equal(dreamcast.status, 400);
+});
+
+test("smoke: play BIOS list and stream for disc systems", async () => {
+  const listEmpty = await fetch(`${srv.base}/api/games/bios?list=1&code=PS&token=${srv.token}`);
+  assert.equal(listEmpty.status, 200);
+  const emptyJson = await listEmpty.json() as { code: string; bios: string[]; preferred: string[] };
+  assert.equal(emptyJson.code, "PS");
+  assert.ok(Array.isArray(emptyJson.bios));
+  assert.ok(Array.isArray(emptyJson.preferred));
+  assert.ok(emptyJson.preferred.includes("scph5501.bin"));
+
+  fs.mkdirSync(path.join(srv.root, "bios"), { recursive: true });
+  fs.writeFileSync(path.join(srv.root, "bios", "scph5501.bin"), "fake ps bios");
+
+  const listOk = await fetch(`${srv.base}/api/games/bios?list=1&code=PS&token=${srv.token}`);
+  assert.equal(listOk.status, 200);
+  const okJson = await listOk.json() as { bios: string[] };
+  assert.ok(okJson.bios.includes("scph5501.bin"));
+
+  const biosPath = `/api/games/bios/${encodeURIComponent("scph5501.bin")}?token=${srv.token}`;
+  const head = await fetch(`${srv.base}${biosPath}`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.equal(Number(head.headers.get("content-length")), Buffer.byteLength("fake ps bios"));
+
+  const dl = await fetch(`${srv.base}${biosPath}`);
+  assert.equal(dl.status, 200);
+  assert.equal(Buffer.from(await dl.arrayBuffer()).toString("utf8"), "fake ps bios");
+
+  const bad = await fetch(`${srv.base}/api/games/bios/${encodeURIComponent("../etc/passwd")}?token=${srv.token}`);
+  assert.equal(bad.status, 400);
 });
 
 test("smoke: multi-disc m3u preview and write beside ROMs", async () => {

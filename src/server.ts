@@ -48,7 +48,7 @@ import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts"
 import { checksJson, startVerify, trashGames } from "./checks.ts";
 import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
 import { gamesFlagsJson } from "./games/flags.ts";
-import { playRomDownload, playRomHead } from "./games/play-rom.ts";
+import { playBiosDownload, playBiosHead, playBiosList, playRomDownload, playRomHead } from "./games/play-rom.ts";
 import {
   deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
 } from "./saves-game.ts";
@@ -80,7 +80,8 @@ import type { Duplex } from "node:stream";
 
 type Body = Record<string, unknown>;
 type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string }
-  | { head: { length: number; name: string; type?: string } };
+  | { head: { length: number; name: string; type?: string } }
+  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -181,6 +182,11 @@ const routes: Record<string, Handler> = {
   "GET /api/games/flags": () => gamesFlagsJson(),
   "GET /api/games/rom": (q) => playRomDownload(q),
   "HEAD /api/games/rom": (q) => playRomHead(q),
+  "GET /api/games/bios": (q) => {
+    if (q.has("list") || q.get("list") === "1" || (!q.get("file") && q.get("code"))) return playBiosList(q);
+    return playBiosDownload(q);
+  },
+  "HEAD /api/games/bios": (q) => playBiosHead(q),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -444,9 +450,15 @@ const MIME: Record<string, string> = {
 };
 
 function send(res: http.ServerResponse, status: number, body: string | Buffer, type: string): void {
-  res.writeHead(status, {
+  const headers: Record<string, string | number> = {
     "Content-Type": type, "Content-Length": Buffer.byteLength(body), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-  });
+  };
+  // SharedArrayBuffer for EmulatorJS threaded cores (PSP); credentialless keeps CDN cores loadable.
+  if (type.startsWith("text/html")) {
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    headers["Cross-Origin-Embedder-Policy"] = "credentialless";
+  }
+  res.writeHead(status, headers);
   res.end(body);
 }
 
@@ -487,10 +499,31 @@ function tokenOk(given: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** EmulatorJS names files from the URL path (strip query). Put the real name last: /api/games/rom/CODE/file.pbp */
+function playAssetPath(url: URL): string {
+  const rom = url.pathname.match(/^\/api\/games\/rom\/([^/]+)\/([^/]+)$/);
+  if (rom) {
+    try {
+      url.searchParams.set("code", decodeURIComponent(rom[1]));
+      url.searchParams.set("file", decodeURIComponent(rom[2]));
+    } catch { /* keep raw */ }
+    return "/api/games/rom";
+  }
+  const bios = url.pathname.match(/^\/api\/games\/bios\/([^/]+)$/);
+  if (bios) {
+    try {
+      url.searchParams.set("file", decodeURIComponent(bios[1]));
+    } catch { /* keep raw */ }
+    return "/api/games/bios";
+  }
+  return url.pathname;
+}
+
 async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
-  const route = `${req.method} ${url.pathname}`;
+  const pathname = playAssetPath(url);
+  const route = `${req.method} ${pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom" || route === "GET /api/games/bios" || route === "HEAD /api/games/bios")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });
@@ -513,6 +546,17 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       res.setHeader("Content-Disposition", `attachment; filename="${head.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(head.name)}`);
       res.writeHead(200);
       return void res.end();
+    }
+    if (result && typeof result === "object" && "downloadStream" in result) {
+      const { downloadStream, name, type, length } = result as { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
+      res.setHeader("Content-Length", String(length));
+      res.setHeader("Content-Type", type ?? "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.writeHead(200);
+      downloadStream.on("error", () => { try { res.destroy(); } catch { /* ignore */ } });
+      return void downloadStream.pipe(res);
     }
     if (result && typeof result === "object" && "download" in result && Buffer.isBuffer(result.download)) {
       const { download, name, type } = result as { download: Buffer; name: string; type?: string };

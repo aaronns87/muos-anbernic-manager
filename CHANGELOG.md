@@ -29,7 +29,7 @@ version.
 
 ### Added
 
-- **Play in browser** for cartridge-era systems (GB, GBC, GBA, FC/FDS, SFC, VB, SMS, GG, MD, SEGA32X, PCE, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20): play button on game cards (bottom-left) and in the game viewer; EmulatorJS cores from the CDN on first use; session keyboard remapping in the play dialog. Disc sheets and heavy systems stay handheld-only.
+- **Play in browser** for EmulatorJS-supported systems (GB, GBC, GBA, FC/FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP): play button on game cards (bottom-left) and in the game viewer; EmulatorJS cores from the CDN on first use; streamed ROM/BIOS APIs (large CHD/ISO); `.cue`/`.m3u` sidecar tracks; BIOS from workspace `bios/` for PS / Sega CD / Saturn / PCE CD; session keyboard remapping in the play dialog. Dreamcast and arcade stay handheld-only.
 - **Emulation → Library check → Disc layouts**: **Make playlist…** for multi-disc sets (No-Intro / Redump **Disc N** naming) without a `.m3u`; preview, write beside the ROMs, per-system batch. CHD convert already follows `.m3u`.
 - **Emulation → Saves** and the game viewer **Handheld** tab: per-game save browser (`.srm` and save states over SSH), pull to `backups/saves-pulled/`, push, delete with confirm, and prune save states (complements `.muxbak` and tar backups).
 - **Games**: **Favourites** (stored in this browser, `system/filename` id) on cards and in the viewer; **Smart lists** filter chips — Never copied, No art, Bad dump, Needs tuning, On device only — with **Select shown** / transfer / artwork actions.
@@ -47,6 +47,7 @@ version.
 
 ### Fixed
 
+- **Play in browser** (PlayStation and other disc games): ROM/BIOS URLs put the real filename in the path so EmulatorJS no longer saves them as extensionless `rom`/`bios` and drops into the RetroArch menu instead of the game.
 - **Play in browser**: closed dialog no longer stuck at the bottom of the page; keyboard control fields fit the grid; ROM API answers EmulatorJS `HEAD` so games load instead of a black screen; session key map uses the EmulatorJS control shape so keyboard input and the in-emulator control settings work.
 - **Play in browser** controls: graphical controller layout (click a button, then press a key); Esc no longer closes the play window — leave only via the close control with a confirm; **Focus** hides header/footer/controls so only the game stays, with floating restore and leave buttons.
 - **Play in browser** keyboard map: ignore EmulatorJS localStorage and re-apply the session key map on start so Control Settings no longer show `undefined` on some systems.

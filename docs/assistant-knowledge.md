@@ -131,11 +131,11 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 ### Play in browser
 
-Cartridge-era systems: GB, GBC, GBA, FC, FDS, SFC, VB, SMS, GG, MD, SEGA32X, PCE, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM stream only. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. No handheld save sync. Hidden for `.cue`/`.m3u` and heavy/disc systems (PS, N64, Saturn, Dreamcast, PSP, NDS, arcade, …).
+Supported systems: GB, GBC, GBA, FC, FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM/BIOS stream (large CHD/ISO streamed, not buffered in the manager). `.cue`/`.m3u` pull sibling tracks via `EJS_externalFiles`. PS / MDCD / SATURN / PCECD need BIOS in workspace `bios/`. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. No handheld save sync. Dreamcast and arcade not offered (no EmulatorJS core).
 
 ### Game viewer
 
-Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed. **Play in browser** when the system is light and the file is a single ROM (not a disc sheet).
+Click a game: artwork, year, genre, players, rating, library-check tags, BIOS, other versions. Arrows step games. With handheld: on-device?, core, play time, saves; one-click system fix when needed. **Play in browser** when the system/file is supported (including disc CHD/ISO/cue/m3u/PBP where EmulatorJS can run them; BIOS required for PS / Sega CD / Saturn / PCE CD).
 
 Tabs: **About** (description, YouTube, Write your own in `Roms/<SYSTEM>/Text/`); **Details** (DB, file size/CRC, check, BIOS, Rename); **Handheld** (core, Menu+X core options when the game is on the handheld and starts RetroArch or PPSSPP, play stats, collections, **saves with pull/push/delete/prune**, Open Game Tuning, Read again); **Related**. Drop image or Replace artwork. Show in Finder/Explorer.
 
