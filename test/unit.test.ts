@@ -26,7 +26,7 @@ import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } 
 import { ctx, setRoot } from "../src/context.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import {
-  _resetAppLogForTests, appLog, logsClear, logsDownload, logsJson, logsPost, startAppLog,
+  _resetAppLogForTests, appLog, appLogFromSay, logsClear, logsDownload, logsJson, logsPost, noteStatusLinks, startAppLog,
 } from "../src/app-log.ts";
 import { githubRepo } from "../src/manager-update.ts";
 import { assetKind, parseIni as parseScheme, writeIni as writeScheme } from "../src/theme-designer.ts";
@@ -1111,6 +1111,9 @@ test("app-log writes JSONL, filters, exports and clears", async (t) => {
   appLog("error", "app", "TEST", "boom", "stack-line");
   appLog("warn", "console", "TEST", "careful");
   appLog("info", "app", "OTHER", "hello");
+  appLogFromSay("yellow", "SCANNED", "Roms/ (12 games)");
+  appLogFromSay("yellow", "RESTART", "Stopped the other manager.");
+  appLogFromSay("green", "SENT", "1 file to the handheld.");
   const day = new Date().toISOString().slice(0, 10);
   const file = path.join(ctx.logs, `manager-${day}.jsonl`);
   assert.ok(fs.existsSync(file));
@@ -1119,9 +1122,23 @@ test("app-log writes JSONL, filters, exports and clears", async (t) => {
   assert.ok(listed.entries.some((e) => e.text === "boom" && e.stack === "stack-line"));
   const filtered = await logsJson(new URLSearchParams({ q: "careful", day }));
   assert.ok(filtered.entries.some((e) => e.level === "warn"));
+  const levels = await logsJson(new URLSearchParams({ day }));
+  assert.ok(levels.entries.some((e) => e.tag === "SCANNED" && e.level === "info"));
+  assert.ok(levels.entries.some((e) => e.tag === "RESTART" && e.level === "warn"));
+  assert.ok(levels.entries.some((e) => e.tag === "SENT" && e.level === "done"));
+  const actions = await logsJson(new URLSearchParams({ day, routine: "0" }));
+  assert.ok(actions.entries.some((e) => e.tag === "SENT"));
+  assert.ok(!actions.entries.some((e) => e.tag === "SCANNED"));
+  assert.ok(actions.total < levels.total);
   const dl = await logsDownload(new URLSearchParams({ day, format: "txt", q: "boom" }));
   assert.match(dl.name, /\.txt$/);
   assert.match(dl.download.toString("utf8"), /boom/);
+  noteStatusLinks({ handheld: null, wifi: { configured: false, reachable: false }, cards: [] });
+  noteStatusLinks({ handheld: { name: "RG40XX H" }, wifi: { configured: true, reachable: true, host: "192.168.1.10" }, cards: [{ id: "tf2", name: "TF2" }] });
+  const links = await logsJson(new URLSearchParams({ day, routine: "0" }));
+  assert.ok(links.entries.some((e) => e.tag === "USB" && /connected/i.test(e.text)));
+  assert.ok(links.entries.some((e) => e.tag === "WIFI" && /reachable/i.test(e.text)));
+  assert.ok(links.entries.some((e) => e.tag === "CARD" && /connected/i.test(e.text)));
   logsPost({ level: "error", tag: "BROWSER", text: "ui broke", stack: "at foo" });
   assert.throws(() => logsPost({ text: "   " }), UserError);
   await logsClear({ day });

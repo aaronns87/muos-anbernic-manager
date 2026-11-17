@@ -46,7 +46,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | --- | --- |
 | Entry, context, settings | `main.ts`, `context.ts` (`ctx` paths, `setRoot`), `settings.ts` (settings, folder browser, workspace creation, cache upkeep), `shortcut.ts` (the app shortcut in Applications, the Start menu or the app menu) |
 | HTTP | `server.ts`, `ws.ts` (WebSocket for the SSH terminal) |
-| Logging | `log.ts` (`say` → terminal + activity), `activity.ts` (Overview Recent activity in `.cache/activity.jsonl`), `app-log.ts` (workspace `logs/manager-YYYY-MM-DD.jsonl`, console/exception/browser capture; `GET/POST /api/logs`, `/download`, `/clear`, `/reveal`) |
+| Logging | `log.ts` (`say` → terminal + activity), `activity.ts` (Overview Recent activity in `.cache/activity.jsonl`), `app-log.ts` (workspace `logs/manager-YYYY-MM-DD.jsonl`; tag-aware levels; routine filter; status-link edges; console/exception/HTTP/browser capture; `GET/POST /api/logs`, `/download`, `/clear`, `/reveal`) |
 | Jobs and locks | `jobs.ts`: background jobs, one running at a time with the rest queued (`startJob`, `cancelJob`, `requireIdle`, `requireQueueable`, `locks.system`), a history of finished jobs in `.cache/transfers.json`; copy plans |
 | Games library | `games/library.ts` (scan, in-memory library), `games/systems.ts` (ROM folders), `games/metadata.ts` (mamenames, LaunchBox index), `games/add.ts`, `games/actions.ts` (delete), `games/engines.ts` (ScummVM folders), `games/free-scummvm.ts` |
 | Workspace | `workspace.ts`, `files.ts` (file explorer, local deletes go to the Trash) |

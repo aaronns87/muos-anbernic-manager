@@ -571,11 +571,12 @@ const ARTICLES = [
       <code>logs/</code> folder (for example <code>manager-2026-11-16.jsonl</code>). Files older than about two weeks are removed automatically.
       This is separate from <b>Recent activity</b> on Overview, which is a short history of what you changed.</p>`],
     ["Using the viewer", `<p>Open <b>Logs</b> under Manager in the sidebar. Search by tag, message or stack text; filter by level (Errors, Warnings, Info&hellip;);
-      and pick a day. The list refreshes while the page is open. Expand a row's stack when present. <b>Export</b> downloads the current filter as a text file;
+      and pick a day. <b>Hide routine</b> (on by default) drops startup noise such as SERVING, SCANNED and CLOSED so copies, installs and connection changes stand out.
+      The list refreshes while the page is open. Expand a row's stack when present. <b>Export</b> downloads the current filter as a text file;
       <b>Show folder</b> opens <code>logs/</code> in the file manager; <b>Clear</b> deletes the selected day or every log file.</p>`],
-    ["What is recorded", `<p>Terminal <code>say</code> lines, <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections
-      on the server, API failures, and browser script errors posted from the page. Change the folder under ${path("Settings", "Folders")} if you want logs
-      somewhere else.</p>`],
+    ["What is recorded", `<p>Terminal <code>say</code> lines (with routine tags stored as Info rather than Warnings), USB / Wi-Fi / card connect and disconnect edges,
+      <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections on the server, API failures (4xx/5xx),
+      and browser script errors posted from the page. Change the folder under ${path("Settings", "Folders")} if you want logs somewhere else.</p>`],
   ]],
   ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own free API key to help with the manager and your library.", [
     ["What it is", `<p>A chat panel in the bottom-right corner. After you save an API key under ${path("Settings", "Assistant")},

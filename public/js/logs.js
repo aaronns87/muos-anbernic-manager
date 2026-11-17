@@ -1,10 +1,11 @@
 // Logs section: searchable, filterable viewer for application diagnostic JSONL files.
 
-import { $, api, esc, formatDate, formatTime, icon, section, TOKEN, toast } from "./core.js";
+import { $, api, esc, formatDate, formatTime, icon, section, store, TOKEN, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 
 const L = {
   q: "", level: "", day: "", list: [], total: 0, all: 0, days: [], dir: "",
+  hideRoutine: store.get("logsHideRoutine", true) !== false,
   loading: false, bound: false, seq: 0, poll: 0, openStacks: new Set(),
 };
 
@@ -28,18 +29,27 @@ const stamp = (t) => {
 function row(e, i) {
   const key = `${e.t}-${i}`;
   const open = L.openStacks.has(key) && e.stack;
+  const src = e.source && e.source !== "app" ? `<span class="logs-src">${esc(e.source)}</span>` : "";
   return `<li class="logs-row ${esc(e.level)}" data-logs-i="${i}" title="${esc(new Date(e.t).toLocaleString())}">
     <span class="logs-ico">${icon(ICON[e.level] || "dot")}</span>
     <div class="logs-body">
       <div class="logs-line">
         <b>${esc(e.tag)}</b>
-        <span class="logs-src">${esc(e.source)}</span>
+        ${src}
         <span class="logs-text">${esc(e.text)}</span>
       </div>
       ${e.stack ? `<button type="button" class="logs-stack-toggle" data-logs-stack="${esc(key)}" aria-expanded="${open}">${open ? "Hide" : "Show"} stack</button>
         ${open ? `<pre class="logs-stack">${esc(e.stack)}</pre>` : ""}` : ""}
     </div>
-    <time>${stamp(e.t)}</time></li>`;
+    <time datetime="${esc(new Date(e.t).toISOString())}">${stamp(e.t)}</time></li>`;
+}
+
+function emptyNote() {
+  if (L.q || L.level) return "Nothing matches.";
+  if (L.hideRoutine && L.all > 0) {
+    return "Only startup lines so far — copies, installs, connection changes and settings show up here. Uncheck Hide routine to see scans and restarts.";
+  }
+  return "Nothing recorded yet. Errors, warnings and manager actions appear here.";
 }
 
 function toolbar() {
@@ -53,6 +63,7 @@ function toolbar() {
       ${days.length ? days.map((d) => `<option value="${esc(d)}"${d === L.day ? " selected" : ""}>${esc(d)}</option>`).join("")
         : `<option value="">No log files yet</option>`}
     </select>
+    <label class="logs-routine"><input type="checkbox" id="logs-routine"${L.hideRoutine ? " checked" : ""}> Hide routine</label>
     <span class="logs-count" id="logs-count"></span>
   </div>`;
 }
@@ -73,10 +84,13 @@ function render() {
     : L.list.length
       ? `<ul class="logs-list">${L.list.map(row).join("")}</ul>
          ${L.list.length < L.total ? `<div class="logs-more"><button class="btn" data-logs="more">Show more</button></div>` : ""}`
-      : `<div class="muted-note logs-empty">${L.q || L.level ? "Nothing matches." : "Nothing recorded yet. Errors, warnings and manager actions appear here."}</div>`;
+      : `<div class="muted-note logs-empty">${emptyNote()}</div>`;
   root.innerHTML = `${toolbar()}<div class="logs-scroll" id="logs-scroll">${body}</div>`;
   const count = $("logs-count");
-  if (count) count.textContent = L.q || L.level ? `${entriesLabel(L.total)} of ${L.all.toLocaleString()}` : entriesLabel(L.all);
+  if (count) {
+    const filtered = L.q || L.level || L.hideRoutine;
+    count.textContent = filtered ? `${entriesLabel(L.total)} of ${L.all.toLocaleString()}` : entriesLabel(L.all);
+  }
   const q = $("logs-q");
   if (q && document.activeElement === q) {
     const pos = q.selectionStart;
@@ -85,11 +99,18 @@ function render() {
   }
 }
 
-async function load(more = false) {
+function queryParams(extra = {}) {
   const params = new URLSearchParams({
-    q: L.q, level: L.level, limit: "200", offset: String(more ? L.list.length : 0),
+    q: L.q, level: L.level, limit: "200", offset: String(extra.offset ?? 0),
   });
   if (L.day) params.set("day", L.day);
+  if (L.hideRoutine) params.set("routine", "0");
+  if (extra.format) params.set("format", extra.format);
+  return params;
+}
+
+async function load(more = false) {
+  const params = queryParams({ offset: more ? L.list.length : 0 });
   const seq = ++L.seq;
   L.loading = true;
   if (!more) render();
@@ -114,8 +135,7 @@ async function load(more = false) {
 }
 
 async function exportLogs() {
-  const params = new URLSearchParams({ q: L.q, level: L.level, format: "txt" });
-  if (L.day) params.set("day", L.day);
+  const params = queryParams({ format: "txt" });
   try {
     const res = await fetch(`/api/logs/download?${params}`, {
       cache: "no-store",
@@ -174,6 +194,11 @@ function bind() {
   $("logs").addEventListener("change", (e) => {
     if (e.target.id === "logs-level") { L.level = e.target.value; load(); }
     if (e.target.id === "logs-day") { L.day = e.target.value; load(); }
+    if (e.target.id === "logs-routine") {
+      L.hideRoutine = e.target.checked;
+      store.set("logsHideRoutine", L.hideRoutine);
+      load();
+    }
   });
   $("logs").addEventListener("click", (e) => {
     const stack = e.target.closest("[data-logs-stack]");

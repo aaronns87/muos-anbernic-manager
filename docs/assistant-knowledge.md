@@ -254,7 +254,7 @@ Copy to handheld / Copy to computer into open folder; confirm overwrites; appear
 
 ## logs - Logs
 
-Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, Show more, export (txt), clear day or all, Show folder. Captures say() lines, console.warn/error, uncaught exceptions, unhandled rejections, API failures and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
+Manager section. Application diagnostics in workspace `logs/` (daily `manager-YYYY-MM-DD.jsonl`, ~14 days kept). Search, level/day filter, **Hide routine** (default on: drops SERVING/SCANNED/CLOSED and similar), Show more, export (txt), clear day or all, Show folder. Captures say() lines (routine tags as Info), USB/Wi-Fi/card connect edges, console.warn/error, uncaught exceptions, unhandled rejections, API 4xx/5xx and browser script errors. Separate from Overview Recent activity (user-facing change history in `.cache/activity.jsonl`).
 
 ## tuning - Game Tuning
 

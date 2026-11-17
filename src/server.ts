@@ -6,7 +6,7 @@ import fsp from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { activityJson } from "./activity.ts";
-import { logsClear, logsDownload, logsJson, logsPost, logsReveal } from "./app-log.ts";
+import { appLog, logsClear, logsDownload, logsJson, logsPost, logsReveal, noteStatusLinks } from "./app-log.ts";
 import { marketDownload, marketImage, marketJson } from "./app-market.ts";
 import { filesCopy, filesDelete, filesList, filesMkdir, filesRead, filesRename, filesRoots, filesWrite } from "./files.ts";
 import { addToCollection, collectionsJson, createCollection, deleteCollection, playJson, removeFromCollection, renameCollection, resetPlay } from "./play.ts";
@@ -85,7 +85,9 @@ const routes: Record<string, Handler> = {
       webServicesStatus().catch(() => ({ host: "", at: Date.now(), services: [] })),
     ]);
     const models = { usb: handheld ? usbModel(handheld.name) : null, wifi: wifiModelFound };
-    return { cards: cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" })), rejects, handheld, wifi, services, models, platform: process.platform };
+    const listed = cards.map((c, i) => ({ ...c, hint: deviceFor(hints[i])?.id ?? "" }));
+    noteStatusLinks({ handheld, wifi, cards: listed });
+    return { cards: listed, rejects, handheld, wifi, services, models, platform: process.platform };
   },
   "GET /api/ssh/services": () => webServicesStatus(true),
   "POST /api/device/wifi": async (_, body) => {
@@ -484,10 +486,16 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
     }
     sendJson(res, 200, result);
   } catch (error) {
-    if (error instanceof SshError) sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
-    else if (error instanceof UserError || error instanceof MtpError) sendJson(res, 400, { error: error.message });
-    else {
+    const skipLog = route === "POST /api/logs";
+    if (error instanceof SshError) {
+      if (!skipLog) appLog("warn", "http", "API", `${route}: ${error.message}`);
+      sendJson(res, 400, { error: error.message, code: error.code, fingerprint: error.fingerprint });
+    } else if (error instanceof UserError || error instanceof MtpError) {
+      if (!skipLog) appLog("warn", "http", "API", `${route}: ${error.message}`);
+      sendJson(res, 400, { error: error.message });
+    } else {
       const err = error instanceof Error ? error : new Error(String(error));
+      if (!skipLog) appLog("error", "http", "API", `${route}: ${err.message}`, err.stack);
       console.error(`${route} failed:`, error);
       sendJson(res, 500, { error: `Server error: ${err.message}` });
     }
