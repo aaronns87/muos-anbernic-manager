@@ -2,6 +2,7 @@
 
 import { $, esc, icon, section } from "./core.js";
 import { DEVICES, screenText } from "./devices.js";
+import { openTips } from "./tips.js";
 
 const path = (...steps) => steps.map((s) => `<b>${s}</b>`).join(" &rsaquo; ");
 const SSH_ON = `${path("Configuration", "Connectivity", "Web Services", "Secure Shell")} (Andromeda; older builds: ${path("Configuration", "Web Services", "Secure Shell")})`;
@@ -42,7 +43,11 @@ const ARTICLES = [
       ${path("Settings", "Check for manager updates")} turns the check off.</p>
       <p><b>What's new.</b> After you update and restart, a <b>What's new</b> dialog lists the changes for that version (from
         <code>CHANGELOG.md</code>). It only appears once per version. You can also open the full changelog from the manager updates
-        dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>`],
+        dialog in the top bar (version number). Changes listed under <b>Unreleased</b> are on GitHub and arrive with the next version.</p>
+      <p><b>Hints and tips.</b> After the setup wizard and What's new, a short walkthrough covers the main features (connection,
+        Games, Artwork, apps, themes, Emulation, Appearance, Logs and more). Uncheck <b>Show tips when the manager starts</b> in that
+        dialog, or under ${path("Settings", "Behaviour")}, to skip it next time. Open it again from Help (<kbd>?</kbd>),
+        ${path("Settings", "Behaviour", "Open tips")}, or this article.</p>`],
     ["Three ways to connect", `<ul>
       <li><b>Card reader.</b> Take the TF2 games card (on one-slot models, the only card) out of the handheld and put it in this computer. Fastest for copying many games, and needed for System Tools.</li>
       <li><b>USB cable.</b> Needs <b>MTP</b>. On Andromeda, USB Function is often missing on the handheld — see <a href="#help">Troubleshooting</a> &rsaquo; Andromeda USB (MTP), or the connection panel help. Older builds: set ${path("Configuration", "Advanced Settings", "USB Function")} to <b>MTP</b> on the device, then plug in.</li>
@@ -527,7 +532,8 @@ const ARTICLES = [
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups, themes you design and application logs are kept.</p>`],
-    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, and adds the app shortcut. <b>Images</b> sets the size
+    ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, whether <b>Hints and tips</b> open at
+      start, and adds the app shortcut. Use <b>Open tips</b> to walk through the manager's features again. <b>Images</b> sets the size
       uploaded artwork is saved at.</p>`],
     ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
       that changes accents and surfaces together. Selected controls (primary buttons, tabs, segmented buttons, sidebar) always use the scheme accent fill.
@@ -777,6 +783,10 @@ export function openHelp(s) {
   if (!v.bound) {
     $("help-close").addEventListener("click", () => dialog.close());
     $("help-full").addEventListener("click", () => dialog.close());
+    $("help-tips")?.addEventListener("click", () => {
+      dialog.close();
+      openTips({ force: true });
+    });
     dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
   }
   bind(v);

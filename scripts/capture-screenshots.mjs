@@ -117,7 +117,8 @@ localStorage.setItem("manager.soft", JSON.stringify(false));
 localStorage.setItem("manager.theme", JSON.stringify("dark"));
 localStorage.setItem("manager.scheme", JSON.stringify("mustard"));
 localStorage.setItem("manager.zoom", JSON.stringify(100));
-localStorage.setItem("manager.seenVersion", JSON.stringify("99.0.0"));`,
+localStorage.setItem("manager.seenVersion", JSON.stringify("99.0.0"));
+localStorage.setItem("manager.tipsOnStartup", JSON.stringify(false));`,
   });
   await cdp.send("Page.navigate", { url: `${base}#overview` });
   await cdp.until(`document.readyState === "complete" && !!document.querySelector('a[href="#games"]')`, 60_000);

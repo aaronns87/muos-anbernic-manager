@@ -89,10 +89,12 @@ before(async () => {
   cdp.attach(sessionId);
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
-  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem("manager.mode", JSON.stringify("card"));` });
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem("manager.mode", JSON.stringify("card"));
+localStorage.setItem("manager.tipsOnStartup", JSON.stringify(false));` });
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: `${srv.base}/?token=${srv.token}#overview` });
   await cdp.until(`document.readyState === "complete" && !!document.querySelector('a[href="#games"]')`);
+  await cdp.eval(`document.getElementById("tips")?.close(); document.getElementById("whats-new")?.close(); document.getElementById("wizard")?.close()`);
 });
 
 after(async () => {
@@ -190,6 +192,29 @@ test("shared tabs support keyboard navigation and Settings folders use a desktop
   await cdp.eval(`document.querySelector('[data-skip-content]').click()`);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "main-content");
   assert.equal(await cdp.eval<string>(`location.hash`), "#settings/folders");
+});
+
+test("Hints and tips carousel advances and remembers the startup preference", { skip: !CHROME && "Chrome not found" }, async () => {
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cdp.eval(`location.hash = "#settings/behaviour"`);
+  await cdp.until(`!!document.querySelector('[data-set="tips"]')`);
+  await cdp.eval(`document.querySelector('[data-set="tips"]').click()`);
+  await cdp.until(`document.getElementById("tips")?.open === true`);
+  assert.match(await cdp.eval<string>(`document.getElementById("tips-sub").textContent`), /Tip 1 of/);
+  await cdp.eval(`document.getElementById("tips-next").click()`);
+  await cdp.until(`document.getElementById("tips-sub").textContent.includes("Tip 2 of")`);
+  await cdp.eval(`(() => { const box = document.getElementById("tips-startup"); box.checked = false; box.dispatchEvent(new Event("change", { bubbles: true })); document.querySelector('[data-tips="close"]').click(); })()`);
+  await cdp.until(`!document.getElementById("tips").open`);
+  assert.equal(await cdp.eval<boolean>(`JSON.parse(localStorage.getItem("manager.tipsOnStartup")) === false`), true);
+  await cdp.eval(`document.querySelector("[data-help]").click()`);
+  await cdp.until(`document.getElementById("help")?.open === true`);
+  await cdp.eval(`document.getElementById("help-tips").click()`);
+  await cdp.until(`document.getElementById("tips")?.open === true && !document.getElementById("help").open`);
+  assert.match(await cdp.eval<string>(`document.getElementById("tips-stage").innerText`), /Welcome to the manager|Connect how you like/);
+  await cdp.eval(`document.querySelector('[data-tips="close"]').click()`);
+  await cdp.until(`!document.getElementById("tips").open`);
+  await cdp.eval(`document.getElementById("help-wiki").innerHTML = ""`);
+  assert.deepEqual(errors(), []);
 });
 
 test("Settings Appearance applies colour scheme and zoom", { skip: !CHROME && "Chrome not found" }, async () => {
@@ -341,11 +366,11 @@ test("Designer keeps failed edits until Retry succeeds and blocks switching and 
 
 test("wiki search narrows the pages and the table of contents", { skip: !CHROME && "Chrome not found" }, async () => {
   await cdp.eval(`location.hash = "#wiki"`);
-  await cdp.until(`document.querySelectorAll(".wiki-article").length > 10`);
+  await cdp.until(`document.querySelectorAll("#wiki .wiki-article").length > 10`);
   await cdp.eval(`(() => { const q = document.getElementById("wiki-q"); q.value = "bios"; q.dispatchEvent(new Event("input", { bubbles: true })); })()`);
-  const ids = await cdp.eval<string[]>(`[...document.querySelectorAll(".wiki-article")].map((a) => a.id)`);
+  const ids = await cdp.eval<string[]>(`[...document.querySelectorAll("#wiki .wiki-article")].map((a) => a.id)`);
   assert.ok(ids.includes("wiki-emulation") && !ids.includes("wiki-artwork"), ids.join());
-  assert.equal(await cdp.eval<number>(`document.querySelectorAll(".wiki-toc a").length`), ids.length);
+  assert.equal(await cdp.eval<number>(`document.querySelectorAll("#wiki .wiki-toc a").length`), ids.length);
   assert.equal(await cdp.eval<string>(`document.activeElement.id`), "wiki-q");
   assert.deepEqual(errors(), []);
 });

@@ -9,6 +9,7 @@ import { screenText } from "./devices.js";
 import { forgetImages } from "./system.js";
 import { reloadOs } from "./os.js";
 import { openWizard } from "./wizard.js";
+import { openTips, setTipsOnStartup, tipsOnStartup } from "./tips.js";
 import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
 import { forgetPlay } from "./play.js";
@@ -294,6 +295,10 @@ function copyPanel(d) {
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
+    + `<div class="set-row"><span><b>Show tips at start</b><small>After the setup wizard and What's new, open the Hints and tips walkthrough. You can also turn this off in the tips dialog.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" data-set-tips${tipsOnStartup() ? " checked" : ""}><span class="switch-track"></span></span></div>`
+    + `<div class="set-row"><span><b>Hints and tips</b><small>Walk through the manager's main features again.</small></span>
+      <button class="btn" data-set="tips">${icon("star")}<span>Open tips</span></button></div>`
     + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
       "Every few hours the manager reads the version number on GitHub and shows Update in the top bar when there is a newer one. Nothing else is sent.")
     + shortcutRow(d.shortcut, "set", s.working === "shortcut", !!s.working));
@@ -1025,6 +1030,7 @@ function bind() {
     if (action === "browse") browse(s.data.folders[which].path, which);
     else if (action === "cancel") { s.browse = null; render(); }
     else if (action === "wizard") openWizard();
+    else if (action === "tips") openTips({ force: true });
     else if (action === "shortcut") makeShortcut();
     else if (action === "reset") factoryReset();
     else if (action === "appearance-reset") resetAppearance();
@@ -1062,6 +1068,10 @@ function bind() {
       app.ui.compact = t.checked;
       store.set("compact", app.ui.compact);
       applyView();
+    }
+    else if (t.dataset.setTips !== undefined) {
+      setTipsOnStartup(t.checked);
+      toast(t.checked ? "Tips will show at start" : "Tips will not show at start", 2200);
     }
     else if (t.dataset.setArtmax !== undefined) { artMax.set(t.value); toast("Saved"); }
     else if (t.dataset.setDate !== undefined) { app.ui.dateFormat = t.value; store.set("dateFormat", t.value); renderStatusbar(); }

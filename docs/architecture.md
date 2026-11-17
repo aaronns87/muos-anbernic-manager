@@ -60,6 +60,7 @@ comment saying what it does; `rg -n "^// " src/<file>` shows it.
 | System Tools (cards) | `system/cards.ts` (removable disks only), `system/image.ts`, `system/ops.ts`, `system/tf2-wifi.ts` (TF2 setup/reset over SSH); macOS install elevates `scripts/lib/flash-card.sh` via `sudo -A` + `sudo-askpass.sh`, then `flash-io.py` for write/verify with a remount watchdog (legacy `system/flash-helper.ts` kept for reference) |
 | Assistant (BYOK chat) | `chat.ts` (`.cache/chat.json` key, Groq/Gemini/OpenRouter, context from `docs/assistant-knowledge.md` + library + connection; `GET /api/chat/knowledge`); UI `public/js/chat.js` (FAB + dock, Markdown replies), Settings read-only knowledge modal |
 | What's new | `whats-new.ts` (`.cache/seen-version` vs `VERSION`, parse `CHANGELOG.md`); UI `public/js/whats-new.js` |
+| Hints and tips | `public/js/tips.js` (startup carousel after wizard / What's new; `localStorage` `tipsOnStartup`) |
 | Platform | `platform/index.ts` picks `darwin.ts` / `linux.ts` / `win32.ts` (`Platform` in `types.ts`): volumes, USB handheld, Trash, open URL, libmtp paths; `run.ts` (`run(cmd, args)` never throws) |
 | Helpers | `util.ts` (`inside`, `safePart`, `exists`, `listDir`, ...), `tar.ts`, `errors.ts` |
 
@@ -85,7 +86,7 @@ of DOM and Node APIs.
   (+ `updates.js`), `handheld.js`, `themes.js` (Designer tab: `theme-designer.js` editor and preview, `theme-assets.js` file panels, `theme-preview.js` canvas renderer, `theme-schema.js` every scheme setting), `emulation.js` (+ `bios.js`, `cores.js`, `emu-systems.js`,
   `system-notes.js`, `retroarch.js`, `saves.js`, `checks.js`), `files.js`, `tuning.js` (with `tuning-cheats.js`), `system.js`, `ssh.js`, `settings.js`, `logs.js`, `wiki.js`, `chat.js` (assistant dock).
 - Dialogs: `<dialog>` elements in `index.html` (header `.help-head`, body, footer `.fv-foot`), filled by
-  their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `model-pick.js`,
+  their module: `add-games.js`, `ports.js`, `free-scummvm.js`, `wizard.js`, `tips.js`, `model-pick.js`,
   `manager-update.js`, `activity.js`. The library game viewer is opened by `games.js` and filled by
   `game-view.js` (status cards, tabs, related games), which reads `GET /api/game` and the handheld's play,
   collections, cores and saves lists, kept for two minutes across games.

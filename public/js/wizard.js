@@ -9,6 +9,7 @@ import { loadLibrary } from "./games.js";
 import { forgetSettings, shortcutRow } from "./settings.js";
 import { openAddGames } from "./add-games.js";
 import { checkWhatsNew } from "./whats-new.js";
+import { checkTips } from "./tips.js";
 
 const STEPS = [["handheld", "Handheld"], ["folders", "Folders"], ["connect", "Connection"], ["data", "Extras"], ["done", "Done"]];
 const W = { step: 0, data: null, working: "", model: "" };
@@ -145,7 +146,7 @@ async function finish(open = "") {
   forgetSettings();
   $("wizard").close();
   if (open === "add") openAddGames();
-  else checkWhatsNew();
+  else checkWhatsNew().then(() => checkTips());
 }
 
 async function run(what, fn) {

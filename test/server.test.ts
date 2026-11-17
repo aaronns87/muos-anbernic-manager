@@ -252,7 +252,8 @@ test("index.html has the elements the Emulation and Apps views render into", () 
     "portmaster", "pm-main", "pm-foot", "pm-close", "portview", "pmv-title", "pmv-sub", "pmv-body", "pmv-foot", "pmv-close", "pm-files", "pm-folder",
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
     "view-os", "os", "os-sub", "os-actions", "os-count", "osmarket", "om-title", "om-main", "om-foot", "om-close",
-    "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot"]) {
+    "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot",
+    "tips", "tips-title", "tips-sub", "tips-stage", "tips-dots", "tips-startup", "tips-back", "tips-next", "help-tips", "whats-new", "whats-title", "whats-body"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }
 });

@@ -6,6 +6,7 @@ import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
 import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
+import { bindTips, checkTips } from "./tips.js";
 import {
   applyView, autoRescan, bindGames, clearFilters, openViewer, render, rescan, scrollToSystem, selectAllShown,
   setSelecting, setWhere, showMissing, showNotOnDevice, showSearch, startLibraryLoad
@@ -237,6 +238,7 @@ bindGames();
 bindCopy();
 bindChat();
 bindWhatsNew();
+bindTips();
 bindArtwork();
 bindArtworkView();
 bindSystem();
@@ -253,7 +255,7 @@ if (!TOKEN) {
   startLibraryLoad();
   refreshDevice();
   loadChatConfig();
-  checkWizard().then(() => checkWhatsNew());
+  checkWizard().then(() => checkWhatsNew().then(() => checkTips()));
   startManagerChecks();
   if (section() !== "apps") countApps();
   if (section() !== "os") countOs();

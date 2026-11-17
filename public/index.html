@@ -513,6 +513,7 @@
 <dialog id="help" class="help" aria-labelledby="help-title">
   <header class="help-head">
     <div><h2 id="help-title">Help</h2><p>Read about any part of the manager without leaving this page.</p></div>
+    <button type="button" class="btn small" id="help-tips" data-help-tips>Hints and tips</button>
     <a class="btn small" href="#wiki" id="help-full">Open the Wiki</a>
     <button class="icon-btn help-x" id="help-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </header>
@@ -613,6 +614,20 @@
   </header>
   <div class="whats-body" id="whats-body"></div>
   <footer class="fv-foot"><span class="muted-note">From CHANGELOG.md in the manager folder.</span><span class="grow"></span><button class="btn primary" data-whats="close">Got it</button></footer>
+</dialog>
+<dialog id="tips" class="tips" aria-labelledby="tips-title">
+  <header class="help-head">
+    <div><h2 id="tips-title">Hints and tips</h2><p id="tips-sub">Tip 1 of 14</p></div>
+    <button class="icon-btn help-x" data-tips="close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </header>
+  <div class="tips-stage" id="tips-stage"></div>
+  <div class="tips-dots" id="tips-dots" role="tablist" aria-label="Tips"></div>
+  <footer class="fv-foot tips-foot">
+    <label class="tips-startup"><input type="checkbox" id="tips-startup" role="switch" checked> Show tips when the manager starts</label>
+    <span class="grow"></span>
+    <button class="btn" data-tips="back" id="tips-back">Back</button>
+    <button class="btn primary" data-tips="next" id="tips-next">Next</button>
+  </footer>
 </dialog>
 <dialog id="wizard" class="wiz" aria-labelledby="wiz-title">
   <header class="wiz-head">

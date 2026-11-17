@@ -12,7 +12,7 @@ version.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| [Unreleased](#unreleased) | | README screenshots refreshed for 1.3.1 UI (Logs, OS, Appearance, Wiki, Files, …) |
+| [Unreleased](#unreleased) | | Hints and tips startup walkthrough; README screenshots for 1.3.1 UI |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
 | [1.2.6](#126---2026-11-15) | 2026-11-15 | Dolphin Rt:Core in the app market, Andromeda package matching, UI polish and safer saves |
@@ -26,6 +26,10 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+### Added
+
+- **Hints and tips** carousel after the setup wizard and What's new: walks through connection, Games, Artwork, OS, Apps, Device, Themes, Emulation, Files, Game Tuning, Appearance, Logs and Wiki. Checkbox **Show tips when the manager starts** (also Settings → Behaviour); reopen from Help or Behaviour → Open tips.
 
 ### Changed
 

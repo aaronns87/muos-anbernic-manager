@@ -23,6 +23,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 - First start with a clean cache opens the **setup wizard** (model, folders, connection, optional game data download and shortcut). Skip setup closes it; Settings can open Run setup again.
 - Start later with the shortcut, `./muos-anbernic-manager/run.sh` or `run.cmd`.
 - **Updates**: version next to the clock becomes Update when GitHub has a newer one. Update now uses git pull or ZIP swap, then restarts. Settings can turn the check off. After update, **What's new** shows once from CHANGELOG.md.
+- **Hints and tips**: after the wizard and What's new, a carousel walks through main features (connection, Games, Artwork, OS, Apps, Device, Themes, Emulation, Files, Tuning, Appearance, Logs, Wiki). Checkbox **Show tips when the manager starts** (also Settings > Behaviour). Reopen from Help (?), Settings > Behaviour > Open tips, or Wiki Getting started.
 
 ### Three ways to connect
 
@@ -298,7 +299,7 @@ Roms folder (library) and other folders: apps, os, bios, backups, themes, logs. 
 
 ### Behaviour
 
-Transfers, startup and updates (app shortcut, update check). Images: uploaded artwork size.
+Transfers, startup and updates (app shortcut, update check, **Show tips at start**, **Open tips** walkthrough). Images: uploaded artwork size.
 
 ### Appearance
 

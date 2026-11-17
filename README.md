@@ -98,9 +98,13 @@ per-session token. Nothing is uploaded anywhere.
 **Manager**
 - **Wiki**: built-in help for every page, a glossary and troubleshooting. Sits under Overview in the sidebar
   (shortcuts <kbd>2</kbd> or <kbd>0</kbd>); every page also has a **?** button for its article.
-- **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour**, **Appearance**
-  (theme, colour schemes, zoom, Softer style, compact layout, digital or analog clock), **Assistant** (API key, model,
-  system prompt, view knowledge base), **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+- **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour** (including show tips at
+  start), **Appearance** (theme, colour schemes, zoom, Softer style, compact layout, digital or analog clock), **Assistant**
+  (API key, model, system prompt, view knowledge base), **Data** and **Resets** (including factory reset that starts over
+  from the setup wizard).
+- **Hints and tips**: a short graphical walkthrough of the main features after the setup wizard and What's new. Uncheck
+  **Show tips when the manager starts** in the dialog or under Settings → Behaviour; reopen from Help (<kbd>?</kbd>) or
+  Behaviour → Open tips.
 - **Logs**: application diagnostics written to workspace `logs/` as daily JSONL files. Search, filter by level or day,
   expand stacks, export, clear, and open the folder. Captures errors, warnings, exceptions, manager actions and browser faults
   (separate from Overview **Recent activity**).
