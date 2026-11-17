@@ -100,6 +100,17 @@ function focusPlayPlayer() {
   try { host.focus({ preventScroll: true }); } catch { host.focus(); }
 }
 
+/** Push session keys into the live EmulatorJS instance (after its loadSettings can overwrite). */
+function applySessionControls() {
+  const emu = window.EJS_emulator;
+  if (!emu || typeof emu.setupKeys !== "function") return;
+  const built = buildDefaultControls(sessionKeys);
+  emu.defaultControllers = built;
+  emu.controls = JSON.parse(JSON.stringify(built));
+  try { emu.setupKeys(); } catch { /* ignore */ }
+  try { emu.checkGamepadInputs?.(); } catch { /* ignore */ }
+}
+
 function prettyKey(name) {
   const n = String(name || "").toLowerCase();
   if (!n) return "—";
@@ -231,12 +242,14 @@ function teardown() {
   delete window.EJS_core;
   delete window.EJS_pathtodata;
   delete window.EJS_gameName;
+  delete window.EJS_gameID;
   delete window.EJS_startOnLoaded;
   delete window.EJS_defaultControls;
   delete window.EJS_Buttons;
   delete window.EJS_color;
   delete window.EJS_ready;
   delete window.EJS_onGameStart;
+  delete window.EJS_disableLocalStorage;
 }
 
 function startEmulator(sys, g) {
@@ -244,17 +257,29 @@ function startEmulator(sys, g) {
   const host = $("play-ejs");
   host.innerHTML = "";
   const core = PLAY_CORES[sys.code];
+  readKeysFromForm();
   window.EJS_player = "#play-ejs";
   window.EJS_core = core;
   window.EJS_gameUrl = romUrl(sys.code, g.f);
+  // Stable id so EmulatorJS does not key settings off the tokenised ROM URL.
+  window.EJS_gameID = `${sys.code}:${g.f}`;
   window.EJS_gameName = g.t || g.f;
   window.EJS_pathtodata = EJS_DATA;
   window.EJS_startOnLoaded = true;
-  window.EJS_defaultControls = buildDefaultControls(readKeysFromForm());
+  // Session remap is the source of truth; ignore prior EmulatorJS localStorage (can be
+  // corrupted from older control shapes and shows as "undefined" in Control Settings).
+  window.EJS_disableLocalStorage = true;
+  window.EJS_defaultControls = buildDefaultControls(sessionKeys);
   window.EJS_color = "#c4a35a";
   // EmulatorJS listens for keys on #play-ejs; keep focus there so arrows/A/B reach the core.
-  window.EJS_ready = () => focusPlayPlayer();
-  window.EJS_onGameStart = () => focusPlayPlayer();
+  window.EJS_ready = () => {
+    applySessionControls();
+    focusPlayPlayer();
+  };
+  window.EJS_onGameStart = () => {
+    applySessionControls();
+    focusPlayPlayer();
+  };
   loaderEl = document.createElement("script");
   // Cache-bust so Restart re-runs loader.js after a previous session.
   loaderEl.src = `${EJS_DATA}loader.js?v=${Date.now()}`;
