@@ -323,6 +323,9 @@
   <div class="viewer-wrap">
     <div class="viewer">
       <div class="viewer-art" id="v-art-wrap">
+        <span class="counter" id="v-count"></span>
+        <button class="icon-btn prev" id="v-prev" title="Previous">&#8249;</button>
+        <button class="icon-btn next" id="v-next" title="Next">&#8250;</button>
         <div class="v-art" id="v-art"></div>
         <button class="btn small v-art-replace" id="v-art-replace" title="Choose an image, or drop one on the artwork">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
@@ -330,25 +333,31 @@
         </button>
       </div>
       <div class="viewer-info">
-        <div class="viewer-head">
-          <button class="link-btn v-back" id="v-back" hidden></button>
-          <div class="viewer-sys" id="v-sys"></div>
-          <h2 id="v-title"></h2>
-          <div class="tags" id="v-tags"></div>
-          <div class="v-facts" id="v-facts"></div>
+        <div class="viewer-scroll">
+          <div class="viewer-head">
+            <button class="link-btn v-back" id="v-back" hidden></button>
+            <div class="viewer-sys" id="v-sys"></div>
+            <h2 id="v-title"></h2>
+            <div class="viewer-meta">
+              <div class="tags" id="v-tags"></div>
+              <div class="v-facts" id="v-facts"></div>
+            </div>
+          </div>
+          <div class="v-cards" id="v-cards"></div>
+          <div class="tabs underline v-tabs" role="tablist" aria-label="Game details" id="v-tabs"></div>
+          <div class="v-pane" id="v-pane" role="tabpanel"></div>
         </div>
-        <div class="v-cards" id="v-cards"></div>
-        <div class="tabs underline v-tabs" role="tablist" aria-label="Game details" id="v-tabs"></div>
-        <div class="v-pane" id="v-pane" role="tabpanel"></div>
         <div class="viewer-actions">
-          <button class="btn primary v-main" id="v-play" hidden type="button" title="Play this game in the browser">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5Z"/></svg>
-            <span>Play in browser</span>
-          </button>
-          <button class="btn v-main" id="v-transfer" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>
-            <span id="v-transfer-label">Transfer to TF2</span>
-          </button>
+          <div class="v-mains">
+            <button class="btn primary v-main" id="v-play" hidden type="button" title="Play this game in the browser">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5Z"/></svg>
+              <span>Play in browser</span>
+            </button>
+            <button class="btn v-main" id="v-transfer" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>
+              <span id="v-transfer-label">Transfer to TF2</span>
+            </button>
+          </div>
           <div class="v-row">
             <div class="v-group">
               <button class="btn" id="v-reveal" title="Show the ROM file on this computer">
@@ -372,10 +381,7 @@
         </div>
       </div>
     </div>
-    <span class="counter" id="v-count"></span>
     <button class="icon-btn close" id="v-close" title="Close (Esc)">&times;</button>
-    <button class="icon-btn prev" id="v-prev" title="Previous">&#8249;</button>
-    <button class="icon-btn next" id="v-next" title="Next">&#8250;</button>
   </div>
 </dialog>
 <dialog id="playbrowser" class="playbrowser" aria-labelledby="play-title">
@@ -410,25 +416,46 @@
   </div>
 </dialog>
 <dialog id="transfer" aria-labelledby="t-title">
-  <div class="t-body">
-    <h2 id="t-title">Transfer to TF2</h2>
-    <div class="t-scope" id="t-scope"></div>
-    <label class="t-dir"><span>Direction</span>
-      <select id="t-dir" aria-describedby="t-dir-help">
-        <option value="to-device">To the handheld (copy new games)</option>
-        <option value="from-device">From the handheld into Roms/</option>
-        <option value="match-device">Match the handheld to the library</option>
-        <option value="match-library">Match the library to the handheld</option>
-      </select></label>
-    <small class="muted-note" id="t-dir-help" style="color:var(--muted)"></small>
-    <label class="t-dir" id="t-transport-wrap"><span>Send via</span>
-      <select id="t-transport" aria-describedby="t-transport-help">
-        <option value="sftp">The handheld connection (card, USB or Wi-Fi)</option>
-        <option value="syncthing">Syncthing folder (syncs to the handheld)</option>
-      </select></label>
-    <small class="muted-note" id="t-transport-help" style="color:var(--muted)"></small>
-    <div id="t-plan"></div>
-    <div class="dialog-actions">
+  <div class="t-body t-xfer">
+    <header class="t-head">
+      <div class="t-head-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10 18h4"/></svg>
+      </div>
+      <div class="t-head-copy">
+        <h2 id="t-title">Transfer to TF2</h2>
+        <p class="t-scope" id="t-scope"></p>
+      </div>
+    </header>
+    <section class="t-options">
+      <div class="field">
+        <span id="t-dir-label">Direction</span>
+        <div class="t-dirs" role="radiogroup" aria-labelledby="t-dir-label">
+          <button type="button" class="t-choice" data-tdir="to-device" aria-pressed="false">
+            <b>To device</b><small>Copy new games</small>
+          </button>
+          <button type="button" class="t-choice" data-tdir="from-device" aria-pressed="false">
+            <b>From device</b><small>Into Roms/</small>
+          </button>
+          <button type="button" class="t-choice" data-tdir="match-device" aria-pressed="false">
+            <b>Match device</b><small>Replace diffs</small>
+          </button>
+          <button type="button" class="t-choice" data-tdir="match-library" aria-pressed="false">
+            <b>Match library</b><small>Pull diffs</small>
+          </button>
+        </div>
+        <p class="t-help" id="t-dir-help"></p>
+      </div>
+      <div class="field" id="t-transport-wrap">
+        <span id="t-transport-label">Send via</span>
+        <div class="segmented wide t-transport" role="radiogroup" aria-labelledby="t-transport-label">
+          <button type="button" data-ttransport="sftp" aria-pressed="true">Connection</button>
+          <button type="button" data-ttransport="syncthing" aria-pressed="false">Syncthing</button>
+        </div>
+        <p class="t-help" id="t-transport-help"></p>
+      </div>
+    </section>
+    <div class="t-plan" id="t-plan"></div>
+    <div class="dialog-actions t-actions">
       <button class="btn" id="t-cancel">Cancel</button>
       <button class="btn primary" id="t-start" hidden>Transfer</button>
     </div>

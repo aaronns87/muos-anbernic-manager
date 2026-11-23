@@ -1,6 +1,6 @@
 // Copying games to the device or pulling them from it, and the Transfers panel every job reports to: running, waiting and finished jobs.
 
-import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
+import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime, syncSpinnerPhase, handheldMode, cardWord } from "./core.js";
 import { renderDevice, refreshDevice, renderStatusbar } from "./device.js";
 import { loadLibrary, resetListing } from "./games.js";
 import { resetOverview } from "./overview.js";
@@ -38,18 +38,41 @@ async function syncFolder() {
 const transportOf = (p = pending) => (p && p.syncPath && p.transport === "syncthing" && !DIRECTIONS[p.direction].pull ? "syncthing" : "sftp");
 const place = () => (transportOf() === "syncthing" ? "the Syncthing folder" : esc(devName()));
 
+function renderDirection(mine) {
+  const name = handheldMode() ? "handheld" : cardWord();
+  const labels = {
+    "to-device": [`To ${name}`, "Copy new games"],
+    "from-device": [`From ${name}`, "Into Roms/"],
+    "match-device": [`Match ${name}`, "Replace diffs"],
+    "match-library": ["Match library", "Pull diffs"],
+  };
+  for (const btn of document.querySelectorAll("#transfer [data-tdir]")) {
+    const on = btn.dataset.tdir === mine.direction;
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    const [title, sub] = labels[btn.dataset.tdir] || [];
+    if (title) {
+      btn.querySelector("b").textContent = title;
+      btn.querySelector("small").textContent = sub;
+    }
+  }
+}
+
 function renderTransport(mine) {
   const pull = DIRECTIONS[mine.direction].pull;
   $("t-transport-wrap").hidden = pull;
-  $("t-transport-help").hidden = pull;
-  const option = $("t-transport").querySelector('option[value="syncthing"]');
-  option.disabled = !mine.syncPath;
-  $("t-transport").value = transportOf(mine);
-  $("t-transport-help").textContent = !mine.syncPath
-    ? "Syncthing needs a shared ROMs folder: choose it under Settings > Transfers, startup and updates."
-    : transportOf(mine) === "syncthing"
+  const via = transportOf(mine);
+  for (const btn of document.querySelectorAll("#transfer [data-ttransport]")) {
+    const on = btn.dataset.ttransport === via;
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    if (btn.dataset.ttransport === "syncthing") btn.disabled = !mine.syncPath;
+  }
+  $("t-transport-help").textContent = pull ? "" : !mine.syncPath
+    ? "Syncthing needs a shared ROMs folder: choose it under Settings → Transfers, startup and updates."
+    : via === "syncthing"
       ? `Copies into ${mine.syncPath} (same layout as Roms/) and waits for Syncthing to settle. ${devName()} receives the games when it syncs.`
-      : "";
+      : "Uses the live card, USB or Wi-Fi link to copy files directly.";
 }
 
 export async function startPlan(targets, label, { onStart = null, direction = "to-device" } = {}) {
@@ -58,7 +81,7 @@ export async function startPlan(targets, label, { onStart = null, direction = "t
   if ($("viewer").open) $("viewer").close();
   const mine = pending = { targets, label, plan: null, onStart, direction, syncPath: "", transport: store.get("transferTransport", "sftp") };
   $("t-scope").textContent = label;
-  $("t-dir").value = direction;
+  renderDirection(mine);
   renderTransport(mine);
   if (!$("transfer").open) $("transfer").showModal();
   mine.syncPath = await syncFolder();
@@ -72,8 +95,9 @@ async function loadPlan(mine) {
   mine.plan = null;
   $("t-title").textContent = dirTitle(dir);
   $("t-dir-help").textContent = dirHelp(dir);
+  renderDirection(mine);
   renderTransport(mine);
-  $("t-plan").innerHTML = `<div class="planning"><span class="spinner"></span> Comparing ${DIRECTIONS[dir].pull ? `Roms/ with ${esc(devName())}` : `with what is already in ${place()}`}&hellip;${slowHint()}</div>`;
+  $("t-plan").innerHTML = `<div class="planning"><span class="spinner"></span><span>Comparing ${DIRECTIONS[dir].pull ? `Roms/ with ${esc(devName())}` : `with what is already in ${place()}`}&hellip;${slowHint()}</span></div>`;
   $("t-start").hidden = true;
   $("t-cancel").textContent = "Cancel";
   try {
@@ -94,16 +118,16 @@ function renderPlan() {
   const names = Object.fromEntries(app.data.systems.map((s) => [s.code, s.name]));
   const diff = plan.different;
   const name = pull ? "Roms/" : place();
-  const parts = [`<div class="notice">Dry run: nothing is copied until you press ${pull ? "Pull" : "Transfer"}.</div>`, `<div class="plan-grid">
+  const parts = [`<p class="t-help">Dry run — nothing is copied until you press ${pull ? "Pull" : "Transfer"}.</p>`, `<div class="plan-grid">
     <div class="stat"><b>${plan.new.count.toLocaleString()}</b><span>${pull ? `missing from Roms/` : "new"} &middot; ${human(plan.new.bytes)}</span></div>
     <div class="stat"><b>${plan.identical.toLocaleString()}</b><span>already ${pull ? "in" : "on"} ${name}</span></div>
-    <div class="stat"><b>${diff.count.toLocaleString()}</b><span>different ${pull ? "in" : "on"} ${name}</span></div>
+    <div class="stat${diff.count ? " warn" : ""}"><b>${diff.count.toLocaleString()}</b><span>different ${pull ? "in" : "on"} ${name}</span></div>
   </div>`];
   if (diff.count) {
     parts.push(`<label class="check"><input type="checkbox" id="t-replace"${match ? " checked" : ""}>
       <span>Replace the ${diff.count === 1 ? "file that differs" : `${diff.count} files that differ`} ${pull ? "in" : "on"} ${name} (${human(diff.bytes)})<br>
       <small style="color:var(--muted)">Left unticked, the copies already ${pull ? "in" : "on"} ${name} are kept.${pull ? " Replaced copies go to the Trash." : usbMode() ? " Over USB the old copy is deleted before the new one is sent." : ""}</small></span></label>
-      <details><summary>Show files that differ</summary><ul>${diff.files.map((f) => `<li>${esc(f)}</li>`).join("")}${diff.count > diff.files.length ? `<li>&hellip;and ${diff.count - diff.files.length} more</li>` : ""}</ul></details>`);
+      <details class="t-diff"><summary>Show files that differ</summary><ul>${diff.files.map((f) => `<li>${esc(f)}</li>`).join("")}${diff.count > diff.files.length ? `<li>&hellip;and ${diff.count - diff.files.length} more</li>` : ""}</ul></details>`);
   }
   if (plan.systems.length > 1) {
     parts.push(`<div class="plan-table"><table><thead><tr><th>System</th><th class="num">New</th><th class="num">Differ</th><th class="num">Size</th></tr></thead><tbody>
@@ -424,16 +448,19 @@ export function toggleDock() {
 export function bindCopy() {
   $("t-cancel").addEventListener("click", () => $("transfer").close());
   $("t-start").addEventListener("click", startTransfer);
-  $("t-dir").addEventListener("change", () => {
-    if (!pending) return;
-    pending.direction = $("t-dir").value;
-    loadPlan(pending);
-  });
-  $("t-transport").addEventListener("change", () => {
-    if (!pending) return;
-    pending.transport = $("t-transport").value;
-    store.set("transferTransport", pending.transport);
-    loadPlan(pending);
+  $("transfer").addEventListener("click", (e) => {
+    const dir = e.target.closest("[data-tdir]");
+    if (dir && pending && dir.dataset.tdir !== pending.direction) {
+      pending.direction = dir.dataset.tdir;
+      loadPlan(pending);
+      return;
+    }
+    const via = e.target.closest("[data-ttransport]");
+    if (via && pending && !via.disabled && via.dataset.ttransport !== transportOf(pending)) {
+      pending.transport = via.dataset.ttransport;
+      store.set("transferTransport", pending.transport);
+      loadPlan(pending);
+    }
   });
   document.addEventListener("click", (e) => { if (e.target.closest("[data-dock-open]")) toggleDock(); });
   // The panel redraws while jobs run; holding it still between press and release keeps clicks on its buttons.

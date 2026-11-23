@@ -30,6 +30,10 @@ version.
 
 ### Changed
 
+- **Game viewer**: wider layout, art-anchored prev/next, status cards and side-by-side Play/Transfer actions, sticky
+  frosted footer.
+- **Transfer dialog**: direction as choice cards, Connection/Syncthing segmented control, clearer header and sticky
+  actions instead of stacked dropdowns.
 - **UI spacing pass**: toolbars, Settings panels, MCP hero/tools/agents, Overview health, play save bar, Checks /
   disc pipeline, command palette, recipe packs, netplay, Syncthing conflicts and profile bars now use `--space-*` /
   `--radius-*` tokens so compact/soft density modes stay consistent.

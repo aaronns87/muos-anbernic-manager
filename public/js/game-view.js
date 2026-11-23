@@ -851,7 +851,12 @@ async function replaceArt(file) {
   $("v-art-wrap").classList.add("busy");
   try {
     const png = await pngData(file, artMax.get());
-    await api("artwork/local/put", { system: sys.code, stem: stemOf(g.f), data: png.data });
+    const res = await api("artwork/local/put", { system: sys.code, stem: stemOf(g.f), data: png.data });
+    if (res?.image) {
+      $("v-art").innerHTML = `<img src="${res.image}?v=${Date.now()}" alt="">`;
+      const openArt = $("v-open-art");
+      if (openArt) { openArt.style.display = ""; openArt.href = res.image; }
+    }
     await hooks.reload(key);
     const img = $("v-art").querySelector("img");
     if (img) img.src = `${img.src.split("?")[0]}?v=${Date.now()}`;
@@ -901,7 +906,11 @@ export function bindGameView(h) {
         .then(() => toast(`Showing in ${fileManager() || "the file manager"}`, 2000))
         .catch((err) => toast(err.message, 4500));
     }
-    else if (t.id === "v-art-replace") pickImage().then(replaceArt);
+    else if (t.id === "v-art-replace") {
+      const onCancel = (e) => e.preventDefault();
+      viewer.addEventListener("cancel", onCancel);
+      pickImage().then(replaceArt).finally(() => viewer.removeEventListener("cancel", onCancel));
+    }
     else if (t.dataset.vedit === "open") { V.editing = true; V.renaming = false; V.tab = "about"; paint(); $("v-edit-text")?.focus(); }
     else if (t.dataset.vedit === "cancel") { V.editing = false; paint(); }
     else if (t.dataset.vedit === "save") saveDescription(false);

@@ -159,7 +159,7 @@ const ARTICLES = [
       copies that differ; nothing is deleted on the other side). Every run starts with a dry-run plan.</p>
       <p><b>Send via Syncthing</b> (optional, to-device / match-device only): if Syncthing already shares a folder between this computer and the handheld's
       <code>ROMS</code> folder, choose that folder under <b>Settings &gt; Transfers, startup and updates &gt; Syncthing ROMs folder</b> (and optionally its
-      Syncthing folder id). In the transfer dialog pick <b>Syncthing folder</b> under <b>Send via</b>: the manager copies the games into that folder with the
+      Syncthing folder id). In the transfer dialog pick <b>Syncthing</b> under <b>Send via</b>: the manager copies the games into that folder with the
       same <code>SYSTEM/file</code> layout as Roms/ and the job finishes once Syncthing on the handheld looks idle (up to 90 seconds). Nothing is sent over
       SFTP for that job, and the handheld does not need to be connected for the copy into the shared folder. Pairing is done in Syncthing itself; the manager
       never changes Syncthing's configuration. To pull games into Roms/, use direction <b>From the handheld</b> over the normal connection.</p>`],
