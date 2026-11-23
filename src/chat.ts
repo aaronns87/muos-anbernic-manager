@@ -672,6 +672,8 @@ export async function runChat(
 - Live reads: call a tool before answering about connection/device status, library search or counts, Device Settings/Controls/Benchmark, play activity or collections, saves/BIOS, jobs, files, apps, themes, or System Tools state. Do not invent live numbers from memory.
 - Actions: if the user asks you to search, copy, send, delete, change a setting, scrape artwork, or run a manager job a tool covers, call that tool rather than only describing which UI tab to open.
 - After tools return, answer from their results in a short reply. Ask before destructive writes if the request was ambiguous.
+- Destructive tools (deletes, restore, System Tools) first return {needsConfirm, confirmId, summary} and change nothing. Tell the user the summary and repeat the same call with that confirmId only after they agree in chat.
+- Recipe packs: when the user asks to run a recipe or pack by name, call recipes_list, match the name to a pack id, then recipes_run with that id (and the confirmId after they agree).
 - Do not start in-browser EmulatorJS play from tools.`;
   const TEXT_ONLY_NOTE = "\n\nTools are not available this turn. Answer in plain text only; do not call tools or invent tool calls. Point the user to the right manager section when they need a live action.";
 

@@ -12,6 +12,8 @@ import { registerLibraryTools } from "./tools/library.ts";
 import { registerPlayTools } from "./tools/play.ts";
 import { registerSystemTools } from "./tools/system.ts";
 import { loadMcpSettings } from "./settings.ts";
+export type { McpRole } from "./settings.ts";
+export { GUEST_TOOLS, guestToolAllowed } from "./guest.ts";
 import { mcpMarkStarted } from "./stats.ts";
 
 let toolsReady = false;
@@ -40,7 +42,7 @@ export async function initMcp(): Promise<void> {
 }
 
 export {
-  mcpSettings, mcpEnabled, mcpTokenOk, mcpSettingsPublic, saveMcpSettings, rotateMcpToken, loadMcpSettings,
+  mcpSettings, mcpEnabled, mcpTokenOk, mcpSettingsPublic, saveMcpSettings, rotateMcpToken, rotateGuestToken, loadMcpSettings,
 } from "./settings.ts";
 export { mcpClientConfigs, scanMcpClients, installMcpClient } from "./clients.ts";
 export { listAgentPacks, readAgentPack, agentPackContent, installAgentPack, installAllAgentPacks } from "./agents.ts";

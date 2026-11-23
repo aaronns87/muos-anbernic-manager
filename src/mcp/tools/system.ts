@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { UserError } from "../../errors.ts";
 import { listCards } from "../../system/cards.ts";
 import { workspaceImages, inspectImage, importOsImage } from "../../system/image.ts";
 import {
@@ -8,7 +9,7 @@ import {
   startSystemJob,
   systemJob,
 } from "../../system/ops.ts";
-import { wifiTf2Status } from "../../system/tf2-wifi.ts";
+import { wifiTf2Confirm, wifiTf2Status } from "../../system/tf2-wifi.ts";
 import { defineTool } from "../registry.ts";
 
 export function registerSystemTools(): void {
@@ -63,11 +64,12 @@ export function registerSystemTools(): void {
     group: "system",
     description:
       "Start a destructive System Tools job: install (flash OS), tf2 (set up games card), or reset. "
-      + "confirm must equal the card id (from system_cards) or \"TF2\" when via=wifi. "
+      + "confirm must equal the card id (from system_cards) or \"TF2\" when via=wifi; "
+      + "or call without confirm to get a confirmId, then repeat with it. "
       + "Reader ops need macOS. Poll with system_job_get.",
     inputSchema: z.object({
       op: z.enum(["install", "tf2", "reset"]),
-      confirm: z.string().describe("Must equal disk id, or TF2 for Wi-Fi TF2 ops"),
+      confirm: z.string().optional().describe("Must equal disk id, or TF2 for Wi-Fi TF2 ops. Omit to get a confirmId instead."),
       disk: z.string().optional().describe("Card id for reader ops"),
       image: z.string().optional().describe("Image path for install"),
       hash: z.string().optional(),
@@ -78,7 +80,21 @@ export function registerSystemTools(): void {
       fs: z.enum(["FAT32", "ExFAT"]).optional(),
       name: z.string().optional().describe("Volume name for reset"),
     }),
-    handler: async (args) => ({ job: startSystemJob(args) }),
+    confirm: {
+      summary: (a) => {
+        const target = a.via === "wifi" ? "the TF2 card over Wi-Fi" : `card ${a.disk ?? "(no disk given)"}`;
+        const what = a.op === "install" ? `Erase ${target} and flash ${a.image ?? "an image"}` : a.op === "tf2" ? `Erase and set up ${target} as the games card` : `Erase and reset ${target}`;
+        return `${what}. All data on it is lost.`;
+      },
+      satisfied: (a) => String(a.confirm ?? "").trim() !== "",
+      extra: (a) => {
+        if (a.via === "wifi") return { confirm: wifiTf2Confirm };
+        const disk = String(a.disk ?? "").trim();
+        if (!disk) throw new UserError("Give the card id as disk (from system_cards) first.");
+        return { confirm: disk };
+      },
+    },
+    handler: async (args) => ({ job: await startSystemJob(args) }),
   });
 
   defineTool({

@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } from "../../cores.ts";
 import { cheatFile, cheatsGame, removeCheats, saveCheats } from "../../tuning/cheats.ts";
+import { recipesJson, runPack } from "../../recipes.ts";
 import { retroarchJson, saveRetroarch } from "../../retroarch.ts";
 import { gameTuning, resetTuning, saveTuning, tuningJson } from "../../tuning/tuning.ts";
 import { defineTool } from "../registry.ts";
@@ -163,5 +164,24 @@ export function registerEmulationTools(): void {
       file: z.string(),
     }),
     handler: async (args) => removeCheats(args),
+  });
+
+  defineTool({
+    name: "recipes_list",
+    group: "emulation",
+    description: "List shareable recipe packs (core, cheats, CPU governor, tuning steps) installed in the manager.",
+    inputSchema: z.object({}),
+    handler: async () => recipesJson(),
+  });
+
+  defineTool({
+    name: "recipes_run",
+    group: "emulation",
+    description: "Run a recipe pack by id (from recipes_list) on the handheld; stops at the first failing step. Writes to the handheld.",
+    inputSchema: z.object({ id: z.string() }),
+    confirm: {
+      summary: (a) => `Run recipe pack ${a.id} on the handheld: every step in order, stopping at the first failure. Earlier steps stay applied.`,
+    },
+    handler: async (args) => runPack(args),
   });
 }

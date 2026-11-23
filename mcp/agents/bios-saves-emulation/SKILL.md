@@ -30,6 +30,7 @@ kind: expert
 - `tuning_list`, `tuning_game_get`, `tuning_game_save`, `tuning_game_reset`
 - `cheats_game_get`, `cheats_file_get`, `cheats_save`, `cheats_remove`
 - Prefer presets/values returned by tools; do not invent Menu+X option keys.
+- `recipes_list` / `recipes_run` — shareable packs (core, cheats, governor, tuning steps). Run writes to the handheld and stops at the first failing step; confirm the pack first: `recipes_run` returns a `confirmId`; list with `recipes_list`, then repeat with the id and `confirmId` after the user agrees.
 
 ## Tips
 

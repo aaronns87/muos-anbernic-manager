@@ -10,18 +10,20 @@ import { attachAgentsToMcp } from "./attach-agents.ts";
 import { mcpServerIcons } from "./icons.ts";
 import { MCP_SERVER_DESCRIPTION, MCP_SERVER_NAME } from "./names.ts";
 import { attachToolsToMcp } from "./registry.ts";
-import { mcpEnabled, mcpTokenOk } from "./settings.ts";
+import { guestToolAllowed } from "./guest.ts";
+import { mcpEnabled, mcpTokenOk, type McpRole } from "./settings.ts";
 import { mcpSessionClose, mcpSessionOpen, mcpSessionTouch } from "./stats.ts";
 
 interface Session {
   transport: StreamableHTTPServerTransport;
   server: McpServer;
+  role: McpRole;
 }
 
 const sessions = new Map<string, Session>();
 const MAX_SESSIONS = 32;
 
-async function createMcpServer(): Promise<McpServer> {
+async function createMcpServer(role: McpRole): Promise<McpServer> {
   const version = await runningVersion().catch(() => "0.0.0");
   const icons = await mcpServerIcons();
   const server = new McpServer({
@@ -31,7 +33,8 @@ async function createMcpServer(): Promise<McpServer> {
     description: MCP_SERVER_DESCRIPTION,
     ...(icons.length ? { icons } : {}),
   });
-  attachToolsToMcp(server, "mcp");
+  if (role === "guest") attachToolsToMcp(server, "mcp-guest", guestToolAllowed);
+  else attachToolsToMcp(server, "mcp");
   await attachAgentsToMcp(server);
   return server;
 }
@@ -67,12 +70,24 @@ export function isMcpPath(pathname: string): boolean {
   return pathname === "/mcp" || pathname.startsWith("/mcp/");
 }
 
+/** First tools/call in a guest request body that is not allowlisted, if any (bodies may be batches). */
+function deniedGuestCall(body: unknown): { id: unknown; tool: string } | undefined {
+  for (const msg of Array.isArray(body) ? body : [body]) {
+    const m = msg as { id?: unknown; method?: unknown; params?: { name?: unknown } } | undefined;
+    if (m?.method !== "tools/call") continue;
+    const tool = String(m.params?.name ?? "");
+    if (!guestToolAllowed(tool)) return { id: m.id ?? null, tool };
+  }
+  return undefined;
+}
+
 export async function handleMcpHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!mcpEnabled()) {
     sendJson(res, 404, { error: "MCP server is turned off in Tools → MCP." });
     return;
   }
-  if (!mcpTokenOk(bearerToken(req))) {
+  const role = mcpTokenOk(bearerToken(req));
+  if (!role) {
     sendJson(res, 401, { error: "Missing or wrong MCP bearer token. Copy it from Tools → MCP." });
     return;
   }
@@ -85,6 +100,22 @@ export async function handleMcpHttp(req: IncomingMessage, res: ServerResponse): 
       const body = await readJsonBody(req);
       const existing = sessionId ? sessions.get(sessionId) : undefined;
 
+      if (role === "guest") {
+        const denied = deniedGuestCall(body);
+        if (denied) {
+          sendJson(res, 200, {
+            jsonrpc: "2.0",
+            error: { code: -32601, message: `Tool "${denied.tool}" is not allowed for the read-only guest token. Use the full token from Tools → MCP.` },
+            id: denied.id,
+          });
+          return;
+        }
+      }
+      if (existing && existing.role !== role) {
+        sendJson(res, 403, { jsonrpc: "2.0", error: { code: -32002, message: "This session belongs to a different token." }, id: null });
+        return;
+      }
+
       if (existing) {
         mcpSessionTouch(sessionId);
         await existing.transport.handleRequest(req, res, body);
@@ -96,12 +127,12 @@ export async function handleMcpHttp(req: IncomingMessage, res: ServerResponse): 
           sendJson(res, 503, { jsonrpc: "2.0", error: { code: -32000, message: "Too many MCP sessions" }, id: null });
           return;
         }
-        const server = await createMcpServer();
+        const server = await createMcpServer(role);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (id) => {
-            sessions.set(id, { transport, server });
-            mcpSessionOpen(id, "mcp");
+            sessions.set(id, { transport, server, role });
+            mcpSessionOpen(id, role === "guest" ? "mcp-guest" : "mcp");
           },
         });
         transport.onclose = () => {
@@ -130,6 +161,10 @@ export async function handleMcpHttp(req: IncomingMessage, res: ServerResponse): 
         return;
       }
       const session = sessions.get(sessionId);
+      if (session && session.role !== role) {
+        sendJson(res, 403, { jsonrpc: "2.0", error: { code: -32002, message: "This session belongs to a different token." }, id: null });
+        return;
+      }
       if (!session) {
         sendJson(res, 404, { jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
         return;

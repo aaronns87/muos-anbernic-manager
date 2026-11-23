@@ -21,6 +21,8 @@ import {
   rolesToVars, applyVars, newSchemeId, resolveSchemeId,
 } from "./appearance.js";
 import { recipesPanelHtml, bindRecipes } from "./recipes.js";
+import { idleJobsPanelHtml, bindIdleJobs } from "./idle-jobs.js";
+import { metaPanelHtml, bindMeta } from "./workspace-meta.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -31,7 +33,7 @@ const PLACE_ICONS = {
 };
 
 const s = {
-  data: null, chat: null, mcp: null, mcpTools: null, mcpToken: "", mcpReveal: false,
+  data: null, chat: null, mcp: null, mcpTools: null, mcpToken: "", mcpReveal: false, mcpGuestToken: "", mcpGuestReveal: false,
   mcpClients: null, mcpCopyOpen: false, mcpToolQ: "", mcpToolGroup: "all",
   mcpAgents: null, mcpAgentReviewId: "", mcpInstallOpen: "", mcpInstallAllOpen: false, mcpAgentBound: false,
   error: "", loading: false, working: "", browse: null, bound: false,
@@ -41,10 +43,10 @@ const s = {
 
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups, themes and logs"],
-  ["behaviour", "sliders", "Behaviour", "Copying, library recipes, startup, updates and uploaded artwork size"],
+  ["behaviour", "sliders", "Behaviour", "Copying, idle jobs, library recipes, startup, updates and uploaded artwork size"],
   ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
-  ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
+  ["data", "layers", "Data", "Refresh library metadata, clear downloaded caches and back up workspace metadata"],
   ["resets", "trash", "Resets", "Clear logs and preferences on this computer, play history on the handheld, or start over"],
 ];
 
@@ -111,6 +113,8 @@ async function load() {
     s.chatKey = "";
     s.mcpToken = "";
     s.mcpReveal = false;
+    s.mcpGuestToken = "";
+    s.mcpGuestReveal = false;
     s.error = "";
   } catch (error) {
     s.error = error.message;
@@ -148,10 +152,10 @@ function render() {
   const d = s.data, [tab, , , sub] = settingsTab();
   $("settings-sub").textContent = sub;
   const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
-    : tab === "behaviour" ? `${copyPanel(d)}${recipesPanelHtml()}${imagesPanel()}`
+    : tab === "behaviour" ? `${copyPanel(d)}${idleJobsPanelHtml()}${recipesPanelHtml()}${imagesPanel()}`
     : tab === "appearance" ? appearancePanels()
     : tab === "assistant" ? assistantPanel()
-    : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}`
+    : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}${metaPanelHtml()}`
     : `${historyPanel(d)}${resetPanel()}`;
   $("settings").innerHTML = `<div class="ov-grid">${body}</div>`;
 }
@@ -258,7 +262,8 @@ function mcpCopyMenu() {
     { id: "codex", label: "Codex" },
     { id: "windsurf", label: "Windsurf" },
   ]).map((c) =>
-    `<button type="button" role="menuitem" data-set="mcp-copy-client" data-id="${esc(c.id)}">${esc(c.label)}</button>`).join("");
+    `<button type="button" role="menuitem" data-set="mcp-copy-client" data-id="${esc(c.id)}">${esc(c.label)}</button>
+     <button type="button" role="menuitem" data-set="mcp-copy-client" data-guest="1" data-id="${esc(c.id)}">${esc(c.label)} (read-only guest)</button>`).join("");
   return `<div class="mcp-copy-wrap">
     <button type="button" class="btn" data-set="mcp-copy-toggle" aria-expanded="${s.mcpCopyOpen}" aria-haspopup="menu">
       ${icon("copy")}<span>Copy config</span>${icon("down")}</button>
@@ -311,6 +316,7 @@ function mcpClientCards() {
           ${s.working === `mcp-setup-${c.id}` ? `<span class="spinner"></span>` : icon("check")}
           <span>${c.configured ? "Update" : "Set up"}</span></button>
         <button type="button" class="btn small" data-set="mcp-copy-client" data-id="${esc(c.id)}">${icon("copy")}<span>Copy</span></button>
+        <button type="button" class="btn small" data-set="mcp-copy-client" data-guest="1" data-id="${esc(c.id)}" title="Config with the read-only guest token">${icon("copy")}<span>Guest</span></button>
       </div>
     </article>`;
   };
@@ -451,6 +457,7 @@ function mcpPanel() {
   const m = s.mcp;
   if (!m) return panel("full", "MCP", `<p class="muted-note">Loading MCP settings&hellip;</p>`);
   const tokenVal = s.mcpReveal && (s.mcpToken || m.token) ? esc(s.mcpToken || m.token) : "";
+  const guestVal = s.mcpGuestReveal && (s.mcpGuestToken || m.guestToken) ? esc(s.mcpGuestToken || m.guestToken) : "";
   return `
     <section class="panel full mcp-hero">
       <div class="mcp-hero-top">
@@ -458,7 +465,7 @@ function mcpPanel() {
           <span class="mcp-hero-ico">${icon("mcp")}</span>
           <div>
             <h2>MCP server</h2>
-            <p class="muted-note">Streamable HTTP on this computer only. Clients use a persistent bearer token; the Assistant can share the same tools. IDE configs register the server as <code>MuAnMCP</code>.</p>
+            <p class="muted-note">Streamable HTTP on this computer only. Clients use a persistent bearer token (full access) or a read-only guest token; the Assistant can share the same tools. IDE configs register the server as <code>MuAnMCP</code>.</p>
           </div>
         </div>
         ${mcpStatusChip(m)}
@@ -484,6 +491,15 @@ function mcpPanel() {
           <button class="btn" data-set="mcp-reveal"${s.working ? " disabled" : ""}>${icon("eye")}<span>${s.mcpReveal ? "Hide" : "Reveal"}</span></button>
           <button class="btn" data-set="mcp-copy-token"${s.working ? " disabled" : ""}>${icon("copy")}<span>Copy</span></button>
           <button class="btn danger" data-set="mcp-rotate"${s.working === "mcp-rotate" ? " disabled" : ""}>${s.working === "mcp-rotate" ? `<span class="spinner"></span>` : icon("refresh")}<span>Rotate</span></button>
+        </div>
+      </div>
+      <div class="set-row mcp-token-row"><span><b>Guest token (read-only)</b><small>${m.guestTokenHint ? `Hint ${esc(m.guestTokenHint)}` : "Generated on first boot"} · lists and reads only; no writes, deletes or transfers</small></span>
+        <input class="control mono" id="mcp-guest-token" type="${s.mcpGuestReveal ? "text" : "password"}" readonly autocomplete="off" spellcheck="false"
+          value="${guestVal}" placeholder="${s.mcpGuestReveal ? "" : "Reveal to show full token"}">
+        <div class="mcp-token-actions">
+          <button class="btn" data-set="mcp-guest-reveal"${s.working ? " disabled" : ""}>${icon("eye")}<span>${s.mcpGuestReveal ? "Hide" : "Reveal"}</span></button>
+          <button class="btn" data-set="mcp-copy-guest"${s.working ? " disabled" : ""}>${icon("copy")}<span>Copy</span></button>
+          <button class="btn danger" data-set="mcp-guest-rotate"${s.working === "mcp-guest-rotate" ? " disabled" : ""}>${s.working === "mcp-guest-rotate" ? `<span class="spinner"></span>` : icon("refresh")}<span>Rotate</span></button>
         </div>
       </div>
       <div class="panel-actions set-actions">
@@ -621,10 +637,16 @@ function copyPanel(d) {
     `<p class="muted-note">How copying to the handheld behaves, what happens when the manager starts, and whether it looks for newer versions on GitHub.</p>`
     + toggle("copyArt", d.settings.copyArt, "Send box art with games",
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
+    + `<div class="set-row"><span><b>Syncthing ROMs folder</b><small>A folder on this computer that Syncthing shares with the handheld's Roms/ (same system folders inside). Transfers can then copy there instead of sending over the connection. Leave empty to turn this off. Not the same folder as Roms/.</small></span>
+      <input class="control" data-set-sync="syncthingRomsPath" value="${esc(d.settings.syncthingRomsPath || "")}" placeholder="/path/to/Syncthing/Roms" spellcheck="false" autocomplete="off" aria-label="Syncthing ROMs folder"></div>`
+    + `<div class="set-row"><span><b>Syncthing folder id</b><small>Optional. The id of that share in Syncthing (letters, digits, dots and dashes), so the manager can wait for that folder to finish syncing.</small></span>
+      <input class="control" data-set-sync="syncthingFolderId" value="${esc(d.settings.syncthingFolderId || "")}" placeholder="abcde-fghij" spellcheck="false" autocomplete="off" aria-label="Syncthing folder id"></div>`
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
     + `<div class="set-row"><span><b>Show tips at start</b><small>After the setup wizard and What's new, open the Hints and tips walkthrough. You can also turn this off in the tips dialog.</small></span>
       <span class="switch"><input type="checkbox" role="switch" data-set-tips${tipsOnStartup() ? " checked" : ""}><span class="switch-track"></span></span></div>`
+    + `<label class="set-row set-toggle"><span><b>Power user keys</b><small>Ctrl/Cmd+K opens a command palette to jump to any section or run common actions, and <kbd>/</kbd> focuses game search from any page. Off: only the number keys, <kbd>[</kbd> and <kbd>?</kbd> work.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" data-set-powerkeys${store.get("powerUserKeys", true) !== false ? " checked" : ""}><span class="switch-track"></span></span></label>`
     + `<div class="set-row"><span><b>Hints and tips</b><small>Walk through the manager's main features again.</small></span>
       <button class="btn" data-set="tips">${icon("star")}<span>Open tips</span></button></div>`
     + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
@@ -973,6 +995,48 @@ async function revealMcpToken() {
   }
 }
 
+async function revealMcpGuestToken() {
+  if (s.mcpGuestReveal) {
+    s.mcpGuestReveal = false;
+    s.mcpGuestToken = "";
+    render();
+    return;
+  }
+  try {
+    const m = await api("mcp/settings?reveal=guest");
+    s.mcp = { ...s.mcp, ...m, guestToken: undefined };
+    s.mcpGuestToken = m.guestToken || "";
+    s.mcpGuestReveal = true;
+    render();
+  } catch (error) {
+    toast(error.message, 3500);
+  }
+}
+
+async function rotateMcpGuestToken() {
+  const ok = await confirmBox({
+    title: "Rotate the guest token?",
+    html: "<p>Clients using the read-only guest token stop working until you paste the new one. The full token is not affected.</p>",
+    ok: "Rotate guest token",
+    danger: true,
+  });
+  if (!ok) return;
+  s.working = "mcp-guest-rotate";
+  render();
+  try {
+    const m = await api("mcp/guest-token/rotate", {});
+    s.mcp = { ...m, guestToken: undefined };
+    s.mcpGuestToken = m.guestToken || "";
+    s.mcpGuestReveal = true;
+    mcpStatusChanged(s.mcp);
+    toast("Guest token rotated — copy it into your clients", 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
 async function rotateMcpToken() {
   const ok = await confirmBox({
     title: "Rotate the MCP token?",
@@ -999,6 +1063,20 @@ async function rotateMcpToken() {
 
 async function copyMcpText(kind) {
   try {
+    if (kind === "guest") {
+      let token = s.mcpGuestToken;
+      if (!token) {
+        const m = await api("mcp/settings?reveal=guest");
+        token = m.guestToken || "";
+        s.mcpGuestToken = token;
+        s.mcpGuestReveal = true;
+        render();
+      }
+      if (!token) throw new Error("No guest token yet");
+      await navigator.clipboard.writeText(token);
+      toast("Guest token copied", 2000);
+      return;
+    }
     if (kind === "url") {
       await navigator.clipboard.writeText(s.mcp?.url || "");
       toast("MCP URL copied", 2000);
@@ -1153,9 +1231,19 @@ async function installAllMcpAgents(clientId) {
   render();
 }
 
-async function copyMcpClientConfig(id) {
+async function copyMcpClientConfig(id, guest = false) {
   try {
     let client = (s.mcpClients?.clients || []).find((c) => c.id === id);
+    if (guest) {
+      const cfg = await api("mcp/configs");
+      client = (cfg.clients || []).find((c) => c.id === id);
+      if (!client?.guestSnippet) throw new Error("No guest config snippet for that client");
+      await navigator.clipboard.writeText(client.guestSnippet);
+      toast(`${client.label || id} read-only guest config copied (add as MuAnMCP-guest)`, 2800);
+      s.mcpCopyOpen = false;
+      render();
+      return;
+    }
     if (!client?.snippet) {
       const cfg = await api("mcp/configs");
       client = (cfg.clients || []).find((c) => c.id === id);
@@ -1555,11 +1643,14 @@ function handleMcpAction(action, el) {
   if (action === "mcp-save") return saveMcp();
   if (action === "mcp-reveal") return revealMcpToken();
   if (action === "mcp-rotate") return rotateMcpToken();
+  if (action === "mcp-guest-reveal") return revealMcpGuestToken();
+  if (action === "mcp-guest-rotate") return rotateMcpGuestToken();
+  if (action === "mcp-copy-guest") return copyMcpText("guest");
   if (action === "mcp-copy-url") return copyMcpText("url");
   if (action === "mcp-copy-token") return copyMcpText("token");
   if (action === "mcp-scan") return scanMcpClients();
   if (action === "mcp-setup") return setupMcpClient(el.dataset.id);
-  if (action === "mcp-copy-client") return copyMcpClientConfig(el.dataset.id);
+  if (action === "mcp-copy-client") return copyMcpClientConfig(el.dataset.id, el.dataset.guest === "1");
   if (action === "mcp-copy-toggle") {
     s.mcpCopyOpen = !s.mcpCopyOpen;
     s.mcpInstallOpen = "";
@@ -1634,6 +1725,8 @@ function bind() {
   const root = $("view-settings");
   const mcpRoot = $("view-mcp");
   bindRecipes(root);
+  bindIdleJobs(root);
+  bindMeta(root);
   if (mcpRoot) bindMcpPage(mcpRoot);
   $("settings-tabs")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-settings-tab]");
@@ -1744,10 +1837,15 @@ function bind() {
       store.set("compact", app.ui.compact);
       applyView();
     }
+    else if (t.dataset.setPowerkeys !== undefined) {
+      store.set("powerUserKeys", t.checked);
+      toast(t.checked ? "Power user keys on: Ctrl/Cmd+K opens the palette" : "Power user keys off", 2200);
+    }
     else if (t.dataset.setTips !== undefined) {
       setTipsOnStartup(t.checked);
       toast(t.checked ? "Tips will show at start" : "Tips will not show at start", 2200);
     }
+    else if (t.dataset.setSync) saveToggle(t.dataset.setSync, t.value.trim());
     else if (t.dataset.setArtmax !== undefined) { artMax.set(t.value); toast("Saved"); }
     else if (t.dataset.setDate !== undefined) { app.ui.dateFormat = t.value; store.set("dateFormat", t.value); renderStatusbar(); }
     else if (t.id === "chat-provider" && s.chat) {

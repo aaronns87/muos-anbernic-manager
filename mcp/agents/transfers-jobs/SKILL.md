@@ -12,7 +12,7 @@ kind: expert
 ## Flow
 
 1. Ensure a live connection (`connection_status`).
-2. `transfer_plan` — build what would be copied (systems/games selection as the tool schema allows).
+2. `transfer_plan` — build what would be copied (systems/games selection as the tool schema allows). Optional `direction`: `to-device` (default), `from-device` (pull into Roms/), `match-device`, `match-library` (guided; also replace differing files, never delete). Optional `transport`: `sftp` (default) or `syncthing` (copies into the Syncthing-shared ROMs folder from Settings, `to-device`/`match-device` only; the job ends when Syncthing is idle). Pass the same `transport` to `transfer_start`.
 3. `transfer_start` — enqueue the job (USB may serialize; extras wait).
 4. `job_list` / `job_get` — poll progress (`id` from start/list).
 5. `job_cancel` — stop a running job; `job_forget` — drop history entries.

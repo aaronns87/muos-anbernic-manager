@@ -114,7 +114,7 @@ export async function deviceListing(t: Target) {
           }
         }
       }
-      games.push({ f: entry.name, s: entry.size, st, lf: lib?.name ?? "", art: found });
+      games.push({ f: entry.name, s: entry.size, m: entry.mtime, st, lf: lib?.name ?? "", art: found });
     }
     systems.push({ code: system, folder: folder.name, games });
   }

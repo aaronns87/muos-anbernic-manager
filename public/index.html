@@ -413,6 +413,20 @@
   <div class="t-body">
     <h2 id="t-title">Transfer to TF2</h2>
     <div class="t-scope" id="t-scope"></div>
+    <label class="t-dir"><span>Direction</span>
+      <select id="t-dir" aria-describedby="t-dir-help">
+        <option value="to-device">To the handheld (copy new games)</option>
+        <option value="from-device">From the handheld into Roms/</option>
+        <option value="match-device">Match the handheld to the library</option>
+        <option value="match-library">Match the library to the handheld</option>
+      </select></label>
+    <small class="muted-note" id="t-dir-help" style="color:var(--muted)"></small>
+    <label class="t-dir" id="t-transport-wrap"><span>Send via</span>
+      <select id="t-transport" aria-describedby="t-transport-help">
+        <option value="sftp">The handheld connection (card, USB or Wi-Fi)</option>
+        <option value="syncthing">Syncthing folder (syncs to the handheld)</option>
+      </select></label>
+    <small class="muted-note" id="t-transport-help" style="color:var(--muted)"></small>
     <div id="t-plan"></div>
     <div class="dialog-actions">
       <button class="btn" id="t-cancel">Cancel</button>
@@ -661,6 +675,7 @@
     <div><h2 id="hbf-title">Free &amp; homebrew</h2><p>Legal freeware and homebrew ROMs, saved into Roms/ like any other game.</p></div>
     <button class="icon-btn help-x" id="hbf-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </header>
+  <div class="tabs svf-cats" id="hbf-cats" aria-label="Catalogue" hidden></div>
   <div class="fv-body svf-body" id="hbf-body"></div>
   <footer class="fv-foot"><span class="muted-note" id="hbf-note"></span><span class="grow"></span><button class="btn" data-hbf="close">Close</button></footer>
 </dialog>
@@ -717,6 +732,15 @@
   </header>
   <div class="mask-body" id="mask-body"></div>
   <footer class="fv-foot"><span class="muted-note">Screen size, card names and what runs on it follow the model.</span><span class="grow"></span><button class="btn" data-mask="later">Not now</button><button class="btn primary" data-mask="use">Use this model</button></footer>
+</dialog>
+<dialog id="palette" class="palette" aria-label="Command palette">
+  <div class="palette-bar">
+    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="palette-q" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-label="Jump to a section or run an action" placeholder="Jump to a section or run an action" autocomplete="off" spellcheck="false">
+    <kbd>Esc</kbd>
+  </div>
+  <ul class="palette-list" id="palette-list" role="listbox" aria-label="Commands"></ul>
+  <footer class="palette-foot"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></footer>
 </dialog>
 <dialog id="activity" class="act" aria-labelledby="act-title">
   <header class="help-head">

@@ -46,14 +46,18 @@ per-session token. Nothing is uploaded anywhere.
   and **smart lists** (never copied, no art, bad dump, needs tuning, on device only) and grid or list views.
   Add games by drag and drop, copy them to the handheld, see what is on the device and what is missing, and remove games.
   **Update handheld…** plans scrape, artwork sync and copying games that are not on the device yet.
-  **Free & homebrew** (under Add games) downloads curated legal freeware into the right `Roms/` system folder.
+  **Free & homebrew** (under Add games) downloads curated legal games (freeware, public domain and open source, never
+  commercial ROM dumps) into the right `Roms/` system folder; tabs switch between the catalogues in `data/`.
+  **Syncthing transfers**: pick a Syncthing-shared ROMs folder in Settings and send games into it instead of over the
+  handheld connection; the job finishes once Syncthing is idle.
   **Play in browser** on cartridge, disc and heavy systems EmulatorJS supports (Game Boy family, NES/FDS, SNES, Virtual Boy,
   N64, DS, Master System, Game Gear, Mega Drive, 32X, Sega CD, Saturn, PC Engine/CD, WonderSwan, Neo Geo Pocket,
-  Atari 2600/5200/7800/Lynx, C64, VIC-20, PlayStation, PSP) opens EmulatorJS in a modal; cores load from the EmulatorJS CDN
-  on first use (needs network once; browser caches them). Disc games stream locally (CHD/ISO/cue+tracks); PS / Sega CD /
-  Saturn / PCE CD need BIOS in `bios/`. While the play window is open, arrow keys, space and page keys stay with the game
-  (the library behind does not scroll). Session keyboard remapping only — no save sync with the handheld yet.
-  Dreamcast and arcade stay handheld-only.
+  Atari 2600/5200/7800/Lynx, C64, VIC-20, PlayStation, PSP, arcade folders via FinalBurn Neo, and Dreamcast via Flycast)
+  opens EmulatorJS in a modal; cores load from the EmulatorJS CDN on first use (needs network once; browser caches them).
+  Dreamcast caches Flycast from GitHub into `.cache/flycast-core/` on first play. Disc games stream locally (CHD/ISO/cue+tracks);
+  PS / Sega CD / Saturn / PCE CD need BIOS in `bios/`; Dreamcast needs `dc_boot.bin` and `dc_flash.bin`. While the play
+  window is open, arrow keys, space and page keys stay with the game. **SRAM sync** autosaves to `backups/saves-browser/`
+  with Load from device / Save to device over SSH.
 - **Game view**: each game's box art, description, video and database facts, its library check and BIOS needs, and,
   with the handheld connected, whether it is on it, the core it starts with, play time, collections and saves (with
   per-game pull, push, delete and prune). Related games (other versions, series, developer, genre) are one click away.
@@ -87,7 +91,7 @@ per-session token. Nothing is uploaded anywhere.
   (Andromeda reads `info/manifest/core.json`; Jacaranda used `info/assign`), edit RetroArch picture/play and Menu+X
   **core options** per folder, and run a health check of your library (verify dumps, duplicates, and PlayStation
   **disc layouts** for orphaned `.bin` / broken `.cue` sheets / archives, with **Make playlist…** for multi-disc sets,
-  **Fix…** and **Convert to CHD** when `p7zip` / `chdman` are installed). **Systems** lists every system with what the
+  **Fix…**, **Convert to CHD** and a one-click **Disc pipeline** (fix, CHD, playlists, verify; stop and resume) when `p7zip` / `chdman` are installed). **Systems** lists every system with what the
   handheld can run, and why a system is missing when it cannot.
 - **Files**: this computer and the handheld side by side; copy, rename, delete, preview and edit config files.
   Edits made during a save stay marked as unsaved until you save again; renaming protects existing files, including case-only name collisions.
@@ -101,6 +105,7 @@ per-session token. Nothing is uploaded anywhere.
 **Tools**
 - **Interface**: consistent dark and light layouts, a navigation drawer on smaller screens, compact phone headers and game filters,
   keyboard tab navigation, visible focus indicators and reduced-motion support. Links remember the active section tab.
+  Power user keys (on by default): `Ctrl`/`Cmd`+`K` opens a command palette to jump to any section or action, `/` focuses game search.
   The shared Connection panel separates file transfers from remote controls; setup stays beside the current task.
   Overview offers library tasks while offline, and Files uses switchable computer/handheld panes on phones.
 - **System Tools**: install MustardOS on an SD card, set up a games card (TF2) with every system folder, or wipe a card.
@@ -113,15 +118,15 @@ per-session token. Nothing is uploaded anywhere.
   and similar clients can drive the manager with a persistent bearer token (library, Device Settings/Controls/Benchmark,
   artwork, play/collections, System Tools, transfers, emulation, and more). Tools → MCP has IDE scan/auto-setup, MCP
   agent packs (skills/experts to review, copy or install), and a tools table; the green **MCP** header chip shows usage
-  stats. Bind address is always `127.0.0.1` in this version.
+  stats. A separate read-only **guest token** serves only list/read tools. Bind address is always `127.0.0.1` in this version.
 
 **Manager**
 - **Wiki**: built-in help for every page, a glossary and troubleshooting. Sits under Overview in the sidebar
   (shortcuts <kbd>2</kbd> or <kbd>0</kbd>); every page also has a **?** button for its article.
 - **Settings**: six tabs — **Folders** (including the `logs/` diagnostics folder), **Behaviour** (show tips at start,
-  **library recipes** that chain scrape / copy / rescan after add games or scrape), **Appearance** (theme, colour schemes,
+  **library recipes** that chain scrape / copy / rescan after add games or scrape, plus shareable **recipe packs** for cores, cheats and CPU governor, and **idle jobs** that run a pack when Syncthing on the handheld is idle), **Appearance** (theme, colour schemes,
   zoom, Softer style, compact layout, digital or analog clock), **Assistant** (API key, model, system prompt, view
-  knowledge base), **Data** and **Resets** (including factory reset that starts over from the setup wizard).
+  knowledge base), **Data** (including an encrypted **workspace metadata** backup and restore) and **Resets** (including factory reset that starts over from the setup wizard).
 - **Hints and tips**: a short graphical walkthrough of the main features after the setup wizard and What's new. Uncheck
   **Show tips when the manager starts** in the dialog or under Settings → Behaviour; reopen from Help (<kbd>?</kbd>) or
   Behaviour → Open tips.

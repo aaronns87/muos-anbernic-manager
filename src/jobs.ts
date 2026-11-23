@@ -4,16 +4,20 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { CATALOGUE_PATH, FAT32_LIMIT, ROMS_DIR, USB_ID } from "./catalogue.ts";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { CATALOGUE_PATH, EXCLUDED_TOP, FAT32_LIMIT, ROMS_DIR, USB_ID } from "./catalogue.ts";
 import { ctx } from "./context.ts";
 import { catalogueFor, deviceCatalogues, deviceFiles } from "./device/content.ts";
-import type { Progress } from "./device/fs.ts";
+import type { Entry, Progress } from "./device/fs.ts";
+import { waitSyncthingIdle } from "./device/syncthing.ts";
 import { art, withTarget, type Target, type TargetInfo } from "./device/target.ts";
 import { Cancelled, UserError } from "./errors.ts";
 import { files, human, say } from "./log.ts";
+import { platform } from "./platform/index.ts";
 import { settings } from "./settings.ts";
-import { sameFile, splitName } from "./util.ts";
-import { collect, libraryImages } from "./workspace.ts";
+import { inside, isDir, listDir, removeQuietly, sameFile, skipName, splitName } from "./util.ts";
+import { collect, libraryImages, workspaceSystems } from "./workspace.ts";
 
 /** One unit of work: the label shown while it runs, its size, and whatever the job needs to do it. */
 export interface Work {
@@ -22,6 +26,12 @@ export interface Work {
 }
 
 export type JobKind = "transfer" | "art" | "artsend" | "apps" | "files";
+/** Which way a transfer moves games: onto the handheld, or from it into the workspace's Roms/ folder. */
+export type TransferDirection = "to-device" | "from-device";
+/** How a transfer reaches the handheld: SFTP/USB/card straight to its Roms/, or into a local folder Syncthing shares with it. */
+export type Transport = "sftp" | "syncthing";
+/** Volume id of Syncthing jobs: they use the local sync folder, never a device session, so they share no space or USB limit with it. */
+export const SYNC_VOLUME = "syncthing";
 export type JobState = "queued" | "running" | "done" | "cancelled" | "failed";
 
 /** How one file of a job went. "skipped" is a file the job never reached because it stopped. */
@@ -48,6 +58,10 @@ export abstract class Job<W extends Work = Work> {
   abstract readonly kind: JobKind;
   readonly id = newId();
   readonly verb: string = "COPIED";
+  /** Only transfers pull from the device; every other job writes to it (or to Roms/ for artwork, which has its own kind). */
+  readonly direction: TransferDirection = "to-device";
+  /** Only ROM copies can go through Syncthing instead of the device connection. */
+  readonly transport: Transport = "sftp";
   readonly label: string;
   readonly jobs: W[];
   readonly volume: string;
@@ -119,13 +133,18 @@ export abstract class Job<W extends Work = Work> {
 
   protected async after(_outcome: Job["state"]): Promise<void> {}
 
+  /** Runs the files of the job; by default inside a session with the device or card. */
+  protected execute(): Promise<void> {
+    return withTarget(this.volume, (t) => this.work(t));
+  }
+
   start(): void {
     this.started = Date.now();
     this.state = "running";
     this.promise = (async () => {
       let outcome: Job["state"] = "done";
       try {
-        await withTarget(this.volume, (t) => this.work(t));
+        await this.execute();
       } catch (error) {
         if (error instanceof Cancelled) {
           outcome = "cancelled";
@@ -158,7 +177,7 @@ export abstract class Job<W extends Work = Work> {
     const elapsed = this.started ? Math.max(((this.finished || Date.now()) - this.started) / 1000, 0.001) : 0;
     const speed = elapsed ? this.doneBytes / elapsed : 0;
     return {
-      id: this.id, kind: this.kind, state: this.state, phase: this.phase, label: this.label, target: this.target,
+      id: this.id, kind: this.kind, direction: this.direction, transport: this.transport, state: this.state, phase: this.phase, label: this.label, target: this.target,
       index: this.index, count: this.jobs.length, done_bytes: this.doneBytes, total_bytes: this.total,
       current: this.current, file_done: this.state === "running" ? this.doneBytes - this.fileBase : 0, speed, eta: speed && this.state === "running" ? (this.total - this.doneBytes) / speed : 0,
       elapsed, copied: this.copied, failed: this.failed.slice(0, 50), failed_count: this.failed.length, error: this.error,
@@ -228,7 +247,12 @@ export function jobFiles(id: number): { id: number; files: FileResult[] } {
 
 /** Bytes still to be written to a volume by the running and waiting jobs. */
 export function pendingBytes(volume: string): number {
-  return activeJobs().filter((j) => j.volume === volume).reduce((n, j) => n + j.total - j.doneBytes, 0);
+  return activeJobs().filter((j) => j.volume === volume && j.direction === "to-device").reduce((n, j) => n + j.total - j.doneBytes, 0);
+}
+
+/** Bytes still to be written into Roms/ by the running and waiting pulls from the device. */
+export function pendingLocalBytes(): number {
+  return activeJobs().filter((j) => j.kind === "transfer" && j.direction === "from-device").reduce((n, j) => n + j.total - j.doneBytes, 0);
 }
 
 /** Set while a System section job (install, TF2 setup, reset) owns a card; the message says which. */
@@ -356,7 +380,7 @@ export async function makePlan(t: Target, targets: unknown[]) {
   if (!picked.size) throw new UserError("No ROM files found in the given paths.");
   const remote = await deviceFiles(t.roms, [...new Set([...picked.keys()].map((rel) => rel.split("/")[0]))].sort());
   const onCard = !t.roms.remote;
-  const waiting = new Set(activeJobs().filter((j) => j.kind === "transfer" && j.volume === t.info.id).flatMap((j) => j.jobs.map((w) => w.rel.toLowerCase())));
+  const waiting = new Set(activeJobs().filter((j) => j.kind === "transfer" && j.direction === "to-device" && j.volume === t.info.id).flatMap((j) => j.jobs.map((w) => w.rel.toLowerCase())));
   const plan = { new: [] as RomWork[], identical: [] as string[], different: [] as RomWork[], queued: [] as string[], skipped, too_big: [] as string[] };
   for (const [rel, src] of [...picked].sort(([a], [b]) => (a < b ? -1 : 1))) {
     if (waiting.has(rel.toLowerCase())) {
@@ -385,7 +409,16 @@ export async function makePlan(t: Target, targets: unknown[]) {
   return plan;
 }
 
-export function planSummary(info: TargetInfo, plan: Awaited<ReturnType<typeof makePlan>>) {
+interface PlanShape {
+  new: Work[];
+  different: Work[];
+  identical: string[];
+  queued: string[];
+  skipped: string[];
+  too_big: string[];
+}
+
+export function planSummary(info: TargetInfo, plan: PlanShape) {
   const systems = new Map<string, { new: number; different: number; bytes: number; diff_bytes: number }>();
   for (const key of ["new", "different"] as const) {
     for (const job of plan[key]) {
@@ -409,18 +442,356 @@ export function planSummary(info: TargetInfo, plan: Awaited<ReturnType<typeof ma
   };
 }
 
+// ---------------------------------------------------------------- directions
+
+/** What a transfer is asked to do. The two match modes are guided: they also replace files that differ. */
+export type TransferMode = "to-device" | "from-device" | "match-device" | "match-library";
+
+export const TRANSFER_MODES: readonly TransferMode[] = ["to-device", "from-device", "match-device", "match-library"];
+
+export function transferMode(value: unknown): TransferMode {
+  if (value === undefined || value === null || value === "") return "to-device";
+  if (TRANSFER_MODES.includes(value as TransferMode)) return value as TransferMode;
+  throw new UserError(`Unknown direction "${String(value)}". Use ${TRANSFER_MODES.join(", ")}.`);
+}
+
+export const modeDirection = (mode: TransferMode): TransferDirection => (mode === "to-device" || mode === "match-device" ? "to-device" : "from-device");
+
+/** Files that differ are replaced when asked for, and by default in the match modes. */
+const replaces = (body: Record<string, unknown>, mode: TransferMode): boolean =>
+  body.replace === undefined || body.replace === null ? mode.startsWith("match-") : Boolean(body.replace);
+
+// ---------------------------------------------------------------- pulling ROMs from the device
+
+export interface PullWork extends Work {
+  /** Path below ROMS/ on the device. */
+  remote: string;
+  /** Absolute destination under Roms/. */
+  dest: string;
+  /** Device modification time in seconds, 0 when unknown. */
+  mtime: number;
+  /** An older copy is in the way and goes to the Trash first. */
+  replace: boolean;
+}
+
+const wanted = (parts: string[]): boolean => parts.length > 0 && parts.every((p) => p !== "" && p !== "." && p !== ".." && !p.includes("/") && !p.includes("\\"));
+
+/** Free space on the computer's side of Roms/, less what other waiting pulls will take. */
+export async function libraryFree(): Promise<number> {
+  await fsp.mkdir(ctx.roms, { recursive: true });
+  const st = await fsp.statfs(ctx.roms);
+  return Math.max(0, st.bavail * st.bsize - pendingLocalBytes());
+}
+
+interface LocalRom {
+  rel: string;
+  abs: string;
+  size: number;
+  mtime: number;
+}
+
+/** Files already in Roms/<system> (artwork and hidden folders left out), keyed by lower-cased "system/.../file". */
+async function localRoms(system: string): Promise<Map<string, LocalRom>> {
+  const found = new Map<string, LocalRom>();
+  const walk = async (dir: string, rel: string[]) => {
+    for (const entry of await listDir(dir)) {
+      if (skipName(entry.name)) continue;
+      const next = [...rel, entry.name];
+      if (entry.isDirectory()) await walk(path.join(dir, entry.name), next);
+      else if (entry.isFile()) {
+        const st = await fsp.stat(path.join(dir, entry.name));
+        const joined = next.join("/");
+        found.set(joined.toLowerCase(), { rel: joined, abs: path.join(dir, entry.name), size: st.size, mtime: st.mtimeMs / 1000 });
+      }
+    }
+  };
+  await walk(path.join(ctx.roms, system), [system]);
+  return found;
+}
+
+/** What is on the device under ROMS/ that the targets ask for: Roms/-style paths ("" is everything). */
+async function pickedOnDevice(t: Target, targets: unknown[]): Promise<{ picked: Map<string, [string, Entry]>; skipped: string[] }> {
+  const top = ((await t.roms.list([ROMS_DIR])) ?? []).filter((e) => e.folder && !skipName(e.name));
+  const skipped = new Set<string>();
+  const whole = new Set<string>(), prefixes: string[] = [];
+  for (const raw of targets) {
+    if (typeof raw !== "string") throw new UserError("Invalid path.");
+    const target = raw.replace(/^\/+|\/+$/g, "");
+    const parts = target.split("/").filter(Boolean);
+    if (parts.includes("..")) throw new UserError(`Invalid path: ${target}`);
+    if (parts.some(skipName)) throw new UserError(`${target} is a hidden or Imgs artwork path, which is not copied.`);
+    if (!parts.length) {
+      for (const e of top) {
+        if (EXCLUDED_TOP.has(e.name.toUpperCase())) skipped.add(e.name);
+        else whole.add(e.name.toLowerCase());
+      }
+      continue;
+    }
+    if (EXCLUDED_TOP.has(parts[0].toUpperCase())) throw new UserError(`${parts[0]} holds stock Anbernic firmware files, which MustardOS does not run.`);
+    if (!top.some((e) => e.name.toLowerCase() === parts[0].toLowerCase())) throw new UserError(`Not on the handheld: ${target}`);
+    if (parts.length === 1) whole.add(parts[0].toLowerCase());
+    else prefixes.push(parts.join("/").toLowerCase());
+  }
+  const systems = new Set([...whole, ...prefixes.map((p) => p.split("/")[0])]);
+  const all = await deviceFiles(t.roms, [...systems].sort());
+  const picked = new Map<string, [string, Entry]>();
+  for (const [key, value] of all) {
+    if (whole.has(key.split("/")[0]) || prefixes.some((p) => key === p || key.startsWith(`${p}/`))) picked.set(key, value);
+  }
+  return { picked, skipped: [...skipped].sort() };
+}
+
+/** The pull counterpart of makePlan: device files missing from Roms/, or different there. */
+export async function makePullPlan(t: Target, targets: unknown[]) {
+  const { picked, skipped } = await pickedOnDevice(t, targets);
+  if (!picked.size) throw new UserError(`No ROM files found on ${t.name} for the given paths.`);
+  const onCard = !t.roms.remote;
+  const waiting = new Set(activeJobs().filter((j) => j.kind === "transfer" && j.direction === "from-device" && j.volume === t.info.id).flatMap((j) => j.jobs.map((w) => w.rel.toLowerCase())));
+  const folders = new Map((await workspaceSystems()).map((s) => [s.toLowerCase(), s]));
+  const local = new Map<string, Map<string, LocalRom>>();
+  const plan = { new: [] as PullWork[], identical: [] as string[], different: [] as PullWork[], queued: [] as string[], skipped, too_big: [] as string[] };
+  for (const [, [remoteRel, entry]] of [...picked].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const parts = remoteRel.split("/");
+    if (!wanted(parts)) {
+      plan.skipped.push(remoteRel);
+      continue;
+    }
+    const system = folders.get(parts[0].toLowerCase()) ?? parts[0];
+    if (!local.has(system)) local.set(system, await localRoms(system));
+    const existing = local.get(system)!.get(remoteRel.toLowerCase());
+    const rel = existing?.rel ?? [system, ...parts.slice(1)].join("/");
+    if (waiting.has(rel.toLowerCase())) {
+      plan.queued.push(rel);
+      continue;
+    }
+    const dest = path.join(ctx.roms, ...rel.split("/"));
+    if (path.relative(ctx.roms, dest).startsWith("..")) {
+      plan.skipped.push(remoteRel);
+      continue;
+    }
+    const work: PullWork = { rel, size: entry.size, remote: remoteRel, dest, mtime: entry.mtime, replace: Boolean(existing) };
+    if (!existing) {
+      plan.new.push(work);
+      continue;
+    }
+    if (existing.size === entry.size && (!onCard || Math.abs(existing.mtime - entry.mtime) <= 2)) {
+      plan.identical.push(rel);
+      continue;
+    }
+    const remotePath = t.roms.localPath?.([ROMS_DIR, ...remoteRel.split("/")]);
+    if (onCard && remotePath && existing.size === entry.size && (await sameFile(existing.abs, remotePath))) plan.identical.push(rel);
+    else plan.different.push(work);
+  }
+  return plan;
+}
+
+export class PullJob extends Job<PullWork> {
+  readonly kind = "transfer";
+  readonly verb = "PULLED";
+  readonly direction = "from-device";
+
+  async copyOne(t: Target, job: PullWork, progress: Progress): Promise<void> {
+    await fsp.mkdir(path.dirname(job.dest), { recursive: true });
+    const partial = path.join(path.dirname(job.dest), `.${path.basename(job.dest)}.partial`);
+    await removeQuietly(partial);
+    try {
+      await t.roms.get([ROMS_DIR, ...job.remote.split("/")], partial);
+      if (this.cancelled) throw new Cancelled();
+      const got = (await fsp.stat(partial)).size;
+      if (got !== job.size) throw new UserError(`${path.basename(job.dest)} arrived incomplete (${human(got)} of ${human(job.size)}).`);
+      if (job.replace && (await fsp.access(job.dest).then(() => true, () => false))) await platform.trash(job.dest);
+      await fsp.rename(partial, job.dest);
+      if (job.mtime > 0) await fsp.utimes(job.dest, job.mtime, job.mtime).catch(() => {});
+    } finally {
+      await removeQuietly(partial);
+    }
+    progress(job.size);
+  }
+
+  protected report(outcome: Job["state"]): void {
+    if (outcome === "done" && !this.failed.length) say("green", this.verb, `${files(this.copied)} (${human(this.doneBytes)}) from ${this.target} into Roms/.`);
+    else if (outcome === "cancelled") say("yellow", "STOPPED", `Pull stopped after ${files(this.copied)}.`);
+    else super.report(outcome);
+  }
+
+  protected async after(): Promise<void> {
+    if (!this.copied) return;
+    this.current = "Rescanning Roms/";
+    const { rescanLibrary } = await import("./games/library.ts");
+    await rescanLibrary();
+  }
+}
+
+// ---------------------------------------------------------------- Syncthing transport
+
+export const TRANSPORTS: readonly Transport[] = ["sftp", "syncthing"];
+
+export function transportOf(value: unknown): Transport {
+  if (value === undefined || value === null || value === "") return "sftp";
+  if (TRANSPORTS.includes(value as Transport)) return value as Transport;
+  throw new UserError(`Unknown transport "${String(value)}". Use ${TRANSPORTS.join(" or ")}.`);
+}
+
+/** The local folder Syncthing shares with the handheld's Roms/, from Settings. */
+async function syncRoot(): Promise<string> {
+  const root = settings().syncthingRomsPath;
+  if (!root) throw new UserError("Choose the Syncthing ROMs folder in Settings before transferring through Syncthing.");
+  if (!(await isDir(root))) throw new UserError(`The Syncthing ROMs folder ${root} is missing. Check Settings.`);
+  return root;
+}
+
+const syncDest = (root: string, rel: string): string => {
+  const dest = path.join(root, ...rel.split("/"));
+  if (!inside(root, dest)) throw new UserError(`${rel} would land outside the Syncthing folder.`);
+  return dest;
+};
+
+/** Copies a ROM into the sync folder. The temp name follows Syncthing's own scheme, so it is never synced half-written. */
+async function copyIntoSyncFolder(src: string, dest: string, progress: Progress): Promise<void> {
+  await fsp.mkdir(path.dirname(dest), { recursive: true });
+  const partial = path.join(path.dirname(dest), `.syncthing.${path.basename(dest)}.tmp`);
+  await removeQuietly(partial);
+  try {
+    let sent = 0;
+    const count = new Transform({
+      transform(chunk: Buffer, _enc, done) {
+        sent += chunk.length;
+        done(progress(sent) ? new Cancelled() : null, chunk);
+      },
+    });
+    await pipeline(fs.createReadStream(src), count, fs.createWriteStream(partial));
+    const st = await fsp.stat(src);
+    await fsp.utimes(partial, st.atime, st.mtime).catch(() => {});
+    await fsp.rename(partial, dest);
+  } finally {
+    await removeQuietly(partial);
+  }
+}
+
+class SyncthingCopyJob extends Job<RomWork> {
+  readonly kind = "transfer";
+  readonly transport = "syncthing";
+  private readonly root: string;
+
+  constructor(label: string, jobs: RomWork[], root: string) {
+    super(label, jobs, SYNC_VOLUME, `Syncthing folder (${path.basename(root)})`);
+    this.root = root;
+  }
+
+  /** No handheld session: the files only go into the local folder. */
+  protected execute(): Promise<void> {
+    return this.work(undefined as never);
+  }
+
+  async copyOne(_t: Target, job: RomWork, progress: Progress): Promise<void> {
+    await copyIntoSyncFolder(job.src, syncDest(this.root, job.rel), progress);
+  }
+
+  /** The job is complete only once Syncthing has settled, so the files are on their way to the handheld. */
+  protected async after(outcome: Job["state"]): Promise<void> {
+    if (outcome !== "done" || !this.copied) return;
+    this.phase = "sync";
+    this.current = "Waiting for Syncthing";
+    const wait = await waitSyncthingIdle(undefined, { folderId: settings().syncthingFolderId, settleMs: 2000, stop: () => this.cancelled });
+    if (wait.idle) say("green", "SYNCTHING", wait.detail);
+    else say("yellow", "CHECK", `${wait.detail} The games are in the sync folder and keep syncing in the background.`);
+  }
+}
+
+/** The Syncthing counterpart of makePlan: the sync folder takes the place of the device when comparing. */
+async function makeSyncPlan(root: string, targets: unknown[]) {
+  const { picked, skipped } = await collect(targets);
+  if (!picked.size) throw new UserError("No ROM files found in the given paths.");
+  const waiting = new Set(activeJobs().filter((j) => j.kind === "transfer" && j.volume === SYNC_VOLUME).flatMap((j) => j.jobs.map((w) => w.rel.toLowerCase())));
+  const plan = { new: [] as RomWork[], identical: [] as string[], different: [] as RomWork[], queued: [] as string[], skipped, too_big: [] as string[] };
+  for (const [rel, src] of [...picked].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    if (waiting.has(rel.toLowerCase())) {
+      plan.queued.push(rel);
+      continue;
+    }
+    const st = await fsp.stat(src);
+    const there = await fsp.stat(syncDest(root, rel)).catch(() => null);
+    if (!there?.isFile()) plan.new.push({ rel, src, size: st.size });
+    else if (there.size === st.size) plan.identical.push(rel);
+    else plan.different.push({ rel, src, size: st.size });
+  }
+  return plan;
+}
+
+async function syncCard(root: string): Promise<TargetInfo> {
+  const st = await fsp.statfs(root);
+  return {
+    id: SYNC_VOLUME, mode: "card", name: "Syncthing folder", kind: "syncthing", storage: "Syncthing",
+    free: st.bavail * st.bsize, total: st.blocks * st.bsize, art: "", catalogue: false,
+  };
+}
+
+function requireSendMode(mode: TransferMode): void {
+  if (modeDirection(mode) !== "to-device") throw new UserError("Syncthing only sends games from Roms/ to the handheld. Use SFTP to pull games from it.");
+}
+
+async function startSyncCopy(body: Record<string, unknown>, mode: TransferMode) {
+  requireSendMode(mode);
+  const root = await syncRoot();
+  const plan = await makeSyncPlan(root, (body.targets as unknown[]) || [""]);
+  const card = await syncCard(root);
+  const jobs = [...plan.new, ...(replaces(body, mode) ? plan.different : [])];
+  if (!jobs.length && plan.queued.length) throw new UserError("These games are already waiting in Transfers.");
+  if (!jobs.length) throw new UserError("Nothing to copy. The Syncthing folder already has everything.");
+  const total = jobs.reduce((s, j) => s + j.size, 0);
+  const free = Math.max(0, card.free - pendingBytes(SYNC_VOLUME));
+  if (total > free) throw new UserError(`These ROMs need ${human(total)} and the Syncthing folder's drive has ${human(free)} free.`);
+  const label = String(body.label || "ROMs").slice(0, 120);
+  return startJob(new SyncthingCopyJob(label, jobs, root), `${label}: ${files(jobs.length)} (${human(total)}) into the Syncthing folder`);
+}
+
+// ---------------------------------------------------------------- planning and starting
+
+/** The dry run for a transfer in either direction, with the direction it resolved to. */
+export async function planTransfer(volume: string, targets: unknown[], direction?: unknown, transport?: unknown) {
+  const mode = transferMode(direction), way = modeDirection(mode);
+  if (transportOf(transport) === "syncthing") {
+    requireSendMode(mode);
+    const root = await syncRoot();
+    const summary = planSummary(await syncCard(root), await makeSyncPlan(root, targets));
+    return { ...summary, direction: way, mode, replace_default: replaces({}, mode), transport: "syncthing" as Transport };
+  }
+  return withTarget(volume, async (t) => {
+    if (way === "to-device") return { ...planSummary(t.info, await makePlan(t, targets)), direction: way, mode, replace_default: replaces({}, mode) };
+    const summary = planSummary(t.info, await makePullPlan(t, targets));
+    return { ...summary, direction: way, mode, replace_default: replaces({}, mode), library: { free: await libraryFree() } };
+  });
+}
+
 export async function startCopy(body: Record<string, unknown>) {
+  const mode = transferMode(body.direction);
+  if (transportOf(body.transport) === "syncthing") return startSyncCopy(body, mode);
+  if (modeDirection(mode) === "from-device") return startPull(body, mode);
   const volume = String(body.volume ?? "");
   requireQueueable(volume);
   const { plan, free, name } = await withTarget(volume, async (t) => ({
     plan: await makePlan(t, (body.targets as unknown[]) || [""]), free: t.info.free - pendingBytes(volume), name: t.name,
   }));
   if (plan.too_big.length) throw new UserError(`${plan.too_big[0]} is 4 GB or larger, which FAT32 cannot store.`);
-  const jobs = [...plan.new, ...(body.replace ? plan.different : [])];
+  const jobs = [...plan.new, ...(replaces(body, mode) ? plan.different : [])];
   if (!jobs.length && plan.queued.length) throw new UserError("These games are already waiting in Transfers.");
   if (!jobs.length) throw new UserError(`Nothing to copy. Everything is already on ${name}.`);
   const total = jobs.reduce((s, j) => s + j.size, 0);
   if (total > free) throw new UserError(`These ROMs need ${human(total)} and ${name} has ${human(free)} free.`);
   const label = String(body.label || "ROMs").slice(0, 120);
   return startJob(new CopyJob(label, jobs, volume, name), `${label}: ${files(jobs.length)} (${human(total)}) to ${name}`);
+}
+
+async function startPull(body: Record<string, unknown>, mode: TransferMode) {
+  const volume = String(body.volume ?? "");
+  requireQueueable(volume);
+  const { plan, name } = await withTarget(volume, async (t) => ({ plan: await makePullPlan(t, (body.targets as unknown[]) || [""]), name: t.name }));
+  const jobs = [...plan.new, ...(replaces(body, mode) ? plan.different : [])];
+  if (!jobs.length && plan.queued.length) throw new UserError("These games are already waiting in Transfers.");
+  if (!jobs.length) throw new UserError(`Nothing to pull. Roms/ already has everything on ${name}.`);
+  const total = jobs.reduce((s, j) => s + j.size, 0);
+  const free = await libraryFree();
+  if (total > free) throw new UserError(`These ROMs need ${human(total)} and this computer has ${human(free)} free for Roms/.`);
+  const label = String(body.label || "ROMs").slice(0, 120);
+  return startJob(new PullJob(label, jobs, volume, name), `${label}: ${files(jobs.length)} (${human(total)}) from ${name} into Roms/`);
 }

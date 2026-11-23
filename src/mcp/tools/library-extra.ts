@@ -1,6 +1,9 @@
 import { z } from "zod/v4";
 import { checksJson, startVerify, trashGames } from "../../checks.ts";
 import { chdJson, startChdConvert } from "../../games/chd.ts";
+import {
+  cancelDiscPipeline, discPipelineJson, dismissDiscPipeline, resumeDiscPipeline, startDiscPipeline,
+} from "../../games/disc-pipeline.ts";
 import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "../../games/disc-m3u.ts";
 import { freeHomebrewJson, installFreeHomebrew } from "../../games/free-homebrew.ts";
 import { defineTool } from "../registry.ts";
@@ -31,6 +34,9 @@ export function registerLibraryExtraTools(): void {
     inputSchema: z.object({
       paths: z.array(z.string()).min(1).describe("Relative paths under Roms/"),
     }),
+    confirm: {
+      summary: (a) => `Move ${Array.isArray(a.paths) ? a.paths.length : 0} ROM path(s) to the Trash.`,
+    },
     handler: async (args) => trashGames(args),
   });
 
@@ -89,11 +95,44 @@ export function registerLibraryExtraTools(): void {
   });
 
   defineTool({
+    name: "disc_pipeline_start",
+    group: "library",
+    description: "Queue fix archives -> CHD convert -> .m3u playlists -> verify for disc games. Poll with disc_pipeline_status.",
+    inputSchema: z.object({
+      code: z.string().optional().describe("System folder (default PS)"),
+      file: z.string().optional(),
+      files: z.array(z.string()).optional(),
+      items: z.array(z.object({ code: z.string(), file: z.string() })).optional(),
+      trashArchive: z.boolean().optional().describe("Trash archives after a fix (default true)"),
+      trash: z.boolean().optional().describe("Trash cue/bin sources after CHD convert (default true)"),
+      m3u: z.boolean().optional(),
+      verify: z.boolean().optional(),
+    }),
+    handler: async (args) => startDiscPipeline(args),
+  });
+
+  defineTool({
+    name: "disc_pipeline_status",
+    group: "library",
+    description: "Progress of the disc pipeline: state, each step, and whether it can resume.",
+    inputSchema: z.object({}),
+    handler: async () => discPipelineJson(),
+  });
+
+  defineTool({
+    name: "disc_pipeline_control",
+    group: "library",
+    description: "cancel (stop after the current step, or drop a stopped pipeline), resume, or dismiss the disc pipeline.",
+    inputSchema: z.object({ action: z.enum(["cancel", "resume", "dismiss"]) }),
+    handler: async (args) => args.action === "cancel" ? cancelDiscPipeline() : args.action === "resume" ? resumeDiscPipeline() : dismissDiscPipeline(),
+  });
+
+  defineTool({
     name: "homebrew_list",
     group: "library",
-    description: "Free & homebrew catalogue (legal freeware only) and which titles are already in Roms/.",
-    inputSchema: z.object({}),
-    handler: async () => freeHomebrewJson(),
+    description: "Free & homebrew catalogues (legal downloads only: freeware, public domain, open source) and which titles are already in Roms/. Pass catalogue (e.g. free, pd-homebrew, libre-games) to list one; the reply names every catalogue.",
+    inputSchema: z.object({ catalogue: z.string().optional().describe("Catalogue id, or all (default)") }),
+    handler: async (args) => freeHomebrewJson(args.catalogue),
   });
 
   defineTool({

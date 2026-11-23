@@ -43,8 +43,8 @@ function parseFolders(raw: string): SyncthingFolder[] {
   return folders;
 }
 
-/** Polls the handheld Syncthing REST API on localhost; returns idle when unsure. */
-export async function syncthingIdleJson(): Promise<SyncthingSnapshot> {
+/** Polls the handheld Syncthing REST API on localhost; returns idle when unsure. With a folder id, that folder's state is read. */
+export async function syncthingIdleJson(folderId = ""): Promise<SyncthingSnapshot> {
   const pack = await webServicesStatus(true);
   const svc = pack.services.find((s) => s.id === "syncthing");
   const port = svc?.port || 7070;
@@ -61,7 +61,7 @@ export async function syncthingIdleJson(): Promise<SyncthingSnapshot> {
     'WGET="wget -qO- --timeout=2"',
     'VER=$($WGET "http://127.0.0.1:$P/rest/system/version" 2>/dev/null || true)',
     'CFG=$($WGET "http://127.0.0.1:$P/rest/config" 2>/dev/null || true)',
-    'STAT=$($WGET "http://127.0.0.1:$P/rest/db/status" 2>/dev/null || true)',
+    `STAT=$($WGET "http://127.0.0.1:$P/rest/db/status${/^[A-Za-z0-9._-]{1,64}$/.test(folderId) ? `?folder=${folderId}` : ""}" 2>/dev/null || true)`,
     'printf "@ver\\t%s\\n" "$(printf %s "$VER" | head -c 400)"',
     'printf "@cfg\\t%s\\n" "$(printf %s "$CFG" | head -c 120000)"',
     'if [ -z "$STAT" ]; then echo "@idle\\t1"; exit 0; fi',
@@ -103,12 +103,15 @@ export async function syncthingIdleJson(): Promise<SyncthingSnapshot> {
   }
 }
 
-/** Optional gate: wait until Syncthing is idle or timeout (used before large copies). */
-export async function waitSyncthingIdle(maxMs = MAX_WAIT_MS): Promise<{ idle: boolean; waited: boolean; detail: string }> {
+/** Optional gate: wait until Syncthing is idle or timeout (before large copies, and after a Syncthing transfer).
+ *  settleMs gives Syncthing time to notice files that were just written before the first probe. */
+export async function waitSyncthingIdle(maxMs = MAX_WAIT_MS, opts: { folderId?: string; settleMs?: number; stop?: () => boolean } = {}): Promise<{ idle: boolean; waited: boolean; detail: string }> {
   const start = Date.now();
   let detail = "";
+  if (opts.settleMs) await new Promise((r) => setTimeout(r, opts.settleMs));
   while (Date.now() - start < maxMs) {
-    const snap = await syncthingIdleJson();
+    if (opts.stop?.()) return { idle: false, waited: true, detail: "Stopped waiting for Syncthing." };
+    const snap = await syncthingIdleJson(opts.folderId);
     detail = snap.detail;
     if (snap.idle) return { idle: true, waited: Date.now() - start > POLL_MS, detail };
     await new Promise((r) => setTimeout(r, POLL_MS));

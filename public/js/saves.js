@@ -4,6 +4,7 @@
 import { $, api, esc, formatDate, formatTime, human, icon, plural, setKeepingScroll, store, toast } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { openViewerGame } from "./game-view.js";
+import { conflictsBlockHtml, ensureConflicts } from "./sync-conflicts.js";
 
 const S = {
   data: null, error: "", loading: false, work: "", open: "", contents: {}, picked: new Set(), wifi: undefined,
@@ -179,6 +180,7 @@ function fileList(b, files, onDevice) {
 
 function devicePanel() {
   const d = dev();
+  if (d?.reachable) queueMicrotask(ensureConflicts);
   const head = `<h2>${icon("handheld")}On the handheld${d?.reachable ? ` <small>${esc(d.host)}</small>` : ""}<span class="grow"></span>
     ${S.loading ? `<span class="spinner sm"></span>` : ""}</h2>`;
   if (S.data.deviceError) return `<section class="panel apps-side">${head}<div class="notice err">${esc(S.data.deviceError)}</div>
@@ -190,7 +192,8 @@ function devicePanel() {
   }
   if (!d.files.length) {
     return `<section class="panel apps-side">${head}
-      <p class="muted-note">No saves yet. Save in a game, or make a save state from the RetroArch menu, and it shows up here.</p></section>`;
+      <p class="muted-note">No saves yet. Save in a game, or make a save state from the RetroArch menu, and it shows up here.</p>
+      ${conflictsBlockHtml()}</section>`;
   }
   const groups = new Map();
   for (const f of d.files) {
@@ -210,6 +213,7 @@ function devicePanel() {
     ${d.frontend ? "" : `<div class="notice">A game is open on the handheld. Close it and go back to the menu before restoring.</div>`}
     <p class="muted-note">${plural(d.files.length, "file")} &middot; ${human(bytes)}</p>
     ${status}
+    ${conflictsBlockHtml()}
     <div class="dev-apps">${[...groups].sort((a, b) => b[1].newest - a[1].newest).map(([name, g]) => `<div class="dev-app">
       <div><b>${esc(name)}</b><small>${[g.saves && plural(g.saves, "save"), g.states && plural(g.states, "state"), g.other && plural(g.other, "file")].filter(Boolean).join(" \u00b7 ")}
         &middot; ${esc(formatDate(new Date(g.newest * 1000), "long"))}</small></div></div>`).join("")}</div>

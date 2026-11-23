@@ -1,0 +1,46 @@
+{
+  "id": "libre-games",
+  "title": "Libre games",
+  "description": "Open-source games (GPL or MIT licensed) with ready-made ROMs published by their authors on GitHub.",
+  "games": [
+    {
+      "id": "libre-ucity",
+      "title": "uCity",
+      "year": 2016,
+      "maker": "AntonioND",
+      "about": "An open-source city-building game for the Game Boy Color in the spirit of SimCity.",
+      "system": "GBC",
+      "file": "uCity.gbc",
+      "url": "https://github.com/AntonioND/ucity/releases/download/v1.3/ucity.gbc",
+      "size": 131072,
+      "zip": false,
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "libre-nova",
+      "title": "Nova the Squirrel",
+      "year": 2016,
+      "maker": "NovaSquirrel",
+      "about": "An open-source NES puzzle platformer where a squirrel copies abilities from enemies.",
+      "system": "FC",
+      "file": "Nova the Squirrel.nes",
+      "url": "https://github.com/NovaSquirrel/NovaTheSquirrel/releases/download/v1.0.6a/nova.nes",
+      "size": 262160,
+      "zip": false,
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "libre-kleleatoms",
+      "title": "KleleAtoms",
+      "year": 2022,
+      "maker": "Nightwolf-47",
+      "about": "A chain-reaction atoms game for the Sega Mega Drive: blow up your atoms to take the other players' atoms.",
+      "system": "MD",
+      "file": "KleleAtoms.md",
+      "url": "https://github.com/Nightwolf-47/KleleAtoms-MD/releases/download/v1.2.1/kleleatoms-md-121.bin",
+      "size": 262144,
+      "zip": false,
+      "license": "MIT"
+    }
+  ]
+}

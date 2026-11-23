@@ -34,6 +34,9 @@ export function registerPlayTools(): void {
       what: z.enum(["time", "history"]),
       volume: z.string().optional(),
     }),
+    confirm: {
+      summary: (a) => `Reset the handheld play ${a.what === "time" ? "time tracker" : "history"}.`,
+    },
     handler: async (args) => resetPlay(args),
   });
 
@@ -82,6 +85,9 @@ export function registerPlayTools(): void {
       path: z.string(),
       volume: z.string().optional(),
     }),
+    confirm: {
+      summary: (a) => `Delete collection ${a.path} and its entries on the handheld (ROM files stay).`,
+    },
     handler: async (args) => deleteCollection(args),
   });
 

@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { deleteGame } from "../../games/actions.ts";
 import { gameDetails } from "../../games/details.ts";
 import { getLibrary, rescanLibrary } from "../../games/library.ts";
-import { playCoreFor, canPlayFile } from "../../games/play-rom.ts";
+import { playCoreFor, canPlayFile, playBlockedReason, PLAY_BIOS } from "../../games/play-rom.ts";
 import { defineTool } from "../registry.ts";
 
 const qs = (obj: Record<string, string>) => new URLSearchParams(obj);
@@ -82,6 +82,9 @@ export function registerLibraryTools(): void {
       art: z.boolean().optional().describe("Also remove artwork"),
       volume: z.string().optional().describe("Device volume id when deleting from handheld"),
     }),
+    confirm: {
+      summary: (a) => `Delete ${a.path}${a.library === false ? "" : " from Roms/ (to the Trash)"}${a.device ? " and from the handheld (permanent)" : ""}${a.art ? ", with its artwork" : ""}.`,
+    },
     handler: async (args) => deleteGame({
       path: args.path,
       library: args.library !== false,
@@ -117,6 +120,8 @@ export function registerLibraryTools(): void {
           file: args.file,
           core: playCoreFor(String(args.code)) || null,
           canPlay: canPlayFile(String(args.code), String(args.file)),
+          bios: PLAY_BIOS[String(args.code)] ?? [],
+          ...(playBlockedReason(String(args.code)) ? { reason: playBlockedReason(String(args.code)) } : {}),
         };
       }
       const lib = await getLibrary();
@@ -125,10 +130,15 @@ export function registerLibraryTools(): void {
         .map((s) => ({
           code: s.code,
           core: playCoreFor(s.code),
+          bios: PLAY_BIOS[s.code] ?? [],
           playableFiles: s.games.filter((g) => canPlayFile(s.code, g.f)).length,
           total: s.games.length,
         }));
-      return { systems };
+      return {
+        systems,
+        notPlayable: [{ code: "DREAMCAST", reason: playBlockedReason("DREAMCAST") }],
+        note: "Arcade folders (MAME, FBNEO, CPS1-3, NEOGEO) use FinalBurn Neo and only start .zip sets it supports; a missing BIOS (PlayStation, Saturn, Mega-CD, PC Engine CD) is reported when play starts.",
+      };
     },
   });
 }

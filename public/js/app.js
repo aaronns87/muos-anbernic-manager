@@ -6,7 +6,7 @@ import { bindModelPicker } from "./model-pick.js";
 import { checkWizard } from "./wizard.js";
 import { startManagerChecks } from "./manager-update.js";
 import { bindWhatsNew, checkWhatsNew } from "./whats-new.js";
-import { bindTips, checkTips } from "./tips.js";
+import { bindTips, checkTips, openTips } from "./tips.js";
 import { bindSideFlyout, hideSideFlyout, syncSideFlyout } from "./side-flyout.js";
 import { bindDigest, bindProfiles } from "./profiles.js";
 import { bindUpToDate } from "./uptodate.js";
@@ -33,6 +33,7 @@ import { showPlay } from "./play.js";
 import { showThemes } from "./themes.js";
 import { flushDesigner } from "./theme-designer.js";
 import { openActivity } from "./activity.js";
+import { bindCommandPalette, focusSearch, powerKeysOn } from "./command-palette.js";
 import { showLogs, stopLogsPoll } from "./logs.js";
 import { renderOverview } from "./overview.js";
 import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
@@ -115,6 +116,36 @@ async function showSection() {
   scrollTo({ top: 0 });
 }
 
+/** Sections and common actions for the Ctrl/Cmd+K palette. */
+function paletteItems() {
+  const sections = SECTIONS.map((name, i) => ({
+    group: "Go to", label: TITLES[name][0], icon: TITLES[name][1], keys: name,
+    hint: name === "wiki" ? "2 / 0" : i < 9 ? String(i + 1) : "",
+    run: () => { location.hash = "#" + name; },
+  }));
+  const to = (group, label, hash, ico, keys = "") => ({ group, label, icon: ico, keys, run: () => { location.hash = hash; } });
+  const toggleSide = () => setSideMin(!document.body.classList.contains("side-min"));
+  return [
+    { group: "Actions", label: "Focus game search", icon: "search", hint: "/", keys: "find games", run: focusSearch },
+    { group: "Actions", label: "Open transfers and activity", icon: "list", keys: "copy jobs log history", run: () => openActivity() },
+    {
+      group: "Actions", label: "Show running transfer", icon: "send", keys: "copy progress dock",
+      when: () => !$("dock").hidden,
+      run: () => { $("dock").scrollIntoView({ block: "nearest" }); $("dock").querySelector("button")?.focus(); },
+    },
+    { group: "Actions", label: "Rescan library", icon: "refresh", keys: "roms games reload", run: () => rescan() },
+    { group: "Actions", label: "Collapse or expand sidebar", icon: "grid", hint: "[", keys: "menu rail", run: toggleSide },
+    { group: "Actions", label: "Help for this page", icon: "book", hint: "?", keys: "wiki shortcuts", run: () => openHelp(section()) },
+    { group: "Actions", label: "Hints and tips", icon: "star", keys: "walkthrough tour", run: () => openTips({ force: true }) },
+    ...sections,
+    to("Shortcuts", "Settings: Appearance", "#settings/appearance", "palette", "theme colour zoom compact"),
+    to("Shortcuts", "Settings: Behaviour", "#settings/behaviour", "wrench", "keyboard power keys startup updates"),
+    to("Shortcuts", "Artwork: Scrape", "#artwork/scrape", "image", "box art download"),
+    to("Shortcuts", "Emulation: Library checks", "#emulation/checks", "check", "verify"),
+    to("Shortcuts", "Tools: MCP tokens", "#mcp", "mcp", "guest read-only bearer"),
+  ];
+}
+
 /** Collapses the sidebar to an icon rail; remembered across visits. */
 function setSideMin(min, animate = true) {
   const shell = document.querySelector(".app");
@@ -194,6 +225,7 @@ function bindShared() {
     }
     if (plain && e.key === "[") { setSideMin(!document.body.classList.contains("side-min")); return; }
     if (plain && e.key === "?" && !document.querySelector("dialog[open]")) { openHelp(section()); return; }
+    if (plain && e.key === "/" && powerKeysOn() && section() !== "games") { e.preventDefault(); focusSearch(); return; }
     if (section() !== "games") return;
     const q = $("q");
     if (e.key === "/" && document.activeElement !== q && !typing) {
@@ -242,6 +274,7 @@ setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
 onMcpChanged(() => renderStatusbar());
 bindShared();
+bindCommandPalette(paletteItems());
 bindSideFlyout();
 bindProfiles();
 bindDigest();

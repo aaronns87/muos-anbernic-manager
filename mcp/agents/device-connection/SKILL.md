@@ -15,6 +15,7 @@ kind: expert
 - `device_status` — richer device info when a target is available (`volume` optional).
 - `web_services_status` — MustardOS web services (SSH, SFTP, ttyd, Syncthing, dashboard, Filebrowser, …) with `url` when openable.
 - `syncthing_idle` / `syncthing_status` / `syncthing_wait_idle` — idle gate, folder list, wait before large copies.
+- `syncthing_conflicts` — `.sync-conflict` files in `save/` and `info/` (read-only). `syncthing_conflict_resolve` `{path, action}` with `keep-device`, `keep-conflict` or `delete-conflict` is two-step (confirmId); `keep-conflict` overwrites the original.
 
 ## Wi-Fi / USB
 

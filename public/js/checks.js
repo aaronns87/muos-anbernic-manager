@@ -4,7 +4,7 @@ import { $, api, esc, formatDate, human, icon, plural, setKeepingScroll, store, 
 import { confirmBox } from "./art-images.js";
 import { openDiscFixWizard } from "./disc-fix-wizard.js";
 
-const C = { data: null, error: "", loading: false, starting: false, trashing: false, converting: false, timer: 0, pick: new Set(), seen: new Set(), open: new Set(), discInit: new Set(), art: true, gone: new Set() };
+const C = { data: null, pipe: null, pipeBusy: false, error: "", loading: false, starting: false, trashing: false, converting: false, timer: 0, pick: new Set(), seen: new Set(), open: new Set(), discInit: new Set(), art: true, gone: new Set() };
 const STATES = {
   bad: ["bad", "alert", "Bad dump", "Doesn't match the good dump No-Intro lists for this game: damaged, overdumped or modified"],
   unknown: ["warn", "info", "Not in No-Intro", "No game with this name or checksum: a homebrew, hack or unlicensed release, or a different naming scheme"],
@@ -30,7 +30,12 @@ async function load() {
   C.loading = true;
   render();
   try {
-    C.data = await api(`checks?prefer=${encodeURIComponent(store.get("dupPrefer", "usa"))}`);
+    const [data, pipe] = await Promise.all([
+      api(`checks?prefer=${encodeURIComponent(store.get("dupPrefer", "usa"))}`),
+      api("disc/pipeline").catch(() => null),
+    ]);
+    C.data = data;
+    C.pipe = pipe;
     C.error = "";
     const listed = new Set((C.data.verify?.systems || []).flatMap((s) => s.games.map((g) => g.p)));
     for (const p of C.gone) if (!listed.has(p)) C.gone.delete(p);
@@ -45,7 +50,7 @@ async function load() {
   C.loading = false;
   render();
   clearTimeout(C.timer);
-  if (C.data?.run.running || C.data?.chd?.run?.running || C.data?.fix?.run?.running) {
+  if (C.data?.run.running || C.data?.chd?.run?.running || C.data?.fix?.run?.running || C.pipe?.state === "running") {
     C.timer = setTimeout(() => { if (!$("view-emulation").hidden && checksTabOpen()) load(); }, 900);
   }
 }
@@ -122,11 +127,19 @@ const archiveFixable = (g) => g.fixable && g.state === "bad" && (g.archive === "
 const chdReadyList = (d) => (d.disc?.systems || []).flatMap((s) => s.games.filter(chdReady).map((g) => ({ ...g, code: s.code })));
 const archiveFixList = (d) => (d.disc?.systems || []).flatMap((s) => s.games.filter(archiveFixable).map((g) => ({ ...g, code: s.code })));
 
+const pipeActive = () => C.pipeBusy || C.pipe?.state === "running";
+const pipeItems = (d) => {
+  const items = new Map();
+  for (const g of archiveFixList(d)) items.set(`${g.code}/${g.f}`, { code: g.code, file: g.f });
+  if (d.chd?.tool?.present) for (const g of chdReadyList(d)) items.set(`${g.code}/${g.f}`, { code: g.code, file: g.f });
+  return [...items.values()];
+};
+
 const DISC_ORDER = { bad: 0, tip: 1, ok: 2 };
 
 function discRow(g, code, toolOk) {
   const [cls, ico, label] = DISC[g.state] || DISC.ok;
-  const busy = C.converting || !!C.data?.chd?.run?.running || !!C.data?.fix?.run?.running;
+  const busy = C.converting || pipeActive() || !!C.data?.chd?.run?.running || !!C.data?.fix?.run?.running;
   let action = "";
   if (g.m3u) {
     action = `<button class="btn small primary" data-ck="m3u-one" data-code="${esc(code)}" data-group="${esc(g.m3u.group)}"${busy ? " disabled" : ""}>${icon("list")}<span>Make playlist&hellip;</span></button>${action}`;
@@ -138,10 +151,39 @@ function discRow(g, code, toolOk) {
       ? `<button class="btn small" data-ck="chd-one" data-code="${esc(code)}" data-file="${esc(g.f)}"${busy ? " disabled" : ""}>${icon("wrench")}<span>CHD</span></button>`
       : `<button class="btn small" disabled title="Install chdman (rom-tools), then Refresh tooling">${icon("wrench")}<span>CHD</span></button>`;
   }
+  if (archiveFixable(g) || (chdReady(g) && toolOk)) {
+    action += `<button class="btn small" data-ck="pipe-one" data-code="${esc(code)}" data-file="${esc(g.f)}"${busy ? " disabled" : ""} title="Fix, convert to CHD, write playlist and verify">${icon("layers")}<span>Pipeline</span></button>`;
+  }
   const arch = g.archive ? `<span class="tag" title="Archive format">${esc(g.archive)}</span> ` : "";
   const m3uNote = g.m3u ? `<span class="tag" title="Multi-disc set">Disc ${g.m3u.disc}</span> ` : "";
   return `<div class="chk-game"><div><b title="${esc(g.p)}">${esc(g.f)}</b><small>${arch}${m3uNote}${esc(g.note || g.t)}</small></div>
     <span class="set-chip ${cls}">${icon(ico)}${label}</span>${action}</div>`;
+}
+
+const PIPE_ICON = { done: "check", failed: "alert", skipped: "info", running: "", pending: "" };
+
+function pipelineCard() {
+  const p = C.pipe;
+  if (!p || p.state === "idle") return "";
+  const running = p.state === "running";
+  const steps = p.steps.map((st) => {
+    const mark = st.state === "running" ? `<span class="spinner sm"></span>` : PIPE_ICON[st.state] ? icon(PIPE_ICON[st.state]) : "&middot;";
+    const cls = st.state === "done" ? "ok" : st.state === "failed" ? "bad" : st.state === "skipped" ? "warn" : "";
+    return `<li class="chk-pipe-step ${cls}"><span class="chk-pipe-mark">${mark}</span><b>${esc(st.label)}</b>
+      <small>${esc(st.detail || (st.state === "pending" ? "Waiting" : st.state === "running" ? "Working..." : ""))}</small></li>`;
+  }).join("");
+  const done = p.steps.filter((st) => st.state === "done" || st.state === "skipped").length;
+  const title = { running: p.cancelling ? "Stopping after this step..." : "Disc pipeline running", paused: "Disc pipeline stopped", failed: "Disc pipeline needs attention", done: "Disc pipeline finished", cancelled: "Disc pipeline cancelled" }[p.state] || "Disc pipeline";
+  const games = p.items.length === 1 ? esc(p.items[0].file) : `${p.items.length} games`;
+  const buttons = running
+    ? `<button class="btn small" data-ck="pipe-cancel"${p.cancelling ? " disabled" : ""}>${icon("stop")}<span>${p.cancelling ? "Stopping..." : "Stop after this step"}</span></button>`
+    : `${p.resumable ? `<button class="btn small primary" data-ck="pipe-resume">${icon("play")}<span>Resume</span></button>
+      <button class="btn small" data-ck="pipe-cancel">${icon("x")}<span>Cancel</span></button>` : ""}
+      <button class="btn small ghost" data-ck="pipe-dismiss">Dismiss</button>`;
+  return `<div class="chk-pipe"><div class="chk-bar"><b>${esc(title)}</b><small>${games} &middot; ${done} of ${p.steps.length} steps</small><span class="grow"></span>${buttons}</div>
+    <div class="meter"><i style="width:${Math.round((done / Math.max(p.steps.length, 1)) * 100)}%"></i></div>
+    <ul class="chk-pipe-steps">${steps}</ul>
+    ${p.error && !running ? `<div class="notice err">${esc(p.error)}</div>` : ""}</div>`;
 }
 
 function chdTooling(d) {
@@ -150,7 +192,7 @@ function chdTooling(d) {
   const ready = chdReadyList(d);
   const archives = archiveFixList(d);
   const m3uCount = (d.disc?.systems || []).reduce((n, s) => n + (s.m3uNeed || 0), 0);
-  const busy = C.converting || !!run?.running || !!fixRun?.running;
+  const busy = C.converting || pipeActive() || !!run?.running || !!fixRun?.running;
   const chdChip = !tool ? "" : tool.present
     ? `<span class="set-chip ok" title="${esc(tool.path)}">${icon("check")}chdman${tool.version ? ` ${esc(tool.version)}` : ""}</span>`
     : `<span class="set-chip warn">${icon("alert")}chdman not found</span>`;
@@ -169,6 +211,7 @@ function chdTooling(d) {
     ${chdChip}${zipChip}
     <button class="link-btn" data-ck="chd-refresh"${C.loading || busy ? " disabled" : ""}>Refresh tooling</button>
     <span class="grow"></span>
+    ${pipeItems(d).length ? `<button class="btn small primary" data-ck="pipe-all"${busy ? " disabled" : ""} title="Fix archives, convert to CHD, write playlists and verify">${icon("layers")}<span>Disc pipeline (${pipeItems(d).length})</span></button>` : ""}
     ${archives.length ? `<button class="btn small primary" data-ck="fix-all"${busy ? " disabled" : ""}>${icon("wrench")}<span>Fix ${archives.length} archive${archives.length === 1 ? "" : "s"}</span></button>` : ""}
     ${m3uCount ? `<button class="btn small primary" data-ck="m3u-all"${busy ? " disabled" : ""}>${icon("list")}<span>Make ${m3uCount} playlist${m3uCount === 1 ? "" : "s"}</span></button>` : ""}
     ${tool?.present && ready.length ? `<button class="btn small" data-ck="chd-all"${busy ? " disabled" : ""}>${busy && run?.running ? `<span class="spinner sm"></span><span>Converting&hellip;</span>` : `${icon("wrench")}<span>Convert ${ready.length} to CHD</span>`}</button>` : ""}
@@ -176,7 +219,7 @@ function chdTooling(d) {
   const noneReady = !archives.length && tool?.present && !ready.length && !run?.running && !fixRun?.running
     ? `<p class="muted-note">No archives or complete .cue / .m3u sheets to fix. Games that are already .chd or .pbp stay as they are.</p>`
     : "";
-  return `${actions}${installPanel}${noneReady}${progress}${run?.error && !run.running ? `<div class="notice err">${esc(run.error)}</div>` : ""}
+  return `${actions}${pipelineCard()}${installPanel}${noneReady}${progress}${run?.error && !run.running ? `<div class="notice err">${esc(run.error)}</div>` : ""}
     ${fixRun?.error && !fixRun.running ? `<div class="notice err">${esc(fixRun.error)}</div>` : ""}`;
 }
 
@@ -390,6 +433,37 @@ async function convertChd(files, code = "PS") {
   load();
 }
 
+async function startPipeline(items) {
+  if (!items.length) return;
+  const ok = await confirmBox({
+    title: items.length === 1 ? `Run the disc pipeline on ${items[0].file}?` : `Run the disc pipeline on ${items.length} games?`,
+    html: `<p>Runs in order: fix archives, convert to CHD, write .m3u playlists for multi-disc sets, then verify (when a No-Intro list exists).
+      You can stop between steps and resume later. Archives and original cue/bin files go to the Trash after they succeed.</p>
+      <ul class="chk-confirm">${items.slice(0, 8).map((i) => `<li><code>${esc(i.file)}</code></li>`).join("")}${items.length > 8 ? `<li>and ${items.length - 8} more</li>` : ""}</ul>`,
+    ok: "Start pipeline",
+  });
+  if (!ok) return;
+  C.pipeBusy = true;
+  render();
+  try {
+    C.pipe = await api("disc/pipeline", { items });
+    toast("Disc pipeline started", 2500);
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  C.pipeBusy = false;
+  load();
+}
+
+async function pipelineAction(action) {
+  try {
+    C.pipe = await api(`disc/pipeline/${action}`, {});
+  } catch (error) {
+    toast(error.message, 4500);
+  }
+  load();
+}
+
 async function trash() {
   const groups = C.data.dupes.groups;
   const picked = groups.flatMap((g) => g.games).filter((r) => C.pick.has(r.p));
@@ -460,6 +534,9 @@ export function bindChecks(viewEl) {
       const rows = ck === "trash-one" ? games.filter((g) => g.p === el.dataset.path) : games.filter((g) => g.state === "bad");
       if (rows.length) trashChecked(rows);
     } else if (ck === "chd-refresh") load();
+    else if (ck === "pipe-one") startPipeline([{ code: el.dataset.code || "PS", file: el.dataset.file }]);
+    else if (ck === "pipe-all") startPipeline(pipeItems(C.data));
+    else if (ck === "pipe-cancel" || ck === "pipe-resume" || ck === "pipe-dismiss") pipelineAction(ck.slice(5));
     else if (ck === "chd-one") convertChd([el.dataset.file], el.dataset.code || "PS");
     else if (ck === "chd-all") {
       const list = chdReadyList(C.data);

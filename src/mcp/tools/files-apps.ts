@@ -98,6 +98,9 @@ export function registerFilesAppsTools(): void {
       paths: z.array(z.string()).optional(),
       path: z.string().optional(),
     }).passthrough(),
+    confirm: {
+      summary: (a) => `Delete ${Array.isArray(a.paths) && a.paths.length ? a.paths.join(", ") : a.path ?? "the selected items"} in ${a.root}.`,
+    },
     handler: async (args) => filesDelete(args),
   });
 
@@ -175,6 +178,9 @@ export function registerFilesAppsTools(): void {
     inputSchema: z.object({
       name: z.string().optional(),
     }).passthrough(),
+    confirm: {
+      summary: (a) => `Uninstall PortMaster port ${a.name ?? "(unnamed)"} from the handheld.`,
+    },
     handler: async (args) => uninstallPort(args),
   });
 
@@ -213,6 +219,9 @@ export function registerFilesAppsTools(): void {
     inputSchema: z.object({
       name: z.string().optional(),
     }).passthrough(),
+    confirm: {
+      summary: (a) => `Delete theme ${a.name ?? "(unnamed)"}.`,
+    },
     handler: async (args) => deleteTheme(args),
   });
 

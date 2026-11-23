@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { UserError } from "../errors.ts";
+import { createConfirm, takeConfirm } from "./confirm.ts";
 import { recordMcpToolCall } from "./stats.ts";
 import { TOOL_DETAILS } from "./tool-details.ts";
 
@@ -22,6 +23,16 @@ export type ToolGroup =
   | "system"
   | "meta";
 
+/** Marks a tool destructive: it needs a confirmId from a first call before it runs (see confirm.ts). */
+export interface ConfirmSpec {
+  /** One plain sentence saying what will happen, shown back to the user. */
+  summary: (args: Record<string, unknown>) => string;
+  /** True when the arguments already carry their own confirmation (system_start's confirm string). */
+  satisfied?: (args: Record<string, unknown>) => boolean;
+  /** Arguments stored with the confirmId and merged in when it is used. */
+  extra?: (args: Record<string, unknown>) => Record<string, unknown>;
+}
+
 export interface RegisteredTool {
   name: string;
   group: ToolGroup;
@@ -29,12 +40,26 @@ export interface RegisteredTool {
   /** Zod object shape for MCP registerTool inputSchema. */
   inputSchema: z.ZodObject<z.ZodRawShape>;
   handler: (args: Record<string, unknown>) => Promise<unknown>;
+  /** Destructive tools: first call returns { needsConfirm, confirmId, summary } without running. */
+  confirm?: ConfirmSpec;
 }
+
+const CONFIRM_HINT = " Destructive: the first call only returns needsConfirm + confirmId + summary; repeat the same arguments with that confirmId after the user agrees (dryRun:true previews again).";
 
 const tools = new Map<string, RegisteredTool>();
 
 export function defineTool(def: RegisteredTool): void {
   if (tools.has(def.name)) throw new Error(`MCP tool already registered: ${def.name}`);
+  if (def.confirm) {
+    def = {
+      ...def,
+      description: def.description + CONFIRM_HINT,
+      inputSchema: def.inputSchema.extend({
+        confirmId: z.string().optional().describe("From a previous needsConfirm result for these exact arguments"),
+        dryRun: z.boolean().optional().describe("Only return the confirmId and summary"),
+      }),
+    };
+  }
   tools.set(def.name, def);
 }
 
@@ -89,12 +114,13 @@ export const ASSISTANT_TOOL_LIMIT = 24;
 /** High-priority names the Assistant should always keep when capping. */
 const ASSISTANT_TOOL_PRIORITY = [
   "apps_list", "ports_list", "market_list",
-  "library_list", "library_search", "library_rescan", "game_get", "homebrew_list",
+  "library_list", "library_search", "library_rescan", "game_get",
   "connection_status", "device_status", "web_services_status", "wifi_find", "syncthing_status",
   "logs_list", "activity_list", "manager_status", "workspace_info",
-  "handheld_settings_get", "controls_snapshot", "benchmark_status",
+  "recipes_list", "recipes_run",
+  "handheld_settings_get", "controls_snapshot",
   "play_activity", "collections_list",
-  "bios_list", "saves_overview", "saves_game_list",
+  "bios_list", "saves_overview", "saves_game_list", "homebrew_list", "benchmark_status",
   "job_list", "job_get", "transfer_plan",
   "themes_list", "files_roots", "files_list", "files_read",
   "artwork_get_plan", "artwork_scrape_plan", "checks_status",
@@ -156,6 +182,19 @@ export function openaiToolsForChat(limit = ASSISTANT_TOOL_LIMIT): OpenAiTool[] {
   }));
 }
 
+async function runConfirmed(tool: RegisteredTool, spec: ConfirmSpec, parsed: Record<string, unknown>): Promise<unknown> {
+  const { confirmId, dryRun, ...args } = parsed;
+  const preview = () => {
+    const extra = spec.extra?.(args) ?? {};
+    const made = createConfirm({ tool: tool.name, summary: spec.summary(args), payload: args, extra });
+    return { needsConfirm: true, tool: tool.name, ...made, next: "Show the summary to the user. If they agree, call again with the same arguments plus confirmId." };
+  };
+  if (dryRun === true) return preview();
+  if (confirmId) return tool.handler({ ...args, ...takeConfirm(confirmId, tool.name, args).extra });
+  if (spec.satisfied?.(args)) return tool.handler(args);
+  return preview();
+}
+
 export async function executeTool(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -169,8 +208,8 @@ export async function executeTool(
     return { ok: false, error };
   }
   try {
-    const parsed = tool.inputSchema.parse(args ?? {});
-    const result = await tool.handler(parsed as Record<string, unknown>);
+    const parsed = tool.inputSchema.parse(args ?? {}) as Record<string, unknown>;
+    const result = tool.confirm ? await runConfirmed(tool, tool.confirm, parsed) : await tool.handler(parsed);
     recordMcpToolCall({ tool: name, client, ok: true, ms: Date.now() - started });
     return { ok: true, result };
   } catch (err) {
@@ -181,8 +220,9 @@ export async function executeTool(
 }
 
 /** Attach every registered tool to an MCP server instance. */
-export function attachToolsToMcp(server: McpServer, clientLabel = "mcp"): void {
+export function attachToolsToMcp(server: McpServer, clientLabel = "mcp", allow?: (name: string) => boolean): void {
   for (const t of listTools()) {
+    if (allow && !allow(t.name)) continue;
     server.registerTool(
       t.name,
       { description: t.description, inputSchema: t.inputSchema.shape },

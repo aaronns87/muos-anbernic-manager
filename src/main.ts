@@ -13,6 +13,7 @@ import { disconnect } from "./device/mtp.ts";
 import { closeSftp } from "./device/sftp.ts";
 import { closeSsh } from "./device/ssh.ts";
 import { rescanLibrary } from "./games/library.ts";
+import { startIdleJobs, stopIdleJobs } from "./idle-jobs.ts";
 import { ensureArcadeNames, ensureDescriptions } from "./games/metadata.ts";
 import { cancelJob, jobRunning, locks, waitForJob } from "./jobs.ts";
 import { C, dim, human, say } from "./log.ts";
@@ -191,6 +192,7 @@ async function main(): Promise<void> {
   await fsp.writeFile(instanceFile(), JSON.stringify({ pid: process.pid, port: ctx.port, token: ctx.token }), { mode: 0o600 });
   const url = `http://127.0.0.1:${ctx.port}/?token=${ctx.token}`;
   say("green", "SERVING", `http://127.0.0.1:${ctx.port}/`);
+  startIdleJobs();
   if (mcpEnabled()) say("green", "MCP", `http://127.0.0.1:${ctx.port}/mcp (Tools → MCP for the token)`);
   if (ctx.tf2Dir) say("yellow", "TEST", `Using ${ctx.tf2Dir} as the TF2 card.`);
   dim("Keep this window open while you use the manager. Press Ctrl-C to stop.");
@@ -214,6 +216,7 @@ async function main(): Promise<void> {
       cancelJob();
       await waitForJob();
     }
+    stopIdleJobs();
     shutdownMcp();
     server.close();
     // A hung USB call must not keep the process alive: exiting frees the handheld's USB interface anyway.

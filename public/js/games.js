@@ -6,6 +6,7 @@ import {
   handheldMode, slowHint, devName, devWord, cardWord, busy, canQueue, ready, keyOf, onCardState, isOnCard, canCopy
 } from "./core.js";
 import { renderDevice } from "./device.js";
+import { setCardDiff } from "./profiles.js";
 import { startPlan } from "./copy.js";
 import { renderCurrent } from "./views.js";
 import { showArtTab } from "./artwork-view.js";
@@ -655,6 +656,7 @@ export async function loadDevice() {
         g.search = [g.t, g.f, sys.name, sys.code].join(" ").toLowerCase();
       });
     });
+    setCardDiff(data.cardDiff, volume);
     app.listing = { status: "ready", volume, data, error: "" };
   } catch (error) {
     if (app.listing.volume !== volume) return;

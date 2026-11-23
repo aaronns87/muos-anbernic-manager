@@ -1,4 +1,4 @@
-// Copying games to the device, and the Transfers panel every job reports to: running, waiting and finished jobs.
+// Copying games to the device or pulling them from it, and the Transfers panel every job reports to: running, waiting and finished jobs.
 
 import { $, app, api, esc, human, clock, plural, toast, icon, usbMode, slowHint, devName, busy, canQueue, store, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
 import { renderDevice, refreshDevice, renderStatusbar } from "./device.js";
@@ -8,24 +8,81 @@ import { resetOverview } from "./overview.js";
 let pending = null;
 let pollTimer = null;
 
-export async function startPlan(targets, label, { onStart = null } = {}) {
+const DIRECTIONS = {
+  "to-device": { pull: false, match: false },
+  "from-device": { pull: true, match: false },
+  "match-device": { pull: false, match: true },
+  "match-library": { pull: true, match: true },
+};
+
+const dirTitle = (dir) => ({
+  "to-device": `Transfer to ${devName()}`,
+  "from-device": `Transfer from ${devName()}`,
+  "match-device": `Match ${devName()} to the library`,
+  "match-library": `Match the library to ${devName()}`,
+})[dir];
+
+const dirHelp = (dir) => ({
+  "to-device": `Copies games from Roms/ that ${devName()} does not have yet.`,
+  "from-device": `Copies games ${devName()} has into Roms/ when Roms/ does not have them yet.`,
+  "match-device": `Makes sure ${devName()} has these Roms/ games, replacing copies that differ. Nothing is deleted from ${devName()}.`,
+  "match-library": `Makes sure Roms/ has what is on ${devName()} for these systems, replacing copies that differ (the old ones go to the Trash). Nothing is deleted from ${devName()}.`,
+})[dir];
+
+/** The Syncthing-shared folder from Settings ("" when not set up). */
+async function syncFolder() {
+  try { return (await api("settings")).settings.syncthingRomsPath || ""; } catch { return ""; }
+}
+
+/** The way this transfer goes. Syncthing only sends games to the handheld, so pulls always use the connection. */
+const transportOf = (p = pending) => (p && p.syncPath && p.transport === "syncthing" && !DIRECTIONS[p.direction].pull ? "syncthing" : "sftp");
+const place = () => (transportOf() === "syncthing" ? "the Syncthing folder" : esc(devName()));
+
+function renderTransport(mine) {
+  const pull = DIRECTIONS[mine.direction].pull;
+  $("t-transport-wrap").hidden = pull;
+  $("t-transport-help").hidden = pull;
+  const option = $("t-transport").querySelector('option[value="syncthing"]');
+  option.disabled = !mine.syncPath;
+  $("t-transport").value = transportOf(mine);
+  $("t-transport-help").textContent = !mine.syncPath
+    ? "Syncthing needs a shared ROMs folder: choose it under Settings > Transfers, startup and updates."
+    : transportOf(mine) === "syncthing"
+      ? `Copies into ${mine.syncPath} (same layout as Roms/) and waits for Syncthing to settle. ${devName()} receives the games when it syncs.`
+      : "";
+}
+
+export async function startPlan(targets, label, { onStart = null, direction = "to-device" } = {}) {
   if (!app.device.target) { toast("Insert TF2 or connect the handheld first"); return; }
   if (!canQueue()) { toast("Over USB the handheld handles one transfer at a time. Wait for the current one to finish."); return; }
   if ($("viewer").open) $("viewer").close();
-  const mine = pending = { targets, label, plan: null, onStart };
-  $("t-title").textContent = `Transfer to ${devName()}`;
+  const mine = pending = { targets, label, plan: null, onStart, direction, syncPath: "", transport: store.get("transferTransport", "sftp") };
   $("t-scope").textContent = label;
-  $("t-plan").innerHTML = `<div class="planning"><span class="spinner"></span> Comparing with what is already on ${esc(devName())}&hellip;${slowHint()}</div>`;
+  $("t-dir").value = direction;
+  renderTransport(mine);
+  if (!$("transfer").open) $("transfer").showModal();
+  mine.syncPath = await syncFolder();
+  if (pending !== mine) return;
+  renderTransport(mine);
+  loadPlan(mine);
+}
+
+async function loadPlan(mine) {
+  const dir = mine.direction;
+  mine.plan = null;
+  $("t-title").textContent = dirTitle(dir);
+  $("t-dir-help").textContent = dirHelp(dir);
+  renderTransport(mine);
+  $("t-plan").innerHTML = `<div class="planning"><span class="spinner"></span> Comparing ${DIRECTIONS[dir].pull ? `Roms/ with ${esc(devName())}` : `with what is already in ${place()}`}&hellip;${slowHint()}</div>`;
   $("t-start").hidden = true;
   $("t-cancel").textContent = "Cancel";
-  if (!$("transfer").open) $("transfer").showModal();
   try {
-    const plan = await api("games/plan", { volume: app.device.target.id, targets });
-    if (pending !== mine) return;
+    const plan = await api("games/plan", { volume: app.device.target.id, targets: mine.targets, direction: dir, transport: transportOf(mine) });
+    if (pending !== mine || mine.direction !== dir) return;
     mine.plan = plan;
     renderPlan();
   } catch (error) {
-    if (pending !== mine) return;
+    if (pending !== mine || mine.direction !== dir) return;
     $("t-plan").innerHTML = `<div class="notice err">${esc(error.message)}</div>`;
     $("t-cancel").textContent = "Close";
   }
@@ -33,18 +90,19 @@ export async function startPlan(targets, label, { onStart = null } = {}) {
 
 function renderPlan() {
   const plan = pending.plan;
+  const { pull, match } = DIRECTIONS[pending.direction];
   const names = Object.fromEntries(app.data.systems.map((s) => [s.code, s.name]));
   const diff = plan.different;
-  const name = esc(devName());
-  const parts = [`<div class="plan-grid">
-    <div class="stat"><b>${plan.new.count.toLocaleString()}</b><span>new &middot; ${human(plan.new.bytes)}</span></div>
-    <div class="stat"><b>${plan.identical.toLocaleString()}</b><span>already on ${name}</span></div>
-    <div class="stat"><b>${diff.count.toLocaleString()}</b><span>different on ${name}</span></div>
+  const name = pull ? "Roms/" : place();
+  const parts = [`<div class="notice">Dry run: nothing is copied until you press ${pull ? "Pull" : "Transfer"}.</div>`, `<div class="plan-grid">
+    <div class="stat"><b>${plan.new.count.toLocaleString()}</b><span>${pull ? `missing from Roms/` : "new"} &middot; ${human(plan.new.bytes)}</span></div>
+    <div class="stat"><b>${plan.identical.toLocaleString()}</b><span>already ${pull ? "in" : "on"} ${name}</span></div>
+    <div class="stat"><b>${diff.count.toLocaleString()}</b><span>different ${pull ? "in" : "on"} ${name}</span></div>
   </div>`];
   if (diff.count) {
-    parts.push(`<label class="check"><input type="checkbox" id="t-replace">
-      <span>Replace the ${diff.count === 1 ? "file that differs" : `${diff.count} files that differ`} on ${name} (${human(diff.bytes)})<br>
-      <small style="color:var(--muted)">Left unticked, the copies already on ${name} are kept.${usbMode() ? " Over USB the old copy is deleted before the new one is sent." : ""}</small></span></label>
+    parts.push(`<label class="check"><input type="checkbox" id="t-replace"${match ? " checked" : ""}>
+      <span>Replace the ${diff.count === 1 ? "file that differs" : `${diff.count} files that differ`} ${pull ? "in" : "on"} ${name} (${human(diff.bytes)})<br>
+      <small style="color:var(--muted)">Left unticked, the copies already ${pull ? "in" : "on"} ${name} are kept.${pull ? " Replaced copies go to the Trash." : usbMode() ? " Over USB the old copy is deleted before the new one is sent." : ""}</small></span></label>
       <details><summary>Show files that differ</summary><ul>${diff.files.map((f) => `<li>${esc(f)}</li>`).join("")}${diff.count > diff.files.length ? `<li>&hellip;and ${diff.count - diff.files.length} more</li>` : ""}</ul></details>`);
   }
   if (plan.systems.length > 1) {
@@ -56,9 +114,9 @@ function renderPlan() {
     parts.push(`<div class="notice">${plan.queued === 1 ? "One of these is" : `${plan.queued.toLocaleString()} of these are`} already waiting in Transfers.</div>`);
   }
   if (plan.skipped.length) {
-    parts.push(`<small style="color:var(--muted)">Skipped ${plan.skipped.map(esc).join(", ")}: stock Anbernic firmware files that MustardOS does not run.</small>`);
+    parts.push(`<small style="color:var(--muted)">Skipped ${plan.skipped.slice(0, 20).map(esc).join(", ")}${plan.skipped.length > 20 ? ", &hellip;" : ""}: ${pull ? "firmware folders and unusable paths" : "stock Anbernic firmware files that MustardOS does not run"}.</small>`);
   }
-  if (plan.too_big.length) {
+  if (plan.too_big.length && !pull) {
     parts.push(`<div class="notice err">${esc(plan.too_big[0])} is 4 GB or larger, which FAT32 cannot store. Use <a href="#system">System Tools</a> to set up TF2 as exFAT. Formatting erases the card; back up its files first.</div>`);
   }
   parts.push(`<div id="t-space"></div>`);
@@ -69,25 +127,28 @@ function renderPlan() {
 
 function updatePlanTotals() {
   const plan = pending.plan;
+  const { pull } = DIRECTIONS[pending.direction];
   const replace = $("t-replace")?.checked || false;
   const count = plan.new.count + (replace ? plan.different.count : 0);
   const bytes = plan.new.bytes + (replace ? plan.different.bytes : 0);
-  const fits = bytes <= plan.card.free;
+  const free = pull ? plan.library.free : plan.card.free;
+  const where = pull ? "this computer" : transportOf() === "syncthing" ? "the Syncthing folder's drive" : devName();
+  const fits = bytes <= free;
   const start = $("t-start");
   if (!count) {
     $("t-space").innerHTML = plan.queued && !plan.new.count && !plan.different.count ? ""
       : plan.different.count
-      ? `<div class="notice">Nothing new to transfer. Tick the box above to replace the different copies on ${esc(devName())}.</div>`
-      : `<div class="notice ok">Everything here is already on ${esc(devName())}. Nothing to transfer.</div>`;
+      ? `<div class="notice">Nothing new to transfer. Tick the box above to replace the different copies ${pull ? "in Roms/" : `in ${place()}`}.</div>`
+      : `<div class="notice ok">Everything here is already ${pull ? "in Roms/" : `in ${place()}`}. Nothing to transfer.</div>`;
     start.hidden = true;
     $("t-cancel").textContent = "Close";
     return;
   }
-  $("t-space").innerHTML = `<div class="space-line"><span>Transferring <b>${human(bytes)}</b></span><span>${esc(devName())} has <b>${human(plan.card.free)}</b> free</span></div>
-    ${fits ? "" : `<div class="notice err">Not enough space on ${esc(devName())}. Free up ${human(bytes - plan.card.free)} or pick fewer games.</div>`}`;
+  $("t-space").innerHTML = `<div class="space-line"><span>${pull ? "Pulling" : "Transferring"} <b>${human(bytes)}</b></span><span>${esc(where)} has <b>${human(free)}</b> free${pull ? " for Roms/" : ""}</span></div>
+    ${fits ? "" : `<div class="notice err">Not enough space on ${esc(where)}. Free up ${human(bytes - free)} or pick fewer games.</div>`}`;
   start.hidden = false;
-  start.disabled = !fits || plan.too_big.length > 0;
-  start.innerHTML = `${icon("transfer")}<span>${busy() ? "Queue" : "Transfer"} ${count.toLocaleString()} file${count === 1 ? "" : "s"}</span>`;
+  start.disabled = !fits || (!pull && plan.too_big.length > 0);
+  start.innerHTML = `${icon("transfer")}<span>${busy() ? "Queue" : pull ? "Pull" : "Transfer"} ${count.toLocaleString()} file${count === 1 ? "" : "s"}</span>`;
   $("t-cancel").textContent = "Cancel";
 }
 
@@ -96,7 +157,7 @@ async function startTransfer() {
   start.disabled = true;
   start.innerHTML = `<span class="spinner"></span> Starting`;
   try {
-    if (store.get("waitSyncthingIdle", false) === true) {
+    if (transportOf() === "sftp" && store.get("waitSyncthingIdle", false) === true) {
       try {
         const gate = await api("ssh/syncthing-idle/wait");
         if (gate.waited) toast("Waited for Syncthing to finish syncing", 3000);
@@ -104,7 +165,7 @@ async function startTransfer() {
     }
     const result = await api("games/copy", {
       volume: app.device.target.id, targets: pending.targets, label: pending.label,
-      replace: $("t-replace")?.checked || false
+      replace: $("t-replace")?.checked || false, direction: pending.direction, transport: transportOf()
     });
     $("transfer").close();
     pending.onStart?.();
@@ -132,6 +193,7 @@ async function jobFinished(job) {
   if (!T.shown || T.min) toast(pastSummary(job), 3500);
   if (job.kind === "apps") { renderDevice(); return; }
   resetOverview();
+  if (job.kind === "transfer" && job.direction === "from-device" && job.copied) await loadLibrary().catch(() => {});
   if (job.kind === "art") {
     if (job.copied) await loadLibrary().catch(() => {});
     renderDevice();
@@ -183,7 +245,7 @@ app.transfers = T;
 const KIND_ICON = { transfer: "transfer", files: "folder", apps: "package", art: "image", artsend: "image" };
 const unit = (j) => (j.kind === "art" || j.kind === "artsend" ? "image" : "file");
 const pctOf = (j) => (j.total_bytes ? Math.min(100, Math.floor((j.done_bytes / j.total_bytes) * 100)) : 100);
-const where = (j) => ({ art: "into Roms/", apps: `to ARCHIVE on ${j.target}` })[j.kind] || `to ${j.target}`;
+const where = (j) => ({ art: "into Roms/", apps: `to ARCHIVE on ${j.target}` })[j.kind] || (j.direction === "from-device" ? `from ${j.target} into Roms/` : `to ${j.target}`);
 const kindIcon = (j) => `<span class="tx-ico">${icon(KIND_ICON[j.kind] || "transfer")}</span>`;
 const dot = " &middot; ";
 
@@ -257,6 +319,10 @@ function runningItem(j) {
   const pct = pctOf(j), u = unit(j);
   const stop = `<button class="btn icon small ghost" data-dock="stop" data-id="${j.id}" title="Stop" aria-label="Stop ${esc(j.label)}">${icon("stop")}</button>`;
   const top = `<div class="tx-top">${kindIcon(j)}<div class="tx-name"><b title="${esc(j.label)}">${esc(j.label)}</b><small>${esc(where(j))}</small></div>`;
+  if (j.phase === "sync") {
+    return `<li class="tx run">${top}${stop}</div><div class="bar"><i style="width:100%"></i></div>
+      <div class="tx-meta"><span>${plural(j.copied, "file")} copied into the Syncthing folder</span><span>Waiting for Syncthing&hellip;</span></div></li>`;
+  }
   if (j.phase === "rebuild") {
     return `<li class="tx run">${top}</div><div class="bar"><i style="width:100%"></i></div>
       <div class="tx-meta"><span>${plural(j.copied, "image")} copied into Roms/</span><span>Rescanning Roms/&hellip;</span></div></li>`;
@@ -358,6 +424,17 @@ export function toggleDock() {
 export function bindCopy() {
   $("t-cancel").addEventListener("click", () => $("transfer").close());
   $("t-start").addEventListener("click", startTransfer);
+  $("t-dir").addEventListener("change", () => {
+    if (!pending) return;
+    pending.direction = $("t-dir").value;
+    loadPlan(pending);
+  });
+  $("t-transport").addEventListener("change", () => {
+    if (!pending) return;
+    pending.transport = $("t-transport").value;
+    store.set("transferTransport", pending.transport);
+    loadPlan(pending);
+  });
   document.addEventListener("click", (e) => { if (e.target.closest("[data-dock-open]")) toggleDock(); });
   // The panel redraws while jobs run; holding it still between press and release keeps clicks on its buttons.
   $("dock").addEventListener("pointerdown", () => { T.pressing = true; });

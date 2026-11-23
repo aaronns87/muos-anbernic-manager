@@ -209,10 +209,13 @@ function claudeEntry(url: string, token: string) {
   return { type: "http", url, headers: { Authorization: `Bearer ${token}` }, description: MCP_SERVER_DESCRIPTION };
 }
 
-function snippetFor(format: McpClientFormat, url: string, token: string): string {
+/** Key for the read-only entry; shown in snippets only, never written by Set up. */
+const GUEST_KEY = `${SERVER_KEY}-guest`;
+
+function snippetFor(format: McpClientFormat, url: string, token: string, key = SERVER_KEY): string {
   if (format === "codex-toml") {
     return [
-      `[mcp_servers.${SERVER_KEY}]`,
+      `[mcp_servers.${key}]`,
       `url = "${url}"`,
       `http_headers = { Authorization = "Bearer ${token}" }`,
       `description = ${JSON.stringify(MCP_SERVER_DESCRIPTION)}`,
@@ -220,7 +223,7 @@ function snippetFor(format: McpClientFormat, url: string, token: string): string
     ].join("\n");
   }
   const entry = format === "claude-desktop-json" ? claudeEntry(url, token) : cursorEntry(url, token);
-  return JSON.stringify({ mcpServers: { [SERVER_KEY]: entry } }, null, 2) + "\n";
+  return JSON.stringify({ mcpServers: { [key]: entry } }, null, 2) + "\n";
 }
 
 async function readJsonFile(file: string): Promise<Record<string, unknown>> {
@@ -310,6 +313,7 @@ export async function scanMcpClients() {
       configured,
       setupSupported: true,
       snippet: snippetFor(def.format, url, token),
+      guestSnippet: snippetFor(def.format, url, mcpSettings().guestToken, GUEST_KEY),
     });
   }
   return {
@@ -323,6 +327,7 @@ export async function scanMcpClients() {
 /** Public configs for copy-paste (all known clients + legacy keys). */
 export function mcpClientConfigs() {
   const { url, token } = endpoint();
+  const guestToken = mcpSettings().guestToken;
   const byId: Record<string, string> = {};
   for (const def of clientDefs()) {
     byId[def.id] = snippetFor(def.format, url, token);
@@ -337,6 +342,7 @@ export function mcpClientConfigs() {
       format: d.format,
       configPath: d.configPath,
       snippet: byId[d.id],
+      guestSnippet: snippetFor(d.format, url, guestToken, GUEST_KEY),
     })),
     // Legacy keys used by older UI / tests.
     cursor: byId.cursor,

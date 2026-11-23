@@ -18,7 +18,7 @@ const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((p) => p && fs.existsSync(p));
 
-const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "logs"];
+const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "mcp", "settings", "logs"];
 const TABS = ["saves", "bios", "cores", "retroarch", "checks"];
 
 class Cdp {

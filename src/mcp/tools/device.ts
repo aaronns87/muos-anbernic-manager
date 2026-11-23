@@ -7,6 +7,7 @@ import { allowUsb, disconnect as disconnectMtp, releaseUsb, restartUsb } from ".
 import { handheldSettings, saveHandheldSettings, undoHandheldSettings } from "../../device/muos-settings.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "../../device/sftp.ts";
 import { closeSsh, sshStatus } from "../../device/ssh.ts";
+import { CONFLICT_ACTIONS, conflictsJson, resolveConflict } from "../../device/syncthing-conflicts.ts";
 import { syncthingIdleJson, waitSyncthingIdle } from "../../device/syncthing-idle.ts";
 import { findCards, handheldStatus, withTarget } from "../../device/target.ts";
 import { webServicesStatus } from "../../device/web-services.ts";
@@ -137,6 +138,30 @@ export function registerDeviceTools(): void {
     description: "Syncthing idle state plus read-only folder list and web UI URL from the handheld.",
     inputSchema: z.object({}),
     handler: async () => syncthingIdleJson(),
+  });
+
+  defineTool({
+    name: "syncthing_conflicts",
+    group: "device",
+    description: "List Syncthing .sync-conflict files under save/ and info/ on the handheld (path, original, size, mtime). Read-only.",
+    inputSchema: z.object({}),
+    handler: async () => conflictsJson(),
+  });
+
+  defineTool({
+    name: "syncthing_conflict_resolve",
+    group: "device",
+    description: "Resolve one Syncthing conflict from syncthing_conflicts: keep-device or delete-conflict removes the conflict copy; keep-conflict replaces the original with it.",
+    inputSchema: z.object({
+      path: z.string().describe("Conflict path from syncthing_conflicts"),
+      action: z.enum(CONFLICT_ACTIONS as [string, ...string[]]),
+    }),
+    confirm: {
+      summary: (a) => a.action === "keep-conflict"
+        ? `Replace the original with the Syncthing conflict copy ${a.path} on the handheld (the current file is overwritten).`
+        : `Delete the Syncthing conflict copy ${a.path} on the handheld and keep the current file.`,
+    },
+    handler: async (args) => resolveConflict(args),
   });
 
   defineTool({

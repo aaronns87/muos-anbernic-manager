@@ -43,6 +43,9 @@ export function registerBiosSavesTools(): void {
       library: z.boolean().optional(),
       device: z.boolean().optional(),
     }),
+    confirm: {
+      summary: (a) => `Delete BIOS file ${a.file}${a.library === false ? "" : " from bios/"}${a.device ? " and from the handheld" : ""}.`,
+    },
     handler: async (args) => deleteBios(args),
   });
 
@@ -106,6 +109,9 @@ export function registerBiosSavesTools(): void {
       name: z.string(),
       volume: z.string().optional(),
     }),
+    confirm: {
+      summary: (a) => `Permanently delete ${a.name} for ${a.code}/${a.file} on the handheld.`,
+    },
     handler: async (args) => deleteGameSave(args),
   });
 
@@ -119,6 +125,9 @@ export function registerBiosSavesTools(): void {
       keep: z.number().int().min(0).optional(),
       volume: z.string().optional(),
     }),
+    confirm: {
+      summary: (a) => `Delete older save states for ${a.code}/${a.file} on the handheld, keeping ${a.keep ?? "the newest few"}.`,
+    },
     handler: async (args) => pruneGameStates(args),
   });
 
@@ -155,6 +164,9 @@ export function registerBiosSavesTools(): void {
     inputSchema: z.object({
       name: z.string(),
     }).passthrough(),
+    confirm: {
+      summary: (a) => `Restore backup ${a.name} on the handheld. This overwrites saves and settings.`,
+    },
     handler: async (args) => restoreMuxbak(args),
   });
 }

@@ -7,11 +7,14 @@ import { specs } from "./devices.js";
 import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
 import { activityPanel } from "./activity.js";
-import { digestPanelHtml } from "./profiles.js";
+import { digestPanelHtml, loadCardDiff, recordProfileSeen } from "./profiles.js";
 
 let loadToken = 0;
+const HEALTH_AGE = 60_000;
+let health = { data: null, error: "", at: 0, loading: false };
 
 export function resetOverview() {
+  health.at = 0;
   Object.assign(app.overview, { info: null, infoFor: "", infoError: "", summary: null, summaryFor: "", summaryError: "", loading: "" });
   loadToken++;
 }
@@ -21,6 +24,19 @@ async function loadWorkspace() {
   app.overview.loadingWorkspace = true;
   try { app.overview.workspace = await api("workspace"); } catch (error) { app.overview.workspace = { error: error.message, os: [], apps: [] }; }
   app.overview.loadingWorkspace = false;
+  renderOverview();
+}
+
+/** Library health from the server (cached signals only); refreshed at most once a minute while Overview is open. */
+async function loadHealth() {
+  if (health.loading || (health.at && Date.now() - health.at < HEALTH_AGE)) return;
+  health.loading = true;
+  const token = loadToken;
+  try { health.data = await api("overview/health"); health.error = ""; }
+  catch (error) { health.error = error.message; }
+  health.loading = false;
+  if (token !== loadToken && !health.data) return;
+  health.at = Date.now();
   renderOverview();
 }
 
@@ -37,6 +53,7 @@ export async function loadInfo() {
   o.infoFor = id;
   o.loading = "";
   renderDevice();
+  if (o.info) recordProfileSeen();
 }
 
 /** Counts of the games on the device; only the overview shows them. */
@@ -147,6 +164,36 @@ function syncPanel(conn) {
     "sync");
 }
 
+// ---------------------------------------------------------------- library health
+
+const HEALTH_LABEL = { ok: "OK", warn: "Check", bad: "Fix", info: "Info" };
+
+/** Server items plus the library-vs-device comparison, which only the app knows (it holds the device index). */
+function healthItems(conn) {
+  const items = [...health.data.items];
+  if (isLive(conn) && app.data && !app.device.error) {
+    const s = syncCounts();
+    const detail = [s.missing && `${plural(s.missing, "game")} not on ${devName()} (${human(s.bytes)})`, s.differ && `${plural(s.differ, "copy", "copies")} differ from Roms/`].filter(Boolean).join("; ");
+    items.push({ id: "device-sync", severity: s.differ ? "warn" : s.missing ? "info" : "ok", label: s.missing || s.differ ? "Not on device" : "On device", detail: detail ? detail + "." : `Everything in Roms/ is on ${devName()}.`, href: "#games" });
+  }
+  return items;
+}
+
+function healthPanel(conn) {
+  const title = `Library health${health.loading ? ` ${spinner}` : ""}`;
+  if (!health.data) {
+    return panel("wide ov-health", title, health.error ? notice("err", esc(health.error)) : loadingInline("Checking the library&hellip;"),
+      health.error ? retryBtn('data-go="health-retry"') : "", "check");
+  }
+  const items = healthItems(conn);
+  const sum = { ok: 0, warn: 0, bad: 0 };
+  for (const i of items) if (sum[i.severity] !== undefined) sum[i.severity]++;
+  const head = sum.bad ? `${plural(sum.bad, "problem")} to fix` : sum.warn ? `${plural(sum.warn, "thing")} to look at` : "All good";
+  const rows = items.map((i) => `<li class="health-item ${esc(i.severity)}"><a class="pill ${i.severity === "info" ? "" : esc(i.severity)}" href="${esc(i.href)}" title="${esc(HEALTH_LABEL[i.severity] || "")}">${esc(i.label)}</a><span class="health-detail">${esc(i.detail)}</span></li>`).join("");
+  return panel("wide ov-health", title, `<p class="muted-note health-sum">${esc(head)} <span>${sum.ok} OK &middot; ${sum.warn} to check &middot; ${sum.bad} to fix</span></p><ul class="health-list">${rows}</ul>`,
+    `<button class="btn ghost" data-go="health-retry">${icon("sync")}<span>Refresh</span></button>`, "check");
+}
+
 function onDevicePanel(conn) {
   const o = app.overview, live = isLive(conn);
   const title = `On ${live ? esc(devName()) : "the device"}${o.loading === "summary" ? ` ${spinner}` : ""}`;
@@ -246,11 +293,13 @@ export function renderOverview() {
   const conn = connection();
   const live = isLive(conn);
   $("overview").classList.toggle("ov-offline", !live);
+  if (live) loadCardDiff();
   const typed = [...$("overview").querySelectorAll(".wifi-form input")].map((i) => [i.id, i.value]);
   const focused = document.activeElement && document.activeElement.closest(".wifi-form") ? document.activeElement.id : "";
   const open = !!$("overview").querySelector(".wifi-settings[open]");
   $("overview").innerHTML = [
     devicePanel(conn), live ? syncPanel(conn) : localTasksPanel(),
+    healthPanel(conn),
     digestPanelHtml(),
     libraryPanel(), live ? onDevicePanel(conn) : "",
     recentPanel(), artworkPanel(),
@@ -264,9 +313,13 @@ export function renderOverview() {
     ? `${conn.title} ${conn.state === "wifi" ? "over Wi-Fi" : usbMode() ? "over USB" : "in the card reader"}`
     : "Your library and what to do next";
   $("ov-actions").innerHTML = live ? `<span class="mode-label">Connect with</span>${modePicker()}` : "";
+  loadHealth();
   loadWorkspace();
   loadInfo();
   loadSummary();
 }
 
-document.addEventListener("click", (e) => { if (e.target.closest('[data-ov="model"]')) openCardModel(); });
+document.addEventListener("click", (e) => {
+  if (e.target.closest('[data-ov="model"]')) openCardModel();
+  if (e.target.closest('[data-go="health-retry"]')) { health.at = 0; health.error = ""; loadHealth(); renderOverview(); }
+});

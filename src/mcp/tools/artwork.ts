@@ -62,6 +62,9 @@ export function registerArtworkTools(): void {
       system: z.string(),
       names: z.array(z.string()).min(1).max(5000),
     }),
+    confirm: {
+      summary: (a) => `Move ${Array.isArray(a.names) ? a.names.length : 0} image(s) in Roms/${a.system}/Imgs to the Trash.`,
+    },
     handler: async (args) => deleteLocalArt(args),
   });
 
@@ -135,6 +138,9 @@ export function registerArtworkTools(): void {
       kind: z.enum(["box", "preview", "splash"]),
       name: z.string(),
     }),
+    confirm: {
+      summary: (a) => `Permanently delete ${a.kind} artwork ${a.name} (${a.catalogue}) from the handheld.`,
+    },
     handler: async (args) => deleteGameArt(args),
   });
 

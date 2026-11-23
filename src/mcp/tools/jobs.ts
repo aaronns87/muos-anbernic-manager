@@ -1,33 +1,39 @@
 import { z } from "zod/v4";
-import { withTarget } from "../../device/target.ts";
-import { cancelJob, forgetJob, jobFiles, jobList, makePlan, planSummary, startCopy } from "../../jobs.ts";
+import { cancelJob, forgetJob, jobFiles, jobList, planTransfer, startCopy } from "../../jobs.ts";
 import { defineTool } from "../registry.ts";
+
+const directionSchema = z.enum(["to-device", "from-device", "match-device", "match-library"]).optional()
+  .describe("to-device (default), from-device, match-device or match-library");
+
+const transportSchema = z.enum(["sftp", "syncthing"]).optional()
+  .describe("sftp (default): straight to the handheld. syncthing: copy into the local Syncthing-shared ROMs folder from Settings (to-device and match-device only) and wait for Syncthing to settle.");
 
 export function registerJobTools(): void {
   defineTool({
     name: "transfer_plan",
     group: "jobs",
-    description: "Plan copying games (or a whole system) to the handheld. targets are SYSTEM or SYSTEM/file paths.",
+    description: "Dry-run a transfer. direction: to-device (default, library -> handheld), from-device (handheld -> Roms/), match-device (device gets the library selection, replacing differing files) or match-library (Roms/ gets what the handheld has, replacing differing files). targets are SYSTEM or SYSTEM/file paths; \"\" is everything.",
     inputSchema: z.object({
-      volume: z.string().describe("Destination volume id from connection_status / device_status"),
+      volume: z.string().describe("Device volume id from connection_status / device_status"),
       targets: z.array(z.string()).min(1).describe("e.g. [\"GB\"] or [\"GB/Tetris.gb\"]"),
+      direction: directionSchema,
+      transport: transportSchema,
     }),
-    handler: async (args) => {
-      const volume = String(args.volume);
-      const targets = args.targets as string[];
-      return withTarget(volume, async (t) => planSummary(t.info, await makePlan(t, targets)));
-    },
+    handler: async (args) => planTransfer(String(args.volume), args.targets as string[], args.direction, args.transport),
   });
 
   defineTool({
     name: "transfer_start",
     group: "jobs",
-    description: "Start copying planned games to the handheld. Returns a job id to poll with job_get.",
+    description: "Start a planned transfer (same direction as transfer_plan; default to-device). Returns a job id to poll with job_get.",
     inputSchema: z.object({
       volume: z.string(),
       targets: z.array(z.string()).min(1),
+      direction: directionSchema,
+      transport: transportSchema,
+      replace: z.boolean().optional().describe("Also replace files that differ. Default false for to-device/from-device, true for the match modes."),
     }),
-    handler: async (args) => ({ job: await startCopy({ volume: args.volume, targets: args.targets }) }),
+    handler: async (args) => ({ job: await startCopy({ volume: args.volume, targets: args.targets, direction: args.direction, transport: args.transport, replace: args.replace }) }),
   });
 
   defineTool({

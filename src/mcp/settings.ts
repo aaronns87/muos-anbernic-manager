@@ -11,11 +11,15 @@ export interface McpSettings {
   enabled: boolean;
   /** Bearer token for external MCP clients (stable across restarts). */
   token: string;
+  /** Read-only bearer token: may only call the guest tool allowlist (see http.ts). */
+  guestToken: string;
   /** When true, the in-app Assistant may call MCP tools. Default true. */
   assistantUsesTools: boolean;
 }
 
-const DEFAULTS: McpSettings = { enabled: true, token: "", assistantUsesTools: true };
+const DEFAULTS: McpSettings = { enabled: true, token: "", guestToken: "", assistantUsesTools: true };
+
+export type McpRole = "full" | "guest";
 
 let current: McpSettings = { ...DEFAULTS };
 let loaded = false;
@@ -40,14 +44,15 @@ export async function loadMcpSettings(): Promise<void> {
     current = {
       enabled: saved.enabled !== false,
       token: typeof saved.token === "string" && saved.token ? saved.token : newToken(),
+      guestToken: typeof saved.guestToken === "string" && saved.guestToken ? saved.guestToken : newToken(),
       assistantUsesTools: saved.assistantUsesTools !== false,
     };
-    if (!saved.token) await save();
+    if (!saved.token || !saved.guestToken) await save();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       say("yellow", "MCP", `${mcpFile()} could not be read; using defaults.`);
     }
-    current = { ...DEFAULTS, token: newToken() };
+    current = { ...DEFAULTS, token: newToken(), guestToken: newToken() };
     await save();
   }
   loaded = true;
@@ -62,21 +67,31 @@ export function mcpEnabled(): boolean {
   return loaded ? current.enabled : true;
 }
 
-export function mcpTokenOk(given: string): boolean {
-  if (!loaded || !current.enabled || !current.token) return false;
+function tokenEq(given: string, token: string): boolean {
+  if (!token) return false;
   const a = Buffer.from(given);
-  const b = Buffer.from(current.token);
+  const b = Buffer.from(token);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** Resolves a bearer token to its role: "full", "guest" (read-only), or false. */
+export function mcpTokenOk(given: string): McpRole | false {
+  if (!loaded || !current.enabled || !given) return false;
+  if (tokenEq(given, current.token)) return "full";
+  if (tokenEq(given, current.guestToken)) return "guest";
+  return false;
+}
+
 /** Public settings for the UI (full token only when requested). */
-export function mcpSettingsPublic(opts: { revealToken?: boolean } = {}) {
+export function mcpSettingsPublic(opts: { revealToken?: boolean; revealGuest?: boolean } = {}) {
   const s = mcpSettings();
   return {
     enabled: s.enabled,
     assistantUsesTools: s.assistantUsesTools,
     url: `http://127.0.0.1:${ctx.port}/mcp`,
     token: opts.revealToken ? s.token : "",
+    guestToken: opts.revealGuest ? s.guestToken : "",
+    guestTokenHint: s.guestToken ? `${s.guestToken.slice(0, 4)}…${s.guestToken.slice(-4)}` : "",
     tokenHint: s.token ? `${s.token.slice(0, 4)}…${s.token.slice(-4)}` : "",
     listening: s.enabled && ctx.port > 0,
     bind: "127.0.0.1",
@@ -99,3 +114,10 @@ export async function rotateMcpToken() {
   return mcpSettingsPublic({ revealToken: true });
 }
 
+
+export async function rotateGuestToken() {
+  current.guestToken = newToken();
+  await save();
+  say("green", "MCP", "MCP guest token rotated.");
+  return mcpSettingsPublic({ revealGuest: true });
+}

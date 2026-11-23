@@ -1,6 +1,6 @@
 // The connection to the handheld: a TF2 card in a reader, or the handheld over USB (MTP).
 
-import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, trustSshHostKey, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
+import { $, app, api, esc, human, store, icon, ICONS, copyText, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, trustSshHostKey, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { chatConfigured } from "./chat.js";
 import { mcpListening } from "./mcp.js";
@@ -20,7 +20,8 @@ import { renderTuning } from "./tuning.js";
 import { settingsDeviceChanged } from "./settings.js";
 import { openArtSync, openKeepOnCard } from "./artwork.js";
 import { viewerDeviceChanged } from "./game-view.js";
-import { noteLiveConnection, profileSwitcherHtml } from "./profiles.js";
+import { cardDiffHtml, noteLiveConnection, profileSwitcherHtml } from "./profiles.js";
+import { conflictsBlockHtml, ensureConflicts } from "./sync-conflicts.js";
 
 const LIBMTP = {
   darwin: "brew install libmtp",
@@ -252,6 +253,30 @@ function pathPicker() {
     </button>`).join("")}</div>`;
 }
 
+const NETPLAY_PORT = 55435;
+const netplayPort = () => {
+  const n = Number(store.get("netplayPort", NETPLAY_PORT));
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : NETPLAY_PORT;
+};
+
+/** Netplay helper: the handheld address as an invite string. It only helps to share details; the manager hosts nothing. */
+function netplayBlock(host) {
+  const port = netplayPort();
+  return `<div class="svc-netplay">
+    <span class="mode-label">Netplay helper</span>
+    <p class="muted-note">Host a game from RetroArch on the handheld (Quick Menu &rsaquo; Netplay &rsaquo; Host), then send this address to a friend on the same network.
+      The manager does not start or host netplay.</p>
+    <div class="svc-netplay-row">
+      <label class="muted-note" for="netplay-port">Port</label>
+      <input class="control" id="netplay-port" type="number" min="1" max="65535" value="${port}" data-netplay-port>
+      <code class="svc-netplay-invite" id="netplay-invite">${esc(host)}:${port}</code>
+      <button class="btn small" type="button" data-netplay-copy>${icon("copy")}<span>Copy invite</span></button>
+      <a class="btn small ghost" href="https://docs.libretro.com/guides/netplay/" target="_blank" rel="noopener">${icon("external")}<span>Netplay docs</span></a>
+    </div>
+    <p class="muted-note">${NETPLAY_PORT} is RetroArch's default. Change it only if you set a different port in RetroArch's network settings.</p>
+  </div>`;
+}
+
 /** Web services row for the connection panel and Overview (SSH, SFTP, …). */
 export function webServicesBlock({ compact = false } = {}) {
   const pack = app.device.services;
@@ -300,11 +325,16 @@ export function webServicesBlock({ compact = false } = {}) {
     ? `<p class="muted-note svc-st-note" id="svc-st-note">${ICONS.spin} Reading Syncthing folders&hellip;</p>`
     : "";
   if (!compact && syncthingOn) queueSyncthingNote();
+  const conflicts = !compact && syncthingOn ? conflictsBlockHtml() : "";
+  if (conflicts) queueMicrotask(ensureConflicts);
   return `<div class="sb-conn-services${compact ? " compact" : ""}">
     <span class="mode-label">Web services · ${esc(pack.host)}</span>
     <ul class="sb-conn-svc-list">${rows}</ul>
     ${idleToggle}
     ${syncthingNote}
+    ${conflicts}
+    ${compact ? "" : cardDiffHtml()}
+    ${compact ? "" : netplayBlock(pack.host)}
     ${compact ? "" : `<p class="muted-note"><b>Active</b> means this computer can open the port or SSH saw the process running.
       Open launches the handheld web UI in your browser (dashboard, virtual terminal, Syncthing, Filebrowser).
       Turn services on or off under Device Settings → Web services. The manager does not start or stop Syncthing for you.</p>`}
@@ -649,6 +679,23 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (connPanelOpen && !e.target.closest("#sb-conn-panel")) closeConnPanel(false);
+});
+
+document.addEventListener("input", (e) => {
+  const input = e.target.closest("[data-netplay-port]");
+  if (!input) return;
+  const n = Number(input.value);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) return;
+  store.set("netplayPort", n);
+  const invite = $("netplay-invite");
+  if (invite) invite.textContent = `${app.device.services?.host || ""}:${n}`;
+});
+
+document.addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-netplay-copy]")) return;
+  const text = $("netplay-invite")?.textContent || "";
+  if (text && await copyText(text)) toast(`Copied ${text}`, 2200);
+  else toast("Could not copy; select the address and copy it by hand", 3500);
 });
 
 document.addEventListener("change", (e) => {

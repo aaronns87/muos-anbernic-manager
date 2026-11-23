@@ -229,6 +229,10 @@ export function judge(g: Pick<Game, "f" | "t" | "g">, h: Pick<Hashed, "e" | "u">
 
 interface Run { running: boolean; started: number; finished: number; done: number; total: number; current: string; error: string }
 const run: Run = { running: false, started: 0, finished: 0, done: 0, total: 0, current: "", error: "" };
+
+/** True while a No-Intro verify is running (the disc pipeline waits on it). */
+export const verifyRunning = (): boolean => run.running;
+
 let results: { checked: string; root: string; systems: SystemResult[] } | null = null;
 const resultFile = () => path.join(ctx.cacheDir, "checks.json");
 
@@ -237,6 +241,18 @@ async function lastResults() {
     try { results = JSON.parse(await fsp.readFile(resultFile(), "utf8")); } catch {}
   }
   return results?.root === ctx.roms ? results : null;
+}
+
+/** Cheap read of the last verify run (cached file, no hashing): totals and whether a check is running now. */
+export async function verifyHealth() {
+  const last = await lastResults();
+  const counts = { ok: 0, bad: 0, modified: 0, unknown: 0, unchecked: 0 };
+  let errors = 0;
+  for (const s of last?.systems ?? []) {
+    for (const k of Object.keys(counts) as State[]) counts[k] += s.counts[k] ?? 0;
+    if (s.error) errors++;
+  }
+  return { ran: !!last, checked: last?.checked ?? "", running: run.running, counts, errors };
 }
 
 /** The files behind Checks: verify results, ROM checksums and the downloaded No-Intro lists. */
