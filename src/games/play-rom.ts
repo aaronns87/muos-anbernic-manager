@@ -10,7 +10,8 @@ import { inside, safePart, splitName } from "../util.ts";
 /**
  * Manager system folder → EmulatorJS core id.
  * Keep in sync with public/js/play-browser.js.
- * No Dreamcast core in EmulatorJS; arcade ROM sets stay out.
+ * Arcade folders use FinalBurn Neo ("fbneo").
+ * Dreamcast uses Flycast via a cached nasomers/flycast-wasm build (not on the EmulatorJS CDN) served through /api/games/ejs-data/.
  */
 export const PLAY_CORES: Record<string, string> = {
   // Nintendo
@@ -46,6 +47,15 @@ export const PLAY_CORES: Record<string, string> = {
   // Sony
   PS: "psx",
   PSP: "psp",
+  // Arcade (FinalBurn Neo sets only; MAME-only and hacked sets will not start)
+  MAME: "fbneo",
+  FBNEO: "fbneo",
+  CPS1: "fbneo",
+  CPS2: "fbneo",
+  CPS3: "fbneo",
+  NEOGEO: "fbneo",
+  // Sega Dreamcast (Flycast WASM — manager-cached core)
+  DREAMCAST: "flycast",
 };
 
 /** Preferred BIOS basenames under workspace bios/ (first hit wins). */
@@ -54,13 +64,19 @@ export const PLAY_BIOS: Record<string, string[]> = {
   SATURN: ["saturn_bios.bin", "sega_101.bin", "mpr-17933.bin", "mpr-17933c.bin"],
   MDCD: ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"],
   PCECD: ["syscard3.pce", "syscard2.pce", "syscard1.pce", "syscard3u.pce", "syscard2u.pce"],
+  DREAMCAST: ["dc_boot.bin", "dc_flash.bin"],
 };
 
 const BLOCKED_EXT = new Set(["ccd", "toc", "gdi", "img", "wav", "ogg", "mp3"]);
 
 /** Disc / optical extensions — only for systems with an EmulatorJS disc core. */
 const DISC_EXT = new Set(["chd", "iso", "cso", "pbp", "cue", "m3u"]);
-const DISC_SYSTEMS = new Set(["PS", "SATURN", "MDCD", "PCECD", "PSP"]);
+const DISC_SYSTEMS = new Set(["PS", "SATURN", "MDCD", "PCECD", "PSP", "DREAMCAST"]);
+
+/** Arcade ROM sets are zip files read by the core as they are; 7z and loose files do not work. */
+const ARCADE_SYSTEMS = new Set(["MAME", "FBNEO", "CPS1", "CPS2", "CPS3", "NEOGEO"]);
+/** Dreamcast images; .gdi is blocked everywhere else because it needs its track files beside it. */
+const DREAMCAST_EXT = new Set(["chd", "cdi", "gdi"]);
 
 const OK_EXT = new Set([
   // Nintendo
@@ -86,9 +102,17 @@ export function playCoreFor(code: string): string | "" {
   return PLAY_CORES[code] || "";
 }
 
+/** Why a system folder cannot be played in the browser, or "" when it can (or is unknown). */
+export function playBlockedReason(code: string): string {
+  if (PLAY_CORES[code]) return "";
+  return "";
+}
+
 export function canPlayFile(code: string, file: string): boolean {
   if (!PLAY_CORES[code]) return false;
   const ext = splitName(file)[1].toLowerCase();
+  if (ARCADE_SYSTEMS.has(code)) return ext === "zip";
+  if (code === "DREAMCAST") return DREAMCAST_EXT.has(ext);
   if (!ext || BLOCKED_EXT.has(ext)) return false;
   if (DISC_EXT.has(ext) && !DISC_SYSTEMS.has(code)) return false;
   return OK_EXT.has(ext);
@@ -191,4 +215,26 @@ export async function playBiosDownload(query: URLSearchParams) {
     type: "application/octet-stream",
     length: size,
   };
+}
+
+/** Zip both Dreamcast BIOS files for EmulatorJS (single EJS_biosUrl). */
+export async function dreamcastBiosBundle() {
+  const names = PLAY_BIOS.DREAMCAST || [];
+  const items: { name: string; data: Buffer }[] = [];
+  for (const name of names) {
+    const full = path.join(ctx.bios, name);
+    try {
+      const data = await fsp.readFile(full);
+      if (data.length) items.push({ name, data });
+    } catch { /* missing */ }
+  }
+  if (items.length < 2) {
+    throw new UserError("Add both dc_boot.bin and dc_flash.bin to bios/ for Dreamcast play.");
+  }
+  const { writeZip } = await import("../zip.ts");
+  const out = path.join(ctx.cacheDir, "dreamcast-bios.zip");
+  await fsp.mkdir(ctx.cacheDir, { recursive: true });
+  await writeZip(out, items);
+  const download = await fsp.readFile(out);
+  return { download, name: "dreamcast-bios.zip", type: "application/zip" };
 }

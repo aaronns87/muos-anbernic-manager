@@ -46,6 +46,10 @@ export interface Settings {
   openBrowser: boolean;
   /** Look for a newer manager version on GitHub every few hours. */
   checkUpdates: boolean;
+  /** Absolute path of a local folder Syncthing shares with the handheld's Roms/ (same layout); "" means not set up. */
+  syncthingRomsPath: string;
+  /** Optional Syncthing folder id of that share, used when waiting for the sync to settle. */
+  syncthingFolderId: string;
   /** "pending" from a first start with a clean cache until the setup wizard is finished. */
   wizard: "pending" | "done";
 }
@@ -55,7 +59,7 @@ const FOLDERS: Folder[] = ["roms", "apps", "os", "bios", "backups", "themes", "l
 const WORKSPACE_NAMES: Record<Folder, string> = { roms: "Roms", apps: "apps", os: "os", bios: "bios", backups: "backups", themes: "themes", logs: "logs" };
 const FOLDER_NAMES: Record<Folder, string> = { roms: "Roms folder", apps: "apps folder", os: "OS images folder", bios: "BIOS folder", backups: "backups folder", themes: "themes folder", logs: "logs folder" };
 
-const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", themes: "", logs: "", copyArt: true, openBrowser: true, checkUpdates: true, wizard: "done" };
+const DEFAULTS: Settings = { roms: "", apps: "", os: "", bios: "", backups: "", themes: "", logs: "", copyArt: true, openBrowser: true, checkUpdates: true, syncthingRomsPath: "", syncthingFolderId: "", wizard: "done" };
 let current: Settings = { ...DEFAULTS };
 const defaults: Record<Folder, string> = { roms: "", apps: "", os: "", bios: "", backups: "", themes: "", logs: "" };
 
@@ -67,6 +71,9 @@ const settingsFile = () => path.join(ctx.cacheDir, path.resolve(ctx.managerDir, 
   : `settings-${crypto.createHash("sha1").update(ctx.root).digest("hex").slice(0, 12)}.json`);
 
 export const settings = (): Readonly<Settings> => current;
+
+/** Syncthing folder ids are short tokens like "abcde-fghij"; anything else is refused so it is safe in a shell command. */
+export const SYNC_ID = /^[A-Za-z0-9._-]{0,64}$/;
 
 /** Reads the settings and points ctx folders at the chosen paths. Call after --root is applied. */
 export async function loadSettings(): Promise<void> {
@@ -86,6 +93,8 @@ export async function loadSettings(): Promise<void> {
       copyArt: saved.copyArt !== false,
       openBrowser: saved.openBrowser !== false,
       checkUpdates: saved.checkUpdates !== false,
+      syncthingRomsPath: text(saved.syncthingRomsPath),
+      syncthingFolderId: SYNC_ID.test(text(saved.syncthingFolderId)) ? text(saved.syncthingFolderId) : "",
       wizard: saved.wizard === "pending" ? "pending" : "done",
     };
   } catch (error) {
@@ -196,6 +205,19 @@ export async function settingsJson() {
   };
 }
 
+/** The Syncthing-shared ROMs folder to store: "" clears it; otherwise it must be an existing folder other than Roms/ itself. */
+async function syncRomsFolder(value: unknown): Promise<string> {
+  const wanted = typeof value === "string" ? value.trim() : "";
+  if (!wanted) return "";
+  const target = path.resolve(wanted.replace(/^~(?=$|\/)/, os.homedir()));
+  if (!(await isDir(target))) throw new UserError(`${target} is not a folder.`);
+  const real = await fsp.realpath(target);
+  if (real === (await fsp.realpath(ctx.roms).catch(() => ctx.roms))) {
+    throw new UserError("Pick the folder Syncthing shares, which is a different folder from Roms/. The manager copies games into it.");
+  }
+  return real;
+}
+
 export async function saveSettings(body: Record<string, unknown>) {
   let rescan = false;
   const changes: [Folder, string, string][] = [];
@@ -219,6 +241,12 @@ export async function saveSettings(body: Record<string, unknown>) {
     else if (ctx[f] !== next) say("cyan", "SETTINGS", `The ${FOLDER_NAMES[f]} is now ${next}.`);
     current[f] = stored;
     ctx[f] = next;
+  }
+  if (body.syncthingRomsPath !== undefined) current.syncthingRomsPath = await syncRomsFolder(body.syncthingRomsPath);
+  if (body.syncthingFolderId !== undefined) {
+    const id = typeof body.syncthingFolderId === "string" ? body.syncthingFolderId.trim() : "";
+    if (!SYNC_ID.test(id)) throw new UserError("A Syncthing folder id uses only letters, digits, dots, dashes and underscores.");
+    current.syncthingFolderId = id;
   }
   if (typeof body.copyArt === "boolean") current.copyArt = body.copyArt;
   if (typeof body.openBrowser === "boolean") current.openBrowser = body.openBrowser;

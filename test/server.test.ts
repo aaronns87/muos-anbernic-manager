@@ -29,6 +29,42 @@ test("API calls need the token and JSON bodies", async () => {
   assert.equal(res.status, 415);
 });
 
+test("overview health lists cached checks without a handheld", async () => {
+  const { status, json } = await api("overview/health");
+  assert.equal(status, 200);
+  assert.deepEqual(json.items.map((i: { id: string }) => i.id), ["artwork", "bios", "verify", "syncthing"]);
+  for (const i of json.items) {
+    assert.ok(["ok", "warn", "bad", "info"].includes(i.severity));
+    assert.match(i.href, /^#[a-z]/);
+  }
+  assert.equal(json.items[0].severity, "warn");
+  assert.equal(json.summary.ok + json.summary.warn + json.summary.bad <= json.items.length, true);
+  assert.equal(json.ok, json.summary.bad === 0);
+});
+
+test("recipe packs list the built-in presets and reject unknown ids", async () => {
+  const { status, json } = await api("recipes");
+  assert.equal(status, 200);
+  assert.ok(json.packs.some((p: { builtin: boolean }) => p.builtin));
+  assert.ok(json.stepTypes.includes("cheats_apply"));
+  const bad = await api("recipes/run", { id: "nope" });
+  assert.equal(bad.status, 400);
+});
+
+test("idle jobs and metadata backup routes validate their input", async () => {
+  const idle = await api("idle-jobs");
+  assert.equal(idle.status, 200);
+  assert.equal(idle.json.config.enabled, false);
+  assert.ok(idle.json.libraryTriggers.some((l: { id: string }) => l.id === "rescan-library"));
+  assert.equal((await api("idle-jobs", { enabled: true })).status, 400);
+
+  const list = await api("workspace/meta-backups");
+  assert.equal(list.status, 200);
+  assert.deepEqual(list.json.backups, []);
+  assert.equal((await api("workspace/backup-meta", { passphrase: "short" })).status, 400);
+  assert.equal((await api("workspace/restore-meta", { file: "x.mumeta", passphrase: "long enough" })).status, 400);
+});
+
 test("the library lists the temp workspace's games", async () => {
   const { status, json } = await api("games");
   assert.equal(status, 200);
@@ -253,7 +289,7 @@ test("index.html has the elements the Emulation and Apps views render into", () 
     "appmarket", "am-main", "am-foot", "am-close", "appview", "amv-title", "amv-sub", "amv-body", "amv-foot", "amv-close",
     "view-os", "os", "os-sub", "os-actions", "os-count", "osmarket", "om-title", "om-main", "om-foot", "om-close",
     "hbfree", "hbf-body", "hbf-note", "hbf-close", "svmfree", "svf-body", "svf-note", "svf-close", "model-ask", "mask-sub", "mask-body", "wizard", "wiz-steps", "wiz-title", "wiz-body", "wiz-skip", "wiz-back", "wiz-next", "mgr", "mgr-body", "mgr-foot",
-    "tips", "tips-title", "tips-sub", "tips-stage", "tips-dots", "tips-startup", "tips-back", "tips-next", "help-tips", "whats-new", "whats-title", "whats-body"]) {
+    "tips", "tips-title", "tips-sub", "tips-stage", "tips-dots", "tips-startup", "tips-back", "tips-next", "help-tips", "whats-new", "whats-title", "whats-body", "palette", "palette-q", "palette-list"]) {
     assert.match(html, new RegExp(`id="${id}"`), `#${id} is missing`);
   }
 });

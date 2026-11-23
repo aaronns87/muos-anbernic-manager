@@ -1,16 +1,20 @@
 // Overview: the connection, the device, how the library and the device compare, and the workspace.
 
 import { $, app, api, esc, human, plural, initial, icon, ICONS, EXCLUDED, model, modelInfo, cardWord, usbMode, handheldMode, devName, devWord, ready, busy, isOnCard, osVersion, scanWhen, section } from "./core.js";
+import { panel, notice, loadingInline, emptyState, retryBtn } from "./layout.js";
 import { connection, deviceButtons, modePicker, isLive, wifiForm, filebrowserUrl, storages, storeRow, renderDevice, alternative, webServicesBlock } from "./device.js";
 import { specs } from "./devices.js";
 import { openCardModel } from "./model-pick.js";
 import { libraryTotals } from "./games.js";
 import { activityPanel } from "./activity.js";
-import { digestPanelHtml } from "./profiles.js";
+import { digestPanelHtml, loadCardDiff, recordProfileSeen } from "./profiles.js";
 
 let loadToken = 0;
+const HEALTH_AGE = 60_000;
+let health = { data: null, error: "", at: 0, loading: false };
 
 export function resetOverview() {
+  health.at = 0;
   Object.assign(app.overview, { info: null, infoFor: "", infoError: "", summary: null, summaryFor: "", summaryError: "", loading: "" });
   loadToken++;
 }
@@ -20,6 +24,19 @@ async function loadWorkspace() {
   app.overview.loadingWorkspace = true;
   try { app.overview.workspace = await api("workspace"); } catch (error) { app.overview.workspace = { error: error.message, os: [], apps: [] }; }
   app.overview.loadingWorkspace = false;
+  renderOverview();
+}
+
+/** Library health from the server (cached signals only); refreshed at most once a minute while Overview is open. */
+async function loadHealth() {
+  if (health.loading || (health.at && Date.now() - health.at < HEALTH_AGE)) return;
+  health.loading = true;
+  const token = loadToken;
+  try { health.data = await api("overview/health"); health.error = ""; }
+  catch (error) { health.error = error.message; }
+  health.loading = false;
+  if (token !== loadToken && !health.data) return;
+  health.at = Date.now();
   renderOverview();
 }
 
@@ -36,6 +53,7 @@ export async function loadInfo() {
   o.infoFor = id;
   o.loading = "";
   renderDevice();
+  if (o.info) recordProfileSeen();
 }
 
 /** Counts of the games on the device; only the overview shows them. */
@@ -55,8 +73,6 @@ async function loadSummary() {
 
 const spinner = `<span class="spinner sm"></span>`;
 const kv = (rows) => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
-const panel = (cls, title, body, actions = "", ico = "") =>
-  `<section class="panel ${cls}"><h2>${ico ? icon(ico) : ""}${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 const stat = (value, label, cls = "") => `<div class="stat${cls ? " " + cls : ""}"><b>${value}</b><span>${label}</span></div>`;
 const ring = (pct, caption = "") => `<div class="ring" style="--p:${Math.max(0, Math.min(100, pct))}"><b>${pct}%</b>${caption ? `<small>${caption}</small>` : ""}</div>`;
 const fact = (ico, label, value, sub = "") => `<div class="fact">${icon(ico)}<div><small>${esc(label)}</small><b>${value}</b>${sub ? `<span>${sub}</span>` : ""}</div></div>`;
@@ -95,7 +111,7 @@ function devicePanel(conn) {
     ].filter(Boolean).join("");
     const list = storages();
     const stores = list ? list.map((s) => storeRow(s, { card: c.mode === "card" })).join("")
-      : o.infoError ? `<div class="notice err">${esc(o.infoError)}</div>` : `<div class="muted-note">${spinner} Reading the cards&hellip;</div>`;
+      : o.infoError ? notice("err", esc(o.infoError)) : loadingInline("Reading the cards&hellip;");
     body = `<div class="facts">${facts}</div><div class="stores grid">${stores}</div>`;
     if (app.device.wifi?.host || app.device.services?.host) body += webServicesBlock({ compact: true });
     if (conn.state === "wifi") body += `<details class="wifi-settings"><summary>Wi-Fi settings</summary>${wifiForm()}</details>`;
@@ -105,7 +121,7 @@ function devicePanel(conn) {
     if (h && app.ui.mode === "usb") body += kv([["Model", esc(h.name)], ["USB function", esc(h.function || "-")], h.serial ? ["Serial", `<code>${esc(h.serial)}</code>`] : null]);
   }
   const alt = alternative();
-  if (alt) body += `<div class="notice">${icon("info")} ${esc(alt.text)} Use the button below to switch.</div>`;
+  if (alt) body += notice("", `${icon("info")} ${esc(alt.text)} Use the button below to switch.`);
   const actions = live
     ? `<button class="btn primary" data-device="browse">${icon("handheld")}<span>Games on ${esc(devWord())}</span></button>${deviceButtons(conn)}`
     : `<button class="btn primary" data-connect="files">${icon("plug")}<span>Set up connection</span></button>${deviceButtons(conn)}`;
@@ -132,9 +148,9 @@ function syncCounts() {
 
 function syncPanel(conn) {
   const title = "Library on the device";
-  if (!app.data) return panel("", title, `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "sync");
-  if (!isLive(conn)) return panel("", title, `<div class="empty-state">${icon("sync")}<p>Connect the handheld or insert ${esc(cardWord())} to compare it with Roms/.</p></div>`, "", "sync");
-  if (app.device.error) return panel("", title, `<div class="notice err">${esc(app.device.error)}</div>`, "", "sync");
+  if (!app.data) return panel("", title, loadingInline("Loading&hellip;"), "", "sync");
+  if (!isLive(conn)) return panel("", title, emptyState({ icon: "sync", body: `Connect the handheld or insert ${esc(cardWord())} to compare it with Roms/.` }), "", "sync");
+  if (app.device.error) return panel("", title, notice("err", esc(app.device.error)), "", "sync");
   const s = syncCounts();
   const pct = s.total ? Math.floor((s.on / s.total) * 100) : 0;
   return panel("sync-panel", title, `<div class="ring-row">${ring(pct, "on " + esc(devWord()))}
@@ -148,15 +164,45 @@ function syncPanel(conn) {
     "sync");
 }
 
+// ---------------------------------------------------------------- library health
+
+const HEALTH_LABEL = { ok: "OK", warn: "Check", bad: "Fix", info: "Info" };
+
+/** Server items plus the library-vs-device comparison, which only the app knows (it holds the device index). */
+function healthItems(conn) {
+  const items = [...health.data.items];
+  if (isLive(conn) && app.data && !app.device.error) {
+    const s = syncCounts();
+    const detail = [s.missing && `${plural(s.missing, "game")} not on ${devName()} (${human(s.bytes)})`, s.differ && `${plural(s.differ, "copy", "copies")} differ from Roms/`].filter(Boolean).join("; ");
+    items.push({ id: "device-sync", severity: s.differ ? "warn" : s.missing ? "info" : "ok", label: s.missing || s.differ ? "Not on device" : "On device", detail: detail ? detail + "." : `Everything in Roms/ is on ${devName()}.`, href: "#games" });
+  }
+  return items;
+}
+
+function healthPanel(conn) {
+  const title = `Library health${health.loading ? ` ${spinner}` : ""}`;
+  if (!health.data) {
+    return panel("wide ov-health", title, health.error ? notice("err", esc(health.error)) : loadingInline("Checking the library&hellip;"),
+      health.error ? retryBtn('data-go="health-retry"') : "", "check");
+  }
+  const items = healthItems(conn);
+  const sum = { ok: 0, warn: 0, bad: 0 };
+  for (const i of items) if (sum[i.severity] !== undefined) sum[i.severity]++;
+  const head = sum.bad ? `${plural(sum.bad, "problem")} to fix` : sum.warn ? `${plural(sum.warn, "thing")} to look at` : "All good";
+  const rows = items.map((i) => `<li class="health-item ${esc(i.severity)}"><a class="pill ${i.severity === "info" ? "" : esc(i.severity)}" href="${esc(i.href)}" title="${esc(HEALTH_LABEL[i.severity] || "")}">${esc(i.label)}</a><span class="health-detail">${esc(i.detail)}</span></li>`).join("");
+  return panel("wide ov-health", title, `<p class="muted-note health-sum">${esc(head)} <span>${sum.ok} OK &middot; ${sum.warn} to check &middot; ${sum.bad} to fix</span></p><ul class="health-list">${rows}</ul>`,
+    `<button class="btn ghost" data-go="health-retry">${icon("sync")}<span>Refresh</span></button>`, "check");
+}
+
 function onDevicePanel(conn) {
   const o = app.overview, live = isLive(conn);
   const title = `On ${live ? esc(devName()) : "the device"}${o.loading === "summary" ? ` ${spinner}` : ""}`;
-  if (!live) return panel("half", title, `<div class="empty-state">${icon("handheld")}<p>Nothing connected.</p></div>`, "", "handheld");
-  if (o.summaryError) return panel("half", title, `<div class="notice err">${esc(o.summaryError)}</div>`, "", "handheld");
+  if (!live) return panel("half", title, emptyState({ icon: "handheld", body: "Nothing connected." }), "", "handheld");
+  if (o.summaryError) return panel("half", title, notice("err", esc(o.summaryError)), "", "handheld");
   const s = o.summary;
   if (!s) {
     const note = busy() && usbMode() ? "Counts appear when the current job finishes." : `Counting the games on ${esc(devName())}&hellip;`;
-    return panel("half", title, `<div class="muted-note">${spinner} ${note}</div>`, "", "handheld");
+    return panel("half", title, loadingInline(note), "", "handheld");
   }
   const only = Math.max(0, s.games - s.in_library);
   return panel("half", title, `<div class="numbers">
@@ -172,7 +218,7 @@ function onDevicePanel(conn) {
 
 function libraryPanel() {
   const t = libraryTotals();
-  if (!t) return panel("half", "Roms/ library", `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "folder");
+  if (!t) return panel("half", "Roms/ library", loadingInline("Loading&hellip;"), "", "folder");
   const systems = app.data.systems.filter((s) => s.games.length).sort((a, b) => b.games.length - a.games.length);
   const top = systems.slice(0, 6), max = top[0]?.games.length || 1;
   const cats = {};
@@ -192,9 +238,9 @@ function libraryPanel() {
 }
 
 function recentPanel() {
-  if (!app.data) return panel("wide", "Recently added", `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "clock");
+  if (!app.data) return panel("wide", "Recently added", loadingInline("Loading&hellip;"), "", "clock");
   const recent = app.data.systems.flatMap((s) => s.games.map((g) => [s, g])).sort((a, b) => b[1].m - a[1].m).slice(0, 8);
-  if (!recent.length) return panel("wide", "Recently added", `<div class="empty-state">${icon("folder")}<p>No games in Roms/ yet.</p></div>`, "", "clock");
+  if (!recent.length) return panel("wide", "Recently added", emptyState({ icon: "folder", body: "No games in Roms/ yet." }), "", "clock");
   return panel("wide", "Recently added", `<div class="recent">${recent.map(([s, g]) => `<button class="recent-item" data-go="search" data-q="${esc(g.t)}" style="--accent:${s.accent}" title="${esc(g.t)} (${esc(s.code)}/${esc(g.f)})">
       <span class="recent-art">${g.i ? `<img loading="lazy" src="${g.i}" alt="">` : `<span class="ph">${esc(initial(g.t))}</span>`}${isOnCard(s, g) ? `<span class="recent-on" title="On ${esc(devName())}">${icon("check")}</span>` : ""}</span>
       <b>${esc(g.t)}</b><small><span class="code">${esc(s.code)}</span> ${ago(g.m)}</small></button>`).join("")}</div>`, "", "clock");
@@ -202,7 +248,7 @@ function recentPanel() {
 
 function artworkPanel() {
   const t = libraryTotals();
-  if (!t) return panel("", "Artwork", `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "image");
+  if (!t) return panel("", "Artwork", loadingInline("Loading&hellip;"), "", "image");
   const pct = (n) => (t.games ? Math.floor((n / t.games) * 100) : 0);
   const missing = t.games - t.art;
   return panel("", "Artwork", `<div class="ring-row">${ring(pct(t.art), "box art")}
@@ -216,8 +262,8 @@ function artworkPanel() {
 
 function workspacePanel() {
   const w = app.overview.workspace;
-  if (!w) return panel("half", "Workspace", `<div class="muted-note">${spinner} Loading&hellip;</div>`, "", "box");
-  if (w.error) return panel("half", "Workspace", `<div class="notice err">${esc(w.error)}</div>`, `<button class="btn" data-go="workspace-retry">${icon("refresh")}<span>Try again</span></button>`, "box");
+  if (!w) return panel("half", "Workspace", loadingInline("Loading&hellip;"), "", "box");
+  if (w.error) return panel("half", "Workspace", notice("err", esc(w.error)), retryBtn('data-go="workspace-retry"'), "box");
   const list = (items, empty) => items.length
     ? `<ul class="files-list">${items.map((f) => `<li><code title="${esc(f.name)}">${esc(f.name)}</code><span>${human(f.size)}</span></li>`).join("")}</ul>`
     : `<div class="muted-note">${empty}</div>`;
@@ -247,11 +293,13 @@ export function renderOverview() {
   const conn = connection();
   const live = isLive(conn);
   $("overview").classList.toggle("ov-offline", !live);
+  if (live) loadCardDiff();
   const typed = [...$("overview").querySelectorAll(".wifi-form input")].map((i) => [i.id, i.value]);
   const focused = document.activeElement && document.activeElement.closest(".wifi-form") ? document.activeElement.id : "";
   const open = !!$("overview").querySelector(".wifi-settings[open]");
   $("overview").innerHTML = [
     devicePanel(conn), live ? syncPanel(conn) : localTasksPanel(),
+    healthPanel(conn),
     digestPanelHtml(),
     libraryPanel(), live ? onDevicePanel(conn) : "",
     recentPanel(), artworkPanel(),
@@ -265,9 +313,13 @@ export function renderOverview() {
     ? `${conn.title} ${conn.state === "wifi" ? "over Wi-Fi" : usbMode() ? "over USB" : "in the card reader"}`
     : "Your library and what to do next";
   $("ov-actions").innerHTML = live ? `<span class="mode-label">Connect with</span>${modePicker()}` : "";
+  loadHealth();
   loadWorkspace();
   loadInfo();
   loadSummary();
 }
 
-document.addEventListener("click", (e) => { if (e.target.closest('[data-ov="model"]')) openCardModel(); });
+document.addEventListener("click", (e) => {
+  if (e.target.closest('[data-ov="model"]')) openCardModel();
+  if (e.target.closest('[data-go="health-retry"]')) { health.at = 0; health.error = ""; loadHealth(); renderOverview(); }
+});

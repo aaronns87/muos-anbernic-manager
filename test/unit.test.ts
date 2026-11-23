@@ -13,6 +13,8 @@ import { classifyMembers, relAfterFlatten } from "../src/games/disc-fix.ts";
 import { gameDiscLayout, sheetRefs, sniffArchive } from "../src/games/disc-layout.ts";
 import { discNumberFromGame, discSetStem, findM3uGroups, proposeM3uName } from "../src/games/disc-m3u.ts";
 import { savesForStem } from "../src/saves-game.ts";
+import { originalOf } from "../src/device/syncthing-conflicts.ts";
+import { compareDigests, listingDigest, recordListing, storedCardDiff } from "../src/device/card-diff.ts";
 import { tuningHintKey } from "../src/games/smart-lists.ts";
 import type { Game } from "../src/games/library.ts";
 import { folderScript, gameScript } from "../src/cores.ts";
@@ -27,6 +29,7 @@ import { parseCatalogue, parseDevice, safeName } from "../src/themes.ts";
 import { parseCatalogue as parsePorts, parseDevice as parsePortsDevice, safePort, unfit } from "../src/ports.ts";
 import { byId, DEVICES, deviceFor, formIconName, imageDevice, portCaps, specs } from "../public/js/devices.js";
 import { ctx, setRoot } from "../src/context.ts";
+import { deleteProfile, listProfiles as listDeviceProfiles, resetProfilesCache, saveProfile, setActiveProfile } from "../src/device/profiles.ts";
 import { createWorkspace, firstRun, loadSettings, settings } from "../src/settings.ts";
 import {
   _resetAppLogForTests, appLog, appLogFromSay, logsClear, logsDownload, logsJson, logsPost, logsSupportPack, noteStatusLinks, startAppLog,
@@ -1185,4 +1188,306 @@ test("free homebrew catalogue lists legal entries", async () => {
   const json = await freeHomebrewJson();
   assert.ok(json.games.length >= 4);
   assert.ok(json.games.every((g: { system: string; file: string }) => g.system && g.file));
+});
+
+test("MCP settings create a token, rotate it, and gate auth", async (t) => {
+  const dir = tmp(t);
+  const before = { root: ctx.root, cache: ctx.cacheDir, port: ctx.port };
+  t.after(() => {
+    setRoot(before.root);
+    ctx.cacheDir = before.cache;
+    ctx.port = before.port;
+  });
+  setRoot(path.join(dir, "ws"));
+  ctx.cacheDir = path.join(dir, "cache");
+  ctx.port = 8765;
+  fs.mkdirSync(ctx.cacheDir, { recursive: true });
+
+  const {
+    loadMcpSettings, mcpSettings, mcpTokenOk, rotateMcpToken, rotateGuestToken, saveMcpSettings, mcpSettingsPublic,
+  } = await import("../src/mcp/settings.ts");
+  const { mcpClientConfigs, scanMcpClients, installMcpClient } = await import("../src/mcp/clients.ts");
+  await loadMcpSettings();
+  const first = mcpSettings().token;
+  assert.ok(first.length >= 16);
+  assert.equal(mcpTokenOk(first), "full");
+  assert.equal(mcpTokenOk("nope"), false);
+  assert.equal(mcpTokenOk(""), false);
+  const guest = mcpSettings().guestToken;
+  assert.ok(guest.length >= 16 && guest !== first);
+  assert.equal(mcpTokenOk(guest), "guest");
+  assert.equal(mcpSettingsPublic().guestToken, "");
+  assert.equal(mcpSettingsPublic({ revealGuest: true }).guestToken, guest);
+  const guestRotated = await rotateGuestToken();
+  assert.notEqual(guestRotated.guestToken, guest);
+  assert.equal(mcpTokenOk(guest), false);
+  assert.equal(mcpTokenOk(guestRotated.guestToken!), "guest");
+  assert.equal(mcpTokenOk(first), "full");
+  assert.equal(mcpSettingsPublic().token, "");
+  assert.equal(mcpSettingsPublic({ revealToken: true }).token, first);
+
+  const rotated = await rotateMcpToken();
+  assert.notEqual(rotated.token, first);
+  assert.equal(mcpTokenOk(first), false);
+  assert.equal(mcpTokenOk(rotated.token!), "full");
+
+  await saveMcpSettings({ enabled: false, assistantUsesTools: false });
+  assert.equal(mcpSettings().enabled, false);
+  assert.equal(mcpSettings().assistantUsesTools, false);
+  assert.equal(mcpTokenOk(rotated.token!), false);
+  assert.equal(mcpTokenOk(guestRotated.guestToken!), false);
+
+  await saveMcpSettings({ enabled: true, assistantUsesTools: true });
+  const cfg = mcpClientConfigs();
+  assert.match(cfg.cursor, /Bearer/);
+  assert.match(cfg.clients[0].guestSnippet, /MuAnMCP-guest/);
+  assert.ok(cfg.clients[0].guestSnippet.includes(mcpSettings().guestToken));
+  assert.match(cfg.claudeDesktop, /"type": "http"/);
+  assert.ok(cfg.clients.some((c) => c.id === "cursor"));
+
+  const scan = await scanMcpClients();
+  assert.ok(scan.clients.length >= 4);
+  assert.ok(scan.clients.every((c) => c.id && c.snippet && c.configPath));
+  await assert.rejects(() => installMcpClient({ id: "not-a-client" }), /Unknown MCP client/);
+});
+
+test("MCP guest token only reaches read-only tools over HTTP", async (t) => {
+  const dir = tmp(t);
+  const before = { root: ctx.root, cache: ctx.cacheDir, port: ctx.port };
+  setRoot(path.join(dir, "ws"));
+  ctx.cacheDir = path.join(dir, "cache");
+  fs.mkdirSync(ctx.cacheDir, { recursive: true });
+  const http = await import("node:http");
+  const { initMcp, mcpSettings, handleMcpHttp, closeAllMcpSessions, listTools, GUEST_TOOLS } = await import("../src/mcp/index.ts");
+  await initMcp();
+  const server = http.createServer((req, res) => { void handleMcpHttp(req, res); });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  ctx.port = (server.address() as { port: number }).port;
+  t.after(() => {
+    closeAllMcpSessions();
+    server.close();
+    setRoot(before.root);
+    ctx.cacheDir = before.cache;
+    ctx.port = before.port;
+  });
+
+  const names = new Set(listTools().map((x) => x.name));
+  for (const name of GUEST_TOOLS) assert.ok(names.has(name), `guest tool ${name} is not registered`);
+
+  const post = (token: string, body: unknown, session = "") => fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream",
+      ...(session ? { "mcp-session-id": session } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "1" } } };
+
+  assert.equal((await post("wrong", init)).status, 401);
+  const guest = mcpSettings().guestToken;
+  const res = await post(guest, init);
+  assert.equal(res.status, 200);
+  const session = res.headers.get("mcp-session-id") || "";
+  assert.ok(session);
+  await res.text();
+  await post(guest, { jsonrpc: "2.0", method: "notifications/initialized" }, session).then((r) => r.text());
+
+  const list = await (await post(guest, { jsonrpc: "2.0", id: 2, method: "tools/list" }, session)).text();
+  assert.match(list, /library_list/);
+  assert.doesNotMatch(list, /"name":"(game_delete|system_start|transfer_start)"/);
+
+  const denied = await (await post(guest, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "game_delete", arguments: {} } }, session)).json() as { error?: { message: string }; id: number };
+  assert.match(denied.error?.message || "", /not allowed for the read-only guest token/);
+  assert.equal(denied.id, 3);
+  const batch = await (await post(guest, [{ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "transfer_start", arguments: {} } }], session)).json() as { error?: unknown };
+  assert.ok(batch.error);
+
+  assert.equal((await post(mcpSettings().token, { jsonrpc: "2.0", id: 5, method: "tools/list" }, session)).status, 403);
+});
+
+test("MCP agent packs parse frontmatter and sandbox ids", async () => {
+  const { listAgentPacks, readAgentPack, parseSkillFrontmatter, installAgentPack } = await import("../src/mcp/agents.ts");
+  const parsed = parseSkillFrontmatter(`---
+name: demo
+description: >-
+  Line one
+  line two
+kind: expert
+---
+
+# Body
+`);
+  assert.equal(parsed.name, "demo");
+  assert.equal(parsed.kind, "expert");
+  assert.match(parsed.description, /Line one/);
+  assert.match(parsed.body, /# Body/);
+
+  const { packs } = await listAgentPacks();
+  assert.ok(packs.length >= 8);
+  assert.ok(packs.some((p) => p.id === "manager-mcp" && p.kind === "skill"));
+  assert.ok(packs.some((p) => p.id === "library-games" && p.kind === "expert"));
+  assert.ok(packs.some((p) => p.id === "artwork-play" && p.kind === "expert"));
+  assert.ok(packs.some((p) => p.id === "system-tools" && p.kind === "expert"));
+  const pack = await readAgentPack("manager-mcp");
+  assert.match(pack.markdown, /echo that token/i);
+  await assert.rejects(() => readAgentPack("../etc/passwd"), /Invalid|Unknown/);
+  await assert.rejects(() => installAgentPack({ id: "manager-mcp", clientId: "windsurf" }), /does not support skill install/);
+  const { installAllAgentPacks } = await import("../src/mcp/agents.ts");
+  await assert.rejects(() => installAllAgentPacks({ clientId: "windsurf" }), /does not support skill install/);
+});
+
+test("MCP tool registry and audit ring buffer", async () => {
+  const { ensureMcpTools, listTools, toolCatalogue, openaiTools, openaiToolsForChat, ASSISTANT_TOOL_LIMIT, executeTool } = await import("../src/mcp/index.ts");
+  const { recordMcpToolCall, mcpStatsJson, mcpMarkStarted } = await import("../src/mcp/stats.ts");
+  ensureMcpTools();
+  const tools = listTools();
+  assert.ok(tools.length >= 100);
+  assert.ok(tools.some((t) => t.name === "library_list"));
+  assert.ok(tools.some((t) => t.name === "manager_status"));
+  assert.ok(tools.some((t) => t.name === "handheld_settings_get"));
+  assert.ok(tools.some((t) => t.name === "artwork_scrape_plan"));
+  assert.ok(tools.some((t) => t.name === "play_activity"));
+  assert.ok(tools.some((t) => t.name === "system_start"));
+  assert.ok(tools.some((t) => t.name === "checks_verify"));
+  assert.ok(tools.some((t) => t.name === "recipes_list"));
+  assert.ok(tools.some((t) => t.name === "recipes_run"));
+  const cat = toolCatalogue();
+  assert.equal(cat.count, tools.length);
+  assert.ok(cat.groups.library?.includes("library_list"));
+  assert.ok(cat.groups.artwork?.includes("artwork_start"));
+  assert.ok(cat.groups.play?.includes("collections_list"));
+  assert.ok(cat.groups.system?.includes("system_cards"));
+  const listed = cat.tools.find((t) => t.name === "library_list");
+  assert.ok(listed?.detail && listed.detail.length > listed.description.length);
+  const oa = openaiTools();
+  assert.equal(oa[0].type, "function");
+  assert.ok(oa[0].function.parameters);
+  // Free Groq TPM is tight; Assistant must send a small priority subset with compact schemas.
+  assert.ok(tools.length > ASSISTANT_TOOL_LIMIT);
+  const chatTools = openaiToolsForChat();
+  assert.ok(chatTools.length <= ASSISTANT_TOOL_LIMIT);
+  assert.ok(chatTools.length <= 128);
+  assert.ok(chatTools.some((t) => t.function.name === "apps_list"));
+  assert.ok(chatTools.some((t) => t.function.name === "library_search"));
+  assert.ok(chatTools.some((t) => t.function.name === "logs_list"));
+  const sampleParams = chatTools[0].function.parameters as { type?: string; $schema?: string };
+  assert.equal(sampleParams.type, "object");
+  assert.equal(sampleParams.$schema, undefined);
+
+  mcpMarkStarted();
+  recordMcpToolCall({ tool: "unit_probe", client: "test", ok: true, ms: 1 });
+  recordMcpToolCall({ tool: "unit_probe", client: "test", ok: false, ms: 2, error: "boom" });
+  const stats = mcpStatsJson();
+  assert.ok(stats.callsSession >= 2);
+  assert.ok(stats.recent.some((r) => r.tool === "unit_probe" && !r.ok));
+
+  const missing = await executeTool("definitely_not_a_tool", {});
+  assert.equal(missing.ok, false);
+});
+
+test("device profiles: save, merge, activate, delete and reload from .cache", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "profiles-"));
+  const before = ctx.cacheDir;
+  t.after(() => { ctx.cacheDir = before; resetProfilesCache(); fs.rmSync(dir, { recursive: true, force: true }); });
+  ctx.cacheDir = path.join(dir, "cache");
+  resetProfilesCache();
+
+  const { profile } = await saveProfile({ label: "Living room", color: "#AA00ff", wifi: { host: "192.168.0.32" }, ports: { ttyd: "8081", landing: 0 } });
+  assert.match(profile.id, /^p-/);
+  assert.deepEqual(profile.wifi, { host: "192.168.0.32", user: "muos", port: 2022 });
+  assert.deepEqual(profile.ssh, { host: "", user: "root", port: 22 });
+  assert.equal(profile.color, "#aa00ff");
+  assert.deepEqual(profile.ports, { ttyd: 8081 });
+
+  const seen = await saveProfile({ id: profile.id, lastSeen: 1700000000000, model: "RG35XX", battery: { percent: 77.4 } });
+  assert.equal(seen.profile.label, "Living room");
+  assert.equal(seen.profile.wifi.host, "192.168.0.32");
+  assert.deepEqual(seen.profile.battery, { percent: 77 });
+  assert.equal(seen.profiles.length, 1);
+
+  await assert.rejects(saveProfile({ label: "x", wifi: { host: "bad host!" } }), /IP address/);
+  await assert.rejects(saveProfile({ wifi: { host: "10.0.0.2", port: 70000 } }), /1 to 65535/);
+  await assert.rejects(setActiveProfile("nope"), /no longer exists/);
+
+  await setActiveProfile(profile.id);
+  resetProfilesCache();
+  const reloaded = await listDeviceProfiles();
+  assert.equal(reloaded.activeId, profile.id);
+  assert.equal(reloaded.profiles[0].model, "RG35XX");
+  assert.equal(fs.statSync(path.join(ctx.cacheDir, "device-profiles.json")).mode & 0o077, 0);
+
+  const left = await deleteProfile(profile.id);
+  assert.deepEqual(left, { activeId: "", profiles: [] });
+});
+
+test("recipe packs: validate, import, export, preset protection and delete", async (t) => {
+  const { cleanPack, deletePack, exportPack, importPack, recipesJson, runPack } = await import("../src/recipes.ts");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "recipes-"));
+  const before = ctx.cacheDir;
+  t.after(() => { ctx.cacheDir = before; fs.rmSync(dir, { recursive: true, force: true }); });
+  ctx.cacheDir = path.join(dir, "cache");
+
+  const pack = {
+    name: "GBA speed", about: "x", steps: [
+      { type: "core_folder", folder: "GBA", system: "Nintendo Game Boy Advance", core: "mgba" },
+      { type: "cheats_apply", folder: "GBA", file: "Game.gba", source: "handheld", on: ["1", 3, -1, "x"] },
+      { type: "governor_set", folder: "GBA", file: "Game.gba", gov: "performance" },
+    ],
+  };
+  const clean = cleanPack(pack);
+  assert.equal(clean.id, "gba-speed");
+  assert.deepEqual(clean.steps[1].on, [1, 3]);
+  assert.throws(() => cleanPack({ name: "x", steps: [{ type: "format_card" }] }), /unknown step type/);
+  assert.throws(() => cleanPack({ name: "x", steps: [{ type: "governor_set", folder: "GBA", file: "../a", gov: "p" }] }), /file name/);
+  assert.throws(() => cleanPack({ name: "x", steps: [] }), /at least one step/);
+  assert.throws(() => cleanPack({ format: "other", name: "x", steps: [] }), /not a recipe pack/);
+
+  const first = await importPack({ json: JSON.stringify(pack) });
+  assert.equal(first.replaced, false);
+  assert.equal((await importPack({ pack })).replaced, true);
+  const list = await recipesJson();
+  assert.ok(list.packs.some((p) => p.id === "gba-speed" && !p.builtin));
+  const preset = list.packs.find((p) => p.builtin);
+  assert.ok(preset, "data/recipes ships a preset");
+  await assert.rejects(importPack({ pack: { ...pack, id: preset.id } }), /built-in/);
+  await assert.rejects(deletePack({ id: preset.id }), /Built-in/);
+  await assert.rejects(importPack({ json: "{nope" }), /not valid JSON/);
+
+  const out = await exportPack(new URLSearchParams({ id: "gba-speed" }));
+  assert.equal(out.name, "gba-speed.recipe.json");
+  assert.equal(out.pack.format, "muos-recipe-pack");
+  assert.equal(out.pack.steps.length, 3);
+  await assert.rejects(runPack({ id: "missing" }), /no recipe pack/);
+
+  assert.ok(!(await deletePack({ id: "gba-speed" })).packs.some((p) => p.id === "gba-speed"));
+});
+
+test("Syncthing conflict names map back to the original file", () => {
+  assert.equal(originalOf("save/file/Game.sync-conflict-20260101-120000-ABC1234.srm"), "save/file/Game.srm");
+  assert.equal(originalOf("info/config/muos.sync-conflict-20260101-120000.cfg"), "info/config/muos.cfg");
+  assert.equal(originalOf("save/file/Game.srm"), "");
+});
+
+test("card diff: added, removed and changed games, kept per volume in the cache", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "muos-card-diff-"));
+  const before = ctx.cacheDir;
+  t.after(() => { ctx.cacheDir = before; fs.rmSync(dir, { recursive: true, force: true }); });
+  ctx.cacheDir = path.join(dir, "cache");
+  const listing = (games: { f: string; s: number; m: number }[]) => ({ card: { id: "usb" }, systems: [{ folder: "GB", games }] });
+  const a = listing([{ f: "A.gb", s: 10, m: 1 }, { f: "B.gb", s: 20, m: 1 }]);
+  assert.deepEqual(Object.keys(listingDigest(a)), ["GB/A.gb", "GB/B.gb"]);
+  const first = await recordListing(a);
+  assert.equal(first.baseline, true);
+  assert.equal(first.latest, null);
+  const second = await recordListing(listing([{ f: "B.gb", s: 21, m: 1 }, { f: "C.gb", s: 5, m: 1 }]));
+  assert.equal(second.baseline, false);
+  assert.deepEqual([second.latest?.added, second.latest?.removed, second.latest?.changed], [1, 1, 1]);
+  assert.deepEqual(second.latest?.addedNames, ["GB/C.gb"]);
+  const third = await recordListing(listing([{ f: "B.gb", s: 21, m: 1 }, { f: "C.gb", s: 5, m: 1 }]));
+  assert.equal(third.latest?.added, 0);
+  assert.equal(third.lastChange?.added, 1);
+  assert.equal((await storedCardDiff("usb"))?.files, 2);
+  assert.equal(await storedCardDiff("wifi"), null);
+  assert.equal(compareDigests({ x: "1" }, { x: "1" }, 0, 1).changed, 0);
 });

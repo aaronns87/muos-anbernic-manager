@@ -1,6 +1,7 @@
 // Artwork > Roms/ library: the health of Roms/<SYS>/Imgs and tools to fix it.
 
 import { $, app, api, esc, human, plural, initial, busy, toast, icon, model } from "./core.js";
+import { panel, notice, loadingInline, retryBtn } from "./layout.js";
 import { screenText } from "./devices.js";
 import { loadLibrary } from "./games.js";
 import { maxSides, artMax, pngData, pickImage, droppedImage, confirmBox } from "./art-images.js";
@@ -19,8 +20,6 @@ let redraw = noop;
 
 const stemOf = (name) => { const i = name.lastIndexOf("."); return i > 0 ? name.slice(0, i) : name; };
 const sysInfo = (code) => app.data?.systems.find((s) => s.code === code) || { name: code, code, accent: "#7c9cff" };
-const panel = (cls, title, body, actions = "") =>
-  `<section class="panel ${cls}"><h2>${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 const blocked = () => busy() || !!state.task;
 const dis = () => (blocked() ? " disabled" : "");
 
@@ -121,9 +120,9 @@ function healthPanel() {
   const title = "Roms/ artwork health";
   if (!state.data) {
     if (state.status === "error") {
-      return panel("full", title, `<div class="notice err">${esc(state.error)}</div>`, `<button class="btn" data-al="reload">${icon("refresh")}<span>Try again</span></button>`);
+      return panel("full", title, notice("err", esc(state.error)), retryBtn('data-al="reload"'));
     }
-    return panel("full", title, `<div class="muted-note"><span class="spinner sm"></span> Looking at every image in Roms/&hellip;</div>`);
+    return panel("full", title, loadingInline("Looking at every image in Roms/&hellip;"));
   }
   const t = state.data.totals, lim = state.data.limits;
   const fix = (n, op, ico, label, tip) => n

@@ -13,7 +13,7 @@ import { SftpFs } from "../src/device/sftp.ts";
 import type { Target } from "../src/device/target.ts";
 import { filesRename, removeDevice } from "../src/files.ts";
 import { renameGame } from "../src/games/actions.ts";
-import { makePlan } from "../src/jobs.ts";
+import { makePlan, makePullPlan, PullJob, planSummary } from "../src/jobs.ts";
 import { renameAvailable } from "../src/util.ts";
 
 function workspace(t: { after: (fn: () => void) => void }) {
@@ -101,4 +101,41 @@ test("comparing identical games leaves card timestamps unchanged", async (t) => 
   assert.deepEqual(plan.identical, ["GB/Game.gb"]);
   assert.equal(fs.statSync(dest).mtimeMs, before);
   assert.equal(fs.readFileSync(dest, "utf8"), "same game");
+});
+
+test("pull plans compare the device with Roms/ and copies keep their folders", async (t) => {
+  const root = workspace(t), card = path.join(root, "card", "ROMS");
+  fs.mkdirSync(path.join(card, "GB"), { recursive: true });
+  fs.mkdirSync(path.join(card, "PSX", "Disc"), { recursive: true });
+  fs.writeFileSync(path.join(card, "GB", "Same.gb"), "same");
+  fs.writeFileSync(path.join(card, "GB", "Changed.gb"), "device copy");
+  fs.writeFileSync(path.join(card, "GB", "New.gb"), "brand new");
+  fs.writeFileSync(path.join(card, "PSX", "Disc", "Game.bin"), "disc data");
+  const roms = path.join(root, "Roms", "GB");
+  fs.writeFileSync(path.join(roms, "same.GB"), "same");
+  fs.writeFileSync(path.join(roms, "Changed.gb"), "library copy!");
+  fs.utimesSync(path.join(card, "GB", "Same.gb"), 1_700_000_000, 1_700_000_000);
+  fs.utimesSync(path.join(roms, "same.GB"), 1_700_000_000, 1_700_000_000);
+  const fake = new CardFs(path.join(root, "card"));
+  const target: Target = {
+    roms: fake, arts: [], all: [["TF2", fake]], session: null, storages: [], name: "Fake TF2",
+    info: { id: "test-card", mode: "card", name: "Fake TF2", kind: "card", storage: "TF2", free: 1000, total: 1000, art: "", catalogue: false, fs: "exfat" },
+  };
+  const plan = await makePullPlan(target, [""]);
+  assert.deepEqual(plan.new.map((w) => w.rel), ["GB/New.gb", "PSX/Disc/Game.bin"]);
+  assert.deepEqual(plan.different.map((w) => w.rel), ["GB/Changed.gb"]);
+  assert.deepEqual(plan.identical, ["GB/same.GB"]);
+  assert.equal(planSummary(target.info, plan).new.count, 2);
+  const only = await makePullPlan(target, ["GB/New.gb"]);
+  assert.deepEqual(only.new.map((w) => w.rel), ["GB/New.gb"]);
+  assert.equal(only.different.length + only.identical.length, 0);
+  await assert.rejects(makePullPlan(target, ["NOPE"]), /Not on the handheld/);
+  await assert.rejects(makePullPlan(target, ["../x"]), /Invalid path/);
+
+  const job = new PullJob("test", plan.new, "test-card", "Fake TF2");
+  for (const work of plan.new) await job.copyOne(target, work, () => false);
+  assert.equal(fs.readFileSync(path.join(root, "Roms", "PSX", "Disc", "Game.bin"), "utf8"), "disc data");
+  assert.equal(fs.readFileSync(path.join(roms, "New.gb"), "utf8"), "brand new");
+  assert.deepEqual(fs.readdirSync(path.join(root, "Roms", "PSX", "Disc")), ["Game.bin"]);
+  assert.equal((await makePullPlan(target, ["PSX"])).new.length, 0);
 });

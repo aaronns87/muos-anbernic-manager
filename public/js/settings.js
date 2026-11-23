@@ -1,6 +1,7 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
 import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime, handheldVolume, setTabRoute } from "./core.js";
+import { panel, notice, loading, loadingInline, sectionHead } from "./layout.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
@@ -14,11 +15,14 @@ import { checkManager } from "./manager-update.js";
 import { forgetActivity } from "./activity.js";
 import { forgetPlay } from "./play.js";
 import { chatConfiguredChanged, mdHtml } from "./chat.js";
+import { mcpStatusChanged } from "./mcp.js";
 import {
   ZOOM_LEVELS, SCHEME_ROLES, defaultRoles, loadCustomSchemes, saveCustomSchemes, schemeChips,
   rolesToVars, applyVars, newSchemeId, resolveSchemeId,
 } from "./appearance.js";
 import { recipesPanelHtml, bindRecipes } from "./recipes.js";
+import { idleJobsPanelHtml, bindIdleJobs } from "./idle-jobs.js";
+import { metaPanelHtml, bindMeta } from "./workspace-meta.js";
 
 const FOLDER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>`;
 const PLACE_ICONS = {
@@ -29,19 +33,24 @@ const PLACE_ICONS = {
 };
 
 const s = {
-  data: null, chat: null, error: "", loading: false, working: "", browse: null, bound: false,
+  data: null, chat: null, mcp: null, mcpTools: null, mcpToken: "", mcpReveal: false, mcpGuestToken: "", mcpGuestReveal: false,
+  mcpClients: null, mcpCopyOpen: false, mcpToolQ: "", mcpToolGroup: "all",
+  mcpAgents: null, mcpAgentReviewId: "", mcpInstallOpen: "", mcpInstallAllOpen: false, mcpAgentBound: false,
+  error: "", loading: false, working: "", browse: null, bound: false,
   chatKey: "", promptBound: false, knowledgeBound: false, knowledgeMd: "",
   schemeEdit: null, schemeBound: false,
 };
 
 const SETTINGS_TABS = [
   ["folders", "folder", "Folders", "Where the manager finds games, apps, OS images, BIOS, backups, themes and logs"],
-  ["behaviour", "sliders", "Behaviour", "Copying, library recipes, startup, updates and uploaded artwork size"],
+  ["behaviour", "sliders", "Behaviour", "Copying, idle jobs, library recipes, startup, updates and uploaded artwork size"],
   ["appearance", "palette", "Appearance", "Theme, colour scheme, zoom, softer style, compact layout, clock and date"],
   ["assistant", "chat", "Assistant", "Bring-your-own-key chat, model, context, system prompt and knowledge base"],
-  ["data", "layers", "Data", "Refresh library metadata and clear downloaded caches"],
+  ["data", "layers", "Data", "Refresh library metadata, clear downloaded caches and back up workspace metadata"],
   ["resets", "trash", "Resets", "Clear logs and preferences on this computer, play history on the handheld, or start over"],
 ];
+
+const MCP_SUB = "Local MCP server for Cursor, Claude Desktop and the in-app Assistant";
 
 /** Named colour schemes: preview chips are fixed so the picker stays readable on every active scheme. */
 const SCHEMES = [
@@ -57,12 +66,20 @@ const APPEARANCE_DEFAULTS = {
   clockStyle: "digital", clock: "24", dateFormat: "weekday",
 };
 
-const settingsTab = () => SETTINGS_TABS.find((t) => t[0] === store.get("settingsTab", "folders")) || SETTINGS_TABS[0];
+const settingsTab = () => {
+  let id = store.get("settingsTab", "folders");
+  if (id === "mcp") {
+    id = "folders";
+    store.set("settingsTab", id);
+  }
+  return SETTINGS_TABS.find((t) => t[0] === id) || SETTINGS_TABS[0];
+};
 
 /** Reads the settings again the next time the section opens, after the setup wizard changed them. */
 export function forgetSettings() {
   s.data = null;
   if (section() === "settings") showSettings();
+  else if (section() === "mcp") showMcp();
 }
 
 export function showSettings() {
@@ -71,13 +88,33 @@ export function showSettings() {
   render();
 }
 
+/** Opens the Tools → MCP page (server, clients, agents, tools). */
+export function showMcp() {
+  if (!s.bound) bind();
+  if (!s.mcp && !s.loading) load();
+  render();
+}
+
 async function load() {
   s.loading = true;
   try {
-    const [data, chat] = await Promise.all([api("settings"), api("chat/settings")]);
+    const [data, chat, mcp, tools, agents] = await Promise.all([
+      api("settings"),
+      api("chat/settings"),
+      api("mcp/settings"),
+      api("mcp/tools").catch(() => ({ count: 0, groups: {}, tools: [] })),
+      api("mcp/agents").catch(() => ({ root: "", packs: [] })),
+    ]);
     s.data = data;
     s.chat = chat;
+    s.mcp = mcp;
+    s.mcpTools = tools;
+    s.mcpAgents = agents;
     s.chatKey = "";
+    s.mcpToken = "";
+    s.mcpReveal = false;
+    s.mcpGuestToken = "";
+    s.mcpGuestReveal = false;
     s.error = "";
   } catch (error) {
     s.error = error.message;
@@ -88,7 +125,6 @@ async function load() {
 
 // ---------------------------------------------------------------- rendering
 
-const panel = (cls, title, body) => `<section class="panel ${cls}"><h2>${title}</h2>${body}</section>`;
 const toggle = (key, on, label, note) => `<label class="set-row set-toggle">
     <span><b>${label}</b><small>${note}</small></span>
     <span class="switch"><input type="checkbox" role="switch" data-set-toggle="${key}"${on ? " checked" : ""}><span class="switch-track"></span></span>
@@ -103,29 +139,47 @@ function paintTabs() {
 }
 
 function render() {
+  if (section() === "mcp") return renderMcp();
   if (!$("settings")) return;
   paintTabs();
   if (!s.data) {
     $("settings-sub").textContent = settingsTab()[3];
     $("settings").innerHTML = s.error
-      ? `<div class="notice err">${esc(s.error)}</div>`
-      : `<div class="planning"><span class="spinner"></span> Reading settings&hellip;</div>`;
+      ? notice("err", esc(s.error))
+      : loading("Reading settings&hellip;");
     return;
   }
   const d = s.data, [tab, , , sub] = settingsTab();
   $("settings-sub").textContent = sub;
   const body = tab === "folders" ? `${romsPanel(d)}${otherFoldersPanel(d)}`
-    : tab === "behaviour" ? `${copyPanel(d)}${recipesPanelHtml()}${imagesPanel()}`
+    : tab === "behaviour" ? `${copyPanel(d)}${idleJobsPanelHtml()}${recipesPanelHtml()}${imagesPanel()}`
     : tab === "appearance" ? appearancePanels()
     : tab === "assistant" ? assistantPanel()
-    : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}`
+    : tab === "data" ? `${dataPanel(d)}${cachePanel(d)}${metaPanelHtml()}`
     : `${historyPanel(d)}${resetPanel()}`;
   $("settings").innerHTML = `<div class="ov-grid">${body}</div>`;
 }
 
+function renderMcp() {
+  const host = $("mcp");
+  if (!host) return;
+  const sub = $("mcp-sub");
+  if (sub) sub.textContent = MCP_SUB;
+  if (!s.mcp) {
+    host.innerHTML = s.error
+      ? notice("err", esc(s.error))
+      : loading("Reading MCP settings&hellip;");
+    return;
+  }
+  host.innerHTML = `<div class="ov-grid">${mcpPanel()}</div>`;
+  if (s.mcpCopyOpen || s.mcpInstallOpen || s.mcpInstallAllOpen) {
+    requestAnimationFrame(() => positionMcpMenus());
+  }
+}
+
 function assistantPanel() {
   const c = s.chat;
-  if (!c) return panel("full", "Assistant", `<p class="muted-note">Loading assistant settings&hellip;</p>`);
+  if (!c) return panel("full", "Assistant", loadingInline("Loading assistant settings&hellip;"));
   const prov = c.providers.find((p) => p.id === c.provider) || c.providers[0];
   const models = (prov?.models || []).map((m) => `<option value="${esc(m.id)}"${c.model === m.id ? " selected" : ""}>${esc(m.label)}</option>`).join("");
   const providers = c.providers.map((p) => `<option value="${esc(p.id)}"${c.provider === p.id ? " selected" : ""}>${esc(p.label)}</option>`).join("");
@@ -137,26 +191,34 @@ function assistantPanel() {
     ? `<span class="set-chip warn">Custom</span>`
     : `<span class="set-chip ok">Default</span>`;
   const promptWarn = c.systemPromptCustom
-    ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
-        <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span></div>`
+    ? notice("warn", `${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
+        <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span>`)
     : "";
+  const needsBase = c.provider === "custom" || !!prov?.needsBaseUrl;
+  const modelList = prov?.models || [];
+  const modelKnown = modelList.some((m) => m.id === c.model);
+  const modelOptions = modelList.length
+    ? `${models}<option value="__custom__"${modelKnown ? "" : " selected"}>Custom&hellip;</option>`
+    : `<option value="__custom__" selected>Custom&hellip;</option>`;
   return panel("full", `${icon("chat")} Assistant`, `
-    <p class="muted-note">Optional help chat that uses <b>your own free API key</b> (bring your own key). The key stays in the manager cache on this
+    <p class="muted-note">Optional help chat with <b>bring your own key</b> (BYOK). The key stays in the manager cache on this
       computer and is sent only to the provider you choose. Without a key, the chat button stays hidden.</p>
     ${promptWarn}
     <div class="set-row"><span><b>Status</b><small>After you save a key, open chat from the mustard chat button in the bottom-right corner, or <b>Assistant</b> in the top bar.</small></span>${status}</div>
     <div class="set-row"><span><b>Provider</b><small>${esc(help)}</small></span>
       <select class="control" id="chat-provider">${providers}</select></div>
+    <div class="set-row" id="chat-base-row"${needsBase ? "" : " hidden"}><span><b>API base URL</b><small>OpenAI-compatible host, e.g. <code>https://host/v1</code>. Required for Custom.</small></span>
+      <input class="control mono" id="chat-base" spellcheck="false" placeholder="https://example.com/v1" value="${esc(c.baseUrl || "")}"></div>
     <div class="set-row"><span><b>API key</b><small>Leave blank to keep the saved key. Clear removes it.</small></span>
-      <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste a free API key"}" value="${esc(s.chatKey)}"></div>
+      <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste your API key"}" value="${esc(s.chatKey)}"></div>
     <div class="set-row"><span><b>Model</b><small>Or type a custom model id for this provider.</small></span>
-      <select class="control" id="chat-model">${models}<option value="__custom__"${(prov?.models || []).every((m) => m.id !== c.model) ? " selected" : ""}>Custom&hellip;</option></select></div>
-    <div class="set-row" id="chat-custom-row"${(prov?.models || []).some((m) => m.id === c.model) ? " hidden" : ""}><span><b>Custom model id</b><small>Used when the model list is set to Custom&hellip;</small></span>
-      <input class="control mono" id="chat-custom" spellcheck="false" ${(prov?.models || []).some((m) => m.id === c.model) ? "disabled " : ""}value="${esc((prov?.models || []).some((m) => m.id === c.model) ? "" : c.model)}"></div>
+      <select class="control" id="chat-model">${modelOptions}</select></div>
+    <div class="set-row" id="chat-custom-row"${modelKnown && modelList.length ? " hidden" : ""}><span><b>Custom model id</b><small>Used when the model list is set to Custom&hellip;</small></span>
+      <input class="control mono" id="chat-custom" spellcheck="false" ${modelKnown && modelList.length ? "disabled " : ""}value="${esc(modelKnown ? "" : c.model)}"></div>
     <div class="set-row"><span><b>Temperature</b><small>Lower is more factual (0–1).</small></span>
       <input class="control" id="chat-temp" type="number" min="0" max="1" step="0.1" value="${c.temperature}"></div>
-    <div class="set-row"><span><b>Max reply tokens</b><small>Caps length and free-tier use.</small></span>
-      <input class="control" id="chat-maxtok" type="number" min="256" max="4096" step="128" value="${c.maxTokens}"></div>
+    <div class="set-row"><span><b>Max reply tokens</b><small>Caps length (and spend on paid providers).</small></span>
+      <input class="control" id="chat-maxtok" type="number" min="256" max="8192" step="128" value="${c.maxTokens}"></div>
     <label class="set-row set-toggle"><span><b>Include library context</b><small>Search your Roms/ library and LaunchBox descriptions when answering.</small></span>
       <span class="switch"><input type="checkbox" role="switch" id="chat-library"${c.includeLibrary ? " checked" : ""}><span class="switch-track"></span></span></label>
     <label class="set-row set-toggle"><span><b>Include connection context</b><small>Send Wi-Fi/SSH/card status (never passwords) with each question.</small></span>
@@ -169,10 +231,291 @@ function assistantPanel() {
       <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
       <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
     </div>
-    <div class="notice">${icon("info")}<span><b>Free keys.</b> <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a> (fast),
-      <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini), or
-      <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> models ending in <code>:free</code>.
-      Free tiers rate-limit; if a reply fails, wait or switch provider. See the Wiki article <b>Assistant</b>.</span></div>`);
+    ${notice("", `${icon("info")}<span><b>Keys.</b>
+      Free: <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a>,
+      <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini),
+      <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> (<code>:free</code>).
+      Paid BYOK: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a>,
+      <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Grok</a>,
+      or <b>Custom</b> for any OpenAI-compatible <code>/v1</code> host.
+      Cursor does not offer a public chat API for other apps — use OpenAI, xAI, or Custom with a proxy.
+      See the Wiki article <b>Assistant</b>.</span>`)}
+    `);
+}
+
+function mcpStatusChip(m) {
+  if (m.enabled && m.listening) return `<span class="set-chip ok"><span class="live-dot"></span>Listening</span>`;
+  if (m.enabled) return `<span class="set-chip warn">Enabled</span>`;
+  return `<span class="set-chip warn">Off</span>`;
+}
+
+function mcpSkillTargets() {
+  return (s.mcpClients?.clients || []).filter((c) => c.skillsSupported && c.installed);
+}
+
+function mcpCopyMenu() {
+  const clients = s.mcpClients?.clients || [];
+  const items = (clients.length ? clients : [
+    { id: "cursor", label: "Cursor" },
+    { id: "claude-desktop", label: "Claude Desktop" },
+    { id: "claude-code", label: "Claude Code" },
+    { id: "codex", label: "Codex" },
+    { id: "windsurf", label: "Windsurf" },
+  ]).map((c) =>
+    `<button type="button" role="menuitem" data-set="mcp-copy-client" data-id="${esc(c.id)}">${esc(c.label)}</button>
+     <button type="button" role="menuitem" data-set="mcp-copy-client" data-guest="1" data-id="${esc(c.id)}">${esc(c.label)} (read-only guest)</button>`).join("");
+  return `<div class="mcp-copy-wrap">
+    <button type="button" class="btn" data-set="mcp-copy-toggle" aria-expanded="${s.mcpCopyOpen}" aria-haspopup="menu">
+      ${icon("copy")}<span>Copy config</span>${icon("down")}</button>
+    <div class="mcp-copy-menu" role="menu"${s.mcpCopyOpen ? "" : " hidden"}>${items}</div>
+  </div>`;
+}
+
+function mcpInstallMenuItems(packId) {
+  const targets = mcpSkillTargets();
+  if (!targets.length) {
+    return `<span class="muted-note mcp-install-empty">Scan for IDEs first (Cursor, Claude Code, Codex).</span>`;
+  }
+  if (packId === "*") {
+    return targets.map((c) =>
+      `<button type="button" role="menuitem" data-set="mcp-agent-install-all" data-client="${esc(c.id)}">${esc(c.label)}</button>`).join("");
+  }
+  return targets.map((c) =>
+    `<button type="button" role="menuitem" data-set="mcp-agent-install" data-id="${esc(packId)}" data-client="${esc(c.id)}">${esc(c.label)}</button>`).join("");
+}
+
+function mcpClientCards() {
+  const scan = s.mcpClients;
+  if (!scan) {
+    return `<div class="mcp-scan-hero">
+      <div class="mcp-scan-hero-copy">
+        <b>Scan for IDEs</b>
+        <p class="muted-note">Find Cursor, Claude Desktop, Claude Code, Codex and Windsurf on this Mac, then write the MCP entry or install skills automatically.</p>
+      </div>
+      <button class="btn primary" data-set="mcp-scan"${s.working === "mcp-scan" ? " disabled" : ""}>
+        ${s.working === "mcp-scan" ? `<span class="spinner"></span>` : icon("search")}<span>Scan for IDEs</span></button>
+    </div>`;
+  }
+  const found = (scan.clients || []).filter((c) => c.installed);
+  const others = (scan.clients || []).filter((c) => !c.installed);
+  const card = (c) => {
+    const badge = c.configured
+      ? `<span class="set-chip ok">Configured</span>`
+      : c.installed
+        ? `<span class="set-chip warn">Found</span>`
+        : `<span class="set-chip">Not found</span>`;
+    return `<article class="mcp-client-card${c.installed ? " on" : ""}" data-mcp-client="${esc(c.id)}">
+      <div class="mcp-client-top">
+        <div><b>${esc(c.label)}</b><small>${esc(c.blurb)}</small></div>
+        ${badge}
+      </div>
+      <code class="mcp-client-path" title="${esc(c.configPath)}">${esc(c.configPath)}</code>
+      <div class="mcp-client-actions">
+        <button type="button" class="btn primary small" data-set="mcp-setup" data-id="${esc(c.id)}"
+          ${s.working === `mcp-setup-${c.id}` ? " disabled" : ""}>
+          ${s.working === `mcp-setup-${c.id}` ? `<span class="spinner"></span>` : icon("check")}
+          <span>${c.configured ? "Update" : "Set up"}</span></button>
+        <button type="button" class="btn small" data-set="mcp-copy-client" data-id="${esc(c.id)}">${icon("copy")}<span>Copy</span></button>
+        <button type="button" class="btn small" data-set="mcp-copy-client" data-guest="1" data-id="${esc(c.id)}" title="Config with the read-only guest token">${icon("copy")}<span>Guest</span></button>
+      </div>
+    </article>`;
+  };
+  return `
+    <div class="mcp-clients-toolbar">
+      <span class="muted-note">${found.length
+        ? `Found ${found.length} installed client${found.length === 1 ? "" : "s"}`
+        : "No matching IDEs detected — you can still copy a config."}</span>
+      <button class="btn small" data-set="mcp-scan"${s.working === "mcp-scan" ? " disabled" : ""}>
+        ${s.working === "mcp-scan" ? `<span class="spinner"></span>` : icon("refresh")}<span>Scan again</span></button>
+    </div>
+    <div class="mcp-client-grid">${[...found, ...others].map(card).join("")}</div>`;
+}
+
+function mcpAgentsSection() {
+  const packs = s.mcpAgents?.packs || [];
+  if (!packs.length) {
+    return `<div class="mcp-clients-empty">
+      <p class="muted-note">No agent packs found under <code>mcp/agents/</code>. They ship with the manager for MCP clients.</p>
+    </div>`;
+  }
+  const cards = packs.map((p) => {
+    const kind = p.kind === "expert" ? "Expert" : "Skill";
+    const menuOpen = s.mcpInstallOpen === p.id;
+    return `<article class="mcp-agent-card">
+      <div class="mcp-client-top">
+        <div>
+          <div class="mcp-agent-title"><span class="mcp-tool-group">${esc(kind)}</span><b>${esc(p.name || p.id)}</b></div>
+          <small>${esc(p.description || "")}</small>
+        </div>
+      </div>
+      <code class="mcp-client-path" title="${esc(p.path || "")}">${esc(p.id)}</code>
+      <div class="mcp-client-actions">
+        <button type="button" class="btn small" data-set="mcp-agent-review" data-id="${esc(p.id)}">${icon("book")}<span>Review</span></button>
+        <button type="button" class="btn small icon" data-set="mcp-agent-copy" data-id="${esc(p.id)}" title="Copy" aria-label="Copy">${icon("copy")}</button>
+        <div class="mcp-copy-wrap">
+          <button type="button" class="btn small primary" data-set="mcp-agent-install-toggle" data-id="${esc(p.id)}"
+            aria-expanded="${menuOpen}" aria-haspopup="menu">${icon("download")}<span>Install</span>${icon("down")}</button>
+          <div class="mcp-copy-menu" role="menu"${menuOpen ? "" : " hidden"}>${mcpInstallMenuItems(p.id)}</div>
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+  const allOpen = !!s.mcpInstallAllOpen;
+  return `
+    <div class="mcp-agents-toolbar">
+      <span class="muted-note">${packs.length} pack${packs.length === 1 ? "" : "s"} · install into Cursor / Claude Code / Codex skill folders</span>
+      <div class="mcp-copy-wrap">
+        <button type="button" class="btn small primary" data-set="mcp-agent-install-all-toggle"
+          aria-expanded="${allOpen}" aria-haspopup="menu">${icon("download")}<span>Install all</span>${icon("down")}</button>
+        <div class="mcp-copy-menu" role="menu"${allOpen ? "" : " hidden"}>${mcpInstallMenuItems("*")}</div>
+      </div>
+    </div>
+    <div class="mcp-client-grid">${cards}</div>`;
+}
+
+function mcpClientsAndAgentsSection() {
+  return `
+    <section class="panel full mcp-section">
+      ${sectionHead({
+        title: "Clients &amp; agents",
+        note: "Connect agentic IDEs to this MCP server, then install skills and experts into their skill folders.",
+        actions: mcpCopyMenu(),
+      })}
+      ${mcpClientCards()}
+      <div class="mcp-subsection">
+        <h3>Skills &amp; experts</h3>
+        <p class="muted-note">MCP-only packs under <code>mcp/agents/</code> (not the repo developer docs). Review, copy, or install after a scan.</p>
+        ${mcpAgentsSection()}
+      </div>
+      ${notice("", `${icon("info")}<span>Authorization uses <code>Bearer &lt;token&gt;</code>. After auto-setup or skill install, restart the client if it was already open.
+        LAN / Tailscale expose is not available yet.</span>`)}
+    </section>`;
+}
+
+function mcpToolsTable() {
+  const tools = s.mcpTools?.tools || [];
+  const groups = [...new Set(tools.map((t) => t.group))].sort();
+  const q = (s.mcpToolQ || "").trim().toLowerCase();
+  const group = s.mcpToolGroup || "all";
+  const filtered = tools.filter((t) => {
+    if (group !== "all" && t.group !== group) return false;
+    if (!q) return true;
+    return `${t.group} ${t.name} ${t.description} ${t.detail || ""}`.toLowerCase().includes(q);
+  });
+  const groupOpts = [`<option value="all"${group === "all" ? " selected" : ""}>All collections</option>`]
+    .concat(groups.map((g) => `<option value="${esc(g)}"${group === g ? " selected" : ""}>${esc(g)}</option>`)).join("");
+  const rows = filtered.map((t) => {
+    const detail = t.detail && t.detail !== t.description ? t.detail : t.description;
+    return `
+    <tr>
+      <td><span class="mcp-tool-group">${esc(t.group)}</span></td>
+      <td><code>${esc(t.name)}</code></td>
+      <td class="mcp-tool-desc">
+        <div class="mcp-tool-desc-short">${esc(t.description)}</div>
+        ${detail !== t.description ? `<div class="mcp-tool-desc-detail">${esc(detail)}</div>` : ""}
+      </td>
+    </tr>`;
+  }).join("")
+    || `<tr><td colspan="3" class="muted">No tools match this filter.</td></tr>`;
+  return `
+    <div class="mcp-tools-bar">
+      <label class="mcp-tools-search">${icon("search")}
+        <input class="control" id="mcp-tool-q" type="search" placeholder="Filter tools&hellip;" value="${esc(s.mcpToolQ || "")}" autocomplete="off"></label>
+      <select class="control" id="mcp-tool-group">${groupOpts}</select>
+      <span class="muted-note">${filtered.length} of ${tools.length}</span>
+    </div>
+    <div class="mcp-tools-list">
+      <table class="mcp-tools-table">
+        <thead><tr><th>Collection</th><th>Tool</th><th>Description</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function positionMcpMenus() {
+  document.querySelectorAll(".mcp-copy-menu:not([hidden])").forEach((menu) => {
+    const wrap = menu.closest(".mcp-copy-wrap");
+    const btn = wrap?.querySelector("button[aria-haspopup='menu']");
+    if (!btn) return;
+    menu.classList.add("mcp-copy-menu-fixed");
+    const r = btn.getBoundingClientRect();
+    const mw = Math.max(menu.offsetWidth || 0, 200);
+    let left = r.right - mw;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+    let top = r.bottom + 6;
+    const mh = menu.offsetHeight || 160;
+    if (top + mh > window.innerHeight - 8 && r.top > mh + 8) top = r.top - mh - 6;
+    menu.style.top = `${Math.round(top)}px`;
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.right = "auto";
+    menu.style.minWidth = `${Math.round(Math.max(mw, r.width))}px`;
+  });
+}
+
+function mcpPanel() {
+  const m = s.mcp;
+  if (!m) return panel("full", "MCP", `<p class="muted-note">Loading MCP settings&hellip;</p>`);
+  const tokenVal = s.mcpReveal && (s.mcpToken || m.token) ? esc(s.mcpToken || m.token) : "";
+  const guestVal = s.mcpGuestReveal && (s.mcpGuestToken || m.guestToken) ? esc(s.mcpGuestToken || m.guestToken) : "";
+  return `
+    <section class="panel full mcp-hero">
+      <div class="mcp-hero-top">
+        <div class="mcp-hero-title">
+          <span class="mcp-hero-ico">${icon("mcp")}</span>
+          <div>
+            <h2>MCP server</h2>
+            <p class="muted-note">Streamable HTTP on this computer only. Clients use a persistent bearer token (full access) or a read-only guest token; the Assistant can share the same tools. IDE configs register the server as <code>MuAnMCP</code>.</p>
+          </div>
+        </div>
+        ${mcpStatusChip(m)}
+      </div>
+      <div class="mcp-hero-meta">
+        <div><small>Endpoint</small><code>${esc(m.url || "")}</code></div>
+        <div><small>Bind</small><span>${esc(m.bind || "127.0.0.1")}</span></div>
+        <div><small>Tools</small><span>${s.mcpTools?.count ?? 0}</span></div>
+      </div>
+    </section>
+
+    <section class="panel full mcp-section">
+      <h2>Server</h2>
+      ${toggle("mcp-enabled", !!m.enabled, "Enable MCP server", "Starts with the manager. Turn off to stop /mcp.")}
+      ${toggle("mcp-assistant", !!m.assistantUsesTools, "Assistant uses MCP tools", "When on, in-app chat may call manager tools (reads and writes).")}
+      <div class="set-row mcp-url-row"><span><b>URL</b><small>Always localhost in this version</small></span>
+        <code class="mono set-path">${esc(m.url || "")}</code>
+        <button class="btn" data-set="mcp-copy-url"${s.working ? " disabled" : ""}>${icon("copy")}<span>Copy</span></button></div>
+      <div class="set-row mcp-token-row"><span><b>Bearer token</b><small>${m.tokenHint ? `Hint ${esc(m.tokenHint)}` : "Generated on first boot"} · .cache/mcp.json</small></span>
+        <input class="control mono" id="mcp-token" type="${s.mcpReveal ? "text" : "password"}" readonly autocomplete="off" spellcheck="false"
+          value="${tokenVal}" placeholder="${s.mcpReveal ? "" : "Reveal to show full token"}">
+        <div class="mcp-token-actions">
+          <button class="btn" data-set="mcp-reveal"${s.working ? " disabled" : ""}>${icon("eye")}<span>${s.mcpReveal ? "Hide" : "Reveal"}</span></button>
+          <button class="btn" data-set="mcp-copy-token"${s.working ? " disabled" : ""}>${icon("copy")}<span>Copy</span></button>
+          <button class="btn danger" data-set="mcp-rotate"${s.working === "mcp-rotate" ? " disabled" : ""}>${s.working === "mcp-rotate" ? `<span class="spinner"></span>` : icon("refresh")}<span>Rotate</span></button>
+        </div>
+      </div>
+      <div class="set-row mcp-token-row"><span><b>Guest token (read-only)</b><small>${m.guestTokenHint ? `Hint ${esc(m.guestTokenHint)}` : "Generated on first boot"} · lists and reads only; no writes, deletes or transfers</small></span>
+        <input class="control mono" id="mcp-guest-token" type="${s.mcpGuestReveal ? "text" : "password"}" readonly autocomplete="off" spellcheck="false"
+          value="${guestVal}" placeholder="${s.mcpGuestReveal ? "" : "Reveal to show full token"}">
+        <div class="mcp-token-actions">
+          <button class="btn" data-set="mcp-guest-reveal"${s.working ? " disabled" : ""}>${icon("eye")}<span>${s.mcpGuestReveal ? "Hide" : "Reveal"}</span></button>
+          <button class="btn" data-set="mcp-copy-guest"${s.working ? " disabled" : ""}>${icon("copy")}<span>Copy</span></button>
+          <button class="btn danger" data-set="mcp-guest-rotate"${s.working === "mcp-guest-rotate" ? " disabled" : ""}>${s.working === "mcp-guest-rotate" ? `<span class="spinner"></span>` : icon("refresh")}<span>Rotate</span></button>
+        </div>
+      </div>
+      <div class="panel-actions set-actions">
+        <button class="btn primary" data-set="mcp-save"${s.working === "mcp" ? " disabled" : ""}>${s.working === "mcp" ? `<span class="spinner"></span>` : icon("check")}<span>Save</span></button>
+      </div>
+    </section>
+
+    ${mcpClientsAndAgentsSection()}
+
+    <section class="panel full mcp-section">
+      ${sectionHead({
+        title: "Tools",
+        note: `${s.mcpTools?.count ?? 0} registered tools · see Wiki → MCP. Destructive tools run without a second confirm; calls are audited.`,
+      })}
+      ${mcpToolsTable()}
+    </section>`;
 }
 
 
@@ -294,10 +637,16 @@ function copyPanel(d) {
     `<p class="muted-note">How copying to the handheld behaves, what happens when the manager starts, and whether it looks for newer versions on GitHub.</p>`
     + toggle("copyArt", d.settings.copyArt, "Send box art with games",
       "Transferring a game also puts its Roms/ image in the device's artwork catalogue, unless the device has box art for it already.")
+    + `<div class="set-row"><span><b>Syncthing ROMs folder</b><small>A folder on this computer that Syncthing shares with the handheld's Roms/ (same system folders inside). Transfers can then copy there instead of sending over the connection. Leave empty to turn this off. Not the same folder as Roms/.</small></span>
+      <input class="control" data-set-sync="syncthingRomsPath" value="${esc(d.settings.syncthingRomsPath || "")}" placeholder="/path/to/Syncthing/Roms" spellcheck="false" autocomplete="off" aria-label="Syncthing ROMs folder"></div>`
+    + `<div class="set-row"><span><b>Syncthing folder id</b><small>Optional. The id of that share in Syncthing (letters, digits, dots and dashes), so the manager can wait for that folder to finish syncing.</small></span>
+      <input class="control" data-set-sync="syncthingFolderId" value="${esc(d.settings.syncthingFolderId || "")}" placeholder="abcde-fghij" spellcheck="false" autocomplete="off" aria-label="Syncthing folder id"></div>`
     + toggle("openBrowser", d.settings.openBrowser, "Open the browser at start",
       "Starting the manager opens this page. Off: it only prints the link. A restart reuses the open tab either way.")
     + `<div class="set-row"><span><b>Show tips at start</b><small>After the setup wizard and What's new, open the Hints and tips walkthrough. You can also turn this off in the tips dialog.</small></span>
       <span class="switch"><input type="checkbox" role="switch" data-set-tips${tipsOnStartup() ? " checked" : ""}><span class="switch-track"></span></span></div>`
+    + `<label class="set-row set-toggle"><span><b>Power user keys</b><small>Ctrl/Cmd+K opens a command palette to jump to any section or run common actions, and <kbd>/</kbd> focuses game search from any page. Off: only the number keys, <kbd>[</kbd> and <kbd>?</kbd> work.</small></span>
+      <span class="switch"><input type="checkbox" role="switch" data-set-powerkeys${store.get("powerUserKeys", true) !== false ? " checked" : ""}><span class="switch-track"></span></span></label>`
     + `<div class="set-row"><span><b>Hints and tips</b><small>Walk through the manager's main features again.</small></span>
       <button class="btn" data-set="tips">${icon("star")}<span>Open tips</span></button></div>`
     + toggle("checkUpdates", d.settings.checkUpdates, "Check for manager updates",
@@ -591,6 +940,13 @@ async function useFolder(path, which = "roms") {
 }
 
 async function saveToggle(key, value) {
+  if (key === "mcp-enabled" || key === "mcp-assistant") {
+    await saveMcp({
+      enabled: key === "mcp-enabled" ? value : undefined,
+      assistantUsesTools: key === "mcp-assistant" ? value : undefined,
+    });
+    return;
+  }
   try {
     s.data = await api("settings", { [key]: value });
     toast("Saved");
@@ -599,6 +955,311 @@ async function saveToggle(key, value) {
     toast(error.message, 3000);
   }
   render();
+}
+
+async function saveMcp(partial = null) {
+  s.working = "mcp";
+  render();
+  try {
+    const body = partial || {
+      enabled: !!document.querySelector('[data-set-toggle="mcp-enabled"]')?.checked,
+      assistantUsesTools: !!document.querySelector('[data-set-toggle="mcp-assistant"]')?.checked,
+    };
+    // Drop undefined keys so we only patch what changed.
+    for (const k of Object.keys(body)) if (body[k] === undefined) delete body[k];
+    s.mcp = await api("mcp/settings", body);
+    mcpStatusChanged(s.mcp);
+    toast("MCP settings saved", 2200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function revealMcpToken() {
+  if (s.mcpReveal) {
+    s.mcpReveal = false;
+    s.mcpToken = "";
+    render();
+    return;
+  }
+  try {
+    const m = await api("mcp/settings?reveal=1");
+    s.mcp = { ...s.mcp, ...m, token: undefined };
+    s.mcpToken = m.token || "";
+    s.mcpReveal = true;
+    render();
+  } catch (error) {
+    toast(error.message, 3500);
+  }
+}
+
+async function revealMcpGuestToken() {
+  if (s.mcpGuestReveal) {
+    s.mcpGuestReveal = false;
+    s.mcpGuestToken = "";
+    render();
+    return;
+  }
+  try {
+    const m = await api("mcp/settings?reveal=guest");
+    s.mcp = { ...s.mcp, ...m, guestToken: undefined };
+    s.mcpGuestToken = m.guestToken || "";
+    s.mcpGuestReveal = true;
+    render();
+  } catch (error) {
+    toast(error.message, 3500);
+  }
+}
+
+async function rotateMcpGuestToken() {
+  const ok = await confirmBox({
+    title: "Rotate the guest token?",
+    html: "<p>Clients using the read-only guest token stop working until you paste the new one. The full token is not affected.</p>",
+    ok: "Rotate guest token",
+    danger: true,
+  });
+  if (!ok) return;
+  s.working = "mcp-guest-rotate";
+  render();
+  try {
+    const m = await api("mcp/guest-token/rotate", {});
+    s.mcp = { ...m, guestToken: undefined };
+    s.mcpGuestToken = m.guestToken || "";
+    s.mcpGuestReveal = true;
+    mcpStatusChanged(s.mcp);
+    toast("Guest token rotated — copy it into your clients", 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function rotateMcpToken() {
+  const ok = await confirmBox({
+    title: "Rotate the MCP token?",
+    html: "<p>Existing Cursor / Claude configs stop working until you paste the new token. Active MCP sessions will need to reconnect.</p>",
+    ok: "Rotate token",
+    danger: true,
+  });
+  if (!ok) return;
+  s.working = "mcp-rotate";
+  render();
+  try {
+    const m = await api("mcp/token/rotate", {});
+    s.mcp = { ...m, token: undefined };
+    s.mcpToken = m.token || "";
+    s.mcpReveal = true;
+    mcpStatusChanged(s.mcp);
+    toast("MCP token rotated — copy it into your clients", 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function copyMcpText(kind) {
+  try {
+    if (kind === "guest") {
+      let token = s.mcpGuestToken;
+      if (!token) {
+        const m = await api("mcp/settings?reveal=guest");
+        token = m.guestToken || "";
+        s.mcpGuestToken = token;
+        s.mcpGuestReveal = true;
+        render();
+      }
+      if (!token) throw new Error("No guest token yet");
+      await navigator.clipboard.writeText(token);
+      toast("Guest token copied", 2000);
+      return;
+    }
+    if (kind === "url") {
+      await navigator.clipboard.writeText(s.mcp?.url || "");
+      toast("MCP URL copied", 2000);
+      return;
+    }
+    if (kind === "token") {
+      let token = s.mcpToken;
+      if (!token) {
+        const m = await api("mcp/settings?reveal=1");
+        token = m.token || "";
+        s.mcpToken = token;
+        s.mcpReveal = true;
+        render();
+      }
+      if (!token) throw new Error("No token yet");
+      await navigator.clipboard.writeText(token);
+      toast("MCP token copied", 2000);
+      return;
+    }
+  } catch (error) {
+    toast(error.message || "Could not copy", 3500);
+  }
+}
+
+async function scanMcpClients() {
+  s.working = "mcp-scan";
+  s.mcpCopyOpen = false;
+  s.mcpInstallOpen = "";
+  s.mcpInstallAllOpen = false;
+  render();
+  try {
+    s.mcpClients = await api("mcp/clients");
+    const n = (s.mcpClients.clients || []).filter((c) => c.installed).length;
+    toast(n ? `Found ${n} installed client${n === 1 ? "" : "s"}` : "No matching IDEs found — copy a config instead", 2800);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function setupMcpClient(id) {
+  if (!id) return;
+  const client = (s.mcpClients?.clients || []).find((c) => c.id === id);
+  const label = client?.label || id;
+  const ok = await confirmBox({
+    title: `Set up ${label}?`,
+    html: `<p>The manager will merge <code>MuAnMCP</code> into:</p>
+      <p><code>${esc(client?.configPath || "")}</code></p>
+      <p>Other MCP servers in that file stay. Restart ${esc(label)} if it is already open.</p>`,
+    ok: client?.configured ? "Update config" : "Write config",
+  });
+  if (!ok) return;
+  s.working = `mcp-setup-${id}`;
+  render();
+  try {
+    const r = await api("mcp/clients/install", { id, force: !client?.installed });
+    toast(r.message || `Configured ${label}`, 3200);
+    s.mcpClients = await api("mcp/clients");
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function reviewMcpAgent(id) {
+  if (!id) return;
+  s.working = `mcp-agent-${id}`;
+  try {
+    const pack = await api(`mcp/agents/content?id=${encodeURIComponent(id)}`);
+    s.mcpAgentReviewId = id;
+    const dialog = $("mcp-agent-review");
+    const title = $("mcp-agent-review-title");
+    const sub = $("mcp-agent-review-sub");
+    const body = $("mcp-agent-review-body");
+    if (title) title.textContent = pack.name || id;
+    if (sub) {
+      sub.textContent = `${pack.kind === "expert" ? "Expert" : "Skill"} · ${id}${pack.description ? ` — ${pack.description}` : ""}`;
+    }
+    if (body) body.innerHTML = mdHtml(pack.markdown || "");
+    if (dialog && !dialog.open) dialog.showModal();
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+}
+
+async function copyMcpAgent(id) {
+  try {
+    const pack = await api(`mcp/agents/content?id=${encodeURIComponent(id)}`);
+    await navigator.clipboard.writeText(pack.markdown || "");
+    toast(`${pack.name || id} copied`, 2200);
+  } catch (error) {
+    toast(error.message || "Could not copy", 3500);
+  }
+}
+
+async function installMcpAgent(id, clientId) {
+  if (!id || !clientId) return;
+  const pack = (s.mcpAgents?.packs || []).find((p) => p.id === id);
+  const client = (s.mcpClients?.clients || []).find((c) => c.id === clientId);
+  const ok = await confirmBox({
+    title: `Install ${pack?.name || id}?`,
+    html: `<p>Write <code>SKILL.md</code> into:</p>
+      <p><code>${esc(client?.skillsDir || "")}/${esc(id)}/</code></p>
+      <p>Overwrites the same pack id if it already exists. Restart ${esc(client?.label || "the IDE")} if it is open.</p>`,
+    ok: "Install",
+  });
+  if (!ok) return;
+  s.working = `mcp-agent-install-${id}`;
+  s.mcpInstallOpen = "";
+  s.mcpInstallAllOpen = false;
+  render();
+  try {
+    const r = await api("mcp/agents/install", { id, clientId });
+    toast(r.message || "Installed", 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function installAllMcpAgents(clientId) {
+  if (!clientId) return;
+  const packs = s.mcpAgents?.packs || [];
+  const client = (s.mcpClients?.clients || []).find((c) => c.id === clientId);
+  if (!packs.length) {
+    toast("No agent packs to install", 2500);
+    return;
+  }
+  const ok = await confirmBox({
+    title: `Install all ${packs.length} packs?`,
+    html: `<p>Write every skill and expert into:</p>
+      <p><code>${esc(client?.skillsDir || "")}/&lt;pack-id&gt;/</code></p>
+      <p>Overwrites the same pack ids if they already exist. Restart ${esc(client?.label || "the IDE")} if it is open.</p>`,
+    ok: "Install all",
+  });
+  if (!ok) return;
+  s.working = "mcp-agent-install-all";
+  s.mcpInstallOpen = "";
+  s.mcpInstallAllOpen = false;
+  render();
+  try {
+    const r = await api("mcp/agents/install-all", { clientId });
+    toast(r.message || `Installed ${r.count || packs.length} packs`, 3200);
+  } catch (error) {
+    toast(error.message, 4000);
+  }
+  s.working = "";
+  render();
+}
+
+async function copyMcpClientConfig(id, guest = false) {
+  try {
+    let client = (s.mcpClients?.clients || []).find((c) => c.id === id);
+    if (guest) {
+      const cfg = await api("mcp/configs");
+      client = (cfg.clients || []).find((c) => c.id === id);
+      if (!client?.guestSnippet) throw new Error("No guest config snippet for that client");
+      await navigator.clipboard.writeText(client.guestSnippet);
+      toast(`${client.label || id} read-only guest config copied (add as MuAnMCP-guest)`, 2800);
+      s.mcpCopyOpen = false;
+      render();
+      return;
+    }
+    if (!client?.snippet) {
+      const cfg = await api("mcp/configs");
+      client = (cfg.clients || []).find((c) => c.id === id);
+      if (!client?.snippet && id === "cursor" && cfg.cursor) client = { id, label: "Cursor", snippet: cfg.cursor };
+      if (!client?.snippet && (id === "claude-desktop" || id === "claude") && cfg.claudeDesktop) {
+        client = { id: "claude-desktop", label: "Claude Desktop", snippet: cfg.claudeDesktop };
+      }
+    }
+    if (!client?.snippet) throw new Error("No config snippet for that client");
+    await navigator.clipboard.writeText(client.snippet);
+    toast(`${client.label || id} config copied`, 2200);
+    s.mcpCopyOpen = false;
+    render();
+  } catch (error) {
+    toast(error.message || "Could not copy", 3500);
+  }
 }
 
 async function refresh(what) {
@@ -695,6 +1356,7 @@ async function saveAssistant(clear) {
       apiKey: clear ? "" : ($("chat-key")?.value ?? s.chatKey),
       clearKey: !!clear,
       model,
+      baseUrl: $("chat-base")?.value ?? s.chat.baseUrl ?? "",
       temperature: Number($("chat-temp")?.value),
       maxTokens: Number($("chat-maxtok")?.value),
       includeLibrary: !!$("chat-library")?.checked,
@@ -802,6 +1464,24 @@ function bindKnowledgeDialog() {
   $("chat-knowledge-close")?.addEventListener("click", closeKnowledgeViewer);
   dialog.addEventListener("click", (e) => { if (e.target === dialog) closeKnowledgeViewer(); });
   dialog.addEventListener("cancel", (e) => { e.preventDefault(); closeKnowledgeViewer(); });
+}
+
+function closeMcpAgentReview() {
+  $("mcp-agent-review")?.close();
+  s.mcpAgentReviewId = "";
+}
+
+function bindMcpAgentReview() {
+  if (s.mcpAgentBound) return;
+  const dialog = $("mcp-agent-review");
+  if (!dialog) return;
+  s.mcpAgentBound = true;
+  $("mcp-agent-review-close")?.addEventListener("click", closeMcpAgentReview);
+  $("mcp-agent-review-copy")?.addEventListener("click", () => {
+    if (s.mcpAgentReviewId) void copyMcpAgent(s.mcpAgentReviewId);
+  });
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) closeMcpAgentReview(); });
+  dialog.addEventListener("cancel", (e) => { e.preventDefault(); closeMcpAgentReview(); });
 }
 
 async function resetPrefs() {
@@ -959,13 +1639,95 @@ function bindSchemeEditor() {
   });
 }
 
+function handleMcpAction(action, el) {
+  if (action === "mcp-save") return saveMcp();
+  if (action === "mcp-reveal") return revealMcpToken();
+  if (action === "mcp-rotate") return rotateMcpToken();
+  if (action === "mcp-guest-reveal") return revealMcpGuestToken();
+  if (action === "mcp-guest-rotate") return rotateMcpGuestToken();
+  if (action === "mcp-copy-guest") return copyMcpText("guest");
+  if (action === "mcp-copy-url") return copyMcpText("url");
+  if (action === "mcp-copy-token") return copyMcpText("token");
+  if (action === "mcp-scan") return scanMcpClients();
+  if (action === "mcp-setup") return setupMcpClient(el.dataset.id);
+  if (action === "mcp-copy-client") return copyMcpClientConfig(el.dataset.id, el.dataset.guest === "1");
+  if (action === "mcp-copy-toggle") {
+    s.mcpCopyOpen = !s.mcpCopyOpen;
+    s.mcpInstallOpen = "";
+    s.mcpInstallAllOpen = false;
+    render();
+    return true;
+  }
+  if (action === "mcp-agent-review") return reviewMcpAgent(el.dataset.id);
+  if (action === "mcp-agent-copy") return copyMcpAgent(el.dataset.id);
+  if (action === "mcp-agent-install-toggle") {
+    const id = el.dataset.id || "";
+    s.mcpInstallOpen = s.mcpInstallOpen === id ? "" : id;
+    s.mcpInstallAllOpen = false;
+    s.mcpCopyOpen = false;
+    render();
+    return true;
+  }
+  if (action === "mcp-agent-install-all-toggle") {
+    s.mcpInstallAllOpen = !s.mcpInstallAllOpen;
+    s.mcpInstallOpen = "";
+    s.mcpCopyOpen = false;
+    render();
+    return true;
+  }
+  if (action === "mcp-agent-install") return installMcpAgent(el.dataset.id, el.dataset.client);
+  if (action === "mcp-agent-install-all") return installAllMcpAgents(el.dataset.client);
+  return false;
+}
+
+function bindMcpPage(root) {
+  root.addEventListener("click", async (e) => {
+    const el = e.target.closest("[data-set]");
+    if (!el || el.disabled || !el.dataset.set?.startsWith("mcp-")) return;
+    await handleMcpAction(el.dataset.set, el);
+  });
+  root.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.id === "mcp-tool-group") {
+      s.mcpToolGroup = t.value || "all";
+      render();
+      return;
+    }
+    if (t.dataset.setToggle) saveToggle(t.dataset.setToggle, t.checked);
+  });
+  root.addEventListener("input", (e) => {
+    if (e.target.id !== "mcp-tool-q") return;
+    s.mcpToolQ = e.target.value;
+    const sel = document.activeElement === e.target;
+    const start = e.target.selectionStart;
+    render();
+    if (sel) {
+      const again = $("mcp-tool-q");
+      again?.focus();
+      if (again && typeof start === "number") again.setSelectionRange(start, start);
+    }
+  });
+  root.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || (!s.mcpCopyOpen && !s.mcpInstallOpen && !s.mcpInstallAllOpen)) return;
+    s.mcpCopyOpen = false;
+    s.mcpInstallOpen = "";
+    s.mcpInstallAllOpen = false;
+    render();
+  });
+}
+
 function bind() {
   s.bound = true;
   bindPromptDialog();
   bindKnowledgeDialog();
+  bindMcpAgentReview();
   bindSchemeEditor();
   const root = $("view-settings");
+  const mcpRoot = $("view-mcp");
   bindRecipes(root);
+  bindIdleJobs(root);
+  bindMeta(root);
+  if (mcpRoot) bindMcpPage(mcpRoot);
   $("settings-tabs")?.addEventListener("click", (e) => {
     const b = e.target.closest("[data-settings-tab]");
     if (!b || b.classList.contains("on")) return;
@@ -1028,6 +1790,10 @@ function bind() {
     if (el.dataset.setPlay) { resetPlay(el.dataset.setPlay); return; }
     if (el.dataset.setReset) { resetPrefs(); return; }
     const action = el.dataset.set;
+    if (action?.startsWith("mcp-")) {
+      await handleMcpAction(action, el);
+      return;
+    }
     const which = el.dataset.which || "roms";
     if (action === "browse") browse(s.data.folders[which].path, which);
     else if (action === "cancel") { s.browse = null; render(); }
@@ -1071,10 +1837,15 @@ function bind() {
       store.set("compact", app.ui.compact);
       applyView();
     }
+    else if (t.dataset.setPowerkeys !== undefined) {
+      store.set("powerUserKeys", t.checked);
+      toast(t.checked ? "Power user keys on: Ctrl/Cmd+K opens the palette" : "Power user keys off", 2200);
+    }
     else if (t.dataset.setTips !== undefined) {
       setTipsOnStartup(t.checked);
       toast(t.checked ? "Tips will show at start" : "Tips will not show at start", 2200);
     }
+    else if (t.dataset.setSync) saveToggle(t.dataset.setSync, t.value.trim());
     else if (t.dataset.setArtmax !== undefined) { artMax.set(t.value); toast("Saved"); }
     else if (t.dataset.setDate !== undefined) { app.ui.dateFormat = t.value; store.set("dateFormat", t.value); renderStatusbar(); }
     else if (t.id === "chat-provider" && s.chat) {
@@ -1087,11 +1858,14 @@ function bind() {
       const row = $("chat-custom-row"), input = $("chat-custom");
       if (row) row.hidden = !custom;
       if (input) { input.disabled = !custom; if (custom) input.focus(); }
+      const baseRow = $("chat-base-row");
+      if (baseRow && s.chat) baseRow.hidden = s.chat.provider !== "custom";
     }
   });
   root.addEventListener("input", (e) => {
     if (e.target.id === "set-browse-path" && s.browse) s.browse.input = e.target.value;
     if (e.target.id === "chat-key") s.chatKey = e.target.value;
+    if (e.target.id === "chat-base" && s.chat) s.chat.baseUrl = e.target.value;
   });
   root.addEventListener("submit", (e) => {
     if (e.target.dataset.setForm !== "go") return;
@@ -1100,5 +1874,16 @@ function bind() {
   });
   root.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && s.browse && !document.querySelector("dialog[open]")) { s.browse = null; render(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (!s.mcpCopyOpen && !s.mcpInstallOpen && !s.mcpInstallAllOpen) return;
+    if (e.target.closest(".mcp-copy-wrap")) return;
+    s.mcpCopyOpen = false;
+    s.mcpInstallOpen = "";
+    s.mcpInstallAllOpen = false;
+    if (section() === "mcp") render();
+  });
+  window.addEventListener("resize", () => {
+    if (s.mcpCopyOpen || s.mcpInstallOpen || s.mcpInstallAllOpen) positionMcpMenus();
   });
 }

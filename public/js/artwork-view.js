@@ -2,6 +2,7 @@
 // the artwork on the device, and scraping.
 
 import { setTabRoute, $, app, esc, icon, human, ART_KINDS, handheldMode, slowHint, devName, busy, section } from "./core.js";
+import { panel, notice, loadingInline, emptyState, retryBtn } from "./layout.js";
 import { connection, isLive } from "./device.js";
 import { libraryTotals, loadDevice, openDeviceGame } from "./games.js";
 import { localPanels, afterLocalDraw, bindLocal, showLocalSystem, localTotals, ensureLocalSummary } from "./art-local.js";
@@ -17,9 +18,6 @@ let query = "";
 let rows = [];
 /** The Roms/ and Scrape tabs only redraw when its own data changes (or a job starts or ends), not on every device refresh. */
 let drawn = { tab: "", busy: false };
-
-const panel = (cls, title, body, actions = "", ico = "") =>
-  `<section class="panel ${cls}"><h2>${ico ? icon(ico) : ""}${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 
 // ---------------------------------------------------------------- summary strip and tabs
 
@@ -76,7 +74,7 @@ function syncPanel(conn, live) {
 }
 
 function coveragePanel() {
-  if (!app.data) return panel("full", "Coverage by system", `<div class="muted-note"><span class="spinner sm"></span> Loading&hellip;</div>`, "", "image");
+  if (!app.data) return panel("full", "Coverage by system", loadingInline("Loading&hellip;"), "", "image");
   const systems = app.data.systems.filter((s) => s.games.length)
     .map((s) => ({ s, art: s.games.filter((g) => g.i).length }))
     .sort((a, b) => (a.art / a.s.games.length) - (b.art / b.s.games.length) || b.s.games.length - a.s.games.length);
@@ -135,12 +133,12 @@ function renderDeviceList() {
 function devicePanel(live) {
   const name = live ? esc(devName()) : "the device";
   const title = `Artwork of each game on ${name}`;
-  if (!live) return panel("full", title, `<div class="empty-state">${icon("handheld")}<p>Connect the handheld or insert TF2 to see its artwork.</p></div>`, "", "handheld");
+  if (!live) return panel("full", title, emptyState({ icon: "handheld", body: "Connect the handheld or insert TF2 to see its artwork." }), "", "handheld");
   const c = app.device.target, l = app.listing;
   if (!c.art && !handheldMode()) return panel("full", title, `<div class="muted-note">This card has no artwork catalogue; its artwork is on SD1 in the handheld.</div>`, "", "handheld");
-  if (l.status === "error") return panel("full", title, `<div class="notice err">${esc(l.error)}</div>`, `<button class="btn" data-dev-art="reload">${icon("refresh")}<span>Try again</span></button>`, "handheld");
+  if (l.status === "error") return panel("full", title, notice("err", esc(l.error)), retryBtn('data-dev-art="reload"'), "handheld");
   if (l.status !== "ready") {
-    return panel("full", title, `<div class="muted-note"><span class="spinner sm"></span> Reading the games on ${name}&hellip;${slowHint()}</div>`, "", "handheld");
+    return panel("full", title, loadingInline(`Reading the games on ${name}&hellip;${slowHint()}`), "", "handheld");
   }
   rows = deviceRows();
   const count = (fn) => rows.filter(fn).length;

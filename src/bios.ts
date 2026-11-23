@@ -287,6 +287,33 @@ async function romFolders(): Promise<string[]> {
   return out;
 }
 
+/**
+ * Cheap BIOS gap check for Overview: the cached catalogue (no device call) against the local bios folder, for the
+ * systems whose ROM folders hold games. `catalog` is false until the catalogue was fetched once over SSH.
+ */
+export async function biosHealth(romFolderNames: string[]) {
+  const catalog = await cachedCatalog();
+  if (!catalog) return { catalog: false, required: [] as string[], optional: [] as string[], checked: 0 };
+  const local = await localFiles();
+  const byPath = new Set(local.map((f) => f.rel.toLowerCase()));
+  const md5s = new Set(local.map((f) => f.md5).filter(Boolean));
+  const have = (key: string) => {
+    if (byPath.has(key)) return true;
+    const f = catalog.files[key];
+    return !!f && f.md5s.some((m) => md5s.has(m));
+  };
+  const mine = systemFolders(catalog, romFolderNames);
+  const required: string[] = [], optional: string[] = [];
+  for (const s of catalog.systems) {
+    if (!mine.has(s.name) || !s.main.length) continue;
+    const def = s.cores.find((c) => c.key === s.defaultCore);
+    if (def?.required) {
+      if (!s.main.every(have)) required.push(s.name);
+    } else if (!s.main.some(have)) optional.push(s.name);
+  }
+  return { catalog: true, required, optional, checked: mine.size };
+}
+
 let lastReport: { catalog: Catalog | null; local: LocalFile[] } = { catalog: null, local: [] };
 
 /** Every known BIOS file, per system, with its state in the bios folder and on the handheld. */

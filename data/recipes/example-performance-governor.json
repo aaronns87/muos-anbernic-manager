@@ -1,0 +1,10 @@
+{
+  "format": "muos-recipe-pack",
+  "version": 1,
+  "id": "example-performance-governor",
+  "name": "Example: performance governor for one game",
+  "about": "Template. Export it, change folder and file to a game on your handheld, then import the copy under a new id. Other step types: core_folder, core_game, cheats_apply, cheats_remove, tuning_apply.",
+  "steps": [
+    { "type": "governor_set", "folder": "GBA", "file": "Example Game.gba", "gov": "performance" }
+  ]
+}

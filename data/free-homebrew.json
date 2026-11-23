@@ -1,4 +1,7 @@
 {
+  "id": "free",
+  "title": "Free homebrew",
+  "description": "Freeware and homebrew games their authors share for free download.",
   "games": [
     {
       "id": "powder",

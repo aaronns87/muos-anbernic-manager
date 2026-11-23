@@ -1,7 +1,7 @@
 // In-browser play via EmulatorJS (CDN cores + local ROM/BIOS stream).
 
 import { confirmBox } from "./art-images.js";
-import { $, esc, TOKEN, toast } from "./core.js";
+import { $, api, esc, TOKEN, toast } from "./core.js";
 
 /** Manager system folder → EmulatorJS core. Keep in sync with src/games/play-rom.ts. */
 export const PLAY_CORES = {
@@ -19,6 +19,10 @@ export const PLAY_CORES = {
   C64: "c64", VIC20: "vic20",
   // Sony
   PS: "psx", PSP: "psp",
+  // Arcade: FinalBurn Neo sets only (MAME-only and hacked sets will not start).
+  MAME: "fbneo", FBNEO: "fbneo", CPS1: "fbneo", CPS2: "fbneo", CPS3: "fbneo", NEOGEO: "fbneo",
+  // Dreamcast — Flycast via manager-cached core (see /api/games/ejs-data/)
+  DREAMCAST: "flycast",
 };
 
 /** Preferred BIOS basenames under workspace bios/ (first hit wins). Keep in sync with play-rom.ts. */
@@ -27,10 +31,13 @@ const PLAY_BIOS = {
   SATURN: ["saturn_bios.bin", "sega_101.bin", "mpr-17933.bin", "mpr-17933c.bin"],
   MDCD: ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"],
   PCECD: ["syscard3.pce", "syscard2.pce", "syscard1.pce", "syscard3u.pce", "syscard2u.pce"],
+  DREAMCAST: ["dc_boot.bin", "dc_flash.bin"],
 };
 
 const DISC_EXT = new Set(["chd", "iso", "cso", "pbp", "cue", "m3u"]);
-const DISC_SYSTEMS = new Set(["PS", "SATURN", "MDCD", "PCECD", "PSP"]);
+const DISC_SYSTEMS = new Set(["PS", "SATURN", "MDCD", "PCECD", "PSP", "DREAMCAST"]);
+const ARCADE_SYSTEMS = new Set(["MAME", "FBNEO", "CPS1", "CPS2", "CPS3", "NEOGEO"]);
+const DREAMCAST_EXT = new Set(["chd", "cdi", "gdi"]);
 
 const BLOCKED = new Set(["ccd", "toc", "gdi", "img", "wav", "ogg", "mp3"]);
 const OK = new Set([
@@ -45,6 +52,11 @@ const OK = new Set([
 ]);
 
 const EJS_DATA = "https://cdn.emulatorjs.org/stable/data/";
+/** EmulatorJS data root that proxies the CDN and injects the cached Flycast core. */
+function ejsDataRoot() {
+  // EmulatorJS concatenates filenames onto this base (loader.js, cores/…); token lives in the path.
+  return `${location.origin}/api/games/ejs-data/${encodeURIComponent(TOKEN)}/`;
+}
 
 const DEFAULT_KEYS = {
   0: "x", 1: "s", 2: "shift", 3: "enter",
@@ -63,6 +75,9 @@ let bound = false;
 let loaderEl = null;
 let listeningBtn = null;
 let startGen = 0;
+let saveStatus = { label: "No save yet", reachable: false, dirty: false, syncing: false };
+let pendingSaveBytes = null;
+let autosaveTimer = 0;
 
 function extOf(file) {
   const i = file.lastIndexOf(".");
@@ -73,6 +88,8 @@ export function canPlayInBrowser(sys, g) {
   if (!sys?.code || !g?.f) return false;
   if (!PLAY_CORES[sys.code]) return false;
   const x = (g.x || extOf(g.f)).toLowerCase();
+  if (ARCADE_SYSTEMS.has(sys.code)) return x === "zip";
+  if (sys.code === "DREAMCAST") return DREAMCAST_EXT.has(x);
   if (BLOCKED.has(x)) return false;
   if (DISC_EXT.has(x) && !DISC_SYSTEMS.has(sys.code)) return false;
   return OK.has(x);
@@ -92,7 +109,7 @@ function biosUrl(file) {
   return new URL(`/api/games/bios/${encodeURIComponent(file)}?${q}`, location.origin).href;
 }
 
-/** First preferred BIOS present in workspace bios/, or "". */
+/** First preferred BIOS present in workspace bios/, or "". Dreamcast needs both files as a zip. */
 async function resolveBiosUrl(code) {
   const preferred = PLAY_BIOS[code];
   if (!preferred?.length) return "";
@@ -102,6 +119,11 @@ async function resolveBiosUrl(code) {
     if (!res.ok) return "";
     const data = await res.json();
     const have = Array.isArray(data.bios) ? data.bios : [];
+    if (code === "DREAMCAST") {
+      if (!preferred.every((n) => have.includes(n))) return "";
+      const bq = new URLSearchParams({ token: TOKEN });
+      return new URL(`/api/games/bios/dreamcast-bundle?${bq}`, location.origin).href;
+    }
     const pick = preferred.find((n) => have.includes(n)) || have[0];
     return pick ? biosUrl(pick) : "";
   } catch {
@@ -220,11 +242,24 @@ function bindBtn(index, role, face = "") {
   </button>`;
 }
 
+function saveBarHtml() {
+  const syncCls = saveStatus.dirty ? "play-save-dirty" : "";
+  return `<div class="toolbar-strip play-save-bar ${syncCls}" id="play-save-bar">
+    <span class="play-save-label" id="play-save-label">${esc(saveStatus.label)}</span>
+    <div class="play-controls-actions">
+      <button type="button" class="btn small" data-play="save-pull" ${saveStatus.reachable ? "" : "disabled"} title="Copy SRAM from the handheld into this session">Load from device</button>
+      <button type="button" class="btn small" data-play="save-store" title="Keep SRAM in the manager workspace">Save locally</button>
+      <button type="button" class="btn small primary" data-play="save-push" ${saveStatus.reachable ? "" : "disabled"} title="Write SRAM to the handheld over SSH">Save to device</button>
+    </div>
+  </div>`;
+}
+
 function controlsFormHtml() {
-  return `<details class="play-controls">
+  return `${saveBarHtml()}
+  <details class="play-controls">
     <summary><span class="play-controls-title">Keyboard controls</span><span class="play-controls-badge">This session</span></summary>
     <div class="play-pad">
-      <p class="play-pad-hint">Click a button, then press a key. Apply with <b>Restart with these keys</b>. Click the game screen afterwards so keys reach the emulator.</p>
+      <p class="play-pad-hint">Click a button, then press a key. Apply with <b>Restart with these keys</b>. Click the game screen afterwards so keys reach the emulator. SRAM syncs to <code>backups/saves-browser/</code>; Save to device needs Wi‑Fi + SSH.</p>
       <div class="play-pad-shell" aria-label="Controller key map">
         <div class="play-pad-shoulders">
           ${bindBtn(10, "shoulder", "L")}
@@ -263,6 +298,172 @@ function controlsFormHtml() {
       </div>
     </div>
   </details>`;
+}
+
+function playTarget() {
+  const dlg = $("playbrowser");
+  if (!dlg?.dataset?.code || !dlg?.dataset?.file) return null;
+  return { code: dlg.dataset.code, file: dlg.dataset.file, name: dlg.dataset.name || dlg.dataset.code };
+}
+
+function bytesToBase64(bytes) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk) bin += String.fromCharCode(...u8.subarray(i, i + chunk));
+  return btoa(bin);
+}
+
+function updateSaveLabel() {
+  const el = $("play-save-label");
+  if (el) el.textContent = saveStatus.label;
+  const bar = $("play-save-bar");
+  if (bar) bar.classList.toggle("play-save-dirty", !!saveStatus.dirty);
+  for (const sel of ["[data-play=\"save-pull\"]", "[data-play=\"save-push\"]"]) {
+    document.querySelectorAll(sel).forEach((btn) => {
+      btn.disabled = !saveStatus.reachable || saveStatus.syncing;
+    });
+  }
+  document.querySelectorAll("[data-play=\"save-store\"]").forEach((btn) => {
+    btn.disabled = saveStatus.syncing;
+  });
+}
+
+async function refreshSaveStatus() {
+  const t = playTarget();
+  if (!t) return;
+  try {
+    const st = await api(`saves/browser?code=${encodeURIComponent(t.code)}&file=${encodeURIComponent(t.file)}`);
+    saveStatus.reachable = !!st.reachable && !st.frontend;
+    const bits = [];
+    if (st.mirror?.exists) bits.push(`Local ${Math.round(st.mirror.size / 1024)} KB`);
+    else bits.push("No local save");
+    if (st.reachable) {
+      if (st.frontend) bits.push("close the game on the handheld to sync");
+      else if (st.devicePath) bits.push(`Device ${pathBasename(st.devicePath)}`);
+      else bits.push("no device SRAM yet");
+    } else bits.push("device offline");
+    if (saveStatus.dirty) bits.push("unsaved changes");
+    saveStatus.label = bits.join(" · ");
+  } catch (err) {
+    saveStatus.reachable = false;
+    saveStatus.label = err.message || "Save status unavailable";
+  }
+  updateSaveLabel();
+}
+
+function pathBasename(p) {
+  const i = String(p).lastIndexOf("/");
+  return i >= 0 ? p.slice(i + 1) : p;
+}
+
+function readEmuSaveBytes() {
+  try {
+    const gm = window.EJS_emulator?.gameManager;
+    if (!gm?.getSaveFile) return pendingSaveBytes;
+    const data = gm.getSaveFile(true);
+    if (data && data.length) {
+      pendingSaveBytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      return pendingSaveBytes;
+    }
+  } catch { /* ignore */ }
+  return pendingSaveBytes;
+}
+
+async function storeBrowserSave({ push = false } = {}) {
+  const t = playTarget();
+  if (!t) return;
+  const bytes = readEmuSaveBytes();
+  if (!bytes?.length) {
+    toast("No SRAM from the emulator yet. Make in-game progress that writes a save first.", 4500);
+    return;
+  }
+  saveStatus.syncing = true;
+  updateSaveLabel();
+  try {
+    await api("saves/browser", { code: t.code, file: t.file, data: bytesToBase64(bytes), push });
+    saveStatus.dirty = false;
+    toast(push ? "Save written to the handheld" : "Save kept in the manager", 2500);
+    await refreshSaveStatus();
+  } catch (err) {
+    toast(err.message || "Could not store save", 4500);
+  } finally {
+    saveStatus.syncing = false;
+    updateSaveLabel();
+  }
+}
+
+async function pullDeviceSaveIntoSession() {
+  const t = playTarget();
+  if (!t) return;
+  saveStatus.syncing = true;
+  updateSaveLabel();
+  try {
+    await api("saves/browser/pull", { code: t.code, file: t.file });
+    const injected = await injectMirrorSave();
+    toast(injected ? "Loaded SRAM from the handheld" : "Pulled save — restart the game to apply", 3500);
+    await refreshSaveStatus();
+  } catch (err) {
+    toast(err.message || "Could not load from device", 4500);
+  } finally {
+    saveStatus.syncing = false;
+    updateSaveLabel();
+  }
+}
+
+async function fetchMirrorBytes() {
+  const t = playTarget();
+  if (!t) return null;
+  try {
+    const q = new URLSearchParams({ code: t.code, file: t.file, token: TOKEN });
+    const res = await fetch(new URL(`/api/saves/browser/file?${q}`, location.origin), { cache: "no-store" });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return buf.byteLength ? new Uint8Array(buf) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function injectMirrorSave() {
+  const bytes = await fetchMirrorBytes();
+  if (!bytes?.length) return false;
+  pendingSaveBytes = bytes;
+  try {
+    const gm = window.EJS_emulator?.gameManager;
+    if (!gm?.FS) return false;
+    const path = typeof gm.getSaveFilePath === "function" ? gm.getSaveFilePath() : "";
+    if (path) {
+      try { gm.FS.mkdirTree(path.slice(0, path.lastIndexOf("/"))); } catch { /* exists */ }
+      gm.FS.writeFile(path, bytes);
+    } else {
+      // Fallback: write under EmulatorJS saves mount using the ROM stem.
+      const stem = (t => {
+        const f = t?.file || "game";
+        const i = f.lastIndexOf(".");
+        return i >= 0 ? f.slice(0, i) : f;
+      })(playTarget());
+      const alt = `/data/saves/${stem}.srm`;
+      try { gm.FS.mkdirTree("/data/saves"); } catch { /* exists */ }
+      gm.FS.writeFile(alt, bytes);
+    }
+    if (typeof gm.loadSaveFiles === "function") gm.loadSaveFiles();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function scheduleAutosave(bytes) {
+  if (bytes?.length) {
+    pendingSaveBytes = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    saveStatus.dirty = true;
+    updateSaveLabel();
+  }
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    void storeBrowserSave({ push: false });
+  }, 2500);
 }
 
 function clearListening() {
@@ -346,6 +547,15 @@ function playScrollKeyGuard(e) {
 
 function teardown() {
   clearListening();
+  clearTimeout(autosaveTimer);
+  // Flush SRAM to the workspace mirror before tearing down the core.
+  try {
+    const bytes = readEmuSaveBytes();
+    const t = playTarget();
+    if (bytes?.length && t) {
+      void api("saves/browser", { code: t.code, file: t.file, data: bytesToBase64(bytes), push: false }).catch(() => {});
+    }
+  } catch { /* ignore */ }
   setPlayFocus(false);
   setPlayOpen(false);
   try { window.EJS_emulator?.pause?.(); } catch { /* ignore */ }
@@ -353,6 +563,7 @@ function teardown() {
   if (loaderEl) { loaderEl.remove(); loaderEl = null; }
   const host = $("play-ejs");
   if (host) host.innerHTML = "";
+  pendingSaveBytes = null;
   delete window.EJS_player;
   delete window.EJS_gameUrl;
   delete window.EJS_core;
@@ -365,6 +576,8 @@ function teardown() {
   delete window.EJS_color;
   delete window.EJS_ready;
   delete window.EJS_onGameStart;
+  delete window.EJS_onSaveUpdate;
+  delete window.EJS_onSaveSave;
   delete window.EJS_disableLocalStorage;
   delete window.EJS_biosUrl;
   delete window.EJS_externalFiles;
@@ -384,9 +597,22 @@ async function startEmulator(sys, g) {
   const bios = needsBios ? await resolveBiosUrl(sys.code) : "";
   if (gen !== startGen) return;
   if (needsBios && !bios) {
-    const hint = PLAY_BIOS[sys.code][0];
+    const hint = sys.code === "DREAMCAST"
+      ? "dc_boot.bin and dc_flash.bin"
+      : PLAY_BIOS[sys.code][0];
     toast(`Add a BIOS for ${sys.name || sys.code} to bios/ first (e.g. ${hint}), then try again.`, 6000);
     return;
+  }
+
+  // Dreamcast: ensure Flycast is cached (first run downloads ~10 MB from GitHub).
+  if (sys.code === "DREAMCAST") {
+    try {
+      await api("games/flycast/ensure", {});
+    } catch (err) {
+      toast(err.message || "Could not prepare the Dreamcast core", 5000);
+      return;
+    }
+    if (gen !== startGen) return;
   }
 
   const x = extOf(g.f);
@@ -402,10 +628,12 @@ async function startEmulator(sys, g) {
   // Stable id so EmulatorJS does not key settings off the tokenised ROM URL.
   window.EJS_gameID = `${sys.code}:${g.f}`;
   window.EJS_gameName = g.t || g.f;
-  window.EJS_pathtodata = EJS_DATA;
+  // Dreamcast uses a proxied data root so Flycast can be served from the manager cache.
+  window.EJS_pathtodata = sys.code === "DREAMCAST" ? ejsDataRoot() : EJS_DATA;
   window.EJS_startOnLoaded = true;
   // Session remap is the source of truth; ignore prior EmulatorJS localStorage (can be
   // corrupted from older control shapes and shows as "undefined" in Control Settings).
+  // SRAM is handled by our mirror APIs (EJS_onSaveUpdate), not EmulatorJS localStorage.
   window.EJS_disableLocalStorage = true;
   window.EJS_defaultControls = buildDefaultControls(sessionKeys);
   window.EJS_color = "#c4a35a";
@@ -419,18 +647,35 @@ async function startEmulator(sys, g) {
   if ((sys.code === "PSP" || sys.code === "N64") && typeof SharedArrayBuffer !== "undefined") {
     window.EJS_threads = true;
   }
+  window.EJS_onSaveUpdate = (e) => {
+    const save = e?.save;
+    if (save) scheduleAutosave(save);
+  };
+  window.EJS_onSaveSave = (e) => {
+    const save = e?.save;
+    if (save) {
+      pendingSaveBytes = save instanceof Uint8Array ? save : new Uint8Array(save);
+      void storeBrowserSave({ push: false });
+    }
+  };
   // EmulatorJS listens for keys on #play-ejs; keep focus there so arrows/A/B reach the core.
   window.EJS_ready = () => {
     applySessionControls();
     focusPlayPlayer();
+    try { window.EJS_emulator?.enableSaveUpdateEvent?.(); } catch { /* older CDN */ }
   };
   window.EJS_onGameStart = () => {
     applySessionControls();
     focusPlayPlayer();
+    void injectMirrorSave().then((ok) => {
+      if (ok) saveStatus.label = "SRAM loaded into session";
+      updateSaveLabel();
+    });
   };
   loaderEl = document.createElement("script");
   // Cache-bust so Restart re-runs loader.js after a previous session.
-  loaderEl.src = `${EJS_DATA}loader.js?v=${Date.now()}`;
+  const dataRoot = sys.code === "DREAMCAST" ? ejsDataRoot() : EJS_DATA;
+  loaderEl.src = `${dataRoot}loader.js?v=${Date.now()}`;
   loaderEl.async = true;
   loaderEl.onerror = () => toast("Could not load the emulator. Check your network connection.", 5000);
   document.body.appendChild(loaderEl);
@@ -449,11 +694,14 @@ export function openPlayBrowser(sys, g) {
   if (PLAY_BIOS[sys.code]) bits.push("needs BIOS in bios/");
   bits.push("needs a network connection the first time for emulator cores");
   $("play-sub").textContent = bits.join(" · ");
+  saveStatus = { label: "Checking saves…", reachable: false, dirty: false, syncing: false };
+  pendingSaveBytes = null;
   $("play-controls-wrap").innerHTML = controlsFormHtml();
   const dlg = $("playbrowser");
   setPlayFocus(false);
   setPlayOpen(true);
   if (!dlg.open) dlg.showModal();
+  void refreshSaveStatus();
   // Let the dialog paint at full size before EmulatorJS measures #play-ejs.
   requestAnimationFrame(() => {
     focusPlayPlayer();
@@ -466,9 +714,13 @@ async function requestClosePlay() {
   if (!dlg?.open) return;
   clearListening();
   const title = $("play-title")?.textContent || "this game";
+  const bytes = readEmuSaveBytes();
+  const note = bytes?.length
+    ? "SRAM will be kept in the manager (<code>backups/saves-browser/</code>). Use <b>Save to device</b> before leaving if you want it on the handheld."
+    : "No SRAM was captured in this session.";
   const ok = await confirmBox({
     title: "Leave this game?",
-    html: `<p>Stop playing <b>${esc(title)}</b> in the browser? Progress in this session is not saved to the handheld.</p>`,
+    html: `<p>Stop playing <b>${esc(title)}</b> in the browser?</p><p class="muted-note">${note}</p>`,
     ok: "Leave game",
   });
   if (ok && dlg.open) dlg.close();
@@ -521,6 +773,22 @@ export function bindPlayBrowser() {
       clearListening();
       sessionKeys = { ...DEFAULT_KEYS };
       $("play-controls-wrap").innerHTML = controlsFormHtml();
+      updateSaveLabel();
+      return;
+    }
+    if (act.dataset.play === "save-pull") {
+      e.preventDefault();
+      void pullDeviceSaveIntoSession();
+      return;
+    }
+    if (act.dataset.play === "save-store") {
+      e.preventDefault();
+      void storeBrowserSave({ push: false });
+      return;
+    }
+    if (act.dataset.play === "save-push") {
+      e.preventDefault();
+      void storeBrowserSave({ push: true });
       return;
     }
     if (act.dataset.play === "restart") {

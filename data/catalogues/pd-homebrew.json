@@ -1,0 +1,46 @@
+{
+  "id": "pd-homebrew",
+  "title": "Public domain homebrew",
+  "description": "Games their authors dedicated to the public domain (CC0), downloaded from the author's own repository.",
+  "games": [
+    {
+      "id": "pd-tictactoe-md",
+      "title": "Tic Tac Toe (Mega Drive)",
+      "year": 2022,
+      "maker": "mandrillboy",
+      "about": "A small Tic Tac Toe game for the Sega Mega Drive, dedicated to the public domain under CC0.",
+      "system": "MD",
+      "file": "TicTacToe.md",
+      "url": "https://github.com/mandrillboy/TicTacToeMD/releases/download/v1.1/rom.bin",
+      "size": 262144,
+      "zip": false,
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "pd-floatmancer",
+      "title": "Floatmancer",
+      "year": 2021,
+      "maker": "NotExactlySiev",
+      "about": "A physics-based game for the NES, released under CC0.",
+      "system": "FC",
+      "file": "Floatmancer.nes",
+      "url": "https://raw.githubusercontent.com/NotExactlySiev/floatmancer/main/bin/fmancer.asm.rom",
+      "size": 40976,
+      "zip": false,
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "pd-rainfall",
+      "title": "Rainfall",
+      "year": 2026,
+      "maker": "bbossa",
+      "about": "A game for the NES written in assembly, released under CC0.",
+      "system": "FC",
+      "file": "Rainfall.nes",
+      "url": "https://raw.githubusercontent.com/bbossa/rainfall_nes/main/bin/rainfall.nes",
+      "size": 40976,
+      "zip": false,
+      "license": "CC0-1.0"
+    }
+  ]
+}

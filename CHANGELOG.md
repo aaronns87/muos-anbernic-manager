@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.3.3](#133---2026-11-23) | 2026-11-23 | Syncthing ROM transport; arcade/Dreamcast browser play; MCP guest/confirm; bidirectional transfers; game viewer & transfer UI |
 | [1.3.2](#132---2026-11-17) | 2026-11-17 | Play in browser (cartridge + disc/heavy); favourites & smart lists; saves browser; disc playlists; hints; recipes; free homebrew |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
@@ -27,6 +28,153 @@ version.
 | [1.0.0](#100---2026-10-13) | 2026-10-13 | First public release |
 
 ## [Unreleased]
+
+## [1.3.3] - 2026-11-23
+
+### Added
+
+- **Play-in-browser SRAM sync.** EmulatorJS battery saves autosave to `backups/saves-browser/`; Load from device /
+  Save locally / Save to device over SSH (close the game on the handheld first). Syncs `.srm`, not RetroArch states.
+- **Transfer through Syncthing.** Settings > Transfers, startup and updates takes a **Syncthing ROMs folder**
+  (`syncthingRomsPath`) and an optional **Syncthing folder id**. Transfers, `POST /api/games/plan` and
+  `/api/games/copy` and MCP `transfer_plan` / `transfer_start` accept `transport: "sftp" | "syncthing"` (default `sftp`).
+  With `syncthing` the games are copied into that local folder with the same `SYSTEM/file` layout as `Roms/` (plan
+  compares with the folder, no handheld session needed) and the job only completes once Syncthing is idle. To-device
+  and match-device only; the dialog's **Send via** option is disabled with a hint until the folder is set. Jobs report
+  `transport` and a `sync` phase.
+- **Arcade and Dreamcast in the browser.** MAME, FBNEO, CPS1, CPS2, CPS3 and NEOGEO play `.zip` sets with FinalBurn Neo
+  (`fbneo`). Dreamcast (`DREAMCAST`) uses Flycast: the manager caches `nasomers/flycast-wasm` on first play and serves it
+  through `/api/games/ejs-data/` (EmulatorJS CDN has no Flycast core). Needs both `dc_boot.bin` and `dc_flash.bin` in
+  `bios/` (zipped as one `EJS_biosUrl`); `.gdi`/`.cdi`/`.chd` allowed for Dreamcast only (`.gdi` stays blocked elsewhere).
+- **More free catalogues, legal downloads only.** Free & homebrew now loads several catalogues (`data/free-homebrew.json`
+  plus `data/catalogues/*.json`, each with `id`, `title`, `description`, `games`) and has a switcher: **Free homebrew**,
+  new **Public domain homebrew** (CC0 games) and **Libre games** (GPL/MIT games). Every entry is freeware, public domain or
+  open source hosted by its author; commercial ROM dumps are never added. `GET /api/homebrew/free?catalogue=<id>` and MCP
+  `homebrew_list` take a `catalogue`.
+- **Assistant runs recipe packs.** `recipes_list` and `recipes_run` stay inside the Assistant's tool cap, the prompt and
+  knowledge say to list packs, match the name and run it, and `recipes_run` now takes a `confirmId` like other writes.
+- **Syncthing conflicts.** Device web services and the Saves panel list `.sync-conflict` copies in `save/` and `info/` on
+  the handheld (path, size, time) with **Keep handheld file**, **Use conflict copy** and **Delete copy**. New
+  `src/device/syncthing-conflicts.ts`, `GET /api/syncthing/conflicts`, `POST /api/syncthing/conflicts/resolve`
+  (`{path, action}`) and MCP `syncthing_conflicts` plus `syncthing_conflict_resolve` (confirm token).
+- **What changed on the card.** Each Games > Handheld listing is compared with the previous one per device profile (or
+  volume); added, removed and changed games show on Overview **Since last connect** and in Device web services. Snapshot
+  in `.cache/device-listing-digest.json` (new `src/device/card-diff.ts`), `GET /api/device/card-diff`; `GET /api/device/games`
+  also returns `cardDiff`.
+- **Disc pipeline.** One progress card in Emulation > Library check > Disc layouts runs **Fix archives, Convert to CHD,
+  Make playlist and Verify** for the games you pick (the **Disc pipeline** button, or **Pipeline** on a row). Each step
+  reuses the existing tool and is skipped when it does not apply (no chdman, no multi-disc set, no No-Intro list). **Stop
+  after this step** pauses between steps, **Resume** continues from the step that did not finish (also after a failure),
+  **Cancel** drops it. New `src/games/disc-pipeline.ts` with `GET`/`POST /api/disc/pipeline` (`{code, file}`, `files` or
+  `items`) and `/cancel`, `/resume`, `/dismiss`; MCP `disc_pipeline_start`, `disc_pipeline_status` (also on the guest
+  allowlist) and `disc_pipeline_control`.
+- **Confirm tokens for destructive MCP tools.** `game_delete`, `artwork_local_delete`, `artwork_delete_device`,
+  `bios_delete`, `saves_game_delete`, `saves_game_prune_states`, `muxbak_restore`, `files_delete`, `ports_uninstall`,
+  `themes_delete`, `checks_trash`, `play_reset`, `collections_delete` and `system_start` now return
+  `{needsConfirm, confirmId, summary}` without doing anything; repeating the same arguments with the `confirmId`
+  (5 minutes, one use, bound to those arguments) runs them, and `dryRun: true` previews again. `system_start` still takes
+  `confirm` (card id or `TF2`); without it the `confirmId` carries that value. New `src/mcp/confirm.ts` and a `confirm`
+  option on `defineTool`; tool details, the Assistant prompt and knowledge, the wiki and the MCP agent packs describe it.
+- **Read-only MCP guest token.** A second bearer token (`guestToken` in `.cache/mcp.json`, created on first start) lets
+  a client list and read but never change anything: only an allowlist of read tools (connection, device, manager and web
+  status, library list/search, game, BIOS, jobs, play activity, saves overview, cores, tuning, collections, homebrew,
+  files list/roots, workspace, OS images, themes, apps, ports, agent pack list, tool catalogue and stats) is served; guest
+  `tools/call` for anything else is refused, and a session cannot be reused with the other token. Tools → MCP shows,
+  copies and rotates the guest token (`POST /api/mcp/guest-token/rotate`, `GET /api/mcp/settings?reveal=guest`), and Copy
+  config offers a guest snippet per client (entry name `MuAnMCP-guest`). `mcpTokenOk` now returns `"full"`, `"guest"` or `false`.
+- **Power user keys.** <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>K</kbd> opens a command palette (new `command-palette.js`) with
+  type-to-filter sections and common actions: focus game search, transfers and activity, rescan, sidebar, help, tips and
+  a few deep links. <kbd>/</kbd> now focuses game search from any page. Settings > Behaviour > **Power user keys**
+  (store key `powerUserKeys`, on by default) turns both off. The `?` help lists the new shortcuts.
+- **Bidirectional bulk transfers.** The transfer dialog has a direction selector: **To the handheld** (as before),
+  **From the handheld into Roms/** (pulls games missing from, or different in, `Roms/`, keeping folders and
+  checking free space on the computer), and the guided **Match the handheld to the library** / **Match the library to
+  the handheld**, which also replace copies that differ (replaced `Roms/` files go to the Trash; nothing is ever
+  deleted from the other side). The dry-run plan shows new, identical and differing files per system before anything
+  moves. `POST /api/games/plan` and `/api/games/copy` take an optional `direction`, and so do the MCP tools
+  `transfer_plan` / `transfer_start` (default `to-device`). Pulls appear in Transfers with their own history entry and
+  can be stopped between files; `Roms/` is rescanned afterwards.
+- **Shareable recipe packs.** Settings > Behaviour > Recipe packs imports, exports, runs and removes JSON packs of
+  handheld steps: set a folder or game core, apply or remove cheats, set a CPU governor, apply game tuning. Packs are
+  kept in `.cache/recipe-packs.json`; presets in `data/recipes/` are read-only. New `src/recipes.ts` and
+  `GET /api/recipes`, `GET /api/recipes/export`, `POST /api/recipes/import|run|delete`; MCP tools `recipes_list` and
+  `recipes_run`. Steps run in order over SSH and stop at the first failure.
+- **Workspace metadata backup.** Settings > Data > Workspace metadata backs up settings, device profiles, imported
+  recipe packs, idle-job settings, the browser's library recipes, MCP switches (tokens are never included) and small
+  caches (ROM check results, scraper file lists under 256 KB each) into one encrypted `.mumeta` file in the backups
+  folder (a zip sealed with AES-256-GCM, key from the passphrase with scrypt). No ROMs, BIOS files, artwork or large
+  caches. Restore asks for the passphrase and a confirmation, keeps this computer's folder locations and MCP tokens, and
+  brings idle jobs back switched off. New `src/workspace-meta.ts`; `POST /api/workspace/backup-meta`,
+  `POST /api/workspace/restore-meta` (`confirm: true`) and `GET /api/workspace/meta-backups`.
+- **Idle jobs.** Settings > Behaviour > Idle jobs runs a recipe pack, or a Roms library rescan, by itself while the
+  manager is open: a 60 second check starts it when the handheld answers over SSH, Syncthing on it is idle, no copy is
+  running and the cooldown (5 minutes to 7 days) since the last run has passed. Off by default. New `src/idle-jobs.ts`
+  keeps `.cache/idle-jobs.json`; `GET` and `POST /api/idle-jobs`.
+- **Netplay helper.** The connection panel's Web services block shows a copyable `IP:port` invite for RetroArch netplay
+  (default port 55435, changeable and remembered in this browser) with a link to the RetroArch netplay docs. It only
+  helps share the address; the manager does not host netplay.
+- **Device profiles are first-class.** Profiles now live in `.cache/device-profiles.json` (new `/api/device/profiles`
+  routes) instead of only in the browser, and hold Wi-Fi and SSH sign-in, optional web ports (dashboard, ttyd,
+  Syncthing, Filebrowser), model, colour, last seen and battery. Choosing a profile sets Wi-Fi, SSH and ports, then
+  reconnects; the manager records last seen and battery whenever that handheld connects. Profiles saved in this
+  browser before are uploaded on first start.
+- **Library health** panel on Overview (`GET /api/overview/health`): missing artwork, BIOS gaps (from the cached BIOS
+  list and the local bios folder), the last No-Intro check, Syncthing busy, and games not on the handheld, as chips
+  that link to Games, Artwork, BIOS, Library check or Device Settings. Uses cached data only; it never scans `Roms/`.
+- **MCP server** (on by default): Streamable HTTP at `http://127.0.0.1:<port>/mcp` with a persistent bearer token
+  (`.cache/mcp.json`). IDE configs register it as **`MuAnMCP`** (with a short description). Tools → **MCP** (sidebar
+  section under Terminal; `#settings/mcp` redirects) to enable/disable, reveal/rotate the token, scan for installed IDEs
+  (Cursor, Claude Desktop, Claude Code, Codex, Windsurf) with auto-setup or a Copy config menu, browse tools in a
+  filterable table, and toggle Assistant tool use. Green **MCP** chip in the top bar opens a redesigned stats panel
+  (endpoint, usage, sessions, recent calls). The tool catalogue covers the manager’s main surfaces: library (including
+  No-Intro verify, CHD, disc `.m3u`, free homebrew), connection, Device Settings / Controls / Benchmark, Syncthing idle,
+  transfers, artwork scrape and device sync, play activity and collections, BIOS/saves, emulation, files, apps/ports/themes,
+  System Tools (flash OS / TF2 / reset with confirm tokens), OS market, and meta. The in-app Assistant uses the same
+  registry when MCP and Assistant tools are on (dock shows an **MCP** chip). In-browser EmulatorJS play stays UI-only.
+- **MCP agent packs**: skills and experts under `mcp/agents/` (separate from repo developer `.cursor`/`.agents` skills).
+  Review / copy / install (or **Install all**) into IDE skill folders from Tools → MCP; also exposed as MCP resources, the
+  `use-manager-mcp` prompt, and `agent_pack_list` / `agent_pack_get` tools. Tools → MCP merges clients and agents
+  with a prominent Scan for IDEs, fixed install menus, a full-height tools catalogue with longer blurbs, and an
+  **MCP** chip on the Assistant dock when tools are enabled for chat.
+- **Assistant providers**: paid BYOK for **OpenAI** and **xAI Grok**, plus **Custom (OpenAI-compatible)** with a base URL
+  field (LiteLLM, proxies, Azure OpenAI-style `/v1` hosts). Free Groq / Gemini / OpenRouter remain. Cursor has no public
+  chat API for other apps — documented in Settings, Wiki and knowledge base.
+- **Web services Open + ports**: Connection/Overview **Open** for web dashboard, virtual terminal (ttyd), Syncthing and
+  Filebrowser when reachable; **Use handheld ports** also syncs ttyd / Syncthing / dashboard; Terminal **Show ttyd**
+  embeds the handheld virtual terminal. Syncthing folder snapshot (API/MCP `syncthing_status`) when SSH works.
+  `web_services_status` includes browser `url` fields.
+
+### Changed
+
+- **Game viewer**: wider layout, art-anchored prev/next, status cards and side-by-side Play/Transfer actions, sticky
+  frosted footer and always-red Delete.
+- **Transfer dialog**: direction as choice cards, Connection/Syncthing segmented control, clearer header and sticky
+  actions instead of stacked dropdowns.
+- **UI spacing pass**: toolbars, Settings panels, MCP hero/tools/agents, Overview health, play save bar, Checks /
+  disc pipeline, command palette, recipe packs, netplay, Syncthing conflicts and profile bars now use `--space-*` /
+  `--radius-*` tokens so compact/soft density modes stay consistent.
+- **Find on network**: scans for MustardOS SFTP (Dropbear/SFTPGo), ignores unrelated SSH banners, and when the saved
+  host is gone or not answering adopts the new IP. Any Wi-Fi address save/find clears an explicit SSH host so SSH
+  always follows the Wi-Fi IP and reconnects on the new address.
+- **UI consolidation**: shared `layout.js` helpers (panel, notice, loading, empty, retry) across Overview, Settings/MCP,
+  Artwork, Files, Games, Logs, Handheld and Chat; CSS tokens for dialog/inset radii and focus; unified notice/empty/tab
+  (`.tabs` / underline / cards) and selectable `.pick` surfaces; clearer Clear/Try again labels.
+- **Assistant + MCP tools**: default system prompt and per-turn tools note tell the model to call tools proactively for
+  live reads and requested actions (not only describe UI tabs); knowledge base wording matches. The in-app Assistant
+  sends a small priority subset with compact schemas (fits free Groq TPM; full catalogue stays for IDE MCP clients).
+- **Assistant dock**: taller panel with more room for the message log, a live status line (thinking / Calling
+  `tool_name`… / MCP tag), and streamed progress over NDJSON.
+
+### Fixed
+
+- **Replace artwork**: choosing an image on macOS no longer loses the file when the window refocuses before the picker
+  `change` event; the File System Access picker is preferred when available.
+- **MCP `system_start` errors.** The tool returned before the card job was validated, so a wrong disk or confirm
+  surfaced as an unhandled rejection instead of a tool error; it now waits for the check and reports it.
+- **Assistant + MCP tools**: send `tool_choice: "auto"` with tools (Groq otherwise treats missing choice as none and
+  rejects with “Tool choice is none, but model called a tool”), strip the tools nudge when falling back to text-only,
+  and retry once on that intermittent Groq failure. Offering all 130+ tools (or large schemas) blew Groq’s ~8k TPM
+  budget and fell back to text-only — fixed by capping/compacting the chat tool list and shrinking further on 400s.
 
 ## [1.3.2] - 2026-11-17
 
@@ -475,7 +623,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.2...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.3...changes/unreleased
+[1.3.3]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.3
 [1.3.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.2
 [1.3.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.1
 [1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0

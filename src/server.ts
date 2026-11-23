@@ -28,7 +28,10 @@ import { ctx } from "./context.ts";
 import { deviceIndex, deviceInfo, deviceListing, deviceSummary } from "./device/content.ts";
 import { allowUsb, disconnect, MtpError, releaseUsb, restartUsb } from "./device/mtp.ts";
 import { closeSftp, findHandhelds, saveWifiSettings, wifiStatus } from "./device/sftp.ts";
+import { deleteProfile, listProfiles, saveProfile, setActiveProfile } from "./device/profiles.ts";
+import { recordListing, storedCardDiff } from "./device/card-diff.ts";
 import { syncthingIdleJson, waitSyncthingIdle } from "./device/syncthing-idle.ts";
+import { conflictsJson, resolveConflict } from "./device/syncthing-conflicts.ts";
 import { webServicesStatus } from "./device/web-services.ts";
 import { benchmarkStatus, startBenchmark, stopBenchmark } from "./device/benchmark.ts";
 import {
@@ -46,16 +49,26 @@ import { gameDetails, revealGame } from "./games/details.ts";
 import { freeGamesJson, installFreeGame } from "./games/free-scummvm.ts";
 import { freeHomebrewJson, installFreeHomebrew } from "./games/free-homebrew.ts";
 import { checksJson, startVerify, trashGames } from "./checks.ts";
+import { overviewHealthJson } from "./library/health.ts";
 import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts";
 import { gamesFlagsJson } from "./games/flags.ts";
-import { playBiosDownload, playBiosHead, playBiosList, playRomDownload, playRomHead } from "./games/play-rom.ts";
+import { dreamcastBiosBundle, playBiosDownload, playBiosHead, playBiosList, playRomDownload, playRomHead } from "./games/play-rom.ts";
+import { ejsDataFile, prepareDreamcastPlay } from "./games/ejs-data.ts";
+import { ensureFlycastCore, flycastCoreStatus } from "./games/flycast-core.ts";
 import {
+  agentPackContent, closeAllMcpSessions, handleMcpHttp, installAgentPack, installAllAgentPacks, installMcpClient, isMcpPath,
+  listAgentPacks, mcpClientConfigs, mcpEnabled, mcpSettingsPublic, mcpStatsJson, rotateGuestToken, rotateMcpToken, saveMcpSettings,
+  scanMcpClients, toolCatalogue,
+} from "./mcp/index.ts";
+import {
+  browserSaveDownload, browserSaveJson, browserSavePullDevice, browserSavePushDevice, browserSaveStore,
   deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
 } from "./saves-game.ts";
 import { chdJson, startChdConvert } from "./games/chd.ts";
 import { discFixJson, inspectDiscArchive, startDiscFix, startDiscFixBatch } from "./games/disc-fix.ts";
+import { cancelDiscPipeline, discPipelineJson, dismissDiscPipeline, resumeDiscPipeline, startDiscPipeline } from "./games/disc-pipeline.ts";
 import { libraryJson, rescanLibrary } from "./games/library.ts";
-import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, makePlan, planSummary, requireIdle, requireQueueable, startCopy } from "./jobs.ts";
+import { cancelJob, forgetJob, jobFiles, jobList, jobRunning, locks, planTransfer, requireIdle, requireQueueable, startCopy, transportOf } from "./jobs.ts";
 import { ejectCard, listCards } from "./system/cards.ts";
 import { hashFromFile, importOsImage, inspectImage, workspaceImages } from "./system/image.ts";
 import { osLibraryJson, osMarketJson, removeOsPath, revealOsPath } from "./os-library.ts";
@@ -63,10 +76,13 @@ import { cancelSystemJob, dismissSystemJob, skipSystemVerify, startSystemJob, sy
 import { say } from "./log.ts";
 import { platform } from "./platform/index.ts";
 import { workspaceInfo } from "./workspace.ts";
+import { backupMeta, metaBackupsJson, restoreMeta } from "./workspace-meta.ts";
+import { idleJobsJson, saveIdleJobs } from "./idle-jobs.ts";
 import { acceptWebSocket } from "./ws.ts";
 import { scrapeGame, scrapeImage, scrapePlan } from "./scrape.ts";
 import { downloadUpdate, updatesJson } from "./updates.ts";
 import { coresJson, folderGames, resetGameCore, setFolderCore, setGameCore } from "./cores.ts";
+import { deletePack, exportPack, importPack, recipesJson, runPack } from "./recipes.ts";
 import { biosJson, deleteBios, fixBiosNames, sendBios, uploadBios } from "./bios.ts";
 import { backupContents, backupSaves, restoreSaves, savesJson, trashBackup } from "./saves.ts";
 import { createMuxbak, createStatus as muxbakCreateStatus, downloadMuxbak, muxbakJson, restoreMuxbak, restoreStatus as muxbakRestoreStatus } from "./device/muxbak.ts";
@@ -81,7 +97,8 @@ import type { Duplex } from "node:stream";
 type Body = Record<string, unknown>;
 type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string }
   | { head: { length: number; name: string; type?: string } }
-  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
+  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number }
+  | { chatStream: Body };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -101,14 +118,27 @@ const routes: Record<string, Handler> = {
   },
   "GET /api/ssh/services": () => webServicesStatus(true),
   "GET /api/ssh/syncthing-idle": () => syncthingIdleJson(),
+  "GET /api/ssh/syncthing": () => syncthingIdleJson(),
   "POST /api/ssh/syncthing-idle/wait": async () => waitSyncthingIdle(),
+  "GET /api/syncthing/conflicts": () => conflictsJson(),
+  "POST /api/syncthing/conflicts/resolve": (_, body) => resolveConflict(body),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");
     const s = await saveWifiSettings(body);
     return { host: s.host, port: s.port, user: s.user };
   },
   "POST /api/device/wifi/find": async () => ({ found: await findHandhelds() }),
+  "GET /api/device/profiles": () => listProfiles(),
+  "POST /api/device/profiles": (_, body) => saveProfile(body),
+  "POST /api/device/profiles/delete": (_, body) => deleteProfile(String(body.id ?? "")),
+  "POST /api/device/profiles/activate": (_, body) => setActiveProfile(String(body.id ?? "")),
   "GET /api/workspace": () => workspaceInfo(),
+  "GET /api/workspace/meta-backups": () => metaBackupsJson(),
+  "POST /api/workspace/backup-meta": (_, body) => backupMeta(body),
+  "POST /api/workspace/restore-meta": (_, body) => restoreMeta(body),
+  "GET /api/idle-jobs": () => idleJobsJson(),
+  "POST /api/idle-jobs": (_, body) => saveIdleJobs(body),
+  "GET /api/overview/health": () => overviewHealthJson(),
   "GET /api/activity": (q) => activityJson(q),
   "GET /api/logs": (q) => logsJson(q),
   "GET /api/logs/download": (q) => logsDownload(q),
@@ -187,6 +217,11 @@ const routes: Record<string, Handler> = {
     return playBiosDownload(q);
   },
   "HEAD /api/games/bios": (q) => playBiosHead(q),
+  "GET /api/games/bios/dreamcast-bundle": () => dreamcastBiosBundle(),
+  "GET /api/games/ejs-data": (q) => ejsDataFile(String(q.get("file") ?? "")),
+  "GET /api/games/flycast": () => flycastCoreStatus(),
+  "POST /api/games/flycast/ensure": () => ensureFlycastCore().then(() => flycastCoreStatus()),
+  "POST /api/games/flycast/prepare": () => prepareDreamcastPlay(),
   "GET /api/game": (q) => gameDetails(q),
   "POST /api/game/reveal": (_, body) => revealGame(body),
   "POST /api/games/rescan": async () => {
@@ -208,8 +243,13 @@ const routes: Record<string, Handler> = {
   "GET /api/device/index": (q) => withTarget(volumeOf(q), async (t) => ({ card: t.info, files: await deviceIndex(t) })),
   "GET /api/device/games": (q) => {
     requireIdle();
-    return withTarget(volumeOf(q), deviceListing);
+    return withTarget(volumeOf(q), async (t) => {
+      const listing = await deviceListing(t);
+      const cardDiff = await recordListing(listing).catch(() => null);
+      return { ...listing, cardDiff };
+    });
   },
+  "GET /api/device/card-diff": async (q) => ({ diff: await storedCardDiff(volumeOf(q)) }),
   "GET /api/device/info": (q) => {
     if (volumeOf(q) === USB_ID) requireIdle("Busy with a transfer. Device details come back when it finishes.");
     return withTarget(volumeOf(q), deviceInfo);
@@ -245,7 +285,20 @@ const routes: Record<string, Handler> = {
   "GET /api/chat/settings": () => chatSettingsPublic(),
   "POST /api/chat/settings": (_, body) => saveChatSettings(body),
   "GET /api/chat/knowledge": () => chatKnowledgePublic(),
-  "POST /api/chat": (_, body) => runChat(body),
+  "POST /api/chat": (_, body) => (body.stream === true ? { chatStream: body } : runChat(body)),
+  "GET /api/mcp/settings": (q) => mcpSettingsPublic({ revealToken: q.get("reveal") === "1", revealGuest: q.get("reveal") === "guest" }),
+  "POST /api/mcp/settings": (_, body) => saveMcpSettings(body),
+  "POST /api/mcp/token/rotate": () => rotateMcpToken(),
+  "POST /api/mcp/guest-token/rotate": () => rotateGuestToken(),
+  "GET /api/mcp/stats": () => mcpStatsJson(),
+  "GET /api/mcp/tools": () => toolCatalogue(),
+  "GET /api/mcp/configs": () => mcpClientConfigs(),
+  "GET /api/mcp/clients": () => scanMcpClients(),
+  "POST /api/mcp/clients/install": (_, body) => installMcpClient(body),
+  "GET /api/mcp/agents": () => listAgentPacks(),
+  "GET /api/mcp/agents/content": (q) => agentPackContent(q),
+  "POST /api/mcp/agents/install": (_, body) => installAgentPack(body),
+  "POST /api/mcp/agents/install-all": (_, body) => installAllAgentPacks(body),
   "GET /api/manager": (q) => managerStatus(q.get("refresh") === "1"),
   "POST /api/manager/update": () => updateManager(),
   "GET /api/whats-new": () => whatsNewStatus(),
@@ -287,8 +340,8 @@ const routes: Record<string, Handler> = {
   },
 
   "POST /api/games/plan": (_, body) => {
-    requireQueueable(String(body.volume ?? ""));
-    return withTarget(String(body.volume ?? ""), async (t) => planSummary(t.info, await makePlan(t, (body.targets as unknown[]) || [""])));
+    if (transportOf(body.transport) === "sftp") requireQueueable(String(body.volume ?? ""));
+    return planTransfer(String(body.volume ?? ""), (body.targets as unknown[]) || [""], body.direction, body.transport);
   },
   "POST /api/games/copy": async (_, body) => ({ job: await startCopy(body) }),
   "POST /api/games/delete": (_, body) => deleteGame(body),
@@ -305,6 +358,11 @@ const routes: Record<string, Handler> = {
   "POST /api/disc-fix/inspect": (_, body) => inspectDiscArchive(body),
   "POST /api/disc-fix/start": (_, body) => startDiscFix(body),
   "POST /api/disc-fix/batch": (_, body) => startDiscFixBatch(body),
+  "GET /api/disc/pipeline": () => discPipelineJson(),
+  "POST /api/disc/pipeline": (_, body) => startDiscPipeline(body),
+  "POST /api/disc/pipeline/cancel": () => cancelDiscPipeline(),
+  "POST /api/disc/pipeline/resume": () => resumeDiscPipeline(),
+  "POST /api/disc/pipeline/dismiss": () => dismissDiscPipeline(),
   "POST /api/games/add/detect": (_, body) => detectGames(body),
   "POST /api/games/add/describe": (_, body) => searchDescriptions(body),
   "POST /api/games/add/artwork": (_, body) => scrapeGame(body),
@@ -312,7 +370,7 @@ const routes: Record<string, Handler> = {
   "PUT /api/games/upload": (query, _, req) => uploadGame(req, query),
   "GET /api/scummvm/free": () => freeGamesJson(),
   "POST /api/scummvm/free/install": (_, body) => installFreeGame(body),
-  "GET /api/homebrew/free": () => freeHomebrewJson(),
+  "GET /api/homebrew/free": (query) => freeHomebrewJson(query.get("catalogue") ?? undefined),
   "POST /api/homebrew/free/install": (_, body) => installFreeHomebrew(body),
 
   "GET /api/apps": () => appsJson(),
@@ -330,6 +388,11 @@ const routes: Record<string, Handler> = {
   "POST /api/saves/game/prune": (_, body) => pruneGameStates(body),
   "POST /api/saves/game/trash-pulled": (_, body) => trashPulledSave(body),
   "POST /api/saves/game/reveal-pulled": () => revealPulled(),
+  "GET /api/saves/browser": (q) => browserSaveJson(q),
+  "GET /api/saves/browser/file": (q) => browserSaveDownload(q),
+  "POST /api/saves/browser": (_, body) => browserSaveStore(body),
+  "POST /api/saves/browser/pull": (_, body) => browserSavePullDevice(body),
+  "POST /api/saves/browser/push": (_, body) => browserSavePushDevice(body),
   "POST /api/saves/backup": () => backupSaves(),
   "GET /api/saves/backup": (query) => backupContents(query),
   "POST /api/saves/restore": (_, body) => restoreSaves(body),
@@ -350,6 +413,11 @@ const routes: Record<string, Handler> = {
   "POST /api/cores/folder": (_, body) => setFolderCore(body),
   "POST /api/cores/game": (_, body) => setGameCore(body),
   "POST /api/cores/game/reset": (_, body) => resetGameCore(body),
+  "GET /api/recipes": () => recipesJson(),
+  "GET /api/recipes/export": (q) => exportPack(q),
+  "POST /api/recipes/import": (_, body) => importPack(body),
+  "POST /api/recipes/run": (_, body) => runPack(body),
+  "POST /api/recipes/delete": (_, body) => deletePack(body),
   "GET /api/updates": (query) => updatesJson(query),
   "POST /api/updates/download": (_, body) => downloadUpdate(body),
   "POST /api/apps/install": (_, body) => startInstall(body),
@@ -516,6 +584,15 @@ function playAssetPath(url: URL): string {
     } catch { /* keep raw */ }
     return "/api/games/bios";
   }
+  // /api/games/ejs-data/<token>/<rel…> — EmulatorJS data proxy (Flycast + CDN).
+  const ejs = url.pathname.match(/^\/api\/games\/ejs-data\/([^/]+)\/(.+)$/);
+  if (ejs) {
+    try {
+      url.searchParams.set("token", decodeURIComponent(ejs[1]));
+      url.searchParams.set("file", decodeURIComponent(ejs[2]));
+    } catch { /* keep raw */ }
+    return "/api/games/ejs-data";
+  }
   return url.pathname;
 }
 
@@ -523,7 +600,7 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
   const pathname = playAssetPath(url);
   const route = `${req.method} ${pathname}`;
   let token = String(req.headers["x-manager-token"] ?? "");
-  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom" || route === "GET /api/games/bios" || route === "HEAD /api/games/bios")) token = url.searchParams.get("token") ?? "";
+  if (!token && (route === "GET /api/device/image" || route === "GET /api/scrape/image" || route === "GET /api/files/read" || route === "GET /api/themes/preview" || route === "GET /api/themes/device-preview" || route === "GET /api/ports/shot" || route === "GET /api/market/image" || route === "GET /api/designer/file" || route === "GET /api/designer/package" || route === "GET /api/games/rom" || route === "HEAD /api/games/rom" || route === "GET /api/games/bios" || route === "HEAD /api/games/bios" || route === "GET /api/games/bios/dreamcast-bundle" || route === "GET /api/games/ejs-data")) token = url.searchParams.get("token") ?? "";
   if (!tokenOk(token)) return sendJson(res, 403, { error: "Missing or wrong manager token. Reopen the manager from ./muos-anbernic-manager/run.sh." });
   const handler = routes[route];
   if (!handler) return sendJson(res, 404, { error: "Unknown API call." });
@@ -562,6 +639,27 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       const { download, name, type } = result as { download: Buffer; name: string; type?: string };
       res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
       return send(res, 200, download, type ?? "application/zip");
+    }
+    if (result && typeof result === "object" && "chatStream" in result) {
+      const chatBody = (result as { chatStream: Body }).chatStream;
+      res.writeHead(200, {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      const write = (row: unknown) => {
+        try { res.write(`${JSON.stringify(row)}\n`); } catch { /* client gone */ }
+      };
+      try {
+        const done = await runChat(chatBody, {
+          onStatus: (ev) => write({ type: "status", phase: ev.phase, detail: ev.detail }),
+        });
+        write({ type: "done", ...done });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        write({ type: "error", error: msg });
+      }
+      return void res.end();
     }
     sendJson(res, 200, result);
   } catch (error) {
@@ -609,6 +707,10 @@ function handle(req: http.IncomingMessage, res: http.ServerResponse): void {
   } catch {
     return send(res, 400, "Bad request", "text/plain");
   }
+  if (isMcpPath(pathname)) {
+    void handleMcpHttp(req, res);
+    return;
+  }
   if (pathname.startsWith("/api/")) {
     void api(req, res, url);
     return;
@@ -630,6 +732,11 @@ let shutdownHook: () => void = () => {};
 /** What POST /api/shutdown runs: a newer manager for the same workspace asks this one to stop. */
 export function onShutdown(fn: () => void): void {
   shutdownHook = fn;
+}
+
+/** Close MCP sessions when the HTTP server is stopping. */
+export function shutdownMcp(): void {
+  closeAllMcpSessions();
 }
 
 export async function listen(first: number): Promise<http.Server> {

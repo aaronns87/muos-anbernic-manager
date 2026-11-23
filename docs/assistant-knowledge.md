@@ -13,7 +13,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 - **Overview**, then **Wiki** (help; shortcuts `2` or `0`)
 - **Library** - Games, Play, Artwork, OS
 - **Handheld** - Apps, Device, Themes, Emulation, Files, Game Tuning
-- **Tools** - System Tools, Terminal (SSH)
+- **Tools** - System Tools, Terminal (SSH), MCP
 - **Manager** - Settings, Logs (Assistant chat opens from the top bar or mustard button after an API key is saved)
 
 ### Install and setup wizard
@@ -31,7 +31,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 2. **USB** - Needs MTP. On Andromeda, USB Function is often missing on the handheld menus — use the Andromeda MTP steps below. Older MustardOS: Configuration > Advanced Settings > USB Function > **MTP**, then plug in.
 3. **Wi-Fi** - Same network. Enable **Secure File Transfer** (Andromeda; older: SFTP + Filebrowser) for files — SFTP root uses Primary/Secondary Storage (mapped to SD1/TF2). Enable **Secure Shell** for apps, themes, Device, cores, BIOS, Game Tuning, TF2-over-Wi-Fi tools and SSH. Set the handheld under Overview / Connection → **Handheld on this network** (Save and connect, or Find on network then Use and connect). Sign-in details (user, password, SFTP port) sit behind a disclosure. Wake the handheld; sleep drops Wi-Fi.
 
-USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, ttyd, Syncthing, landing, mDNS, Tailscale when present) with enabled/running/reachable status; **Open Syncthing** when its web UI answers; optional **Wait for Syncthing idle** before large copies (manager does not start/stop Syncthing—use Device Settings → Web services). Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
+USB and Wi-Fi can both be up. Top-bar connection chip shows every live link and opens the connection panel: **Transfer path** cards pick the primary path for copies (USB / Wi-Fi / Card), with actions and help for that path (including **Andromeda USB (MTP) help**), plus a **Web services** list (SSH, SFTP, virtual terminal/ttyd, Syncthing, web dashboard, Filebrowser when present, mDNS, Tailscale) with enabled/running/reachable status and **Open** for HTTP UIs; a **Netplay helper** below it shows a copyable `IP:port` invite for RetroArch netplay (default port 55435, editable, remembered in the browser) and links to the RetroArch netplay docs (helper only, nothing is hosted); optional **Wait for Syncthing idle** before large copies (manager does not start/stop Syncthing—use Device Settings → Web services). **Find on network** scans for MustardOS SFTP (Dropbear/SFTPGo on port 2022) and updates the saved Wi-Fi address (and SSH when it followed that address) if the handheld’s IP changed. **Use handheld ports** (Device Settings) copies SSH, SFTP, ttyd, Syncthing and dashboard ports into the manager. Terminal can **Show ttyd** as an embedded virtual terminal. Overview shows the same services block. Game copies use one primary path at a time. Play activity and collections use any live USB or Wi-Fi link even when Card reader is primary.
 
 ### Andromeda USB (MTP) — set MTP from the manager
 
@@ -81,6 +81,7 @@ The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-F
 
 - `1`-`9`: first nine sidebar sections (1 Overview, 2 Wiki, 3 Games … through Themes); `0`: always Wiki.
 - `?`: help for current page. `[`: fold sidebar.
+- Power user keys (Settings > Behaviour, on by default): `Ctrl`/`Cmd`+`K` opens a command palette (type to filter sections and actions such as focus game search, transfers and activity, rescan, sidebar, help; arrows + Enter; Esc closes); `/` focuses game search from any page.
 - Games: `/` search, `S` select mode, arrows in game viewer.
 - Tab bars: Left/Right to change tabs, Home/End for first/last. Tab to Skip to content to bypass navigation.
 
@@ -88,7 +89,13 @@ The connection panel’s **Open Device Settings** link jumps to step 3 when Wi-F
 
 Home page: whether the handheld is connected and how (card reader, USB or Wi-Fi), free space, how many systems have games and artwork, empty systems, MustardOS images in `os/`, apps with updates. Top-bar chip opens the connection panel; Overview is the full connection page.
 
-**Handheld on this network**: enter the address (Configuration > Wi-Fi Network on the handheld). Status shows connected / saved-but-unreachable / not set. **Save and connect** stores details and probes; **Find on network** scans LAN for SFTP (port 2022) with **Use and connect** on each hit. Sign-in details disclosure for user/password/port. Optional Filebrowser link when SFTP is up. **Device profiles** save named Wi-Fi sets in the Connection panel (switch / update / delete).
+**Syncthing conflicts** (Device web services in the connection panel, and the Saves panel on the handheld side): lists `.sync-conflict` copies Syncthing left in `save/` and `info/` on the handheld (name, size, time). Per file: **Keep handheld file** or **Delete copy** removes the conflict copy, **Use conflict copy** overwrites the original with it. Needs Wi-Fi + SSH. API `GET /api/syncthing/conflicts`, `POST /api/syncthing/conflicts/resolve` (`{path, action: keep-device|keep-conflict|delete-conflict}`). MCP: `syncthing_conflicts` (read), `syncthing_conflict_resolve` (two-step confirm).
+
+**What changed on the card** (Overview **Since last connect**, and Device web services): each Games > Handheld listing is compared with the previous one for the same device profile (or volume) and shows games added, removed or changed (size/time). Snapshot in `.cache/device-listing-digest.json`; API `GET /api/device/card-diff?volume=`.
+
+**Library health** (Overview, `GET /api/overview/health`): severity chips for missing artwork, BIOS gaps, last Library check result, Syncthing busy and games not on the handheld; each chip links to the section that fixes it. Cached signals only, refreshed about once a minute.
+
+**Handheld on this network**: enter the address (Configuration > Wi-Fi Network on the handheld). Status shows connected / saved-but-unreachable / not set. **Save and connect** stores details and probes; **Find on network** scans LAN for SFTP (port 2022) with **Use and connect** on each hit. Sign-in details disclosure for user/password/port. Optional Filebrowser link when SFTP is up. **Device profiles** (stored by the manager in `.cache/device-profiles.json`) save a named handheld: Wi-Fi and SSH sign-in, web service ports, model, last seen and battery. In the Connection panel pick one to apply Wi-Fi, SSH and ports and reconnect; Save profile updates or creates, Delete removes. Passwords are not stored in profiles.
 
 **Update handheld…** (Overview and Games): plan dialog — open Scrape for missing art, sync artwork to the device, queue copies for games not on the handheld.
 
@@ -111,9 +118,13 @@ On phones, **Filters** reveals filters and the card-size slider and shows the ac
 
 Picked games (with art) copy into handheld `ROMS` over the active connection. FAT32 warns before files over 4 GB. **Transfers** panel: running copy (progress, speed, ETA, current file), queue, history; stop or dequeue; minimise or hide from top bar. History persists until cleared. USB: one copy at a time.
 
+**Direction** (transfer dialog; MCP `direction` on `transfer_plan` / `transfer_start`, default `to-device`): `to-device` copies Roms/ games the handheld lacks; `from-device` pulls handheld games into Roms/ (same relative paths, folders created, free space checked on this computer); `match-device` / `match-library` are guided modes that also replace copies that differ (replaced Roms/ files go to the Trash). Every mode starts with a dry-run plan (new / identical / different per system); none deletes files on the other side. Pulls show as "from TF2 into Roms/" in Transfers and Roms/ is rescanned when they finish.
+
+**Transport** (transfer dialog **Send via**; MCP `transport` on `transfer_plan` / `transfer_start`, default `sftp`): `syncthing` copies Roms/ games into the local folder that Syncthing shares with the handheld's `ROMS` (Settings → Transfers, startup and updates → **Syncthing ROMs folder**, setting `syncthingRomsPath`, optional **Syncthing folder id** `syncthingFolderId`) with the same `SYSTEM/file` layout, then waits for Syncthing on the handheld to be idle (same probe as `syncthing_wait_idle`, up to 90 s, folder id used when set) before the job is marked done. No SFTP/USB session is used, so the handheld need not be connected; the plan compares with the sync folder, not the device. Only `to-device` and `match-device` work with it. The option is disabled in the UI until the folder is set; the API/MCP return a clear error. Pairing happens in Syncthing itself (add the handheld as a device, share the folder, point the handheld folder at `ROMS`); the manager never edits Syncthing's config. Jobs show `transport: "syncthing"` and phase `sync` while waiting.
+
 ### Add games
 
-**Add games** drops files into the right system folder and looks up description/art. **Free ScummVM games** and **Free & homebrew** catalogues download legal titles into Roms/ (homebrew into normal system folders). **Library recipes** (Settings → Behaviour) can scrape missing art and queue copies after add games or after Scrape saves.
+**Add games** drops files into the right system folder and looks up description/art. **Free ScummVM games** and **Free & homebrew** catalogues download legal titles into Roms/ (homebrew into normal system folders). Legal downloads only (freeware, public domain, open-source; never commercial ROM dumps). Several catalogues (`free`, `pd-homebrew`, `libre-games`, from `data/free-homebrew.json` + `data/catalogues/*.json`) with a switcher in the modal; API `GET /api/homebrew/free?catalogue=<id|all>` and MCP `homebrew_list` `catalogue`. **Library recipes** (Settings → Behaviour) can scrape missing art and queue copies after add games or after Scrape saves.
 
 ### ScummVM
 
@@ -131,7 +142,7 @@ Ports are native PC ports. Games > Ports shows what PortMaster installed on the 
 
 ### Play in browser
 
-Supported systems: GB, GBC, GBA, FC, FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP. Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM/BIOS stream (large CHD/ISO streamed, not buffered in the manager). `.cue`/`.m3u` pull sibling tracks via `EJS_externalFiles`. PS / MDCD / SATURN / PCECD need BIOS in workspace `bios/`. Session keyboard remap via graphical controller map (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. While open, arrow/space/page keys are kept for the game (page scroll locked). No handheld save sync. Dreamcast and arcade not offered (no EmulatorJS core).
+Supported systems: GB, GBC, GBA, FC, FDS, SFC, VB, N64, NDS, SMS, GG, MD, SEGA32X, MDCD, SATURN, PCE, PCECD, WS, NGP, A2600, A5200, A7800, LYNX, C64, VIC20, PS, PSP; arcade folders MAME, FBNEO, CPS1, CPS2, CPS3, NEOGEO (FinalBurn Neo `fbneo`, `.zip` only); Dreamcast (`DREAMCAST`) via Flycast (core cached from `nasomers/flycast-wasm` into `.cache/flycast-core/` on first play, served through `/api/games/ejs-data/` — needs both `dc_boot.bin` and `dc_flash.bin` in `bios/`; `.gdi`/`.cdi`/`.chd`). Card play control bottom-left; game viewer **Play in browser** when supported. EmulatorJS cores from CDN on first use (network once). Local ROM/BIOS stream. `.cue`/`.m3u` pull sibling tracks via `EJS_externalFiles`. PS / MDCD / SATURN / PCECD need BIOS in `bios/`. Session keyboard remap (click button, press key, Restart). Esc does not close; leave via X / Leave game with confirm. Focus mode hides chrome. **SRAM sync**: autosaves to `backups/saves-browser/`; **Load from device** / **Save to device** over SSH (close the game on the handheld first). Syncs battery SRAM (`.srm`), not RetroArch save states.
 
 ### Game viewer
 
@@ -256,6 +267,8 @@ Per ROM folder: **Picture and play** (aspect, integer scale, smooth, shader, ove
 
 **Convert to CHD**: needs chdman on PATH. Refresh tooling in Disc layouts. Multi-disc: one .chd per disc + .m3u.
 
+**Disc pipeline** (Disc layouts bar, or Pipeline on a row): Fix archives, Convert to CHD, Make playlist, Verify in order for the chosen games, one progress card. Steps that do not apply are skipped (no chdman, no multi-disc set, no No-Intro list for PS). Stop after this step pauses between steps; Resume continues from the step that did not finish; Cancel drops it. MCP: `disc_pipeline_start`, `disc_pipeline_status`, `disc_pipeline_control` (cancel/resume/dismiss).
+
 **Make playlist** (Disc layouts): sibling No-Intro/Redump Disc N sheets without .m3u; preview and write; batch per system or all.
 
 **Duplicates**: suggest keep by preferred region then good dumps; Move to Trash selected. Arcade skipped.
@@ -303,6 +316,10 @@ All erase the target - back up saves first (Emulation > Saves). Card reader may 
 
 Browser terminal over Wi-Fi; needs Secure Shell. Quick commands, Storage, Busiest processes. Runs as root - wrong commands can brick MustardOS.
 
+## mcp - MCP
+
+Tools → MCP (sidebar under Terminal; `#settings/mcp` redirects here). Enable/disable the localhost Streamable HTTP MCP server (`http://127.0.0.1:<port>/mcp`). IDE configs name it `MuAnMCP` (with a short description). Reveal/copy/rotate the persistent bearer token (`.cache/mcp.json`). A separate **guest token** is read-only: it only serves an allowlist of list/read tools (status, library list/search, game, BIOS list, jobs, play activity, saves overview, cores, tuning, collections, homebrew, files list/roots, workspace, OS images, themes/apps/ports lists, agent pack list, catalogue, stats) and refuses all writes, deletes, transfers and System Tools; rotate it separately; Copy config has a guest entry per client (`MuAnMCP-guest`). Scan for installed IDEs (Cursor, Claude Desktop, Claude Code, Codex, Windsurf), auto-write their MCP config, or copy a snippet from the Copy config menu. **Clients & agents**: MCP-only skills/experts under `mcp/agents/` — Review, Copy, Install, or Install all into Cursor / Claude Code / Codex skill folders. Also `agent://` resources, `use-manager-mcp` prompt, and `agent_pack_list` / `agent_pack_get`. Tools cover library (including verify/CHD/m3u/homebrew), connection, Device Settings/Controls/Benchmark, Syncthing idle, transfers, artwork scrape/sync, play activity & collections, BIOS/saves, emulation, files, apps/ports/themes, System Tools (flash/TF2; confirm tokens required), and meta. Toggle **Assistant uses MCP tools** (Assistant dock shows an MCP chip). Green MCP chip in the top bar shows sessions, call counts and recent audit. Always `127.0.0.1` only. Not the same as developer skills in this repository's `.cursor` / `.agents` folders. In-browser EmulatorJS play stays UI-only (`play_capabilities` only).
+
 ## settings - Settings
 
 Six tabs; subtitle describes the active tab.
@@ -313,7 +330,7 @@ Roms folder (library) and other folders: apps, os, bios, backups, themes, logs. 
 
 ### Behaviour
 
-Transfers, startup and updates (app shortcut, update check, **Show tips at start**, **Open tips** walkthrough). **Library recipes**: enable canned chains (scrape, queue copy, rescan) with a simple step editor and **Run now**. Images: uploaded artwork size.
+Transfers, startup and updates (app shortcut, update check, **Show tips at start**, **Open tips** walkthrough). **Library recipes**: enable canned chains (scrape, queue copy, rescan) with a simple step editor and **Run now**. **Recipe packs** (Behaviour): import, export, run or remove shareable JSON packs whose steps set a folder/game core, apply or remove cheats, set a CPU governor or apply game tuning on the handheld (Wi-Fi + SSH; stops at the first failing step; the built-in preset is a template). MCP: `recipes_list`, `recipes_run` (two-step confirm). When the user asks to run a recipe or pack by name, call `recipes_list`, match the name to a pack id, then `recipes_run` with that id and the `confirmId` after they agree. Images: uploaded artwork size. **Idle jobs** (Behaviour): while the manager is open, a 60 second check runs one chosen recipe pack (or a Roms library rescan) when the handheld is reachable over SSH, Syncthing on it is idle, no copy runs and the cooldown (5 minutes to 7 days) has passed; off by default; settings in `.cache/idle-jobs.json`, API `GET/POST /api/idle-jobs`.
 
 ### Appearance
 
@@ -321,11 +338,11 @@ Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Fore
 
 ### Assistant
 
-BYOK provider, API key, model (Custom model id only when Custom...), temperature, max tokens, include library/connection, Edit prompt, **View knowledge base** (this file, read-only). Save assistant / Clear key.
+BYOK provider (Groq, Gemini, OpenRouter, OpenAI, xAI Grok, or Custom OpenAI-compatible), API key, optional base URL for Custom, model presets or Custom model id, temperature, max tokens, include library/connection, Edit prompt, **View knowledge base** (this file, read-only). Save assistant / Clear key. Cursor has no public chat API for other apps.
 
 ### Data
 
-Refresh game data (LaunchBox / arcade titles). Clear caches: scraper lists, device art previews, catalogues (PortMaster, market, themes, OS updates), ROM check results.
+Refresh game data (LaunchBox / arcade titles). Clear caches: scraper lists, device art previews, catalogues (PortMaster, market, themes, OS updates), ROM check results. **Workspace metadata** (Data): **Backup metadata** writes one passphrase-encrypted `.mumeta` file (AES-256-GCM, scrypt key) into the backups folder with settings, device profiles (with saved logins), recipe packs, idle jobs, library recipes, MCP switches (tokens left out) and small caches; never ROMs, BIOS files or artwork. **Restore metadata** needs the passphrase and a confirmation, keeps this computer's folder locations and MCP tokens, and restores idle jobs switched off. A lost passphrase cannot be recovered. API: `POST /api/workspace/backup-meta`, `POST /api/workspace/restore-meta`, `GET /api/workspace/meta-backups`.
 
 ### Resets
 
@@ -378,9 +395,9 @@ After API key under Settings > Assistant: mustard button bottom-right or **Assis
 
 ### Settings > Assistant
 
-Provider (Groq, Gemini, OpenRouter); API key in `.cache/chat.json` mode 600; Model presets or Custom...; temperature; max tokens; library/connection toggles; Edit prompt (default preferred); View knowledge base (read-only).
+Provider: Groq, Gemini, OpenRouter (often free), OpenAI, xAI Grok (paid BYOK), or Custom (OpenAI-compatible base URL). API key in `.cache/chat.json` mode 600; Model presets or Custom…; temperature; max tokens; library/connection toggles; Edit prompt (default preferred); View knowledge base (read-only).
 
-Free keys: Groq console.groq.com (`openai/gpt-oss-20b` default, `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`); Google AI Studio Gemini Flash; OpenRouter `:free` or `openrouter/free`. Rate limits - wait or switch.
+Free keys: Groq console.groq.com (`openai/gpt-oss-20b` default, `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`); Google AI Studio Gemini Flash; OpenRouter `:free` or `openrouter/free`. Paid: OpenAI platform.openai.com (`gpt-4.1-mini` and peers); xAI console.x.ai (`grok-4.7` and peers). Custom needs base URL + key + model id. Cursor does not expose a public chat API — use OpenAI, xAI, or Custom. Rate/spend limits — wait or switch.
 
 ### Good at
 
@@ -388,4 +405,8 @@ Manager UI from this knowledge base + current section; selected handheld model (
 
 ### Must not
 
-Invent walkthroughs/spoilers (point to GameFAQs/StrategyWiki/game wiki); claim to format cards, wipe disks, install OS or change the handheld (name the section instead); ask for/repeat API keys or passwords; invent UI not in this guide.
+Invent walkthroughs/spoilers (point to GameFAQs/StrategyWiki/game wiki); invent UI not in this guide; ask for/repeat API keys, passwords or MCP bearer tokens.
+
+### MCP tools (when enabled)
+
+When Tools → MCP is on and **Assistant uses MCP tools** is on, prefer calling manager tools for live reads and for actions the user asked for. Use tools instead of guessing connection status, library contents, Device Settings/Controls/Benchmark, artwork, play/collections, jobs, files, apps/themes, BIOS/saves, System Tools, copy, delete, and similar. Do not only name a sidebar section when a tool can answer or act. Report results briefly. Destructive tools (including `system_start`, deletes, settings writes) are irreversible — only when clearly requested; Destructive tools (game_delete, artwork_local_delete, artwork_delete_device, bios_delete, saves_game_delete, saves_game_prune_states, muxbak_restore, files_delete, ports_uninstall, themes_delete, checks_trash, play_reset, collections_delete, recipes_run, syncthing_conflict_resolve, system_start) are two-step: the first call changes nothing and returns `{needsConfirm, confirmId, summary}`; tell the user the summary and repeat the same arguments plus `confirmId` only after they agree (5 minute, one-use token; `dryRun:true` previews again). System Tools still accept `confirm` matching the card id or `TF2` for Wi-Fi TF2, or a `confirmId` from a call without `confirm`. Do not start EmulatorJS play from tools. If tools are not available this turn, name the manager section instead of claiming you changed the handheld.

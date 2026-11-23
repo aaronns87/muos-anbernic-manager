@@ -1,7 +1,8 @@
 // Assistant chat dock: opens only when a BYOK API key is configured in Settings.
 
-import { $, api, esc, formatTime, icon, modelInfo, section, syncSpinnerPhase, toast } from "./core.js";
+import { $, api, esc, formatTime, icon, modelInfo, section, syncSpinnerPhase, toast, TOKEN } from "./core.js";
 import { openViewerGame } from "./game-view.js";
+import { assistantUsesMcp, onMcpChanged } from "./mcp.js";
 
 let onConfigured = () => {};
 
@@ -14,13 +15,16 @@ const C = {
   messages: [],
   ready: false,
   providerLabel: "",
+  /** Live status line while a reply is in flight (MCP calls, thinking, …). */
+  status: "",
 };
 
-const TIPS = [
+  const TIPS = [
   ["Keyboard", "Enter sends; Shift+Enter starts a new line."],
   ["What to ask", "Help with the manager, your library, or a retro game."],
   ["Walkthroughs", "Ask where to look online (GameFAQs, StrategyWiki, and so on)."],
-  ["Clear", "The Clear button next to Send wipes this conversation."],
+  ["MCP tools", "When MCP is on for the Assistant, chat can call the same manager tools as Cursor."],
+  ["Clear conversation", "The Clear conversation button next to Send wipes this chat."],
 ];
 
 /** Inline markdown within one line/paragraph (bold must close on the same line). */
@@ -151,6 +155,9 @@ function providerName(s) {
   if (id === "groq") return "Groq";
   if (id === "gemini") return "Gemini";
   if (id === "openrouter") return "OpenRouter";
+  if (id === "openai") return "OpenAI";
+  if (id === "xai") return "xAI Grok";
+  if (id === "custom") return "Custom";
   return id ? id : "BYOK";
 }
 
@@ -158,7 +165,7 @@ export const chatConfigured = () => C.configured;
 
 export function toggleChat() {
   if (!C.configured) {
-    toast("Add a free API key under Settings > Assistant first", 3500);
+    toast("Add an API key under Settings → Assistant first", 3500);
     location.hash = "#settings";
     return;
   }
@@ -172,21 +179,28 @@ function gameKey() {
   return g ? `${g.code}|${g.file}` : "";
 }
 
-function emptyState() {
-  return `<div class="chat-empty">
+function chatEmptyHtml() {
+  const mcp = assistantUsesMcp();
+  return `<div class="empty-state compact chat-empty">
       <div class="chat-empty-ico">${icon("chat")}</div>
       <div class="chat-empty-copy">
         <b>Ready</b>
-        <p>Ask about the manager, your library, or a game. For walkthroughs, ask where to look online.</p>
+        <p>${mcp
+          ? "Ask about the manager, your library, or a game. Manager MCP tools are available for this chat."
+          : "Ask about the manager, your library, or a game. For walkthroughs, ask where to look online."}</p>
       </div>
     </div>`;
+}
+
+function statusEsc(s) {
+  return `${esc(String(s || "Working").replace(/…$/, ""))}&hellip;`;
 }
 
 function paintMessages() {
   const box = $("chat-log");
   if (!box) return;
   if (!C.messages.length) {
-    box.innerHTML = emptyState();
+    box.innerHTML = chatEmptyHtml();
     return;
   }
   box.innerHTML = C.messages.map((m) => {
@@ -205,18 +219,91 @@ function ensureShell(dock) {
   if (dock.firstChild) return;
   dock.innerHTML = `<div class="dock-head" id="chat-head"></div>
       <div class="dock-body chat-body" id="chat-body">
-        <div class="chat-log" id="chat-log"></div>
+        <div class="chat-log" id="chat-log" aria-live="polite"></div>
+        <div class="chat-status" id="chat-status" hidden role="status" aria-live="polite"></div>
         <form class="chat-compose" id="chat-form">
           <label class="chat-field">
             <textarea class="control" id="chat-input" rows="2" placeholder="Message&hellip;" maxlength="2000" aria-label="Message"></textarea>
           </label>
           <div class="chat-actions">
-            <button type="button" class="btn small ghost chat-clear" id="chat-clear" data-chat="clear" hidden title="Clear this conversation">${icon("eraser")}<span>Clear</span></button>
+            <button type="button" class="btn small ghost chat-clear" id="chat-clear" data-chat="clear" hidden title="Clear this conversation">${icon("eraser")}<span>Clear conversation</span></button>
             <span class="grow"></span>
             <button type="submit" class="btn small primary" id="chat-send">${icon("send")}<span>Send</span></button>
           </div>
         </form>
       </div>`;
+}
+
+function paintStatus() {
+  const el = $("chat-status");
+  if (!el) return;
+  const show = C.sending && !!C.status;
+  el.hidden = !show;
+  if (!show) {
+    el.innerHTML = "";
+    return;
+  }
+  const mcpish = /calling |mcp|tool/i.test(C.status);
+  el.innerHTML = `<span class="spinner sm"></span><span class="chat-status-text">${esc(C.status)}</span>${
+    mcpish ? `<span class="chat-status-tag">MCP</span>` : ""
+  }`;
+}
+
+function setStatus(detail) {
+  C.status = String(detail || "");
+  paintStatus();
+  const small = document.querySelector("#chat-head .dock-title small");
+  if (small && C.sending) small.innerHTML = statusEsc(C.status);
+}
+
+/** NDJSON stream from POST /api/chat with stream:true. */
+async function streamChat(body) {
+  let res;
+  try {
+    res = await fetch("/api/chat", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "X-Manager-Token": TOKEN },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+  } catch {
+    throw new Error("The manager server is not running. Start it again with ./muos-anbernic-manager/run.sh.");
+  }
+  if (res.status === 403) {
+    throw new Error("This tab belongs to an earlier run of the manager. Use the link printed by ./muos-anbernic-manager/run.sh.");
+  }
+  const ctype = res.headers.get("content-type") || "";
+  if (!ctype.includes("ndjson")) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data;
+  }
+  if (!res.ok || !res.body) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || res.statusText || "Chat failed");
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let done = null;
+  while (true) {
+    const { value, done: eof } = await reader.read();
+    if (eof) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let ev;
+      try { ev = JSON.parse(line); } catch { continue; }
+      if (ev.type === "status") setStatus(ev.detail || ev.phase || "Working");
+      else if (ev.type === "done") done = ev;
+      else if (ev.type === "error") throw new Error(ev.error || "Chat failed");
+    }
+  }
+  if (!done) throw new Error("The assistant returned no reply. Try again.");
+  return done;
 }
 
 function paintFab() {
@@ -242,12 +329,21 @@ export function renderChat() {
   dock.hidden = !C.shown;
   document.body.classList.toggle("has-chat", C.shown);
   dock.classList.toggle("min", C.min);
-  const sub = C.sending ? "Thinking&hellip;" : esc(C.providerLabel || "Ready");
+  const mcpOn = assistantUsesMcp();
+  const sub = C.sending
+    ? statusEsc(C.status)
+    : esc(C.providerLabel || "Ready");
   if (C.min) C.tips = false;
   const tipList = TIPS.map(([k, v]) => `<li><b>${esc(k)}</b><span>${esc(v)}</span></li>`).join("");
+  const mcpChip = mcpOn
+    ? `<a class="chat-mcp-chip on" href="#mcp" title="Assistant can call manager MCP tools. Open Tools → MCP." aria-label="MCP tools on for Assistant">
+        <span class="live-dot"></span><span>MCP</span></a>`
+    : `<a class="chat-mcp-chip" href="#mcp" title="Assistant is not using MCP tools. Turn on under Tools → MCP." aria-label="MCP tools off for Assistant">
+        <span>MCP off</span></a>`;
   $("chat-head").innerHTML = `<button class="dock-toggle" data-chat="min" aria-expanded="${!C.min}" aria-controls="chat-body">
       <span class="tx-ico">${icon("chat")}</span>
       <span class="dock-title"><b>Assistant</b><small>${sub}</small></span></button>
+    ${mcpChip}
     <span class="chat-tips-wrap">
       <button type="button" class="btn icon small ghost chat-tips${C.tips ? " on" : ""}" data-chat="tips" aria-expanded="${C.tips}" aria-controls="chat-tips" title="Tips" aria-label="Tips for using the assistant">${icon("help")}</button>
       <div class="chat-tips-pop" id="chat-tips" role="dialog" aria-label="Assistant tips"${C.tips ? "" : " hidden"}>
@@ -259,12 +355,13 @@ export function renderChat() {
     <button class="btn icon small ghost" data-chat="close" title="Hide assistant" aria-label="Hide assistant">${icon("x")}</button>`;
   $("chat-body").hidden = C.min;
   paintMessages();
+  paintStatus();
   const clear = $("chat-clear");
   if (clear) clear.hidden = !C.messages.length || C.sending;
   const send = $("chat-send");
   if (send) {
     send.disabled = C.sending;
-    send.innerHTML = C.sending ? `<span class="spinner sm"></span><span>Sending</span>` : `${icon("send")}<span>Send</span>`;
+    send.innerHTML = C.sending ? `<span class="spinner sm"></span><span>Working</span>` : `${icon("send")}<span>Send</span>`;
   }
   document.body.style.setProperty("--chat-h", C.shown && !C.min ? `${dock.offsetHeight}px` : "0px");
   paintFab();
@@ -275,23 +372,35 @@ async function sendMessage(text, { aboutGame = false } = {}) {
   if (!content || C.sending || !C.configured) return;
   C.messages.push({ role: "user", content, at: Date.now() });
   C.sending = true;
+  C.status = "Preparing";
   renderChat();
   try {
-    const r = await api("chat", {
+    const r = await streamChat({
       messages: C.messages.map((m) => ({ role: m.role, content: m.content })),
       section: section(),
       gameKey: aboutGame || gameKey() ? gameKey() : "",
       deviceId: modelInfo().device?.id || "",
     });
-    C.messages.push({ role: "assistant", content: r.reply, at: Date.now() });
+    const toolsNote = r.tools?.used && Array.isArray(r.tools.names) && r.tools.names.length
+      ? `\n\n_Used ${r.tools.names.map((n) => `\`${n}\``).join(", ")}_`
+      : "";
+    C.messages.push({ role: "assistant", content: `${r.reply || ""}${toolsNote}`, at: Date.now() });
+    if (r.tools?.rejectedByProvider) {
+      toast("This model rejected MCP tools for that reply — answered in text only. Try another model under Settings → Assistant.", 5200);
+    }
   } catch (error) {
     C.messages.pop();
     toast(error.message, 5000);
   }
   C.sending = false;
+  C.status = "";
   renderChat();
   $("chat-input")?.focus();
 }
+
+onMcpChanged(() => {
+  if (C.configured) renderChat();
+});
 
 export function bindChat() {
   const dock = $("chat-dock");

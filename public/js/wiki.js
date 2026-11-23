@@ -23,7 +23,7 @@ const ARTICLES = [
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
       <p>The sidebar starts with <b>Overview</b> and the <b>Wiki</b> (this help), then groups the rest: <b>Library</b> (Games, Play, Artwork, OS)
       for your games and MustardOS images, <b>Handheld</b> (Apps, Device, Themes, Emulation, Files, Game Tuning) for what is on the device,
-      <b>Tools</b> (System Tools, Terminal) for cards and a shell, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
+      <b>Tools</b> (System Tools, Terminal, MCP) for cards, a shell and the local MCP server, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
       and where application diagnostics are kept.
       Press <kbd>?</kbd> on any page for help without leaving it, or open the full Wiki from the sidebar.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
@@ -97,6 +97,9 @@ const ARTICLES = [
       <li><kbd>1</kbd> to <kbd>9</kbd> jump down the sidebar (1 Overview, 2 Wiki, 3 Games &hellip; through Themes); <kbd>0</kbd> always opens the Wiki.</li>
       <li><kbd>?</kbd> opens help for the page you are on (the matching Wiki article in a dialog).</li>
       <li><kbd>[</kbd> folds the sidebar into a narrow icon bar and back. On the icon bar, hover an item to see a rich tab with its name and live counts (for example how many games are in the library).</li>
+      <li><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>K</kbd> opens the <b>command palette</b>: type to filter sections and common actions
+      (focus game search, transfers and activity, rescan, sidebar, help), use the arrow keys and <kbd>Enter</kbd> to run one, <kbd>Esc</kbd> to close.
+      <kbd>/</kbd> also jumps to game search from any page. Both can be turned off in ${path("Settings", "Behaviour", "Power user keys")}.</li>
       <li>In Games: <kbd>/</kbd> jumps to the search box, <kbd>S</kbd> turns on picking games, and the arrow keys step through games in the big game view.</li>
     </ul>`],
   ]],
@@ -111,21 +114,28 @@ const ARTICLES = [
       <ul>
         <li><b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for game and file copies (one path at a time).</li>
         <li>Actions for the active path: reconnect, disconnect, eject, Andromeda USB help, and links into Device Settings when SSH is up.</li>
-        <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, landing page, mDNS and Tailscale (when present): whether each is
-          enabled on the handheld, running, and reachable from this computer. <b>Active</b> means this computer can reach the port or SSH saw it running.
-          Syncthing shows <b>Open</b> when its web UI answers. <b>Wait for Syncthing idle</b> (optional) pauses large game copies for up to 90 seconds while
-          Syncthing finishes syncing; turn services on or off under Device Settings — the manager does not start or stop Syncthing for you. Overview shows the same block when Wi-Fi or SSH is known.</li>
+        <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, web dashboard, Filebrowser (when present), mDNS and Tailscale:
+          enabled / running / reachable, with <b>Open</b> for browser UIs. Syncthing can show folder names when SSH works.
+          <b>Active</b> means this computer can reach the port or SSH saw it running.
+          The <b>Netplay helper</b> under it gives a copyable <code>address:port</code> invite for RetroArch netplay (default port 55435) and a link to the RetroArch docs; start the host in RetroArch yourself.
+          <b>Wait for Syncthing idle</b> (optional) pauses large game copies for up to 90 seconds while Syncthing finishes syncing;
+          turn services on or off under Device Settings — the manager does not start or stop Syncthing for you. Overview shows the same block when Wi-Fi or SSH is known.</li>
         <li><b>Handheld on this network</b> (address, optional sign-in details, Save and connect, Find on network) and <b>Remote controls</b> (SSH user, ports, Test sign-in, Trust host key) when you use those paths.</li>
-        <li><b>Device profiles</b> save named Wi-Fi details so you can switch handhelds without retyping the address.</li>
+        <li><b>Device profiles</b> save a named handheld (Wi-Fi and SSH details, web ports, model) so you can switch handhelds without retyping. Picking one applies it and reconnects; the manager remembers when each was last seen and its battery.</li>
       </ul>
       <p>Play activity can use any live USB or Wi-Fi link even when Card reader is the primary transfer path.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
-      when the handheld reconnects; <b>Find on network</b> searches for it again. <b>Use handheld ports</b> (Device Settings) copies SSH/SFTP ports
+      when the handheld reconnects; <b>Find on network</b> scans for MustardOS SFTP and updates the saved address if the IP changed.
+      <b>Use handheld ports</b> (Device Settings) copies SSH, SFTP, virtual terminal, Syncthing and dashboard ports
       from Andromeda into this setup when they differ from the defaults.</p>`],
     ["Update handheld", `<p>When a link is live, <b>Update handheld&hellip;</b> on Overview (Library on the device) and Games opens a plan: open Scrape for missing box art,
       sync artwork to the handheld, and queue copies for games not transferred yet. Transfers shows copy progress.</p>`],
+    ["Library health", `<p>Overview's <b>Library health</b> panel summarises what needs attention: missing box art, BIOS gaps, the last Library check result,
+      Syncthing busy, and games not yet on the handheld. Each chip links to the section that fixes it. It uses cached signals only (it never walks
+      all of <code>Roms/</code>) and refreshes about once a minute.</p>`],
     ["Since last connect", `<p>While USB, Wi-Fi or a games card is live, Overview remembers play totals, save hints and library-vs-device counts.
-      Next time you connect, <b>Since last connect</b> summarises what changed, with links to Play, Saves, Games and Transfers.</p>`],
+      Next time you connect, <b>Since last connect</b> summarises what changed, with links to Play, Saves, Games and Transfers.
+      After a Games &rsaquo; Handheld listing, it can also show <b>what changed on the card</b> (added, removed or different files vs the previous listing for that profile).</p>`],
     ["Recent activity", `<p>The last things the manager did: games copied, files deleted or moved to the Trash, settings saved, apps installed, and
       anything that failed. <b>Show all</b> opens the full log with a search box and a filter for warnings and errors. The log is kept on this computer
       in the manager's cache folder and holds the last few thousand entries.</p>`],
@@ -143,7 +153,16 @@ const ARTICLES = [
       handheld, move them to the Trash, or delete them from the handheld's card.</p>`],
     ["Copying games to the handheld", `<p>Picked games, with their artwork, are copied into the handheld's <code>ROMS</code> folder over whichever connection is
       active. Comparing first does not change files or their timestamps on the card; nothing is written until you confirm the transfer.
-      A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>`],
+      A card formatted as FAT32 cannot hold a single file over 4 GB; the manager warns you before it tries.</p>
+      <p>The transfer dialog's <b>direction</b> chooses <b>To the handheld</b> (default), <b>From the handheld into Roms/</b> (pull missing or different
+      games into the library), or the guided <b>Match the handheld to the library</b> / <b>Match the library to the handheld</b> modes (also replace
+      copies that differ; nothing is deleted on the other side). Every run starts with a dry-run plan.</p>
+      <p><b>Send via Syncthing</b> (optional, to-device / match-device only): if Syncthing already shares a folder between this computer and the handheld's
+      <code>ROMS</code> folder, choose that folder under <b>Settings &gt; Transfers, startup and updates &gt; Syncthing ROMs folder</b> (and optionally its
+      Syncthing folder id). In the transfer dialog pick <b>Syncthing</b> under <b>Send via</b>: the manager copies the games into that folder with the
+      same <code>SYSTEM/file</code> layout as Roms/ and the job finishes once Syncthing on the handheld looks idle (up to 90 seconds). Nothing is sent over
+      SFTP for that job, and the handheld does not need to be connected for the copy into the shared folder. Pairing is done in Syncthing itself; the manager
+      never changes Syncthing's configuration. To pull games into Roms/, use direction <b>From the handheld</b> over the normal connection.</p>`],
     ["Transfers", `<p>The <b>Transfers</b> dock shows every copy: the one running with its progress, speed, time left and current file, the ones waiting,
       and finished ones with how much was copied, how long it took and any files that failed. Multi-file copies list each file (expanded by default)
       with its own progress, then size, time and speed, or why it failed.</p>
@@ -161,8 +180,10 @@ const ARTICLES = [
       <p><b>Free games</b> in the ScummVM system lists the freeware games from scummvm.org (Beneath a Steel Sky, Flight of the Amazon Queen,
       Lure of the Temptress, Drascula, Dreamweb and more) and downloads one straight into <code>Roms/SCUMMVM</code>. Copy it to the handheld like
       any other game. Saves stay on the handheld in MustardOS's save folder, not in the game folder.</p>`],
-    ["Free and homebrew ROMs", `<p><b>Free &amp; homebrew</b> in Add games lists legal freeware and competition homebrew from <code>data/free-homebrew.json</code>
-      (NES, Game Boy, GBA and similar). Each download lands in the right <code>Roms/&lt;SYSTEM&gt;/</code> file. Scrape its box art from Artwork when you like.</p>`],
+    ["Free and homebrew ROMs", `<p><b>Free &amp; homebrew</b> in Add games lists legal downloads only: freeware and competition homebrew, public-domain (CC0) games and open-source games, always from the author's own page
+      or repository. Never commercial ROM dumps. Use the tabs at the top (All, Free homebrew, Public domain homebrew, Libre games) to switch catalogue.
+      Each download lands in the right <code>Roms/&lt;SYSTEM&gt;/</code> file. Scrape its box art from Artwork when you like.
+      The catalogues are JSON files in <code>data/</code> (<code>free-homebrew.json</code> and <code>data/catalogues/*.json</code>); each has an id, title, description and a list of games.</p>`],
     ["Ports (PortMaster)", `<p>Ports are PC games rebuilt for handhelds. MustardOS installs them with its own <b>PortMaster</b> app, so the
       <b>Ports</b> system in Games shows what is installed on the handheld instead of files in <code>Roms/</code>. It needs the handheld over Wi-Fi
       with ${SSH_ON} on.</p>
@@ -179,15 +200,22 @@ const ARTICLES = [
       are not copied.</p>`],
     ["Play in browser", `<p>Many systems can be tried in the manager without the handheld: Game Boy family, NES / FDS, SNES, Virtual Boy, N64, DS,
       Master System, Game Gear, Mega Drive, 32X, Sega CD, Saturn, PC Engine / CD, WonderSwan, Neo Geo Pocket,
-      Atari 2600 / 5200 / 7800 / Lynx, Commodore 64 and VIC-20, PlayStation and PSP.
+      Atari 2600 / 5200 / 7800 / Lynx, Commodore 64 and VIC-20, PlayStation, PSP, arcade (MAME, FinalBurn Neo, CPS1-3, Neo Geo) and Dreamcast.
       On a game card, the play control is bottom-left (transfer stays bottom-right); in the game view, <b>Play in browser</b> is the primary action when supported.</p>
       <p>The play dialog loads <b>EmulatorJS</b> cores from the EmulatorJS CDN the first time (needs a network connection once; the browser caches them).
       Your ROM stays on this computer and is streamed locally (including large <code>.chd</code> / <code>.iso</code> files). Disc sheets (<code>.cue</code>, <code>.m3u</code>)
       load their sibling track files automatically. PlayStation, Sega CD, Saturn and PC Engine CD need the matching BIOS in your workspace <code>bios/</code> folder
       (same files as for the handheld). Open <b>Keyboard controls</b> for a controller-style map: click a button, press a key, then
       <b>Restart with these keys</b>. Esc does not leave the game — use the close control and confirm. Arrow keys and space stay with the game
-      (the page behind does not scroll). Saves stay in the browser session only.
-      Dreamcast and arcade ROM sets are not offered (no EmulatorJS core). Large discs need enough browser memory; PSP runs best when the page can use threads.</p>`],
+      (the page behind does not scroll).</p>
+      <p><b>SRAM sync</b>: battery saves autosave into <code>backups/saves-browser/</code> on this computer. Use <b>Load from device</b>,
+      <b>Save locally</b> and <b>Save to device</b> in the play dialog (Wi-Fi with SSH; close the game on the handheld first). This syncs
+      <code>.srm</code> battery SRAM, not RetroArch save states.</p>
+      <p>Arcade games run on the FinalBurn Neo core and need the <code>.zip</code> set from the folder (7z archives and loose files are not offered);
+      sets that FinalBurn Neo does not support, and sets that need a separate parent or BIOS zip such as <code>neogeo.zip</code>, may not start.
+      Dreamcast uses <b>Flycast</b>: the first play downloads the core into <code>.cache/flycast-core/</code> (needs network once) and serves it through the manager.
+      Put both <code>dc_boot.bin</code> and <code>dc_flash.bin</code> in <code>bios/</code>; <code>.gdi</code>, <code>.cdi</code> and <code>.chd</code> are offered for Dreamcast only.
+      Large discs need enough browser memory; PSP runs best when the page can use threads.</p>`],
     ["One game in detail", `<p>Click a game to see its big artwork, year, genre, players and rating, with tags for its library check
       (Verified, Bad dump, Modified), a missing BIOS and other versions you have. Use the arrow keys to step through the games.</p>
       <p>With the handheld connected, cards at the top show whether the game is on it, the core it starts with, how long you have played
@@ -361,6 +389,9 @@ const ARTICLES = [
           handheld, the same as MustardOS Backup / Archive Manager. List them, download a copy to <code>backups/</code>, create one (sections and
           destination), or restore on the handheld (replaces matching sections). TF2 still creates a legacy <code>BACKUP</code> folder for older zip
           backups; Andromeda system backups live under <code>ARCHIVE</code>.</li>
+        <li><b>Syncthing conflicts</b>: when Syncthing keeps two versions of a save or setting it leaves a <code>.sync-conflict</code> copy. The Saves
+          panel and the connection panel's Web services list them (needs Wi-Fi with Secure Shell). <b>Keep handheld file</b> and <b>Delete copy</b> remove the copy;
+          <b>Use conflict copy</b> replaces the handheld file with it. Each choice asks first.</li>
         <li><b>Save browser</b>: pick a ROM (or <b>Use open game</b>) to list that title's <code>.srm</code> files and save states over SSH. <b>Pull</b> copies
           into <code>backups/saves-pulled/</code>; <b>Push</b> puts them back; <b>Delete</b> and <b>Prune states</b> ask for confirmation. The game viewer
           <b>Handheld</b> tab has the same actions per file.</li>
@@ -435,7 +466,9 @@ const ARTICLES = [
         <li><b>OK</b>: <code>.chd</code>, <code>.pbp</code>, or a complete sheet.</li>
       </ul>
       <p>Multi-disc sets named <code>(Disc 1)</code>, <code>(Disc 2)</code> and so on without a <code>.m3u</code> show <b>Make playlist&hellip;</b> (preview, then write beside the ROMs). Use batch on the system row or toolbar for every set at once.</p>
-      <p>Use <b>Fix&hellip;</b> on archives (extract / convert) or <b>CHD</b> on complete cue sheets. See <b>Convert to CHD</b> and <b>Fix PlayStation archives</b>.</p>`],
+      <p>Use <b>Fix&hellip;</b> on archives (extract / convert) or <b>CHD</b> on complete cue sheets. See <b>Convert to CHD</b> and <b>Fix PlayStation archives</b>.</p>
+      <p><b>Disc pipeline</b> (button in the bar, or <b>Pipeline</b> on a row) runs Fix, Convert to CHD, Make playlist and Verify in one go for the games you pick.
+      Steps that do not apply are skipped. <b>Stop after this step</b> pauses it between steps; <b>Resume</b> carries on from the step that did not finish, and <b>Cancel</b> drops it.</p>`],
     ["Fix PlayStation archives", `<p>Roms dumped as <code>.zip</code> or <code>.7z</code> (sometimes a 7z file wrongly named <code>.zip</code>) cannot be started by PlayStation cores.
       Disc layouts marks them as problems and offers <b>Fix&hellip;</b>.</p>
       <ol>
@@ -555,14 +588,20 @@ const ARTICLES = [
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["The tabs", `<p>Settings is split into six tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Appearance</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
-      title describes the tab you are on.</p>`],
+      title describes the tab you are on. The local MCP server lives under Tools → <b>MCP</b> (sidebar, below Terminal).</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups, themes you design and application logs are kept.</p>`],
     ["Behaviour", `<p><b>Transfers, startup and updates</b> controls how copying and starting up behave, whether <b>Hints and tips</b> open at
-      start, and adds the app shortcut. Use <b>Open tips</b> to walk through the manager's features again.</p>
+      start, and adds the app shortcut. Use <b>Open tips</b> to walk through the manager's features again. The same panel holds the optional
+      <b>Syncthing ROMs folder</b> and folder id for transfers through Syncthing (see Copying games to the handheld).</p>
       <p><b>Library recipes</b> run small chains after you add games or save scraped artwork (scrape missing box art, queue a copy when a link is live).
       Edit steps per recipe or run one manually. Over USB, only one transfer runs at a time; extras wait in Transfers.</p>
+      <p><b>Recipe packs</b> are shareable <code>.json</code> files. Import one, run it on the handheld (Wi-Fi with SSH), or export a pack to send to a friend.
+      A pack's steps set a folder or game core, apply cheats, set a CPU governor or apply game tuning, and stop at the first problem.
+      The built-in example is a template: export it, edit the game names, and import your copy under a new id.</p>
+      <p><b>Idle jobs</b> can run a recipe pack (or a library rescan) for you while the manager is open. Every minute it checks that the handheld is online,
+      Syncthing on it is idle, no copy is running and the cooldown since the last run has passed. It is off until you turn it on and choose what to run.</p>
       <p><b>Images</b> sets the size uploaded artwork is saved at.</p>`],
     ["Appearance", `<p><b>Look</b> picks dark, light or match-system, and a colour scheme (Mustard, Ocean, Forest, Berry, Slate or Ember, or one you create)
       that changes accents and surfaces together. Selected controls (primary buttons, tabs, segmented buttons, sidebar) always use the scheme accent fill.
@@ -574,7 +613,11 @@ const ARTICLES = [
       <b>View knowledge base</b> modal. See the Wiki article <b>Assistant</b>.</p>`],
     ["Data", `<p><b>Game data</b> refreshes the game descriptions and arcade titles. <b>Cache</b> clears downloaded previews and lists:
       scraper file lists, artwork previews read from the handheld, the online catalogues (PortMaster, App market, themes and MustardOS updates) and
-      ROM check results. They are fetched or worked out again when needed.</p>`],
+      ROM check results. They are fetched or worked out again when needed.</p>
+      <p><b>Workspace metadata</b> saves your settings, device profiles (including saved logins), recipe packs, idle jobs, library recipes and a few small caches into one
+      file in the backups folder, locked with a passphrase you choose (at least 8 characters, not stored). Games, BIOS files, artwork and MCP tokens are not included.
+      <b>Restore metadata</b> brings them back after you pick the file and type the passphrase; folder locations on this computer and its MCP tokens stay as they are,
+      and idle jobs come back switched off. Without the passphrase the file cannot be opened.</p>`],
     ["Resets", `<p>Start some things over:</p>
       <ul>
         <li><b>Activity log</b> clears Recent activity on Overview.</li>
@@ -608,12 +651,13 @@ const ARTICLES = [
       <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections on the server, API failures (4xx/5xx),
       and browser script errors posted from the page. Change the folder under ${path("Settings", "Folders")} if you want logs somewhere else.</p>`],
   ]],
-  ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own free API key to help with the manager and your library.", [
+  ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own API key (BYOK) to help with the manager and your library.", [
     ["What it is", `<p>A chat panel in the bottom-right corner. After you save an API key under ${path("Settings", "Assistant")},
       a mustard chat button appears there, and an <b>Assistant</b> control appears in the top bar. Either opens the panel;
       hide it with the panel's close control. The manager never ships a shared key: you bring your own (BYOK).</p>
       <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
-        <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
+        <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.
+        While a reply runs, a status line shows thinking or MCP tool calls.</p>`],
     ["System prompt", `<p>Under ${path("Settings", "Assistant")}, <b>Edit prompt</b> opens a dialog with the instructions sent with every message
       (before the knowledge base, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
       on the settings page; changing it can weaken grounding, walkthrough refusal and other built-in limits, so keep the default unless you
@@ -629,18 +673,65 @@ const ARTICLES = [
     </ul>`],
     ["What it will not do", `<ul>
       <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
-      <li>Format cards, wipe disks or change the handheld. Use System Tools and the other sections for that.</li>
+      <li>When MCP tools are off, it will not change the handheld itself — use System Tools and the other sections. When tools are on
+        (Tools → MCP), it prefers calling manager tools for live reads and actions you ask for, including destructive ones when clearly requested, and reports what it did.</li>
     </ul>`],
-    ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
+    ["MCP tools", `<p>With Tools → MCP → <b>Assistant uses MCP tools</b> on, the Assistant dock shows a green <b>MCP</b> chip and chat is instructed to use the shared tool catalogue for live library search,
+      device status, transfers, BIOS/saves, and more (not only describe which tab to open). Some free models reject tools; the manager falls back to text-only for that reply.</p>`],
+    ["API keys and providers", `<p>On the <b>Assistant</b> tab in Settings, pick a provider, model and paste a key:</p>
       <ul>
-        <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
-          Free-tier chat models are <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
-          <code>qwen/qwen3.8-27b</code>. Llama chat models are no longer on Groq's free plan.</li>
-        <li><b>Google Gemini</b> — <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>: Gemini Flash models, free tier.</li>
-        <li><b>OpenRouter</b> — <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>: models whose id ends in <code>:free</code>, or <code>openrouter/free</code>. Lower daily cap until you have ever bought credit.</li>
+        <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: free, fast.
+          Models include <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
+          <code>qwen/qwen3.8-27b</code>. Free TPM is tight when MCP tools are on.</li>
+        <li><b>Google Gemini</b> — <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>: Gemini Flash, free tier.</li>
+        <li><b>OpenRouter</b> — <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>: models ending in <code>:free</code>, or <code>openrouter/free</code>.</li>
+        <li><b>OpenAI</b> — <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>: paid BYOK
+          (<code>gpt-4.1-mini</code>, <code>gpt-4.1</code>, <code>gpt-4o-mini</code>, <code>gpt-4o</code>, or a custom id).</li>
+        <li><b>xAI Grok</b> — <a href="https://console.x.ai" target="_blank" rel="noopener">console.x.ai</a>: paid BYOK
+          (<code>grok-4.7</code> and other Grok chat models).</li>
+        <li><b>Custom (OpenAI-compatible)</b> — any host that speaks <code>/v1/chat/completions</code> (LiteLLM, Azure OpenAI path,
+          local proxy). You set the base URL (e.g. <code>https://host/v1</code>) plus key and model id.</li>
       </ul>
-      <p>Keys stay in the manager's <code>.cache</code> on this computer (file mode 600) and are sent only to the provider you chose.
-        Free tiers rate-limit; if a reply fails, wait or switch provider. A factory reset removes the key with the rest of the cache.</p>`],
+      <p><b>Cursor</b> does not expose a public chat-completions API for other apps, so there is no Cursor provider here.
+        Use OpenAI, xAI, or Custom with a proxy if you need those models from the manager.</p>
+      <p>Keys stay in the manager's <code>.cache/chat.json</code> (mode 600) and are sent only to the provider you chose.
+        Rate limits and spend caps apply per provider; if a reply fails, wait or switch. A factory reset removes the key with the rest of the cache.</p>`],
+  ]],
+  ["mcp", "mcp", "MCP", "mcp", "Local Model Context Protocol server for Cursor, Claude Desktop and the in-app Assistant.", [
+    ["What it is", `<p>While the manager is running, an MCP endpoint listens at <code>http://127.0.0.1:&lt;port&gt;/mcp</code> (Streamable HTTP).
+      In IDE configs the server is named <code>MuAnMCP</code> (with a short description). External clients authenticate with a persistent
+      <b>bearer token</b> (not the per-run UI <code>?token=</code>). The token lives in
+      <code>.cache/mcp.json</code> (mode 600) and can be revealed, copied or rotated under ${path("Tools", "MCP")}.</p>
+      <p>A second <b>guest token</b> gives read-only access: clients using it can list and read (status, library, jobs, saves overview, files list and so on)
+      but every write, delete, transfer and System Tools call is refused. Use it for dashboards or agents you do not fully trust; the
+      Copy config menu has a guest entry per client (named <code>MuAnMCP-guest</code>). Rotate it separately from the full token.</p>
+      <p>MCP is <b>on by default</b>. Turn it off on that page to stop serving <code>/mcp</code>. The bind address is always localhost in this version
+      (no LAN or Tailscale expose).</p>`],
+    ["Confirm before destructive tools", `<p>Deletes, restores, uninstalls, resets and System Tools do not run on the first call. The tool answers with
+      <code>needsConfirm</code>, a short summary and a <code>confirmId</code> (valid for 5 minutes, one use, for exactly those arguments). Your agent should
+      show you the summary and repeat the call with the <code>confirmId</code> only after you agree. <code>system_start</code> still accepts the card id
+      (or <code>TF2</code>) as <code>confirm</code>; leave it out and the <code>confirmId</code> carries it for you.</p>`],
+    ["Clients", `<p>On the MCP page, <b>Scan for IDEs</b> looks for Cursor, Claude Desktop, Claude Code, Codex and Windsurf. For each find you can
+      <b>Set up automatically</b> (merge the <code>MuAnMCP</code> entry into that app's config file) or use <b>Copy config</b> for a paste-ready snippet.
+      Authorization must be <code>Bearer &lt;token&gt;</code> (full or guest). After rotating a token, update every client that uses it.</p>`],
+    ["Clients & agents", `<p>Tools → MCP keeps IDE connection and agent packs together. <b>Scan for IDEs</b> finds Cursor,
+      Claude Desktop, Claude Code, Codex and Windsurf so you can auto-write MCP config. MCP-only <b>skills</b> and
+      <b>experts</b> ship under <code>mcp/agents/</code> (not the developer skills in this repo's <code>.cursor</code> /
+      <code>.agents</code> folders): <b>Review</b>, <b>Copy</b>, <b>Install…</b>, or <b>Install all</b> into Cursor
+      (<code>~/.cursor/skills/</code>), Claude Code (<code>~/.claude/skills/</code>) or Codex (<code>~/.agents/skills/</code>)
+      after a scan. Connected MCP clients can also read them as <code>agent://</code> resources, the
+      <code>use-manager-mcp</code> prompt, or <code>agent_pack_list</code> / <code>agent_pack_get</code> tools.</p>`],
+    ["Tools", `<p>The tools table lists every registered tool by collection, name and a longer description (library including verify/CHD/m3u/homebrew, device settings/controls/benchmark, artwork, play/collections, System Tools, transfers, BIOS/saves,
+      emulation, files, apps, themes, OS, meta). Destructive tools say so in their descriptions and run without a second confirm; every call is audited.</p>`],
+    ["Header chip", `<p>When MCP is enabled, a green <b>MCP</b> chip appears in the top bar. Click it for endpoint status, session counts, today's call
+      totals and recent audit rows. Full setup lives under Tools → MCP.</p>`],
+    ["Assistant", `<p>The same tool catalogue powers the in-app Assistant when <b>Assistant uses MCP tools</b> is on (the dock shows a green
+      <b>MCP</b> chip). CONTEXT still orients the model; tools do the live work. Never paste the MCP token into chat.
+      System Tools and other destructive calls need clear user intent; flash/TF2 require a matching confirm token.</p>`],
+    ["Coverage", `<p>MCP mirrors the manager’s useful surfaces: Device Settings, Controls, Benchmark, Syncthing idle, artwork scrape/sync,
+      play activity and collections, library checks (No-Intro, CHD, disc playlists), free homebrew, and System Tools
+      (install / TF2 / reset). In-browser EmulatorJS play stays in the UI (<code>play_capabilities</code> only). Interactive
+      SSH terminal and full per-button remap editors are still UI-first.</p>`],
   ]],
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">

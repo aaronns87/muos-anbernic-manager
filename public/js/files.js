@@ -1,6 +1,7 @@
 // Files: this computer and the handheld side by side. Browse, copy between them, rename, delete, preview and edit.
 
 import { $, api, app, esc, formatDate, human, icon, plural, setKeepingScroll, toast, TOKEN } from "./core.js";
+import { notice, loading, emptyState, retryBtn } from "./layout.js";
 import { confirmBox } from "./art-images.js";
 import { jobStarted } from "./copy.js";
 
@@ -96,8 +97,8 @@ function render() {
   if (!root || $("view-files").hidden) return;
   if (!F.roots) {
     root.innerHTML = F.rootsError
-      ? `<div class="notice err">${esc(F.rootsError)}</div><button class="btn" data-fx="roots">${icon("refresh")}<span>Try again</span></button>`
-      : `<div class="planning"><span class="spinner"></span> Reading folders&hellip;</div>`;
+      ? `${notice("err", esc(F.rootsError))}${retryBtn('data-fx="roots"')}`
+      : loading("Reading folders&hellip;");
     return;
   }
   setKeepingScroll(root, `${F.error ? `<div class="notice err" role="alert">${esc(F.error)} <button class="btn small" data-fx="dismiss-error">Dismiss</button></div>` : ""}
@@ -114,7 +115,7 @@ function paneHtml(side) {
   </div>`;
   if (side === "device" && !roots.length) {
     const why = F.roots.deviceError || (volume() ? "The handheld shows no storage." : "Connect the handheld over USB or Wi-Fi, or put a card in a card reader.");
-    return `<section class="panel fx-pane" data-side="device">${head}<div class="fx-empty"><div class="notice">${esc(why)}</div><button class="btn small" data-connect="files">Connect handheld</button></div></section>`;
+    return `<section class="panel fx-pane" data-side="device">${head}${emptyState({ className: "compact", body: notice("", esc(why)), actions: `<button class="btn small" data-connect="files">Connect handheld</button>` })}</section>`;
   }
   const n = p.sel.size, busy = F.busy || p.loading;
   const tools = `<div class="fx-tools">
@@ -131,9 +132,9 @@ function paneHtml(side) {
   const crumbs = `<nav class="fx-crumbs" aria-label="Folder">${[label, ...p.path].map((part, i) =>
     i === p.path.length ? `<b>${esc(part)}</b>` : `<button class="link-btn" data-fx="crumb" data-side="${side}" data-depth="${i}">${esc(part)}</button>`).join(`<span>/</span>`)}</nav>`;
   let list;
-  if (p.error) list = `<div class="fx-empty"><div class="notice err">${esc(p.error)}</div></div>`;
-  else if (!p.entries) list = `<div class="planning"><span class="spinner"></span> Reading&hellip;</div>`;
-  else if (!p.entries.length) list = `<div class="fx-empty muted-note">This folder is empty.</div>`;
+  if (p.error) list = emptyState({ className: "compact", body: notice("err", esc(p.error)) });
+  else if (!p.entries) list = loading("Reading&hellip;");
+  else if (!p.entries.length) list = emptyState({ className: "compact muted", body: "This folder is empty." });
   else list = p.entries.map((e) => row(side, e)).join("");
   const all = p.entries?.length && n === p.entries.length;
   const foot = p.entries ? `<div class="fx-foot">

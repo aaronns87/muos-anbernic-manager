@@ -43,14 +43,41 @@ export async function pngData(source, maxSide = 0) {
 }
 
 /** Asks for one image file; resolves to the File or null. */
-export function pickImage() {
+export async function pickImage() {
+  if (typeof window.showOpenFilePicker === "function") {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "Images", accept: { "image/png": [".png"], "image/jpeg": [".jpg", ".jpeg"], "image/webp": [".webp"], "image/gif": [".gif"] } }],
+        excludeAcceptAllOption: true,
+        multiple: false,
+      });
+      return await handle.getFile();
+    } catch {
+      return null;
+    }
+  }
   const input = $("art-file");
   input.value = "";
   return new Promise((resolve) => {
-    const done = () => { input.removeEventListener("change", done); window.removeEventListener("focus", later); resolve(input.files[0] || null); };
-    const later = () => setTimeout(() => { if (!input.files.length) { input.removeEventListener("change", done); window.removeEventListener("focus", later); resolve(null); } }, 400);
-    input.addEventListener("change", done);
-    window.addEventListener("focus", later, { once: true });
+    let settled = false;
+    let cancelTimer = 0;
+    const finish = (file) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(cancelTimer);
+      input.removeEventListener("change", onChange);
+      window.removeEventListener("focus", onFocus);
+      resolve(file);
+    };
+    const onChange = () => finish(input.files?.[0] || null);
+    // macOS often fires window focus before input change; wait long enough for change,
+    // and clear any pending cancel when change arrives (see finish).
+    const onFocus = () => {
+      clearTimeout(cancelTimer);
+      cancelTimer = setTimeout(() => { if (!input.files?.length) finish(null); }, 1000);
+    };
+    input.addEventListener("change", onChange);
+    window.addEventListener("focus", onFocus);
     input.click();
   });
 }

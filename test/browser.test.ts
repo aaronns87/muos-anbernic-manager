@@ -18,7 +18,7 @@ const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 ].find((p) => p && fs.existsSync(p));
 
-const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "logs"];
+const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "mcp", "settings", "logs"];
 const TABS = ["saves", "bios", "cores", "retroarch", "checks"];
 
 class Cdp {
@@ -604,6 +604,10 @@ test("smoke: roadmap UI surfaces stay wired", { skip: !CHROME && "Chrome not fou
   await cdp.eval(`location.hash = "#settings/behaviour"`);
   await cdp.until(`!!document.querySelector(".recipe-panel")`);
   assert.match(await cdp.eval<string>(`document.querySelector(".recipe-panel h2")?.textContent || ""`), /Library recipes/);
+
+  await cdp.eval(`location.hash = "#mcp"`);
+  await cdp.until(`!!document.querySelector('#view-mcp:not([hidden]) .mcp-hero')`);
+  assert.match(await cdp.eval<string>(`document.getElementById("mcp")?.innerText || ""`), /MCP|Bearer|Cursor/);
 
   await cdp.eval(`location.hash = "#logs"`);
   await cdp.until(`!!document.querySelector('[data-logs="support"]')`);

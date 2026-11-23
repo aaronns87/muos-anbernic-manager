@@ -1,5 +1,6 @@
 // BYOK chat assistant: settings in .cache/chat.json, OpenAI-compatible providers, and a grounded context pack
-// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
+// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). When MCP tools are enabled, may call
+// the shared manager tool registry. Never invents walkthroughs; never echoes API keys.
 
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -21,12 +22,14 @@ const human = (n: number) => {
   return i === 0 ? `${v} B` : `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 };
 
-export type ChatProvider = "groq" | "gemini" | "openrouter";
+export type ChatProvider = "groq" | "gemini" | "openrouter" | "openai" | "xai" | "custom";
 
 export interface ChatSettings {
   provider: ChatProvider;
   apiKey: string;
   model: string;
+  /** OpenAI-compatible base URL for the Custom provider (e.g. https://host/v1). */
+  baseUrl: string;
   temperature: number;
   maxTokens: number;
   includeLibrary: boolean;
@@ -48,22 +51,35 @@ Rules:
 - You cannot search the web. If the user wants community per-game RetroArch tips, point them to the sites listed under finding settings in the knowledge base (Libretro docs/forums, Reddit r/RetroArch and r/SBCGaming, r/muOS for MustardOS). Suggest searching the game title plus the core name (e.g. PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP).
 - Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
 - Do NOT invent buttons, tabs or menus that are not in the knowledge base.
-- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
+- When tools are available this turn (see the tools note below the rules), use them for live facts and for actions the user asked for. Prefer tool results over guessing from CONTEXT alone for connection status, library contents, device settings, play activity, jobs, files on the handheld, and similar. Do not claim you cannot check or change something a tool can do — call the tool instead of only pointing at a sidebar section. Report results briefly. Destructive tools (deletes, settings writes, System Tools flash/TF2/reset) are irreversible — only when the user clearly asked; System Tools need the matching confirm token.
+- When tools are not available this turn, you cannot mutate the handheld yourself; tell the user which manager section to use (e.g. System Tools, Device).
 - Keep answers concise and practical. Use plain language.
 - When CONTEXT names a selected handheld, tailor performance, screen, Wi-Fi and Game Tuning advice to that model (chip, screen size, Wi-Fi or not). Do not assume a different handheld.
 - Format with simple Markdown the UI can render: short ## headings, bullet or numbered lists, **bold** only for short phrases on one line (always close **), and pipe tables (| col | col |) with a separator row. Do not use tab-separated tables or leave unmatched ** markers.
 - Game Tuning and Core options save only when the user clicks Save (they are not applied automatically).
-- Never ask for or repeat API keys or passwords.`;
+- Never ask for or repeat API keys, passwords, or MCP bearer tokens.`;
 
-const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
+const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter", "openai", "xai", "custom"];
+
+const PROVIDER_LABEL: Record<ChatProvider, string> = {
+  groq: "Groq",
+  gemini: "Google Gemini",
+  openrouter: "OpenRouter",
+  openai: "OpenAI",
+  xai: "xAI Grok",
+  custom: "Custom (OpenAI-compatible)",
+};
 
 const DEFAULT_MODELS: Record<ChatProvider, string> = {
   groq: "openai/gpt-oss-20b",
   gemini: "gemini-2.0-flash",
   openrouter: "openrouter/free",
+  openai: "gpt-4.1-mini",
+  xai: "grok-4.7",
+  custom: "gpt-4o-mini",
 };
 
-/** Chat models on Groq's free plan (not Whisper / Orpheus / prompt-guard). */
+/** Presets shown in Settings → Assistant (Custom… always available). */
 const MODEL_PRESETS: Record<ChatProvider, { id: string; label: string }[]> = {
   groq: [
     { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B (fast)" },
@@ -80,12 +96,36 @@ const MODEL_PRESETS: Record<ChatProvider, { id: string; label: string }[]> = {
     { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B (free)" },
     { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (free)" },
   ],
+  openai: [
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini" },
+    { id: "gpt-4o", label: "GPT-4o" },
+  ],
+  xai: [
+    { id: "grok-4.7", label: "Grok 4.7" },
+    { id: "grok-4.6", label: "Grok 4.6" },
+    { id: "grok-4.5", label: "Grok 4.5" },
+    { id: "grok-3-mini", label: "Grok 3 mini" },
+    { id: "grok-3", label: "Grok 3" },
+  ],
+  custom: [],
+};
+
+const PROVIDER_HELP: Record<ChatProvider, string> = {
+  groq: "Free key at https://console.groq.com — OpenAI-compatible, fast free tier (tight TPM with tools).",
+  gemini: "Free key at https://aistudio.google.com — Gemini Flash models, long context, free tier.",
+  openrouter: "Key at https://openrouter.ai — use models ending in :free, or openrouter/free.",
+  openai: "Paid key at https://platform.openai.com/api-keys — billed to your OpenAI account.",
+  xai: "Paid key at https://console.x.ai — Grok models via OpenAI-compatible API.",
+  custom: "Any OpenAI-compatible /v1 host (LiteLLM, Azure OpenAI path, local proxy). Cursor does not expose a public chat API for other apps — use OpenAI, xAI, or a proxy here.",
 };
 
 const DEFAULTS: ChatSettings = {
   provider: "groq",
   apiKey: "",
   model: DEFAULT_MODELS.groq,
+  baseUrl: "",
   temperature: 0.4,
   maxTokens: 1024,
   includeLibrary: true,
@@ -130,9 +170,10 @@ async function loadSettings(): Promise<ChatSettings> {
       ...saved,
       provider,
       apiKey: typeof saved.apiKey === "string" ? saved.apiKey : "",
+      baseUrl: typeof saved.baseUrl === "string" ? saved.baseUrl.trim() : "",
       model: normalizeModel(provider, String(saved.model || "")),
       temperature: clampNum(saved.temperature, 0, 1, DEFAULTS.temperature),
-      maxTokens: Math.round(clampNum(saved.maxTokens, 256, 4096, DEFAULTS.maxTokens)),
+      maxTokens: Math.round(clampNum(saved.maxTokens, 256, 8192, DEFAULTS.maxTokens)),
       includeLibrary: saved.includeLibrary !== false,
       includeConnection: saved.includeConnection !== false,
       systemPrompt: normalizePrompt(saved.systemPrompt),
@@ -164,9 +205,10 @@ export async function chatSettingsPublic() {
   const s = await loadSettings();
   const custom = !!s.systemPrompt.trim();
   return {
-    configured: !!s.apiKey.trim(),
+    configured: !!s.apiKey.trim() && (s.provider !== "custom" || !!s.baseUrl.trim()),
     provider: s.provider,
     model: s.model,
+    baseUrl: s.baseUrl,
     temperature: s.temperature,
     maxTokens: s.maxTokens,
     includeLibrary: s.includeLibrary,
@@ -177,15 +219,12 @@ export async function chatSettingsPublic() {
     keyHint: maskKey(s.apiKey.trim()),
     providers: PROVIDERS.map((id) => ({
       id,
-      label: id === "groq" ? "Groq" : id === "gemini" ? "Google Gemini" : "OpenRouter",
+      label: PROVIDER_LABEL[id],
       models: MODEL_PRESETS[id],
       defaultModel: DEFAULT_MODELS[id],
+      needsBaseUrl: id === "custom",
     })),
-    help: {
-      groq: "Free key at https://console.groq.com - OpenAI-compatible, fast, generous daily free tier.",
-      gemini: "Free key at https://aistudio.google.com - Gemini Flash models, long context, free tier.",
-      openrouter: "Free key at https://openrouter.ai - pick models with a :free suffix, or openrouter/free. Lower daily cap until you have ever bought credit.",
-    },
+    help: { ...PROVIDER_HELP },
   };
 }
 
@@ -204,6 +243,9 @@ export async function saveChatSettings(body: Record<string, unknown>) {
   if (body.clearKey === true) apiKey = "";
   let model = normalizeModel(provider, String(body.model ?? current.model));
   if (provider !== current.provider && !String(body.model ?? "").trim()) model = DEFAULT_MODELS[provider];
+  const baseUrl = body.baseUrl !== undefined
+    ? String(body.baseUrl ?? "").trim()
+    : current.baseUrl;
   let systemPrompt = current.systemPrompt;
   if (body.resetSystemPrompt === true) systemPrompt = "";
   else if (body.systemPrompt !== undefined) {
@@ -214,8 +256,9 @@ export async function saveChatSettings(body: Record<string, unknown>) {
     provider,
     apiKey,
     model,
+    baseUrl: provider === "custom" ? baseUrl : (provider === current.provider ? baseUrl : ""),
     temperature: clampNum(body.temperature ?? current.temperature, 0, 1, current.temperature),
-    maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 4096, current.maxTokens)),
+    maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 8192, current.maxTokens)),
     includeLibrary: body.includeLibrary !== undefined ? body.includeLibrary !== false && body.includeLibrary !== "false" : current.includeLibrary,
     includeConnection: body.includeConnection !== undefined ? body.includeConnection !== false && body.includeConnection !== "false" : current.includeConnection,
     systemPrompt,
@@ -458,6 +501,8 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
 
 async function buildContext(
   section: string, userText: string, gameKey: string, opts: ChatSettings, deviceId: string,
+  /** When tools are on, keep CONTEXT smaller so tool defs fit free-tier TPM budgets. */
+  maxChars = 24_000,
 ): Promise<string> {
   const { sections } = await loadKnowledge();
   const parts = [knowledgeBlock(section || "start", sections)];
@@ -471,7 +516,7 @@ async function buildContext(
       parts.push(`## Library\nUnavailable: ${(error as Error).message}`);
     }
   }
-  return parts.join("\n\n").slice(0, 24_000);
+  return parts.join("\n\n").slice(0, Math.max(4_000, maxChars));
 }
 
 type Msg = { role: "user" | "assistant" | "system"; content: string };
@@ -489,13 +534,124 @@ function normalizeMessages(raw: unknown): Msg[] {
   return out;
 }
 
-function endpoint(provider: ChatProvider): string {
+/** Resolve chat-completions URL. Custom accepts …/v1 or a full …/chat/completions URL. */
+function endpoint(provider: ChatProvider, baseUrl = ""): string {
   if (provider === "groq") return "https://api.groq.com/openai/v1/chat/completions";
   if (provider === "gemini") return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-  return "https://openrouter.ai/api/v1/chat/completions";
+  if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
+  if (provider === "openai") return "https://api.openai.com/v1/chat/completions";
+  if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
+  const raw = baseUrl.trim().replace(/\/+$/, "");
+  if (!raw) throw new UserError("Set an API base URL under Settings → Assistant for the Custom provider.");
+  if (typeof URL.canParse === "function" ? !URL.canParse(raw) : (() => { try { return !new URL(raw); } catch { return true; } })()) {
+    throw new UserError("Custom API base URL must be a full http(s) URL.");
+  }
+  if (/\/chat\/completions$/i.test(raw)) return raw;
+  if (/\/v1$/i.test(raw)) return `${raw}/chat/completions`;
+  return `${raw}/v1/chat/completions`;
 }
 
-export async function runChat(body: Record<string, unknown>) {
+type ChatApiMessage = {
+  role: string;
+  content?: string | null;
+  tool_calls?: {
+    id: string;
+    type?: string;
+    function: { name: string; arguments: string };
+  }[];
+  tool_call_id?: string;
+  name?: string;
+};
+
+type ChatApiChoice = {
+  message?: ChatApiMessage;
+  finish_reason?: string;
+};
+
+const MAX_TOOL_ROUNDS = 6;
+const CHAT_DEADLINE_MS = 90_000;
+
+async function loadMcpApi() {
+  return import("./mcp/index.ts");
+}
+
+async function toolsEnabledForChat(): Promise<boolean> {
+  try {
+    const { mcpEnabled, mcpSettings, ensureMcpTools } = await loadMcpApi();
+    if (!mcpEnabled() || !mcpSettings().assistantUsesTools) return false;
+    ensureMcpTools();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function callChatApi(
+  provider: ChatProvider,
+  apiKey: string,
+  payload: Record<string, unknown>,
+  signal: AbortSignal,
+  baseUrl = "",
+): Promise<{ data: {
+  error?: { message?: string } | string;
+  choices?: ChatApiChoice[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+}; status: number; statusText: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://github.com/aaronns87/muos-anbernic-manager";
+    headers["X-Title"] = "muOS Anbernic Manager";
+  }
+  const url = endpoint(provider, baseUrl);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (error) {
+    throw new UserError(`Could not reach the ${PROVIDER_LABEL[provider]} API: ${(error as Error).message}`);
+  }
+  const data = await res.json().catch(() => ({})) as {
+    error?: { message?: string } | string;
+    choices?: ChatApiChoice[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  return { data, status: res.status, statusText: res.statusText };
+}
+
+function throwChatHttp(status: number, statusText: string, data: { error?: { message?: string } | string }) {
+  if (status === 401 || status === 403) {
+    throw new UserError("The API key was rejected. Check it under Settings → Assistant.");
+  }
+  if (status === 429) {
+    throw new UserError("This key hit a rate or spend limit. Wait a bit, or switch provider/model under Settings → Assistant.");
+  }
+  const err = typeof data.error === "string" ? data.error : data.error?.message || statusText;
+  throw new UserError(`Chat API error: ${err}`);
+}
+
+export type ChatStatusEvent = { phase: "preparing" | "thinking" | "tool" | "fallback" | "replying"; detail: string };
+
+export type ChatResult = {
+  reply: string;
+  usage: { prompt: number; completion: number } | null;
+  provider: ChatProvider;
+  model: string;
+  tools: { offered: boolean; used?: boolean; rejectedByProvider?: boolean; names?: string[] };
+};
+
+export async function runChat(
+  body: Record<string, unknown>,
+  opts?: { onStatus?: (ev: ChatStatusEvent) => void },
+): Promise<ChatResult> {
+  const status = (phase: ChatStatusEvent["phase"], detail: string) => opts?.onStatus?.({ phase, detail });
+  status("preparing", "Preparing…");
   const s = await loadSettings();
   if (!s.apiKey.trim()) throw new UserError("Add a free API key under Settings > Assistant before chatting.");
   const messages = normalizeMessages(body.messages);
@@ -505,56 +661,177 @@ export async function runChat(body: Record<string, unknown>) {
   const section = String(body.section ?? "").trim();
   const gameKey = String(body.gameKey ?? "").trim();
   const deviceId = String(body.deviceId ?? "").trim();
-  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId);
-  const payload = {
-    model: s.model,
-    temperature: s.temperature,
-    max_tokens: s.maxTokens,
-    messages: [
-      { role: "system", content: `${effectivePrompt(s)}\n\nCONTEXT:\n${context}` },
-      ...messages,
-    ],
+
+  const useTools = await toolsEnabledForChat();
+  const mcp = useTools ? await loadMcpApi() : null;
+  // Cap + compact schemas so free Groq TPM (~8k) can fit tools + CONTEXT.
+  let tools = useTools ? mcp!.openaiToolsForChat() : [];
+  status("preparing", useTools ? "Loading context and MCP tools…" : "Loading context…");
+  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId, useTools ? 10_000 : 24_000);
+  const TOOL_NOTE = `\n\nTools are available this turn (manager MCP catalogue). Use them proactively:
+- Live reads: call a tool before answering about connection/device status, library search or counts, Device Settings/Controls/Benchmark, play activity or collections, saves/BIOS, jobs, files, apps, themes, or System Tools state. Do not invent live numbers from memory.
+- Actions: if the user asks you to search, copy, send, delete, change a setting, scrape artwork, or run a manager job a tool covers, call that tool rather than only describing which UI tab to open.
+- After tools return, answer from their results in a short reply. Ask before destructive writes if the request was ambiguous.
+- Destructive tools (deletes, restore, System Tools) first return {needsConfirm, confirmId, summary} and change nothing. Tell the user the summary and repeat the same call with that confirmId only after they agree in chat.
+- Recipe packs: when the user asks to run a recipe or pack by name, call recipes_list, match the name to a pack id, then recipes_run with that id (and the confirmId after they agree).
+- Do not start in-browser EmulatorJS play from tools.`;
+  const TEXT_ONLY_NOTE = "\n\nTools are not available this turn. Answer in plain text only; do not call tools or invent tool calls. Point the user to the right manager section when they need a live action.";
+
+  const apiMessages: ChatApiMessage[] = [
+    { role: "system", content: `${effectivePrompt(s)}${useTools ? TOOL_NOTE : ""}\n\nCONTEXT:\n${context}` },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
+
+  const setSystemToolsNote = (enabled: boolean) => {
+    const sys = apiMessages[0];
+    if (!sys || sys.role !== "system" || typeof sys.content !== "string") return;
+    sys.content = sys.content.replace(TOOL_NOTE, "").replace(TEXT_ONLY_NOTE, "");
+    if (!enabled) sys.content = sys.content.replace(/\n\nCONTEXT:/, `${TEXT_ONLY_NOTE}\n\nCONTEXT:`);
   };
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${s.apiKey.trim()}`,
+
+  const chatErrText = (data: { error?: { message?: string } | string }, statusText: string) =>
+    typeof data.error === "string" ? data.error : data.error?.message || statusText;
+
+  const applyToolsPayload = (payload: Record<string, unknown>) => {
+    if (toolsOffered && tools.length) {
+      payload.tools = tools;
+      payload.tool_choice = "auto";
+    } else {
+      delete payload.tools;
+      delete payload.tool_choice;
+    }
+    payload.messages = apiMessages;
   };
-  if (s.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://github.com/aaronns87/muos-anbernic-manager";
-    headers["X-Title"] = "muOS Anbernic Manager";
+
+  if (s.provider === "custom") endpoint("custom", s.baseUrl); // validate base URL early
+
+  const started = Date.now();
+  const signal = AbortSignal.timeout(CHAT_DEADLINE_MS);
+  const call = (payload: Record<string, unknown>) =>
+    callChatApi(s.provider, s.apiKey.trim(), payload, signal, s.baseUrl);
+  let usagePrompt = 0, usageCompletion = 0;
+  let toolsOffered = useTools;
+  let toolsRejected = false;
+  let toolShrinkTried = false;
+  const usedTools: string[] = [];
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    if (Date.now() - started > CHAT_DEADLINE_MS - 2_000) {
+      throw new UserError("The assistant timed out while using tools. Try a shorter question.");
+    }
+    const payload: Record<string, unknown> = {
+      model: s.model,
+      temperature: s.temperature,
+      max_tokens: s.maxTokens,
+      messages: apiMessages,
+    };
+    // Groq (and some OpenAI-compatible hosts) need an explicit "auto" or they treat
+    // missing tool_choice as none and reject when the model emits a tool call.
+    applyToolsPayload(payload);
+    status("thinking", round === 0 ? "Asking the model…" : "Thinking with tool results…");
+
+    let { data, status: httpStatus, statusText } = await call(payload);
+
+    // Groq gpt-oss can intermittently emit a native tool call while choice is none — retry once.
+    if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
+      if (toolsOffered && tools.length) applyToolsPayload(payload);
+      else {
+        setSystemToolsNote(false);
+        applyToolsPayload(payload);
+      }
+      status("thinking", "Retrying…");
+      ({ data, status: httpStatus, statusText } = await call(payload));
+    }
+
+    // Provider tool limits / schema / TPM: shrink tools and retry before giving up.
+    if (!(httpStatus >= 200 && httpStatus < 300) && toolsOffered && tools.length && !toolShrinkTried) {
+      const errText = chatErrText(data, statusText);
+      if (/128|too many tools|maximum.*tool|request too large|tokens per minute|tpm|reduce your message|invalid.*tool/i.test(errText) || httpStatus === 400) {
+        toolShrinkTried = true;
+        const next = Math.max(8, Math.floor(tools.length / 2));
+        if (next < tools.length) {
+          tools = mcp!.openaiToolsForChat(next);
+          applyToolsPayload(payload);
+          status("thinking", `Retrying with fewer tools (${next})…`);
+          ({ data, status: httpStatus, statusText } = await call(payload));
+        }
+      }
+    }
+
+    // Some free models reject tools entirely — fall back to text-only (and strip the tools nudge).
+    if (!(httpStatus >= 200 && httpStatus < 300) && toolsOffered && tools.length) {
+      const errText = chatErrText(data, statusText);
+      if (/tool|request too large|tokens per minute|tpm|reduce your message/i.test(errText) || httpStatus === 400) {
+        toolsOffered = false;
+        toolsRejected = true;
+        setSystemToolsNote(false);
+        applyToolsPayload(payload);
+        status("fallback", "Model rejected tools — answering in text…");
+        ({ data, status: httpStatus, statusText } = await call(payload));
+        // Text-only fallback can still hit the same Groq flake; one more try.
+        if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
+          ({ data, status: httpStatus, statusText } = await call(payload));
+        }
+      }
+    }
+
+    if (httpStatus < 200 || httpStatus >= 300) throwChatHttp(httpStatus, statusText, data);
+    if (data.usage) {
+      usagePrompt += data.usage.prompt_tokens || 0;
+      usageCompletion += data.usage.completion_tokens || 0;
+    }
+
+    const msg = data.choices?.[0]?.message;
+    if (!msg) throw new UserError("The model returned an empty reply. Try again or pick another model.");
+
+    const toolCalls = msg.tool_calls?.filter((t) => t?.function?.name) || [];
+    if (toolsOffered && toolCalls.length && mcp) {
+      apiMessages.push({
+        role: "assistant",
+        content: msg.content ?? null,
+        tool_calls: toolCalls.map((t) => ({
+          id: t.id,
+          type: "function",
+          function: { name: t.function.name, arguments: t.function.arguments || "{}" },
+        })),
+      });
+      for (const call of toolCalls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
+        } catch {
+          args = {};
+        }
+        status("tool", `Calling ${call.function.name}…`);
+        usedTools.push(call.function.name);
+        const out = await mcp.executeTool(call.function.name, args, "assistant");
+        const content = out.ok
+          ? (typeof out.result === "string" ? out.result : JSON.stringify(out.result))
+          : JSON.stringify({ error: out.error || "Tool failed" });
+        apiMessages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          name: call.function.name,
+          content: content.slice(0, 12_000),
+        });
+      }
+      continue;
+    }
+
+    status("replying", "Writing reply…");
+    const reply = (msg.content || "").trim();
+    if (!reply) throw new UserError("The model returned an empty reply. Try again or pick another model.");
+    return {
+      reply,
+      usage: (usagePrompt || usageCompletion)
+        ? { prompt: usagePrompt, completion: usageCompletion }
+        : null,
+      provider: s.provider,
+      model: s.model,
+      tools: useTools
+        ? { offered: true, used: usedTools.length > 0, rejectedByProvider: toolsRejected, names: usedTools }
+        : { offered: false },
+    };
   }
-  let res: Response;
-  try {
-    res = await fetch(endpoint(s.provider), {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(90_000),
-    });
-  } catch (error) {
-    throw new UserError(`Could not reach the ${s.provider} API: ${(error as Error).message}`);
-  }
-  const data = await res.json().catch(() => ({})) as {
-    error?: { message?: string } | string;
-    choices?: { message?: { content?: string } }[];
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-  if (res.status === 401 || res.status === 403) {
-    throw new UserError("The API key was rejected. Check it under Settings > Assistant.");
-  }
-  if (res.status === 429) {
-    throw new UserError("The free quota for this key was hit. Wait a bit, or try another free provider under Settings > Assistant.");
-  }
-  if (!res.ok) {
-    const err = typeof data.error === "string" ? data.error : data.error?.message || res.statusText;
-    throw new UserError(`Chat API error: ${err}`);
-  }
-  const reply = data.choices?.[0]?.message?.content?.trim();
-  if (!reply) throw new UserError("The model returned an empty reply. Try again or pick another model.");
-  return {
-    reply,
-    usage: data.usage ? { prompt: data.usage.prompt_tokens || 0, completion: data.usage.completion_tokens || 0 } : null,
-    provider: s.provider,
-    model: s.model,
-  };
+  throw new UserError("The assistant hit the tool-call limit. Ask again with a narrower request.");
 }
