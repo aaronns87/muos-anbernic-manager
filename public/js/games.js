@@ -18,6 +18,7 @@ import { bindGameView, enrichViewer, syncTransferButton } from "./game-view.js";
 import { syncGameFilters } from "./ui.js";
 import { applySmartListSideEffects, isFavourite, toggleFavourite, matchLibrarySmartList, matchDeviceSmartList } from "./lists.js";
 import { canPlayInBrowser, openPlayBrowserFor } from "./play-browser.js";
+import { notice, loading, retryBtn } from "./layout.js";
 
 // ---------------------------------------------------------------- library data
 
@@ -282,8 +283,8 @@ export function render() {
   syncGameFilters();
   if (!app.data) {
     $("games-list").innerHTML = app.libraryError
-      ? `<div class="dev-note"><div class="notice err">${esc(app.libraryError)}</div><button class="btn" data-lib="retry">${icon("refresh")}<span>Try again</span></button></div>`
-      : `<div class="dev-note"><span class="spinner"></span> Loading the library&hellip;</div>`;
+      ? `<div class="dev-note">${notice("err", esc(app.libraryError))}${retryBtn('data-lib="retry"')}</div>`
+      : `<div class="dev-note">${loading("Loading the library&hellip;")}</div>`;
     return;
   }
   if (app.ui.where === "device" && app.device.target) return renderDeviceView();
@@ -708,8 +709,8 @@ function renderDeviceView() {
   const name = esc(devName());
   if (listing.status !== "ready") {
     $("games-list").innerHTML = listing.status === "error"
-      ? `<div class="dev-note"><div class="notice err">${esc(listing.error)}</div><button class="btn" data-dev="reload">Try again</button></div>`
-      : `<div class="dev-note"><span class="spinner"></span> Reading the games on ${name}&hellip;${slowHint()}</div>`;
+      ? `<div class="dev-note">${notice("err", esc(listing.error))}${retryBtn('data-dev="reload"')}</div>`
+      : `<div class="dev-note">${loading(`Reading the games on ${name}&hellip;${slowHint()}`)}</div>`;
     setNote("", false);
     renderNav({}, true);
     if (listing.status === "idle") loadDevice();

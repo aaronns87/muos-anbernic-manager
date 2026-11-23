@@ -259,7 +259,7 @@ test("smoke: roadmap front-end modules parse", () => {
   const dir = path.join(managerDir, "public", "js");
   for (const f of [
     "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js", "play-browser.js", "tips.js",
-    "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js", "mcp.js",
+    "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js", "mcp.js", "layout.js",
   ]) {
     execFileSync(process.execPath, ["--check", path.join(dir, f)], { stdio: "pipe" });
   }

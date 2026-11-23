@@ -24,11 +24,15 @@ export interface SshSettings {
   shell: "bash" | "sh";
   /** Virtual Terminal (ttyd) web port, for the link. */
   vt: number;
+  /** Syncthing web UI port (default 7070). */
+  syncthing: number;
+  /** MustardOS web landing page port (default 80). */
+  landing: number;
   /** "host:port" -> "SHA256:..." */
   known: Record<string, string>;
 }
 
-const DEFAULTS: SshSettings = { host: "", port: 22, user: "root", password: "root", shell: "bash", vt: 8080, known: {} };
+const DEFAULTS: SshSettings = { host: "", port: 22, user: "root", password: "root", shell: "bash", vt: 8080, syncthing: 7070, landing: 80, known: {} };
 const IDLE_MS = 60_000;
 const settingsFile = () => path.join(ctx.cacheDir, "ssh.json");
 let settings: SshSettings | null = null;
@@ -60,21 +64,42 @@ async function writeSettings(next: SshSettings): Promise<void> {
   settings = next;
 }
 
+function optPort(value: unknown, fallback: number): number {
+  const n = Number(value ?? fallback);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) throw new UserError("Port must be a number from 1 to 65535.");
+  return n;
+}
+
 export async function saveSshSettings(body: Record<string, unknown>): Promise<SshSettings> {
   const host = String(body.host ?? "").trim();
   if (host && !/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(host)) throw new UserError("Enter an IP address like 192.168.0.32, or a host name.");
-  const port = Number(body.port || DEFAULTS.port);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new UserError("The SSH port must be a number from 1 to 65535.");
+  const port = optPort(body.port ?? DEFAULTS.port, DEFAULTS.port);
   const current = await sshSettings();
   const next: SshSettings = {
     ...current, host, port,
     user: String(body.user ?? "").trim() || DEFAULTS.user,
     shell: body.shell === "sh" ? "sh" : "bash",
+    vt: body.vt !== undefined ? optPort(body.vt, current.vt || DEFAULTS.vt) : (current.vt || DEFAULTS.vt),
+    syncthing: body.syncthing !== undefined ? optPort(body.syncthing, current.syncthing || DEFAULTS.syncthing) : (current.syncthing || DEFAULTS.syncthing),
+    landing: body.landing !== undefined ? optPort(body.landing, current.landing || DEFAULTS.landing) : (current.landing || DEFAULTS.landing),
   };
   if (typeof body.password === "string") next.password = body.password;
   await writeSettings(next);
   await closeControl();
   return next;
+}
+
+/**
+ * When Wi-Fi Find/Save changes the handheld address, always make SSH follow that Wi-Fi host
+ * (SSH host "" means “use the Wi-Fi address”) and drop any open control session / reachability cache.
+ */
+export async function syncSshHostWithWifi(prevWifiHost: string, nextWifiHost: string): Promise<void> {
+  if (!nextWifiHost || prevWifiHost === nextWifiHost) return;
+  const s = await sshSettings();
+  // Same handheld for SFTP and SSH: drop any explicit SSH address so Terminal / Device / MCP use the new IP.
+  if (s.host) await writeSettings({ ...s, host: "" });
+  lastCheck = { key: "", at: 0, banner: "" };
+  await closeControl();
 }
 
 /** The address in use: the SSH setting, or the Wi-Fi address from Overview. */
@@ -110,7 +135,9 @@ export async function sshStatus() {
   const s = await sshSettings();
   const host = await hostOf(s);
   const base = {
-    host, port: s.port, user: s.user, shell: s.shell, vt: s.vt, hostSetting: s.host, followsWifi: !s.host,
+    host, port: s.port, user: s.user, shell: s.shell, vt: s.vt || DEFAULTS.vt,
+    syncthing: s.syncthing || DEFAULTS.syncthing, landing: s.landing || DEFAULTS.landing,
+    hostSetting: s.host, followsWifi: !s.host,
     usesAgent: !s.password, fingerprint: s.known[`${host}:${s.port}`] ?? "", sessions: terminals.size, configured: !!host,
   };
   if (!host) return { ...base, reachable: false, server: "" };

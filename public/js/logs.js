@@ -1,6 +1,7 @@
 // Logs section: searchable, filterable viewer for application diagnostic JSONL files.
 
 import { $, api, esc, formatDate, formatTime, icon, section, store, TOKEN, toast } from "./core.js";
+import { loadingInline, emptyState } from "./layout.js";
 import { confirmBox } from "./art-images.js";
 
 const L = {
@@ -73,7 +74,7 @@ function actions() {
     <button class="btn" data-logs="export" title="Download the current filter as a file"${L.list.length || L.total ? "" : " disabled"}>${icon("download")}<span>Export</span></button>
     <button class="btn" data-logs="support" title="Zip logs, VERSION, connection snapshot and recent activity">${icon("layers")}<span>Support pack</span></button>
     <button class="btn" data-logs="reveal" title="Show the logs folder">${icon("external")}<span>Show folder</span></button>
-    <button class="btn ghost" data-logs="clear" title="Delete log files">${icon("trash")}<span>Clear</span></button>`;
+    <button class="btn ghost" data-logs="clear" title="Delete log files">${icon("trash")}<span>Clear logs</span></button>`;
 }
 
 function render() {
@@ -81,11 +82,11 @@ function render() {
   if (!root) return;
   $("logs-actions").innerHTML = actions();
   const body = L.loading && !L.list.length
-    ? `<div class="muted-note logs-empty"><span class="spinner sm"></span> Loading&hellip;</div>`
+    ? `<div class="logs-empty">${loadingInline("Loading&hellip;")}</div>`
     : L.list.length
       ? `<ul class="logs-list">${L.list.map(row).join("")}</ul>
          ${L.list.length < L.total ? `<div class="logs-more"><button class="btn" data-logs="more">Show more</button></div>` : ""}`
-      : `<div class="muted-note logs-empty">${emptyNote()}</div>`;
+      : emptyState({ className: "compact muted logs-empty", body: emptyNote() });
   root.innerHTML = `${toolbar()}<div class="logs-scroll" id="logs-scroll">${body}</div>`;
   const count = $("logs-count");
   if (count) {

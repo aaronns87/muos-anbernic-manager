@@ -24,7 +24,7 @@ const C = {
   ["What to ask", "Help with the manager, your library, or a retro game."],
   ["Walkthroughs", "Ask where to look online (GameFAQs, StrategyWiki, and so on)."],
   ["MCP tools", "When MCP is on for the Assistant, chat can call the same manager tools as Cursor."],
-  ["Clear", "The Clear button next to Send wipes this conversation."],
+  ["Clear conversation", "The Clear conversation button next to Send wipes this chat."],
 ];
 
 /** Inline markdown within one line/paragraph (bold must close on the same line). */
@@ -179,9 +179,9 @@ function gameKey() {
   return g ? `${g.code}|${g.file}` : "";
 }
 
-function emptyState() {
+function chatEmptyHtml() {
   const mcp = assistantUsesMcp();
-  return `<div class="chat-empty">
+  return `<div class="empty-state compact chat-empty">
       <div class="chat-empty-ico">${icon("chat")}</div>
       <div class="chat-empty-copy">
         <b>Ready</b>
@@ -192,11 +192,15 @@ function emptyState() {
     </div>`;
 }
 
+function statusEsc(s) {
+  return `${esc(String(s || "Working").replace(/…$/, ""))}&hellip;`;
+}
+
 function paintMessages() {
   const box = $("chat-log");
   if (!box) return;
   if (!C.messages.length) {
-    box.innerHTML = emptyState();
+    box.innerHTML = chatEmptyHtml();
     return;
   }
   box.innerHTML = C.messages.map((m) => {
@@ -222,7 +226,7 @@ function ensureShell(dock) {
             <textarea class="control" id="chat-input" rows="2" placeholder="Message&hellip;" maxlength="2000" aria-label="Message"></textarea>
           </label>
           <div class="chat-actions">
-            <button type="button" class="btn small ghost chat-clear" id="chat-clear" data-chat="clear" hidden title="Clear this conversation">${icon("eraser")}<span>Clear</span></button>
+            <button type="button" class="btn small ghost chat-clear" id="chat-clear" data-chat="clear" hidden title="Clear this conversation">${icon("eraser")}<span>Clear conversation</span></button>
             <span class="grow"></span>
             <button type="submit" class="btn small primary" id="chat-send">${icon("send")}<span>Send</span></button>
           </div>
@@ -249,7 +253,7 @@ function setStatus(detail) {
   C.status = String(detail || "");
   paintStatus();
   const small = document.querySelector("#chat-head .dock-title small");
-  if (small && C.sending) small.innerHTML = esc(C.status || "Working…");
+  if (small && C.sending) small.innerHTML = statusEsc(C.status);
 }
 
 /** NDJSON stream from POST /api/chat with stream:true. */
@@ -293,7 +297,7 @@ async function streamChat(body) {
       if (!line) continue;
       let ev;
       try { ev = JSON.parse(line); } catch { continue; }
-      if (ev.type === "status") setStatus(ev.detail || ev.phase || "Working…");
+      if (ev.type === "status") setStatus(ev.detail || ev.phase || "Working");
       else if (ev.type === "done") done = ev;
       else if (ev.type === "error") throw new Error(ev.error || "Chat failed");
     }
@@ -327,7 +331,7 @@ export function renderChat() {
   dock.classList.toggle("min", C.min);
   const mcpOn = assistantUsesMcp();
   const sub = C.sending
-    ? esc(C.status || "Working…")
+    ? statusEsc(C.status)
     : esc(C.providerLabel || "Ready");
   if (C.min) C.tips = false;
   const tipList = TIPS.map(([k, v]) => `<li><b>${esc(k)}</b><span>${esc(v)}</span></li>`).join("");
@@ -368,7 +372,7 @@ async function sendMessage(text, { aboutGame = false } = {}) {
   if (!content || C.sending || !C.configured) return;
   C.messages.push({ role: "user", content, at: Date.now() });
   C.sending = true;
-  C.status = "Preparing…";
+  C.status = "Preparing";
   renderChat();
   try {
     const r = await streamChat({

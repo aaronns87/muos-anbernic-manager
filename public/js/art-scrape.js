@@ -2,6 +2,7 @@
 // each game would get, and saves the chosen ones as PNG in Roms/<SYS>/Imgs. Sending them to the device is the Sync tab.
 
 import { $, app, api, esc, store, plural, initial, busy, toast, TOKEN, icon } from "./core.js";
+import { panel, notice } from "./layout.js";
 import { loadLibrary, noteLibraryChange, setGameArt } from "./games.js";
 import { pngData, confirmBox } from "./art-images.js";
 import { invalidateLocal } from "./art-local.js";
@@ -34,8 +35,6 @@ const sysName = (code) => app.data?.systems.find((s) => s.code === code)?.name |
 const dims = () => state.size.split("x").map(Number);
 const blocked = () => busy() || !!state.task || state.status === "loading";
 const dis = () => (blocked() ? " disabled" : "");
-const panel = (cls, title, body, actions = "") =>
-  `<section class="panel ${cls}"><h2>${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 
 // ---------------------------------------------------------------- composing
 
@@ -219,7 +218,7 @@ function card(item) {
 
 function resultsPanel() {
   const p = state.plan;
-  if (state.status === "error") return panel("sc-results", "Results", `<div class="notice err">${esc(state.error)}</div>`);
+  if (state.status === "error") return panel("sc-results", "Results", notice("err", esc(state.error)));
   if (!p) return "";
   const found = p.items.filter((i) => usable(i));
   const picked = found.filter((i) => !state.skip.has(keyOf(i)));

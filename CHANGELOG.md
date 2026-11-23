@@ -51,9 +51,19 @@ version.
 - **Assistant providers**: paid BYOK for **OpenAI** and **xAI Grok**, plus **Custom (OpenAI-compatible)** with a base URL
   field (LiteLLM, proxies, Azure OpenAI-style `/v1` hosts). Free Groq / Gemini / OpenRouter remain. Cursor has no public
   chat API for other apps — documented in Settings, Wiki and knowledge base.
+- **Web services Open + ports**: Connection/Overview **Open** for web dashboard, virtual terminal (ttyd), Syncthing and
+  Filebrowser when reachable; **Use handheld ports** also syncs ttyd / Syncthing / dashboard; Terminal **Show ttyd**
+  embeds the handheld virtual terminal. Syncthing folder snapshot (API/MCP `syncthing_status`) when SSH works.
+  `web_services_status` includes browser `url` fields.
 
 ### Changed
 
+- **Find on network**: scans for MustardOS SFTP (Dropbear/SFTPGo), ignores unrelated SSH banners, and when the saved
+  host is gone or not answering adopts the new IP. Any Wi-Fi address save/find clears an explicit SSH host so SSH
+  always follows the Wi-Fi IP and reconnects on the new address.
+- **UI consolidation**: shared `layout.js` helpers (panel, notice, loading, empty, retry) across Overview, Settings/MCP,
+  Artwork, Files, Games, Logs, Handheld and Chat; CSS tokens for dialog/inset radii and focus; unified notice/empty/tab
+  (`.tabs` / underline / cards) and selectable `.pick` surfaces; clearer Clear/Try again labels.
 - **Assistant + MCP tools**: default system prompt and per-turn tools note tell the model to call tools proactively for
   live reads and requested actions (not only describe UI tabs); knowledge base wording matches. The in-app Assistant
   sends a small priority subset with compact schemas (fits free Groq TPM; full catalogue stays for IDE MCP clients).

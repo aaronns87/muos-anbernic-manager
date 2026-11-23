@@ -111,16 +111,18 @@ const ARTICLES = [
       <ul>
         <li><b>Transfer path</b> cards pick USB, Wi-Fi or Card reader as the primary path for game and file copies (one path at a time).</li>
         <li>Actions for the active path: reconnect, disconnect, eject, Andromeda USB help, and links into Device Settings when SSH is up.</li>
-        <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, landing page, mDNS and Tailscale (when present): whether each is
-          enabled on the handheld, running, and reachable from this computer. <b>Active</b> means this computer can reach the port or SSH saw it running.
-          Syncthing shows <b>Open</b> when its web UI answers. <b>Wait for Syncthing idle</b> (optional) pauses large game copies for up to 90 seconds while
-          Syncthing finishes syncing; turn services on or off under Device Settings — the manager does not start or stop Syncthing for you. Overview shows the same block when Wi-Fi or SSH is known.</li>
+        <li><b>Web services</b> lists Secure Shell, SFTP, virtual terminal, Syncthing, web dashboard, Filebrowser (when present), mDNS and Tailscale:
+          enabled / running / reachable, with <b>Open</b> for browser UIs. Syncthing can show folder names when SSH works.
+          <b>Active</b> means this computer can reach the port or SSH saw it running.
+          <b>Wait for Syncthing idle</b> (optional) pauses large game copies for up to 90 seconds while Syncthing finishes syncing;
+          turn services on or off under Device Settings — the manager does not start or stop Syncthing for you. Overview shows the same block when Wi-Fi or SSH is known.</li>
         <li><b>Handheld on this network</b> (address, optional sign-in details, Save and connect, Find on network) and <b>Remote controls</b> (SSH user, ports, Test sign-in, Trust host key) when you use those paths.</li>
         <li><b>Device profiles</b> save named Wi-Fi details so you can switch handhelds without retyping the address.</li>
       </ul>
       <p>Play activity can use any live USB or Wi-Fi link even when Card reader is the primary transfer path.</p>`],
     ["Wi-Fi settings", `<p>Enter the handheld's address here (shown on the handheld under ${path("Configuration", "Wi-Fi Network")}). The address can change
-      when the handheld reconnects; <b>Find on network</b> searches for it again. <b>Use handheld ports</b> (Device Settings) copies SSH/SFTP ports
+      when the handheld reconnects; <b>Find on network</b> scans for MustardOS SFTP and updates the saved address if the IP changed.
+      <b>Use handheld ports</b> (Device Settings) copies SSH, SFTP, virtual terminal, Syncthing and dashboard ports
       from Andromeda into this setup when they differ from the defaults.</p>`],
     ["Update handheld", `<p>When a link is live, <b>Update handheld&hellip;</b> on Overview (Library on the device) and Games opens a plan: open Scrape for missing box art,
       sync artwork to the handheld, and queue copies for games not transferred yet. Transfers shows copy progress.</p>`],

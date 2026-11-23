@@ -15,6 +15,8 @@ export interface WebServiceStatus {
   reachable: boolean;
   port: number;
   detail: string;
+  /** Browser URL when the service has an HTTP UI and we know the host/port. */
+  url: string;
 }
 
 const PROBE_MS = 900;
@@ -35,19 +37,33 @@ function tcpOpen(host: string, port: number, timeoutMs = PROBE_MS): Promise<bool
   });
 }
 
-type Row = { id: string; label: string; enabledKey: string; portKey: string; defPort: number; runKey: string };
+type Row = {
+  id: string;
+  label: string;
+  enabledKey: string;
+  portKey: string;
+  defPort: number;
+  runKey: string;
+  http?: boolean;
+};
 
 const ROWS: Row[] = [
   { id: "ssh", label: "Secure Shell (SSH)", enabledKey: "sshd", portKey: "sshd_port", defPort: 22, runKey: "ssh" },
   { id: "sftp", label: "Secure File Transfer (SFTP)", enabledKey: "sftp", portKey: "sftp_port", defPort: 2022, runKey: "sftp" },
-  { id: "ttyd", label: "Virtual terminal", enabledKey: "ttyd", portKey: "ttyd_port", defPort: 8080, runKey: "ttyd" },
-  { id: "syncthing", label: "Syncthing", enabledKey: "syncthing", portKey: "syncthing_port", defPort: 7070, runKey: "syncthing" },
-  { id: "landing", label: "Web landing page", enabledKey: "landing", portKey: "landing_port", defPort: 80, runKey: "landing" },
+  { id: "ttyd", label: "Virtual terminal", enabledKey: "ttyd", portKey: "ttyd_port", defPort: 8080, runKey: "ttyd", http: true },
+  { id: "syncthing", label: "Syncthing", enabledKey: "syncthing", portKey: "syncthing_port", defPort: 7070, runKey: "syncthing", http: true },
+  { id: "landing", label: "Web dashboard", enabledKey: "landing", portKey: "landing_port", defPort: 80, runKey: "landing", http: true },
+  { id: "filebrowser", label: "Filebrowser", enabledKey: "sftpgo", portKey: "filebrowser_port", defPort: 9090, runKey: "sftp", http: true },
   { id: "mdns", label: "mDNS discovery", enabledKey: "mdns", portKey: "", defPort: 0, runKey: "mdns" },
   { id: "tailscale", label: "Tailscale", enabledKey: "tailscaled", portKey: "", defPort: 0, runKey: "tailscale" },
 ];
 
 let cache: { at: number; host: string; services: WebServiceStatus[] } | null = null;
+
+function httpUrl(host: string, port: number): string {
+  if (!host || !port) return "";
+  return port === 80 ? `http://${host}/` : `http://${host}:${port}/`;
+}
 
 /** Reads web/* toggles and running processes over SSH when possible; always TCP-probes known ports. */
 export async function webServicesStatus(force = false): Promise<{ host: string; at: number; services: WebServiceStatus[] }> {
@@ -104,12 +120,18 @@ export async function webServicesStatus(force = false): Promise<{ host: string; 
 
   const sshPort = ports.sshd_port || ssh.port || 22;
   const sftpPort = ports.sftp_port || wifi.port || 2022;
+  const ttydPort = ports.ttyd_port || ssh.vt || 8080;
+  const syncthingPort = ports.syncthing_port || ssh.syncthing || 7070;
+  const landingPort = ports.landing_port || ssh.landing || 80;
+  const filebrowserPort = wifi.web || 9090;
+
   const [sshBanner, sftpBanner, ...tcp] = await Promise.all([
     banner(host, sshPort, PROBE_MS),
     banner(host, sftpPort, PROBE_MS),
-    tcpOpen(host, ports.ttyd_port || 8080),
-    tcpOpen(host, ports.syncthing_port || 7070),
-    tcpOpen(host, ports.landing_port || 80),
+    tcpOpen(host, ttydPort),
+    tcpOpen(host, syncthingPort),
+    tcpOpen(host, landingPort),
+    tcpOpen(host, filebrowserPort),
   ]);
   const tcpById: Record<string, boolean> = {
     ssh: !!sshBanner,
@@ -117,15 +139,34 @@ export async function webServicesStatus(force = false): Promise<{ host: string; 
     ttyd: tcp[0],
     syncthing: tcp[1],
     landing: tcp[2],
+    filebrowser: tcp[3],
     mdns: inventory ? !!runningMap.mdns : false,
     tailscale: inventory ? !!runningMap.tailscale : false,
   };
 
+  const portOf = (row: Row) => {
+    if (row.id === "ssh") return sshPort;
+    if (row.id === "sftp") return sftpPort;
+    if (row.id === "ttyd") return ttydPort;
+    if (row.id === "syncthing") return syncthingPort;
+    if (row.id === "landing") return landingPort;
+    if (row.id === "filebrowser") return filebrowserPort;
+    return row.portKey ? ports[row.portKey] || row.defPort : 0;
+  };
+
   const services: WebServiceStatus[] = ROWS.map((row) => {
-    const port = row.id === "ssh" ? sshPort : row.id === "sftp" ? sftpPort : row.portKey ? ports[row.portKey] || row.defPort : 0;
-    const keyKnown = inventory && (enabled[row.enabledKey] !== undefined || (row.id === "sftp" && enabled.sftpgo !== undefined));
-    const on = keyKnown ? !!enabled[row.enabledKey] || (row.id === "sftp" && !!enabled.sftpgo) : inventory ? false : null;
-    const running = inventory ? !!runningMap[row.runKey] : null;
+    const port = portOf(row);
+    const keyKnown = inventory && (
+      enabled[row.enabledKey] !== undefined
+      || (row.id === "sftp" && enabled.sftpgo !== undefined)
+      || (row.id === "filebrowser" && enabled.sftpgo !== undefined)
+    );
+    const on = keyKnown
+      ? !!enabled[row.enabledKey] || (row.id === "sftp" && !!enabled.sftpgo) || (row.id === "filebrowser" && !!enabled.sftpgo)
+      : inventory ? false : null;
+    const running = inventory
+      ? (row.id === "filebrowser" ? !!runningMap.sftp && !!enabled.sftpgo : !!runningMap[row.runKey])
+      : null;
     const reachable = !!tcpById[row.id];
     let detail = "Not checked";
     if (!inventory && !reachable) detail = "Not reachable";
@@ -138,9 +179,11 @@ export async function webServicesStatus(force = false): Promise<{ host: string; 
     else if (reachable) detail = port ? `Port ${port} open` : "Reachable";
     else if (on) detail = port ? `Enabled · port ${port} not answering` : "Enabled · not running";
     else detail = "Off";
-    return { id: row.id, label: row.label, enabled: keyKnown ? on : null, running, reachable, port, detail };
+    const url = row.http && (reachable || running) ? httpUrl(host, port) : "";
+    return { id: row.id, label: row.label, enabled: keyKnown ? on : null, running, reachable, port, detail, url };
   }).filter((s) => {
     if (s.id === "tailscale" && s.enabled === null && !s.running && !s.reachable) return false;
+    if (s.id === "filebrowser" && !s.reachable && s.enabled !== true && !s.running) return false;
     if (s.detail === "Not available") return false;
     return true;
   });

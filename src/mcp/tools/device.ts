@@ -66,7 +66,7 @@ export function registerDeviceTools(): void {
   defineTool({
     name: "wifi_find",
     group: "device",
-    description: "Scan the local network for MustardOS handhelds advertising mDNS.",
+    description: "Scan local /24 networks for MustardOS SFTP (Dropbear or SFTPGo on port 2022). Use to adopt a new IP when the handheld moved.",
     inputSchema: z.object({}),
     handler: async () => ({ found: await findHandhelds() }),
   });
@@ -127,6 +127,14 @@ export function registerDeviceTools(): void {
     name: "syncthing_idle",
     group: "device",
     description: "Whether Syncthing on the handheld looks idle (safe before large copies).",
+    inputSchema: z.object({}),
+    handler: async () => syncthingIdleJson(),
+  });
+
+  defineTool({
+    name: "syncthing_status",
+    group: "device",
+    description: "Syncthing idle state plus read-only folder list and web UI URL from the handheld.",
     inputSchema: z.object({}),
     handler: async () => syncthingIdleJson(),
   });

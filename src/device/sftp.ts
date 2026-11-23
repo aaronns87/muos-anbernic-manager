@@ -39,14 +39,26 @@ export async function wifiSettings(): Promise<WifiSettings> {
 export async function saveWifiSettings(body: Record<string, unknown>): Promise<WifiSettings> {
   const host = String(body.host ?? "").trim();
   if (host && !/^[A-Za-z0-9][A-Za-z0-9.-]*$/.test(host)) throw new UserError("Enter an IP address like 192.168.0.32, or a host name.");
-  const port = Number(body.port || DEFAULTS.port);
+  const prev = await wifiSettings();
+  const portRaw = body.port;
+  const port = portRaw === undefined || portRaw === null || portRaw === ""
+    ? prev.port || DEFAULTS.port
+    : Number(portRaw);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new UserError("The SFTP port must be a number from 1 to 65535.");
-  const next: WifiSettings = { ...(await wifiSettings()), host, port, user: String(body.user ?? "").trim() || DEFAULTS.user };
+  const next: WifiSettings = { ...prev, host, port, user: String(body.user ?? "").trim() || DEFAULTS.user };
   if (typeof body.password === "string" && body.password) next.password = body.password;
+  if (typeof body.web === "number" && Number.isInteger(body.web) && body.web >= 1 && body.web <= 65535) next.web = body.web;
   await fsp.mkdir(ctx.cacheDir, { recursive: true });
   await fsp.writeFile(settingsFile(), JSON.stringify(next, null, 2), { mode: 0o600 });
   settings = next;
   await closeSftp();
+  // Keep SSH in sync when it followed the previous Wi-Fi address (or had none).
+  if (prev.host !== next.host) {
+    try {
+      const { syncSshHostWithWifi } = await import("./ssh.ts");
+      await syncSshHostWithWifi(prev.host, next.host);
+    } catch { /* SSH module optional during early boot */ }
+  }
   return next;
 }
 
@@ -80,23 +92,49 @@ export async function wifiStatus() {
   return { ...base, reachable: !!lastCheck.banner, server: lastCheck.banner };
 }
 
-/** Handhelds on the local networks: hosts answering with an SFTPGo banner on the SFTP port. */
-export async function findHandhelds(): Promise<{ host: string; server: string }[]> {
-  const port = (await wifiSettings()).port;
+/** MustardOS SFTP banners (SFTPGo on Jacaranda, Dropbear on Andromeda). */
+export function mustardSftpKind(server: string): "sftpgo" | "dropbear" | "" {
+  if (/sftpgo/i.test(server)) return "sftpgo";
+  if (/dropbear/i.test(server)) return "dropbear";
+  return "";
+}
+
+/**
+ * Handhelds on local /24 networks answering MustardOS SFTP (Dropbear or SFTPGo) on the configured
+ * port (default 2022). Ignores unrelated SSH banners. Prefer the configured port, then 2022.
+ */
+export async function findHandhelds(): Promise<{ host: string; server: string; kind: string; port: number }[]> {
+  const s = await wifiSettings();
+  const ports = [...new Set([s.port || DEFAULTS.port, DEFAULTS.port].filter((p) => p >= 1 && p <= 65535))];
   const prefixes = new Set<string>();
   for (const list of Object.values(os.networkInterfaces())) {
     for (const a of list ?? []) {
-      if (a.family === "IPv4" && !a.internal && a.netmask.startsWith("255.255.255")) prefixes.add(a.address.split(".").slice(0, 3).join("."));
+      if (String(a.family) === "IPv4" && !a.internal && String(a.netmask || "").startsWith("255.255.255")) {
+        prefixes.add(a.address.split(".").slice(0, 3).join("."));
+      }
     }
   }
   const hosts = [...prefixes].flatMap((p) => Array.from({ length: 254 }, (_, i) => `${p}.${i + 1}`));
-  const found: { host: string; server: string }[] = [];
-  for (let i = 0; i < hosts.length; i += 128) {
-    const batch = await Promise.all(hosts.slice(i, i + 128).map(async (host) => ({ host, server: await banner(host, port, 1200) })));
-    found.push(...batch.filter((b) => b.server));
+  const byHost = new Map<string, { host: string; server: string; kind: string; port: number }>();
+  for (const port of ports) {
+    for (let i = 0; i < hosts.length; i += 128) {
+      const batch = await Promise.all(hosts.slice(i, i + 128).map(async (host) => {
+        const server = await banner(host, port, 900);
+        const kind = mustardSftpKind(server);
+        return kind ? { host, server, kind, port } : null;
+      }));
+      for (const hit of batch) {
+        if (!hit) continue;
+        const prev = byHost.get(hit.host);
+        if (!prev || (prev.kind === "dropbear" && hit.kind === "sftpgo") || (prev.port !== s.port && hit.port === s.port)) {
+          byHost.set(hit.host, hit);
+        }
+      }
+    }
   }
-  const score = (s: string) => (/sftpgo/i.test(s) ? 2 : /dropbear/i.test(s) ? 1 : 0);
-  return found.sort((a, b) => score(b.server) - score(a.server));
+  const score = (h: { kind: string; port: number }) =>
+    (h.kind === "sftpgo" ? 4 : 2) + (h.port === (s.port || DEFAULTS.port) ? 1 : 0);
+  return [...byHost.values()].sort((a, b) => score(b) - score(a) || a.host.localeCompare(b.host));
 }
 
 // ---------------------------------------------------------------- the session

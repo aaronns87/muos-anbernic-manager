@@ -1,6 +1,7 @@
 // Settings: the Roms folder (with a folder browser), what copying does, startup, appearance, game data and caches.
 
 import { $, app, api, esc, human, plural, store, toast, busy, icon, model, section, DATE_FORMATS, formatDate, formatTime, handheldVolume, setTabRoute } from "./core.js";
+import { panel, notice, loading, loadingInline, sectionHead } from "./layout.js";
 import { renderStatusbar } from "./device.js";
 import { applyView, loadLibrary } from "./games.js";
 import { invalidateLocal } from "./art-local.js";
@@ -120,7 +121,6 @@ async function load() {
 
 // ---------------------------------------------------------------- rendering
 
-const panel = (cls, title, body) => `<section class="panel ${cls}"><h2>${title}</h2>${body}</section>`;
 const toggle = (key, on, label, note) => `<label class="set-row set-toggle">
     <span><b>${label}</b><small>${note}</small></span>
     <span class="switch"><input type="checkbox" role="switch" data-set-toggle="${key}"${on ? " checked" : ""}><span class="switch-track"></span></span>
@@ -141,8 +141,8 @@ function render() {
   if (!s.data) {
     $("settings-sub").textContent = settingsTab()[3];
     $("settings").innerHTML = s.error
-      ? `<div class="notice err">${esc(s.error)}</div>`
-      : `<div class="planning"><span class="spinner"></span> Reading settings&hellip;</div>`;
+      ? notice("err", esc(s.error))
+      : loading("Reading settings&hellip;");
     return;
   }
   const d = s.data, [tab, , , sub] = settingsTab();
@@ -163,8 +163,8 @@ function renderMcp() {
   if (sub) sub.textContent = MCP_SUB;
   if (!s.mcp) {
     host.innerHTML = s.error
-      ? `<div class="notice err">${esc(s.error)}</div>`
-      : `<div class="planning"><span class="spinner"></span> Reading MCP settings&hellip;</div>`;
+      ? notice("err", esc(s.error))
+      : loading("Reading MCP settings&hellip;");
     return;
   }
   host.innerHTML = `<div class="ov-grid">${mcpPanel()}</div>`;
@@ -175,7 +175,7 @@ function renderMcp() {
 
 function assistantPanel() {
   const c = s.chat;
-  if (!c) return panel("full", "Assistant", `<p class="muted-note">Loading assistant settings&hellip;</p>`);
+  if (!c) return panel("full", "Assistant", loadingInline("Loading assistant settings&hellip;"));
   const prov = c.providers.find((p) => p.id === c.provider) || c.providers[0];
   const models = (prov?.models || []).map((m) => `<option value="${esc(m.id)}"${c.model === m.id ? " selected" : ""}>${esc(m.label)}</option>`).join("");
   const providers = c.providers.map((p) => `<option value="${esc(p.id)}"${c.provider === p.id ? " selected" : ""}>${esc(p.label)}</option>`).join("");
@@ -187,8 +187,8 @@ function assistantPanel() {
     ? `<span class="set-chip warn">Custom</span>`
     : `<span class="set-chip ok">Default</span>`;
   const promptWarn = c.systemPromptCustom
-    ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
-        <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span></div>`
+    ? notice("warn", `${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
+        <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span>`)
     : "";
   const needsBase = c.provider === "custom" || !!prov?.needsBaseUrl;
   const modelList = prov?.models || [];
@@ -227,7 +227,7 @@ function assistantPanel() {
       <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
       <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
     </div>
-    <div class="notice">${icon("info")}<span><b>Keys.</b>
+    ${notice("", `${icon("info")}<span><b>Keys.</b>
       Free: <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a>,
       <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini),
       <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> (<code>:free</code>).
@@ -235,7 +235,8 @@ function assistantPanel() {
       <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Grok</a>,
       or <b>Custom</b> for any OpenAI-compatible <code>/v1</code> host.
       Cursor does not offer a public chat API for other apps — use OpenAI, xAI, or Custom with a proxy.
-      See the Wiki article <b>Assistant</b>.</span></div>`);
+      See the Wiki article <b>Assistant</b>.</span>`)}
+    `);
 }
 
 function mcpStatusChip(m) {
@@ -369,21 +370,19 @@ function mcpAgentsSection() {
 function mcpClientsAndAgentsSection() {
   return `
     <section class="panel full mcp-section">
-      <div class="mcp-section-head">
-        <div>
-          <h2>Clients &amp; agents</h2>
-          <p class="muted-note">Connect agentic IDEs to this MCP server, then install skills and experts into their skill folders.</p>
-        </div>
-        ${mcpCopyMenu()}
-      </div>
+      ${sectionHead({
+        title: "Clients &amp; agents",
+        note: "Connect agentic IDEs to this MCP server, then install skills and experts into their skill folders.",
+        actions: mcpCopyMenu(),
+      })}
       ${mcpClientCards()}
       <div class="mcp-subsection">
         <h3>Skills &amp; experts</h3>
         <p class="muted-note">MCP-only packs under <code>mcp/agents/</code> (not the repo developer docs). Review, copy, or install after a scan.</p>
         ${mcpAgentsSection()}
       </div>
-      <div class="notice">${icon("info")}<span>Authorization uses <code>Bearer &lt;token&gt;</code>. After auto-setup or skill install, restart the client if it was already open.
-        LAN / Tailscale expose is not available yet.</span></div>
+      ${notice("", `${icon("info")}<span>Authorization uses <code>Bearer &lt;token&gt;</code>. After auto-setup or skill install, restart the client if it was already open.
+        LAN / Tailscale expose is not available yet.</span>`)}
     </section>`;
 }
 
@@ -415,7 +414,7 @@ function mcpToolsTable() {
   return `
     <div class="mcp-tools-bar">
       <label class="mcp-tools-search">${icon("search")}
-        <input class="control" id="mcp-tool-q" type="search" placeholder="Filter tools…" value="${esc(s.mcpToolQ || "")}" autocomplete="off"></label>
+        <input class="control" id="mcp-tool-q" type="search" placeholder="Filter tools&hellip;" value="${esc(s.mcpToolQ || "")}" autocomplete="off"></label>
       <select class="control" id="mcp-tool-group">${groupOpts}</select>
       <span class="muted-note">${filtered.length} of ${tools.length}</span>
     </div>
@@ -495,12 +494,10 @@ function mcpPanel() {
     ${mcpClientsAndAgentsSection()}
 
     <section class="panel full mcp-section">
-      <div class="mcp-section-head">
-        <div>
-          <h2>Tools</h2>
-          <p class="muted-note">${s.mcpTools?.count ?? 0} registered tools · see Wiki → MCP. Destructive tools run without a second confirm; calls are audited.</p>
-        </div>
-      </div>
+      ${sectionHead({
+        title: "Tools",
+        note: `${s.mcpTools?.count ?? 0} registered tools · see Wiki → MCP. Destructive tools run without a second confirm; calls are audited.`,
+      })}
       ${mcpToolsTable()}
     </section>`;
 }

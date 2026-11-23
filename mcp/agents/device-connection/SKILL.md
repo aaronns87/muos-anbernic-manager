@@ -13,12 +13,12 @@ kind: expert
 
 - `connection_status` — Wi-Fi, SSH, cards, handheld presence, model hint, web services snapshot.
 - `device_status` — richer device info when a target is available (`volume` optional).
-- `web_services_status` — MustardOS web services (SSH, SFTP, Syncthing, …).
-- `syncthing_idle` / `syncthing_wait_idle` — before large copies when Syncthing is in use.
+- `web_services_status` — MustardOS web services (SSH, SFTP, ttyd, Syncthing, dashboard, Filebrowser, …) with `url` when openable.
+- `syncthing_idle` / `syncthing_status` / `syncthing_wait_idle` — idle gate, folder list, wait before large copies.
 
 ## Wi-Fi / USB
 
-- `wifi_find` — mDNS scan for MustardOS handhelds.
+- `wifi_find` — LAN scan for MustardOS SFTP (Dropbear/SFTPGo on port 2022); use results to update the saved host when the IP changed.
 - `wifi_save` — save host/port/user (opens on next SSH/SFTP). Never echo passwords.
 - `usb_allow` / `usb_release` / `usb_restart` — claim or free MTP.
 - `device_reconnect` — drop USB + SFTP + SSH so the next action reconnects fresh.

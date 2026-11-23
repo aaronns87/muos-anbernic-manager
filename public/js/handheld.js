@@ -2,6 +2,7 @@
 // collected on the page and written together; each save can be undone.
 
 import { $, api, esc, icon, osVersion, plural, toast, trustSshHostKey } from "./core.js";
+import { emptyState, loading, retryBtn } from "./layout.js";
 import { confirmBox } from "./art-images.js";
 
 const H = { data: null, error: "", errorCode: "", fingerprint: "", loading: false, saving: false, edits: {}, q: "", advanced: false, result: null, bound: false, active: "" };
@@ -62,17 +63,22 @@ function render() {
   renderHead();
   if (!H.data) {
     box.innerHTML = H.error
-      ? `<div class="hh-empty">${icon("unplug")}<h3>Can't reach the handheld</h3><p>${esc(H.error)}</p>
+      ? emptyState({
+        className: "compact",
+        icon: "unplug",
+        title: "Can't reach the handheld",
+        body: `<p>${esc(H.error)}</p>
           ${H.errorCode === "hostkey" && H.fingerprint ? `<p class="hh-hint">New key: <code>${esc(H.fingerprint)}</code></p>` : ""}
           <p class="hh-hint">${H.errorCode === "hostkey"
             ? "That is normal after reinstalling MustardOS. Trust the new host key if this is still your handheld."
-            : "The handheld needs Wi-Fi and Configuration &rsaquo; Web Services &rsaquo; Secure Shell turned on."}</p>
-          <div class="hh-empty-actions">${H.errorCode === "hostkey"
-            ? `<button class="btn primary" data-hh="trust-key">${icon("check")}Trust the new key</button>`
-            : `<button class="btn primary" data-hh="reload">${icon("refresh")}Try again</button>`}
-          <a class="btn" href="#ssh" data-connect="ssh">${icon("chip")}SSH settings</a>
-          ${H.errorCode === "hostkey" ? `<button class="btn" data-hh="reload">${icon("refresh")}Try again</button>` : ""}</div></div>`
-      : `<div class="planning"><span class="spinner"></span> Reading settings from the handheld&hellip;</div>`;
+            : "The handheld needs Wi-Fi and Configuration &rsaquo; Web Services &rsaquo; Secure Shell turned on."}</p>`,
+        actions: `${H.errorCode === "hostkey"
+            ? `<button class="btn primary" data-hh="trust-key">${icon("check")}<span>Trust the new key</span></button>`
+            : `<button class="btn primary" data-hh="reload">${icon("refresh")}<span>Try again</span></button>`}
+          <a class="btn" href="#ssh" data-connect="ssh">${icon("chip")}<span>SSH settings</span></a>
+          ${H.errorCode === "hostkey" ? retryBtn('data-hh="reload"') : ""}`,
+      })
+      : loading("Reading settings from the handheld&hellip;");
     renderBar();
     return;
   }
@@ -109,10 +115,13 @@ function renderHead() {
     ? `${release} on ${esc(d.host)} &middot; options match files on this handheld &middot; changed over SSH`
     : "MustardOS settings on the handheld, changed over SSH";
   const ports = d?.ports;
-  const canSync = ports && ((ports.ssh > 0 && ports.ssh !== 22) || (ports.sftp > 0 && ports.sftp !== 2022));
-  actions.innerHTML = `${d?.undo ? `<button class="btn" data-hh="undo" title="Put back: ${esc(d.undo.labels.join(", "))}">${icon("refresh")}Undo last save</button>` : ""}
-    ${canSync ? `<button class="btn" data-hh="ports" title="Copy SSH ${ports.ssh || 22} and SFTP ${ports.sftp || 2022} into the manager connection settings">${icon("chip")}Use handheld ports</button>` : ""}
-    <button class="btn" data-hh="reload" ${H.loading || H.saving ? "disabled" : ""}>${H.loading ? `<span class="spinner"></span>` : icon("download")}Reload from handheld</button>`;
+  const canSync = ports && (ports.ssh || ports.sftp || ports.ttyd || ports.syncthing || ports.landing);
+  const portTip = ports
+    ? `Copy SSH ${ports.ssh || 22}, SFTP ${ports.sftp || 2022}, virtual terminal ${ports.ttyd || 8080}, Syncthing ${ports.syncthing || 7070}, dashboard ${ports.landing || 80}`
+    : "";
+  actions.innerHTML = `${d?.undo ? `<button class="btn" data-hh="undo" title="Put back: ${esc(d.undo.labels.join(", "))}">${icon("refresh")}<span>Undo last save</span></button>` : ""}
+    ${canSync ? `<button class="btn" data-hh="ports" title="${esc(portTip)}">${icon("chip")}<span>Use handheld ports</span></button>` : ""}
+    <button class="btn" data-hh="reload" ${H.loading || H.saving ? "disabled" : ""}>${H.loading ? `<span class="spinner"></span>` : icon("download")}<span>Reload from handheld</span></button>`;
 }
 
 function panel(g, q) {
@@ -294,18 +303,23 @@ async function syncPorts() {
   if (!p) return;
   try {
     const ssh = await api("ssh/status");
-    if (p.ssh > 0) {
-      await api("ssh/settings", {
-        host: ssh.hostSetting || "",
-        port: p.ssh,
-        user: ssh.user || "root",
-        shell: ssh.shell || "bash",
+    const host = ssh.hostSetting || "";
+    await api("ssh/settings", {
+      host,
+      port: p.ssh > 0 ? p.ssh : (ssh.port || 22),
+      user: ssh.user || "root",
+      shell: ssh.shell || "bash",
+      vt: p.ttyd > 0 ? p.ttyd : (ssh.vt || 8080),
+      syncthing: p.syncthing > 0 ? p.syncthing : (ssh.syncthing || 7070),
+      landing: p.landing > 0 ? p.landing : (ssh.landing || 80),
+    });
+    if (p.sftp > 0 || ssh.host || H.data.host) {
+      await api("device/wifi", {
+        host: ssh.host || H.data.host || "",
+        port: p.sftp > 0 ? p.sftp : undefined,
       });
     }
-    if (p.sftp > 0) {
-      await api("device/wifi", { host: ssh.host || H.data.host || "", port: p.sftp });
-    }
-    toast(`Manager now uses SSH ${p.ssh || 22} and SFTP ${p.sftp || 2022}`, 3200);
+    toast(`Manager ports: SSH ${p.ssh || 22}, SFTP ${p.sftp || 2022}, VT ${p.ttyd || 8080}, Syncthing ${p.syncthing || 7070}, dashboard ${p.landing || 80}`, 4200);
   } catch (error) {
     toast(error.message, 4000);
   }

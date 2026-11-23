@@ -148,8 +148,8 @@ function renderBody() {
   const box = $("sys-body");
   if (!box) return;
   if (app.sysJob) { box.innerHTML = jobView(app.sysJob); return; }
-  const tabs = `<div class="sys-tabs" id="sys-tabs" role="tablist" aria-label="Card operation">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
-      <span class="st-ico">${icon(ico)}</span><span><b>${label}</b><small>${sub}</small></span></button>`).join("")}</div>`;
+  const tabs = `<nav class="tabs cards sys-tabs" id="sys-tabs" role="tablist" aria-label="Card operation">${TABS.map(([id, label, ico, sub]) => `<button class="${S.tab === id ? "on" : ""}" role="tab" aria-selected="${S.tab === id}" data-sys="tab" data-tab="${id}">
+      <span class="st-ico">${icon(ico)}</span><span><b>${label}</b><small>${sub}</small></span></button>`).join("")}</nav>`;
   const left = S.tab === "install" ? installForm() : S.tab === "tf2" ? tf2Form() : resetForm();
   box.innerHTML = `${tabs}<div class="sys-grid" id="sys-task-panel"><div class="sys-steps">${left}</div>${goPanel()}</div>`;
 }
@@ -200,7 +200,7 @@ function installForm() {
     ${list}
     <div class="field-row">
       <input class="control mono grow" id="sys-path" placeholder="/path/to/MustardOS_….img.gz" value="${esc(S.path)}" spellcheck="false" autocomplete="off">
-      <button class="btn" data-sys="pick-image">${icon("folder")}Choose&hellip;</button>
+      <button class="btn" data-sys="pick-image">${icon("folder")}<span>Choose&hellip;</span></button>
       <button class="btn" data-sys="check-image" ${S.inspecting ? "disabled" : ""}>Check</button>
       ${saveBtn}
     </div>
@@ -215,7 +215,7 @@ function installForm() {
     <div class="field-row">
       <label class="hash-field ${h.cls}">${icon("hash")}
         <input class="mono" id="sys-hash" placeholder="Paste the SHA256 (64 hex characters)" value="${esc(S.hash)}" spellcheck="false" autocomplete="off"></label>
-      <button class="btn" data-sys="pick-hash" ${im ? "" : "disabled"} title="${im ? "Read the SHA256 from a .sha256, hash.txt or SHA256SUMS file" : "Pick the image first"}">${icon("file")}Hash file&hellip;</button>
+      <button class="btn" data-sys="pick-hash" ${im ? "" : "disabled"} title="${im ? "Read the SHA256 from a .sha256, hash.txt or SHA256SUMS file" : "Pick the image first"}">${icon("file")}<span>Hash file&hellip;</span></button>
     </div>
     <div id="sys-hash-state">${hashNote(h)}</div>`);
   return imageStep + hashStep;

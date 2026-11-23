@@ -107,6 +107,7 @@ const routes: Record<string, Handler> = {
   },
   "GET /api/ssh/services": () => webServicesStatus(true),
   "GET /api/ssh/syncthing-idle": () => syncthingIdleJson(),
+  "GET /api/ssh/syncthing": () => syncthingIdleJson(),
   "POST /api/ssh/syncthing-idle/wait": async () => waitSyncthingIdle(),
   "POST /api/device/wifi": async (_, body) => {
     requireIdle("Wait for the current job to finish first.");

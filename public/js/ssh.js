@@ -67,6 +67,8 @@ const ssh = {
   find: { caseSensitive: false, regex: false },
   custom: store.get("ssh.snippets", []),
   inited: false, autoOpened: false,
+  /** Show MustardOS virtual terminal (ttyd) iframe under the SSH terminal. */
+  ttyd: store.get("ssh.ttydEmbed", false) === true,
 };
 
 let X = null;
@@ -125,7 +127,18 @@ function build() {
       <div id="ssh-snippets"></div>
       <div id="ssh-conn"></div>
     </div>
-  </div>`;
+  </div>
+  <section class="panel ssh-ttyd" id="ssh-ttyd" hidden>
+    <header class="ssh-ttyd-head">
+      <div><h2>Virtual terminal (ttyd)</h2>
+        <p class="muted-note">MustardOS browser terminal on the handheld. Prefer the SSH tabs above for manager work; use this when you want the on-device ttyd UI.</p></div>
+      <div class="panel-actions">
+        <a class="btn small" id="ssh-ttyd-open" href="#" target="_blank" rel="noopener">${ICON.ext}<span>Open in browser</span></a>
+        <button type="button" class="btn small ghost" data-term="ttyd-hide">Hide</button>
+      </div>
+    </header>
+    <iframe class="ssh-ttyd-frame" id="ssh-ttyd-frame" title="MustardOS virtual terminal" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+  </section>`;
 
   $("view-ssh").addEventListener("click", onClick);
   $("view-ssh").addEventListener("submit", onSubmit);
@@ -447,8 +460,31 @@ function renderHead() {
     : !s.configured ? "Set the handheld's address to connect"
     : `${where()}:${s.port}${server ? ` \u00b7 ${server}` : s.reachable ? "" : " \u00b7 not answering"}${open ? ` \u00b7 ${open} open session${open === 1 ? "" : "s"}` : ""}`;
   const chip = !s ? "" : `<span class="ssh-chip ${s.reachable ? "ok" : s.configured ? "err" : "warn"}"><i class="dot"></i>${s.reachable ? "Reachable" : s.configured ? "Not answering" : "No address"}</span>`;
-  const vt = s?.host ? `<a class="btn" href="http://${esc(s.host)}:${s.vt}/" target="_blank" rel="noopener" title="MustardOS Virtual Terminal (ttyd) in the browser">Virtual Terminal ${ICON.ext}</a>` : "";
+  const vtUrl = s?.host ? `http://${esc(s.host)}:${s.vt || 8080}/` : "";
+  const vt = vtUrl
+    ? `<a class="btn" href="${vtUrl}" target="_blank" rel="noopener" title="MustardOS Virtual Terminal (ttyd) in the browser">Virtual Terminal ${ICON.ext}</a>
+       <button type="button" class="btn ${ssh.ttyd ? "on" : ""}" data-term="ttyd-toggle" title="Show ttyd inside the manager">${ICON.term}<span>${ssh.ttyd ? "Hide ttyd" : "Show ttyd"}</span></button>`
+    : "";
   $("ssh-actions").innerHTML = `${chip}${vt}<button class="btn primary" data-term="new">${ICON.plus} New terminal</button>`;
+  paintTtyd();
+}
+
+function paintTtyd() {
+  const box = $("ssh-ttyd"), frame = $("ssh-ttyd-frame"), open = $("ssh-ttyd-open");
+  if (!box) return;
+  const s = ssh.status;
+  const url = s?.host ? `http://${s.host}:${s.vt || 8080}/` : "";
+  const show = ssh.ttyd && !!url;
+  box.hidden = !show;
+  if (open) open.href = url || "#";
+  if (frame && show && frame.dataset.src !== url) {
+    frame.dataset.src = url;
+    frame.src = url;
+  }
+  if (!show && frame) {
+    frame.removeAttribute("src");
+    delete frame.dataset.src;
+  }
 }
 
 const pctOf = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -696,6 +732,16 @@ async function onClick(e) {
       return refocus();
     case "stats": return loadStats();
     case "status": ssh.statusError = ""; renderConn(); if (!ssh.tabs.length) renderEmpty(); return loadStatus();
+    case "ttyd-toggle":
+      ssh.ttyd = !ssh.ttyd;
+      store.set("ssh.ttydEmbed", ssh.ttyd);
+      renderHead();
+      return;
+    case "ttyd-hide":
+      ssh.ttyd = false;
+      store.set("ssh.ttydEmbed", false);
+      renderHead();
+      return;
     case "reboot": case "poweroff": return power(act);
     case "settings": {
       const d = $("ssh-conn").querySelector(".ssh-settings");

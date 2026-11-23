@@ -90,7 +90,7 @@ export const ASSISTANT_TOOL_LIMIT = 24;
 const ASSISTANT_TOOL_PRIORITY = [
   "apps_list", "ports_list", "market_list",
   "library_list", "library_search", "library_rescan", "game_get", "homebrew_list",
-  "connection_status", "device_status", "web_services_status", "wifi_find",
+  "connection_status", "device_status", "web_services_status", "wifi_find", "syncthing_status",
   "logs_list", "activity_list", "manager_status", "workspace_info",
   "handheld_settings_get", "controls_snapshot", "benchmark_status",
   "play_activity", "collections_list",

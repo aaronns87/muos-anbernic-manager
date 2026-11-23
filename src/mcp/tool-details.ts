@@ -16,7 +16,7 @@ export const TOOL_DETAILS: Record<string, string> = {
   usb_allow: "Lets this manager claim the handheld over MTP again after it was released.",
   usb_release: "Drops MTP so other apps (or the Finder) can use the USB connection.",
   usb_restart: "Restarts the MTP session without changing allow/release policy.",
-  web_services_status: "Detailed MustardOS web services (SSH, SFTP, Syncthing, landing, mDNS, …) with enabled/running/reachable where known.",
+  web_services_status: "Detailed MustardOS web services (SSH, SFTP, ttyd, Syncthing, dashboard, Filebrowser, mDNS, …) with enabled/running/reachable and browser url when known.",
 
   transfer_plan: "Builds a copy plan (systems/games → device) without starting work. Review before transfer_start.",
   transfer_start: "Enqueues the copy job. Over USB only one transfer runs at a time; extras wait in the queue.",
@@ -86,7 +86,8 @@ export const TOOL_DETAILS: Record<string, string> = {
   agent_pack_list: "Lists shipped MCP agent packs (skills and experts) under mcp/agents/.",
   agent_pack_get: "Returns the full SKILL.md for one agent pack id.",
 
-  syncthing_idle: "Reports whether Syncthing on the handheld looks idle before large copies.",
+  syncthing_idle: "Reports whether Syncthing on the handheld looks idle before large copies (includes folder list when SSH works).",
+  syncthing_status: "Syncthing idle state, web UI url, version and read-only folder list from the handheld.",
   syncthing_wait_idle: "Waits until Syncthing is idle or times out. Useful before transfer_start when sync is on.",
   handheld_settings_get: "Reads MustardOS Device Settings (muxsettings) over SSH — groups, current values, ports.",
   handheld_settings_save: "Writes Device Settings keys. Pass changes from handheld_settings_get; optional seen for concurrency. Destructive for those options.",

@@ -280,9 +280,10 @@ export function webServicesBlock({ compact = false } = {}) {
     const warn = s.enabled && !ok;
     const cls = ok ? "ok" : warn ? "warn" : "off";
     const state = ok ? "Active" : warn ? "Enabled" : s.enabled === false ? "Off" : "Inactive";
-    const syncthing = s.id === "syncthing" && s.reachable && s.port;
-    const openBtn = syncthing
-      ? `<a class="btn small ghost svc-open" href="http://${esc(pack.host)}:${s.port}/" target="_blank" rel="noopener" title="Syncthing web UI on the handheld">${icon("external")}<span>Open</span></a>`
+    const openUrl = s.url || (["ttyd", "syncthing", "landing", "filebrowser"].includes(s.id) && s.port && (s.reachable || s.running)
+      ? `http://${pack.host}${s.port === 80 ? "" : `:${s.port}`}/` : "");
+    const openBtn = openUrl
+      ? `<a class="btn small ghost svc-open" href="${esc(openUrl)}" target="_blank" rel="noopener" title="Open ${esc(s.label)} on the handheld">${icon("external")}<span>Open</span></a>`
       : "";
     return `<li class="${cls}" title="${esc(s.detail)}">
       <span class="svc-dot" aria-hidden="true"></span>
@@ -295,13 +296,42 @@ export function webServicesBlock({ compact = false } = {}) {
     ? `<label class="set-row set-toggle svc-idle"><span><b>Wait for Syncthing idle</b><small>Before large copies and recipe transfers, wait until Syncthing is not syncing (up to 90s).</small></span>
         <span class="switch"><input type="checkbox" role="switch" data-syncthing-idle${waitIdle ? " checked" : ""}><span class="switch-track"></span></span></label>`
     : "";
+  const syncthingNote = !compact && syncthingOn
+    ? `<p class="muted-note svc-st-note" id="svc-st-note">${ICONS.spin} Reading Syncthing folders&hellip;</p>`
+    : "";
+  if (!compact && syncthingOn) queueSyncthingNote();
   return `<div class="sb-conn-services${compact ? " compact" : ""}">
     <span class="mode-label">Web services · ${esc(pack.host)}</span>
     <ul class="sb-conn-svc-list">${rows}</ul>
     ${idleToggle}
+    ${syncthingNote}
     ${compact ? "" : `<p class="muted-note"><b>Active</b> means this computer can open the port or SSH saw the process running.
+      Open launches the handheld web UI in your browser (dashboard, virtual terminal, Syncthing, Filebrowser).
       Turn services on or off under Device Settings → Web services. The manager does not start or stop Syncthing for you.</p>`}
   </div>`;
+}
+
+let stNoteToken = 0;
+async function queueSyncthingNote() {
+  const token = ++stNoteToken;
+  try {
+    const snap = await api("ssh/syncthing");
+    if (token !== stNoteToken) return;
+    const el = $("svc-st-note");
+    if (!el) return;
+    if (!snap.folders?.length) {
+      el.textContent = snap.detail || "Syncthing status available.";
+      return;
+    }
+    const names = snap.folders.slice(0, 6).map((f) => f.label || f.id).join(", ");
+    const more = snap.folders.length > 6 ? ` (+${snap.folders.length - 6} more)` : "";
+    el.innerHTML = `${esc(snap.detail || "Syncthing")}${snap.version ? ` · v${esc(snap.version)}` : ""}
+      <br><span class="svc-st-folders">Folders: ${esc(names)}${esc(more)}</span>`;
+  } catch {
+    if (token !== stNoteToken) return;
+    const el = $("svc-st-note");
+    if (el) el.textContent = "Could not read Syncthing folders (needs SSH).";
+  }
 }
 
 function connHelpBlock(conn) {
@@ -871,7 +901,7 @@ export function wifiForm({ ids = true } = {}) {
       ? `<div class="wifi-found" role="list">
           <span class="wifi-found-label">Found on this network</span>
           ${wifiFound.list.map((f) => `<div class="wifi-found-row" role="listitem">
-            <code>${esc(f.host)}</code>
+            <code>${esc(f.host)}</code>${f.kind ? `<small class="wifi-found-kind">${esc(f.kind)}${f.port ? ` · ${f.port}` : ""}</small>` : ""}
             <button type="button" class="btn small primary" data-device="wifi-use" data-host="${esc(f.host)}"${dis}>${icon("plug")}<span>Use and connect</span></button>
           </div>`).join("")}
         </div>`
@@ -943,12 +973,34 @@ async function findWifi() {
   wifiFound.busy = true;
   renderDevice();
   try {
-    wifiFound.list = (await api("device/wifi/find", {})).found;
+    wifiFound.list = (await api("device/wifi/find", {})).found || [];
   } catch (error) {
     toast(error.message, 4000);
+    wifiFound.busy = false;
+    return renderDevice();
   }
   wifiFound.busy = false;
-  if (wifiFound.list && wifiFound.list.length === 1 && !(app.device.wifi && app.device.wifi.reachable)) return saveWifi(null, wifiFound.list[0].host);
+  const current = app.device.wifi?.host || "";
+  const reachable = !!app.device.wifi?.reachable;
+  const list = wifiFound.list || [];
+  const stillHere = list.some((f) => f.host === current);
+  // Adopt a new address when the saved host is gone or not answering and exactly one MustardOS SFTP answers.
+  const candidates = list.filter((f) => f.host !== current);
+  const adopt = (!stillHere || !reachable) && (
+    (candidates.length === 1 && candidates[0])
+    || (list.length === 1 && list[0].host !== current && list[0])
+  );
+  if (adopt) {
+    toast(`Found ${adopt.host} — updating the saved address…`, 2800);
+    return saveWifi(null, adopt.host);
+  }
+  if (list.length === 1 && list[0].host === current && reachable) {
+    toast(`${current} is still the handheld on this network`, 2800);
+  } else if (!list.length) {
+    toast("No MustardOS SFTP (port 2022) answered on this Wi-Fi", 4000);
+  } else {
+    toast(`Found ${list.length} handhelds — pick one to use`, 3200);
+  }
   renderDevice();
 }
 

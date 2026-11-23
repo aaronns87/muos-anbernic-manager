@@ -1,6 +1,7 @@
 // Artwork > On device: checks the MustardOS catalogue for images whose game is gone, and deletes them.
 
 import { $, app, api, esc, human, plural, busy, toast, icon, handheldMode, devName, TOKEN } from "./core.js";
+import { panel, notice, loadingInline, retryBtn } from "./layout.js";
 import { confirmBox } from "./art-images.js";
 
 const LIST_LIMIT = 500;
@@ -9,8 +10,6 @@ const state = { status: "idle", volume: "", data: null, error: "", show: "orphan
 let redraw = () => {};
 
 const keyOf = (f) => `${f.catalogue}/${f.kind}/${f.name}`;
-const panel = (cls, title, body, actions = "") =>
-  `<section class="panel ${cls}"><h2>${title}</h2>${body}${actions ? `<div class="panel-actions">${actions}</div>` : ""}</section>`;
 const imageUrl = (f) => `/api/device/image?${new URLSearchParams({ volume: state.volume, kind: f.kind, catalogue: f.catalogue, name: f.name, size: f.size, token: TOKEN })}`;
 const shown = () => (state.data ? state.data.leftovers.filter((f) => f.reason === state.show) : []);
 
@@ -87,10 +86,10 @@ export function auditPanel(live, bindRedraw) {
       `<button class="btn primary" data-da="run"${busy() ? " disabled" : ""}>${icon("search")}<span>Check the catalogue</span></button>`);
   }
   if (state.status === "loading") {
-    return panel("full", title, `<div class="muted-note"><span class="spinner"></span> Comparing the catalogue on ${esc(c.art)} with the games on ${esc(devName())}&hellip;</div>`);
+    return panel("full", title, loadingInline(`Comparing the catalogue on ${esc(c.art)} with the games on ${esc(devName())}&hellip;`));
   }
   if (state.status === "error") {
-    return panel("full", title, `<div class="notice err">${esc(state.error)}</div>`, `<button class="btn" data-da="run">${icon("refresh")}<span>Try again</span></button>`);
+    return panel("full", title, notice("err", esc(state.error)), retryBtn('data-da="run"'));
   }
   const d = state.data, t = d.totals;
   const n = state.selected.size;
