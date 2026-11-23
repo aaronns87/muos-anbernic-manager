@@ -22,12 +22,14 @@ const human = (n: number) => {
   return i === 0 ? `${v} B` : `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 };
 
-export type ChatProvider = "groq" | "gemini" | "openrouter";
+export type ChatProvider = "groq" | "gemini" | "openrouter" | "openai" | "xai" | "custom";
 
 export interface ChatSettings {
   provider: ChatProvider;
   apiKey: string;
   model: string;
+  /** OpenAI-compatible base URL for the Custom provider (e.g. https://host/v1). */
+  baseUrl: string;
   temperature: number;
   maxTokens: number;
   includeLibrary: boolean;
@@ -57,15 +59,27 @@ Rules:
 - Game Tuning and Core options save only when the user clicks Save (they are not applied automatically).
 - Never ask for or repeat API keys, passwords, or MCP bearer tokens.`;
 
-const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
+const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter", "openai", "xai", "custom"];
+
+const PROVIDER_LABEL: Record<ChatProvider, string> = {
+  groq: "Groq",
+  gemini: "Google Gemini",
+  openrouter: "OpenRouter",
+  openai: "OpenAI",
+  xai: "xAI Grok",
+  custom: "Custom (OpenAI-compatible)",
+};
 
 const DEFAULT_MODELS: Record<ChatProvider, string> = {
   groq: "openai/gpt-oss-20b",
   gemini: "gemini-2.0-flash",
   openrouter: "openrouter/free",
+  openai: "gpt-4.1-mini",
+  xai: "grok-4.7",
+  custom: "gpt-4o-mini",
 };
 
-/** Chat models on Groq's free plan (not Whisper / Orpheus / prompt-guard). */
+/** Presets shown in Settings → Assistant (Custom… always available). */
 const MODEL_PRESETS: Record<ChatProvider, { id: string; label: string }[]> = {
   groq: [
     { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B (fast)" },
@@ -82,12 +96,36 @@ const MODEL_PRESETS: Record<ChatProvider, { id: string; label: string }[]> = {
     { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B (free)" },
     { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (free)" },
   ],
+  openai: [
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini" },
+    { id: "gpt-4o", label: "GPT-4o" },
+  ],
+  xai: [
+    { id: "grok-4.7", label: "Grok 4.7" },
+    { id: "grok-4.6", label: "Grok 4.6" },
+    { id: "grok-4.5", label: "Grok 4.5" },
+    { id: "grok-3-mini", label: "Grok 3 mini" },
+    { id: "grok-3", label: "Grok 3" },
+  ],
+  custom: [],
+};
+
+const PROVIDER_HELP: Record<ChatProvider, string> = {
+  groq: "Free key at https://console.groq.com — OpenAI-compatible, fast free tier (tight TPM with tools).",
+  gemini: "Free key at https://aistudio.google.com — Gemini Flash models, long context, free tier.",
+  openrouter: "Key at https://openrouter.ai — use models ending in :free, or openrouter/free.",
+  openai: "Paid key at https://platform.openai.com/api-keys — billed to your OpenAI account.",
+  xai: "Paid key at https://console.x.ai — Grok models via OpenAI-compatible API.",
+  custom: "Any OpenAI-compatible /v1 host (LiteLLM, Azure OpenAI path, local proxy). Cursor does not expose a public chat API for other apps — use OpenAI, xAI, or a proxy here.",
 };
 
 const DEFAULTS: ChatSettings = {
   provider: "groq",
   apiKey: "",
   model: DEFAULT_MODELS.groq,
+  baseUrl: "",
   temperature: 0.4,
   maxTokens: 1024,
   includeLibrary: true,
@@ -132,9 +170,10 @@ async function loadSettings(): Promise<ChatSettings> {
       ...saved,
       provider,
       apiKey: typeof saved.apiKey === "string" ? saved.apiKey : "",
+      baseUrl: typeof saved.baseUrl === "string" ? saved.baseUrl.trim() : "",
       model: normalizeModel(provider, String(saved.model || "")),
       temperature: clampNum(saved.temperature, 0, 1, DEFAULTS.temperature),
-      maxTokens: Math.round(clampNum(saved.maxTokens, 256, 4096, DEFAULTS.maxTokens)),
+      maxTokens: Math.round(clampNum(saved.maxTokens, 256, 8192, DEFAULTS.maxTokens)),
       includeLibrary: saved.includeLibrary !== false,
       includeConnection: saved.includeConnection !== false,
       systemPrompt: normalizePrompt(saved.systemPrompt),
@@ -166,9 +205,10 @@ export async function chatSettingsPublic() {
   const s = await loadSettings();
   const custom = !!s.systemPrompt.trim();
   return {
-    configured: !!s.apiKey.trim(),
+    configured: !!s.apiKey.trim() && (s.provider !== "custom" || !!s.baseUrl.trim()),
     provider: s.provider,
     model: s.model,
+    baseUrl: s.baseUrl,
     temperature: s.temperature,
     maxTokens: s.maxTokens,
     includeLibrary: s.includeLibrary,
@@ -179,15 +219,12 @@ export async function chatSettingsPublic() {
     keyHint: maskKey(s.apiKey.trim()),
     providers: PROVIDERS.map((id) => ({
       id,
-      label: id === "groq" ? "Groq" : id === "gemini" ? "Google Gemini" : "OpenRouter",
+      label: PROVIDER_LABEL[id],
       models: MODEL_PRESETS[id],
       defaultModel: DEFAULT_MODELS[id],
+      needsBaseUrl: id === "custom",
     })),
-    help: {
-      groq: "Free key at https://console.groq.com - OpenAI-compatible, fast, generous daily free tier.",
-      gemini: "Free key at https://aistudio.google.com - Gemini Flash models, long context, free tier.",
-      openrouter: "Free key at https://openrouter.ai - pick models with a :free suffix, or openrouter/free. Lower daily cap until you have ever bought credit.",
-    },
+    help: { ...PROVIDER_HELP },
   };
 }
 
@@ -206,6 +243,9 @@ export async function saveChatSettings(body: Record<string, unknown>) {
   if (body.clearKey === true) apiKey = "";
   let model = normalizeModel(provider, String(body.model ?? current.model));
   if (provider !== current.provider && !String(body.model ?? "").trim()) model = DEFAULT_MODELS[provider];
+  const baseUrl = body.baseUrl !== undefined
+    ? String(body.baseUrl ?? "").trim()
+    : current.baseUrl;
   let systemPrompt = current.systemPrompt;
   if (body.resetSystemPrompt === true) systemPrompt = "";
   else if (body.systemPrompt !== undefined) {
@@ -216,8 +256,9 @@ export async function saveChatSettings(body: Record<string, unknown>) {
     provider,
     apiKey,
     model,
+    baseUrl: provider === "custom" ? baseUrl : (provider === current.provider ? baseUrl : ""),
     temperature: clampNum(body.temperature ?? current.temperature, 0, 1, current.temperature),
-    maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 4096, current.maxTokens)),
+    maxTokens: Math.round(clampNum(body.maxTokens ?? current.maxTokens, 256, 8192, current.maxTokens)),
     includeLibrary: body.includeLibrary !== undefined ? body.includeLibrary !== false && body.includeLibrary !== "false" : current.includeLibrary,
     includeConnection: body.includeConnection !== undefined ? body.includeConnection !== false && body.includeConnection !== "false" : current.includeConnection,
     systemPrompt,
@@ -493,10 +534,21 @@ function normalizeMessages(raw: unknown): Msg[] {
   return out;
 }
 
-function endpoint(provider: ChatProvider): string {
+/** Resolve chat-completions URL. Custom accepts …/v1 or a full …/chat/completions URL. */
+function endpoint(provider: ChatProvider, baseUrl = ""): string {
   if (provider === "groq") return "https://api.groq.com/openai/v1/chat/completions";
   if (provider === "gemini") return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-  return "https://openrouter.ai/api/v1/chat/completions";
+  if (provider === "openrouter") return "https://openrouter.ai/api/v1/chat/completions";
+  if (provider === "openai") return "https://api.openai.com/v1/chat/completions";
+  if (provider === "xai") return "https://api.x.ai/v1/chat/completions";
+  const raw = baseUrl.trim().replace(/\/+$/, "");
+  if (!raw) throw new UserError("Set an API base URL under Settings → Assistant for the Custom provider.");
+  if (typeof URL.canParse === "function" ? !URL.canParse(raw) : (() => { try { return !new URL(raw); } catch { return true; } })()) {
+    throw new UserError("Custom API base URL must be a full http(s) URL.");
+  }
+  if (/\/chat\/completions$/i.test(raw)) return raw;
+  if (/\/v1$/i.test(raw)) return `${raw}/chat/completions`;
+  return `${raw}/v1/chat/completions`;
 }
 
 type ChatApiMessage = {
@@ -539,6 +591,7 @@ async function callChatApi(
   apiKey: string,
   payload: Record<string, unknown>,
   signal: AbortSignal,
+  baseUrl = "",
 ): Promise<{ data: {
   error?: { message?: string } | string;
   choices?: ChatApiChoice[];
@@ -552,16 +605,17 @@ async function callChatApi(
     headers["HTTP-Referer"] = "https://github.com/aaronns87/muos-anbernic-manager";
     headers["X-Title"] = "muOS Anbernic Manager";
   }
+  const url = endpoint(provider, baseUrl);
   let res: Response;
   try {
-    res = await fetch(endpoint(provider), {
+    res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
       signal,
     });
   } catch (error) {
-    throw new UserError(`Could not reach the ${provider} API: ${(error as Error).message}`);
+    throw new UserError(`Could not reach the ${PROVIDER_LABEL[provider]} API: ${(error as Error).message}`);
   }
   const data = await res.json().catch(() => ({})) as {
     error?: { message?: string } | string;
@@ -573,10 +627,10 @@ async function callChatApi(
 
 function throwChatHttp(status: number, statusText: string, data: { error?: { message?: string } | string }) {
   if (status === 401 || status === 403) {
-    throw new UserError("The API key was rejected. Check it under Settings > Assistant.");
+    throw new UserError("The API key was rejected. Check it under Settings → Assistant.");
   }
   if (status === 429) {
-    throw new UserError("The free quota for this key was hit. Wait a bit, or try another free provider under Settings > Assistant.");
+    throw new UserError("This key hit a rate or spend limit. Wait a bit, or switch provider/model under Settings → Assistant.");
   }
   const err = typeof data.error === "string" ? data.error : data.error?.message || statusText;
   throw new UserError(`Chat API error: ${err}`);
@@ -647,8 +701,12 @@ export async function runChat(
     payload.messages = apiMessages;
   };
 
+  if (s.provider === "custom") endpoint("custom", s.baseUrl); // validate base URL early
+
   const started = Date.now();
   const signal = AbortSignal.timeout(CHAT_DEADLINE_MS);
+  const call = (payload: Record<string, unknown>) =>
+    callChatApi(s.provider, s.apiKey.trim(), payload, signal, s.baseUrl);
   let usagePrompt = 0, usageCompletion = 0;
   let toolsOffered = useTools;
   let toolsRejected = false;
@@ -670,7 +728,7 @@ export async function runChat(
     applyToolsPayload(payload);
     status("thinking", round === 0 ? "Asking the model…" : "Thinking with tool results…");
 
-    let { data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal);
+    let { data, status: httpStatus, statusText } = await call(payload);
 
     // Groq gpt-oss can intermittently emit a native tool call while choice is none — retry once.
     if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
@@ -680,7 +738,7 @@ export async function runChat(
         applyToolsPayload(payload);
       }
       status("thinking", "Retrying…");
-      ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+      ({ data, status: httpStatus, statusText } = await call(payload));
     }
 
     // Provider tool limits / schema / TPM: shrink tools and retry before giving up.
@@ -693,7 +751,7 @@ export async function runChat(
           tools = mcp!.openaiToolsForChat(next);
           applyToolsPayload(payload);
           status("thinking", `Retrying with fewer tools (${next})…`);
-          ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+          ({ data, status: httpStatus, statusText } = await call(payload));
         }
       }
     }
@@ -707,10 +765,10 @@ export async function runChat(
         setSystemToolsNote(false);
         applyToolsPayload(payload);
         status("fallback", "Model rejected tools — answering in text…");
-        ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+        ({ data, status: httpStatus, statusText } = await call(payload));
         // Text-only fallback can still hit the same Groq flake; one more try.
         if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
-          ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+          ({ data, status: httpStatus, statusText } = await call(payload));
         }
       }
     }

@@ -46,6 +46,12 @@ version.
   with a prominent Scan for IDEs, fixed install menus, a full-height tools catalogue with longer blurbs, and an
   **MCP** chip on the Assistant dock when tools are enabled for chat.
 
+### Added
+
+- **Assistant providers**: paid BYOK for **OpenAI** and **xAI Grok**, plus **Custom (OpenAI-compatible)** with a base URL
+  field (LiteLLM, proxies, Azure OpenAI-style `/v1` hosts). Free Groq / Gemini / OpenRouter remain. Cursor has no public
+  chat API for other apps — documented in Settings, Wiki and knowledge base.
+
 ### Changed
 
 - **Assistant + MCP tools**: default system prompt and per-turn tools note tell the model to call tools proactively for

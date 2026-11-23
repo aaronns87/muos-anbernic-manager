@@ -325,7 +325,7 @@ Theme (dark / light / match system), colour scheme presets (Mustard, Ocean, Fore
 
 ### Assistant
 
-BYOK provider, API key, model (Custom model id only when Custom...), temperature, max tokens, include library/connection, Edit prompt, **View knowledge base** (this file, read-only). Save assistant / Clear key.
+BYOK provider (Groq, Gemini, OpenRouter, OpenAI, xAI Grok, or Custom OpenAI-compatible), API key, optional base URL for Custom, model presets or Custom model id, temperature, max tokens, include library/connection, Edit prompt, **View knowledge base** (this file, read-only). Save assistant / Clear key. Cursor has no public chat API for other apps.
 
 ### Data
 
@@ -382,9 +382,9 @@ After API key under Settings > Assistant: mustard button bottom-right or **Assis
 
 ### Settings > Assistant
 
-Provider (Groq, Gemini, OpenRouter); API key in `.cache/chat.json` mode 600; Model presets or Custom...; temperature; max tokens; library/connection toggles; Edit prompt (default preferred); View knowledge base (read-only).
+Provider: Groq, Gemini, OpenRouter (often free), OpenAI, xAI Grok (paid BYOK), or Custom (OpenAI-compatible base URL). API key in `.cache/chat.json` mode 600; Model presets or Custom…; temperature; max tokens; library/connection toggles; Edit prompt (default preferred); View knowledge base (read-only).
 
-Free keys: Groq console.groq.com (`openai/gpt-oss-20b` default, `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`); Google AI Studio Gemini Flash; OpenRouter `:free` or `openrouter/free`. Rate limits - wait or switch.
+Free keys: Groq console.groq.com (`openai/gpt-oss-20b` default, `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`); Google AI Studio Gemini Flash; OpenRouter `:free` or `openrouter/free`. Paid: OpenAI platform.openai.com (`gpt-4.1-mini` and peers); xAI console.x.ai (`grok-4.7` and peers). Custom needs base URL + key + model id. Cursor does not expose a public chat API — use OpenAI, xAI, or Custom. Rate/spend limits — wait or switch.
 
 ### Good at
 

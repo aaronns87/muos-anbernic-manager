@@ -312,6 +312,9 @@ test("smoke: index and source keep roadmap UI wiring", () => {
 
   const chatUi = fs.readFileSync(path.join(managerDir, "public", "js", "chat.js"), "utf8");
   assert.match(chatUi, /chat-mcp-chip|assistantUsesMcp/);
+  const chatSrc = fs.readFileSync(path.join(managerDir, "src", "chat.ts"), "utf8");
+  assert.match(chatSrc, /"openai"|"xai"|"custom"/);
+  assert.match(chatSrc, /api\.openai\.com|api\.x\.ai/);
 
   assert.match(device, /mcpListening|data-mcp-panel|sb-mcp/);
 

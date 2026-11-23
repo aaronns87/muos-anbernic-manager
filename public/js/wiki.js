@@ -608,12 +608,13 @@ const ARTICLES = [
       <code>console.warn</code> / <code>console.error</code>, uncaught exceptions and unhandled promise rejections on the server, API failures (4xx/5xx),
       and browser script errors posted from the page. Change the folder under ${path("Settings", "Folders")} if you want logs somewhere else.</p>`],
   ]],
-  ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own free API key to help with the manager and your library.", [
+  ["assistant", "chat", "Assistant", "settings", "Optional chat that uses your own API key (BYOK) to help with the manager and your library.", [
     ["What it is", `<p>A chat panel in the bottom-right corner. After you save an API key under ${path("Settings", "Assistant")},
       a mustard chat button appears there, and an <b>Assistant</b> control appears in the top bar. Either opens the panel;
       hide it with the panel's close control. The manager never ships a shared key: you bring your own (BYOK).</p>
       <p>Replies are shown with Markdown formatting (headings, lists, links, code and tables) and a time stamp on each message.
-        <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.</p>`],
+        <b>Clear</b> (next to Send) wipes the conversation on this computer; history is not stored on the server.
+        While a reply runs, a status line shows thinking or MCP tool calls.</p>`],
     ["System prompt", `<p>Under ${path("Settings", "Assistant")}, <b>Edit prompt</b> opens a dialog with the instructions sent with every message
       (before the knowledge base, library and connection context). You can save a custom prompt or <b>Revert to default</b>. A custom prompt is marked
       on the settings page; changing it can weaken grounding, walkthrough refusal and other built-in limits, so keep the default unless you
@@ -634,16 +635,24 @@ const ARTICLES = [
     </ul>`],
     ["MCP tools", `<p>With Tools → MCP → <b>Assistant uses MCP tools</b> on, the Assistant dock shows a green <b>MCP</b> chip and chat is instructed to use the shared tool catalogue for live library search,
       device status, transfers, BIOS/saves, and more (not only describe which tab to open). Some free models reject tools; the manager falls back to text-only for that reply.</p>`],
-    ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
+    ["API keys and providers", `<p>On the <b>Assistant</b> tab in Settings, pick a provider, model and paste a key:</p>
       <ul>
-        <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
-          Free-tier chat models are <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
-          <code>qwen/qwen3.8-27b</code>. Llama chat models are no longer on Groq's free plan.</li>
-        <li><b>Google Gemini</b> — <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>: Gemini Flash models, free tier.</li>
-        <li><b>OpenRouter</b> — <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>: models whose id ends in <code>:free</code>, or <code>openrouter/free</code>. Lower daily cap until you have ever bought credit.</li>
+        <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: free, fast.
+          Models include <code>openai/gpt-oss-20b</code> (default), <code>openai/gpt-oss-120b</code> and
+          <code>qwen/qwen3.8-27b</code>. Free TPM is tight when MCP tools are on.</li>
+        <li><b>Google Gemini</b> — <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a>: Gemini Flash, free tier.</li>
+        <li><b>OpenRouter</b> — <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>: models ending in <code>:free</code>, or <code>openrouter/free</code>.</li>
+        <li><b>OpenAI</b> — <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>: paid BYOK
+          (<code>gpt-4.1-mini</code>, <code>gpt-4.1</code>, <code>gpt-4o-mini</code>, <code>gpt-4o</code>, or a custom id).</li>
+        <li><b>xAI Grok</b> — <a href="https://console.x.ai" target="_blank" rel="noopener">console.x.ai</a>: paid BYOK
+          (<code>grok-4.7</code> and other Grok chat models).</li>
+        <li><b>Custom (OpenAI-compatible)</b> — any host that speaks <code>/v1/chat/completions</code> (LiteLLM, Azure OpenAI path,
+          local proxy). You set the base URL (e.g. <code>https://host/v1</code>) plus key and model id.</li>
       </ul>
-      <p>Keys stay in the manager's <code>.cache</code> on this computer (file mode 600) and are sent only to the provider you chose.
-        Free tiers rate-limit; if a reply fails, wait or switch provider. A factory reset removes the key with the rest of the cache.</p>`],
+      <p><b>Cursor</b> does not expose a public chat-completions API for other apps, so there is no Cursor provider here.
+        Use OpenAI, xAI, or Custom with a proxy if you need those models from the manager.</p>
+      <p>Keys stay in the manager's <code>.cache/chat.json</code> (mode 600) and are sent only to the provider you chose.
+        Rate limits and spend caps apply per provider; if a reply fails, wait or switch. A factory reset removes the key with the rest of the cache.</p>`],
   ]],
   ["mcp", "mcp", "MCP", "mcp", "Local Model Context Protocol server for Cursor, Claude Desktop and the in-app Assistant.", [
     ["What it is", `<p>While the manager is running, an MCP endpoint listens at <code>http://127.0.0.1:&lt;port&gt;/mcp</code> (Streamable HTTP).

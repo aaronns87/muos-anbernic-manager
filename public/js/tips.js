@@ -126,7 +126,7 @@ export const TIPS = [
     id: "help",
     icon: "book",
     title: "Wiki and Assistant",
-    body: "The Wiki under Overview (or ?) explains every page. After you save a free API key under Settings → Assistant, the mustard chat button answers with your library and this guide.",
+    body: "The Wiki under Overview (or ?) explains every page. After you save an API key under Settings → Assistant (Groq, Gemini, OpenRouter, OpenAI, xAI Grok, or Custom), the mustard chat button answers with your library and this guide.",
     go: "#wiki",
     goLabel: "Open Wiki",
   },

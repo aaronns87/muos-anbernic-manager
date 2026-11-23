@@ -190,23 +190,31 @@ function assistantPanel() {
     ? `<div class="notice warn">${icon("alert")}<span><b>Custom system prompt.</b> Answers may ignore knowledge-base grounding, walkthrough refusal or other built-in limits.
         <button type="button" class="link-btn" data-set="chat-prompt">Edit</button> or revert from the editor.</span></div>`
     : "";
+  const needsBase = c.provider === "custom" || !!prov?.needsBaseUrl;
+  const modelList = prov?.models || [];
+  const modelKnown = modelList.some((m) => m.id === c.model);
+  const modelOptions = modelList.length
+    ? `${models}<option value="__custom__"${modelKnown ? "" : " selected"}>Custom&hellip;</option>`
+    : `<option value="__custom__" selected>Custom&hellip;</option>`;
   return panel("full", `${icon("chat")} Assistant`, `
-    <p class="muted-note">Optional help chat that uses <b>your own free API key</b> (bring your own key). The key stays in the manager cache on this
+    <p class="muted-note">Optional help chat with <b>bring your own key</b> (BYOK). The key stays in the manager cache on this
       computer and is sent only to the provider you choose. Without a key, the chat button stays hidden.</p>
     ${promptWarn}
     <div class="set-row"><span><b>Status</b><small>After you save a key, open chat from the mustard chat button in the bottom-right corner, or <b>Assistant</b> in the top bar.</small></span>${status}</div>
     <div class="set-row"><span><b>Provider</b><small>${esc(help)}</small></span>
       <select class="control" id="chat-provider">${providers}</select></div>
+    <div class="set-row" id="chat-base-row"${needsBase ? "" : " hidden"}><span><b>API base URL</b><small>OpenAI-compatible host, e.g. <code>https://host/v1</code>. Required for Custom.</small></span>
+      <input class="control mono" id="chat-base" spellcheck="false" placeholder="https://example.com/v1" value="${esc(c.baseUrl || "")}"></div>
     <div class="set-row"><span><b>API key</b><small>Leave blank to keep the saved key. Clear removes it.</small></span>
-      <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste a free API key"}" value="${esc(s.chatKey)}"></div>
+      <input class="control mono" id="chat-key" type="password" autocomplete="off" spellcheck="false" placeholder="${c.configured ? "Saved — type a new key to replace" : "Paste your API key"}" value="${esc(s.chatKey)}"></div>
     <div class="set-row"><span><b>Model</b><small>Or type a custom model id for this provider.</small></span>
-      <select class="control" id="chat-model">${models}<option value="__custom__"${(prov?.models || []).every((m) => m.id !== c.model) ? " selected" : ""}>Custom&hellip;</option></select></div>
-    <div class="set-row" id="chat-custom-row"${(prov?.models || []).some((m) => m.id === c.model) ? " hidden" : ""}><span><b>Custom model id</b><small>Used when the model list is set to Custom&hellip;</small></span>
-      <input class="control mono" id="chat-custom" spellcheck="false" ${(prov?.models || []).some((m) => m.id === c.model) ? "disabled " : ""}value="${esc((prov?.models || []).some((m) => m.id === c.model) ? "" : c.model)}"></div>
+      <select class="control" id="chat-model">${modelOptions}</select></div>
+    <div class="set-row" id="chat-custom-row"${modelKnown && modelList.length ? " hidden" : ""}><span><b>Custom model id</b><small>Used when the model list is set to Custom&hellip;</small></span>
+      <input class="control mono" id="chat-custom" spellcheck="false" ${modelKnown && modelList.length ? "disabled " : ""}value="${esc(modelKnown ? "" : c.model)}"></div>
     <div class="set-row"><span><b>Temperature</b><small>Lower is more factual (0–1).</small></span>
       <input class="control" id="chat-temp" type="number" min="0" max="1" step="0.1" value="${c.temperature}"></div>
-    <div class="set-row"><span><b>Max reply tokens</b><small>Caps length and free-tier use.</small></span>
-      <input class="control" id="chat-maxtok" type="number" min="256" max="4096" step="128" value="${c.maxTokens}"></div>
+    <div class="set-row"><span><b>Max reply tokens</b><small>Caps length (and spend on paid providers).</small></span>
+      <input class="control" id="chat-maxtok" type="number" min="256" max="8192" step="128" value="${c.maxTokens}"></div>
     <label class="set-row set-toggle"><span><b>Include library context</b><small>Search your Roms/ library and LaunchBox descriptions when answering.</small></span>
       <span class="switch"><input type="checkbox" role="switch" id="chat-library"${c.includeLibrary ? " checked" : ""}><span class="switch-track"></span></span></label>
     <label class="set-row set-toggle"><span><b>Include connection context</b><small>Send Wi-Fi/SSH/card status (never passwords) with each question.</small></span>
@@ -219,10 +227,15 @@ function assistantPanel() {
       <button class="btn primary" data-set="chat-save"${s.working === "chat" ? " disabled" : ""}>${s.working === "chat" ? `<span class="spinner"></span>` : icon("check")}<span>Save assistant</span></button>
       <button class="btn danger" data-set="chat-clear"${!c.configured || s.working ? " disabled" : ""}>${icon("trash")}<span>Clear key</span></button>
     </div>
-    <div class="notice">${icon("info")}<span><b>Free keys.</b> <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a> (fast),
-      <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini), or
-      <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> models ending in <code>:free</code>.
-      Free tiers rate-limit; if a reply fails, wait or switch provider. See the Wiki article <b>Assistant</b>.</span></div>`);
+    <div class="notice">${icon("info")}<span><b>Keys.</b>
+      Free: <a href="https://console.groq.com" target="_blank" rel="noopener">Groq</a>,
+      <a href="https://aistudio.google.com" target="_blank" rel="noopener">Google AI Studio</a> (Gemini),
+      <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> (<code>:free</code>).
+      Paid BYOK: <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a>,
+      <a href="https://console.x.ai" target="_blank" rel="noopener">xAI Grok</a>,
+      or <b>Custom</b> for any OpenAI-compatible <code>/v1</code> host.
+      Cursor does not offer a public chat API for other apps — use OpenAI, xAI, or Custom with a proxy.
+      See the Wiki article <b>Assistant</b>.</span></div>`);
 }
 
 function mcpStatusChip(m) {
@@ -1258,6 +1271,7 @@ async function saveAssistant(clear) {
       apiKey: clear ? "" : ($("chat-key")?.value ?? s.chatKey),
       clearKey: !!clear,
       model,
+      baseUrl: $("chat-base")?.value ?? s.chat.baseUrl ?? "",
       temperature: Number($("chat-temp")?.value),
       maxTokens: Number($("chat-maxtok")?.value),
       includeLibrary: !!$("chat-library")?.checked,
@@ -1749,11 +1763,14 @@ function bind() {
       const row = $("chat-custom-row"), input = $("chat-custom");
       if (row) row.hidden = !custom;
       if (input) { input.disabled = !custom; if (custom) input.focus(); }
+      const baseRow = $("chat-base-row");
+      if (baseRow && s.chat) baseRow.hidden = s.chat.provider !== "custom";
     }
   });
   root.addEventListener("input", (e) => {
     if (e.target.id === "set-browse-path" && s.browse) s.browse.input = e.target.value;
     if (e.target.id === "chat-key") s.chatKey = e.target.value;
+    if (e.target.id === "chat-base" && s.chat) s.chat.baseUrl = e.target.value;
   });
   root.addEventListener("submit", (e) => {
     if (e.target.dataset.setForm !== "go") return;

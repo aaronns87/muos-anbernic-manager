@@ -155,6 +155,9 @@ function providerName(s) {
   if (id === "groq") return "Groq";
   if (id === "gemini") return "Gemini";
   if (id === "openrouter") return "OpenRouter";
+  if (id === "openai") return "OpenAI";
+  if (id === "xai") return "xAI Grok";
+  if (id === "custom") return "Custom";
   return id ? id : "BYOK";
 }
 
@@ -162,7 +165,7 @@ export const chatConfigured = () => C.configured;
 
 export function toggleChat() {
   if (!C.configured) {
-    toast("Add a free API key under Settings > Assistant first", 3500);
+    toast("Add an API key under Settings → Assistant first", 3500);
     location.hash = "#settings";
     return;
   }

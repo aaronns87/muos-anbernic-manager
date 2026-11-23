@@ -128,11 +128,11 @@ per-session token. Nothing is uploaded anywhere.
 - **Logs**: application diagnostics written to workspace `logs/` as daily JSONL files. Search, filter by level or day,
   expand stacks, export, **Support pack** (zip for bug reports), clear, and open the folder. Captures errors, warnings,
   exceptions, manager actions and browser faults (separate from Overview **Recent activity**).
-- **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
-  base plus your library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the
-  bottom-right corner or **Assistant** in the top bar. View the knowledge base read-only from Settings → Assistant.
-  Replies support Markdown (including tables) and show timestamps; it will not invent walkthroughs. When MCP tools are
-  enabled, the Assistant can call the same manager tools (read and mutate) and report results.
+- **Assistant**: optional BYOK chat under Settings → Assistant (Groq, Gemini, OpenRouter, OpenAI, xAI Grok, or a Custom
+  OpenAI-compatible base URL) grounded in a shipped knowledge base plus your library and LaunchBox game data. After a
+  key is saved, open it from the mustard chat button or **Assistant** in the top bar. View the knowledge base read-only
+  from Settings → Assistant. Replies support Markdown and timestamps; live status shows thinking and MCP tool calls.
+  When MCP tools are enabled, the Assistant can call the same manager tools (read and mutate) and report results.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
   the copies waiting their turn and a history of finished ones. **Show Transfers** appears when there is an active or
   finished transfer. Start more copies while one runs and they queue up; minimise the panel to a thin progress bar or
