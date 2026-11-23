@@ -13,6 +13,7 @@ version.
 | Version | Date | Highlights |
 | --- | --- | --- |
 | [Unreleased](#unreleased) | | |
+| [1.3.3](#133---2026-11-23) | 2026-11-23 | Syncthing ROM transport; arcade/Dreamcast browser play; MCP guest/confirm; bidirectional transfers; game viewer & transfer UI |
 | [1.3.2](#132---2026-11-17) | 2026-11-17 | Play in browser (cartridge + disc/heavy); favourites & smart lists; saves browser; disc playlists; hints; recipes; free homebrew |
 | [1.3.1](#131---2026-11-16) | 2026-11-16 | Application logs folder + Logs viewer; Andromeda cores/BIOS/tuning paths; Wiki under Overview; Soft/density UI; muxbak create status fix |
 | [1.3.0](#130---2026-11-15) | 2026-11-15 | Andromeda USB/SFTP/SSH, connection panel paths, Play over any live link, OS market, Appearance, System Tools confirm + remount-safe install |
@@ -28,15 +29,7 @@ version.
 
 ## [Unreleased]
 
-### Changed
-
-- **Game viewer**: wider layout, art-anchored prev/next, status cards and side-by-side Play/Transfer actions, sticky
-  frosted footer.
-- **Transfer dialog**: direction as choice cards, Connection/Syncthing segmented control, clearer header and sticky
-  actions instead of stacked dropdowns.
-- **UI spacing pass**: toolbars, Settings panels, MCP hero/tools/agents, Overview health, play save bar, Checks /
-  disc pipeline, command palette, recipe packs, netplay, Syncthing conflicts and profile bars now use `--space-*` /
-  `--radius-*` tokens so compact/soft density modes stay consistent.
+## [1.3.3] - 2026-11-23
 
 ### Added
 
@@ -82,7 +75,6 @@ version.
   (5 minutes, one use, bound to those arguments) runs them, and `dryRun: true` previews again. `system_start` still takes
   `confirm` (card id or `TF2`); without it the `confirmId` carries that value. New `src/mcp/confirm.ts` and a `confirm`
   option on `defineTool`; tool details, the Assistant prompt and knowledge, the wiki and the MCP agent packs describe it.
-
 - **Read-only MCP guest token.** A second bearer token (`guestToken` in `.cache/mcp.json`, created on first start) lets
   a client list and read but never change anything: only an allowlist of read tools (connection, device, manager and web
   status, library list/search, game, BIOS, jobs, play activity, saves overview, cores, tuning, collections, homebrew,
@@ -144,9 +136,6 @@ version.
   `use-manager-mcp` prompt, and `agent_pack_list` / `agent_pack_get` tools. Tools → MCP merges clients and agents
   with a prominent Scan for IDEs, fixed install menus, a full-height tools catalogue with longer blurbs, and an
   **MCP** chip on the Assistant dock when tools are enabled for chat.
-
-### Added
-
 - **Assistant providers**: paid BYOK for **OpenAI** and **xAI Grok**, plus **Custom (OpenAI-compatible)** with a base URL
   field (LiteLLM, proxies, Azure OpenAI-style `/v1` hosts). Free Groq / Gemini / OpenRouter remain. Cursor has no public
   chat API for other apps — documented in Settings, Wiki and knowledge base.
@@ -157,6 +146,13 @@ version.
 
 ### Changed
 
+- **Game viewer**: wider layout, art-anchored prev/next, status cards and side-by-side Play/Transfer actions, sticky
+  frosted footer and always-red Delete.
+- **Transfer dialog**: direction as choice cards, Connection/Syncthing segmented control, clearer header and sticky
+  actions instead of stacked dropdowns.
+- **UI spacing pass**: toolbars, Settings panels, MCP hero/tools/agents, Overview health, play save bar, Checks /
+  disc pipeline, command palette, recipe packs, netplay, Syncthing conflicts and profile bars now use `--space-*` /
+  `--radius-*` tokens so compact/soft density modes stay consistent.
 - **Find on network**: scans for MustardOS SFTP (Dropbear/SFTPGo), ignores unrelated SSH banners, and when the saved
   host is gone or not answering adopts the new IP. Any Wi-Fi address save/find clears an explicit SSH host so SSH
   always follows the Wi-Fi IP and reconnects on the new address.
@@ -171,6 +167,8 @@ version.
 
 ### Fixed
 
+- **Replace artwork**: choosing an image on macOS no longer loses the file when the window refocuses before the picker
+  `change` event; the File System Access picker is preferred when available.
 - **MCP `system_start` errors.** The tool returned before the card job was validated, so a wrong disk or confirm
   surfaced as an unhandled rejection instead of a tool error; it now waits for the check and reports it.
 - **Assistant + MCP tools**: send `tool_choice: "auto"` with tools (Groq otherwise treats missing choice as none and
@@ -625,7 +623,8 @@ First public release, licensed under MIT.
   downloaded in that window reports 2.1.0 and will not offer updates until a version above 2.1.0 is out; update it
   with `git pull` or a fresh download.
 
-[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.2...changes/unreleased
+[Unreleased]: https://github.com/aaronns87/muos-anbernic-manager/compare/v1.3.3...changes/unreleased
+[1.3.3]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.3
 [1.3.2]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.2
 [1.3.1]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.1
 [1.3.0]: https://github.com/aaronns87/muos-anbernic-manager/tree/v1.3.0
