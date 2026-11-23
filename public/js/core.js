@@ -11,7 +11,7 @@ export const ACCENTS = {
 };
 export const EXCLUDED = new Set(["APPS", "PORTS"]);
 export const ART_KINDS = [["box", "Box art"], ["preview", "Screenshot"], ["splash", "Splash"]];
-export const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "settings", "logs"];
+export const SECTIONS = ["overview", "wiki", "games", "play", "artwork", "os", "apps", "handheld", "themes", "emulation", "files", "tuning", "system", "ssh", "mcp", "settings", "logs"];
 /** Number keys 1–9 follow the sidebar (Wiki is 2); 0 always opens the Wiki. */
 export const sectionForKey = (k) => (k === "0" ? "wiki" : SECTIONS[+k - 1]);
 
@@ -84,6 +84,8 @@ const PATHS = {
   "handheld-sp": '<path d="M4 2h16a2 2 0 0 1 2 2v6.5H2V4a2 2 0 0 1 2-2Z"/><rect x="5.5" y="4" width="13" height="5" rx="1"/><path d="M2 12.5h20"/><path d="M2 13.5v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5Z"/><path d="M6 17h2.5M7.25 15.75v2.5"/><circle cx="16.5" cy="17" r=".6"/>',
   cable: '<path d="M7 2v4M12 2v4M17 2v4"/><path d="M5 6h14v4a7 7 0 0 1-14 0Z"/><path d="M12 17v5"/>',
   wifi: '<path d="M2 8.5a15 15 0 0 1 20 0"/><path d="M5 12a10 10 0 0 1 14 0"/><path d="M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/>',
+  // Hub + linked nodes — MCP / tool protocol (not Wi-Fi arcs).
+  mcp: '<circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2.25"/><circle cx="19" cy="6" r="2.25"/><circle cx="5" cy="18" r="2.25"/><circle cx="19" cy="18" r="2.25"/><path d="m7 7.5 3.2 2.8M17 7.5l-3.2 2.8M7 16.5l3.2-2.8M17 16.5l-3.2-2.8"/>',
   battery: '<rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 11v2"/>',
   layers: '<path d="m12 2 10 5-10 5L2 7Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',

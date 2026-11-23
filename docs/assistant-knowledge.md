@@ -13,7 +13,7 @@ muOS Anbernic Manager runs on this computer (Mac, Linux or Windows) and looks af
 - **Overview**, then **Wiki** (help; shortcuts `2` or `0`)
 - **Library** - Games, Play, Artwork, OS
 - **Handheld** - Apps, Device, Themes, Emulation, Files, Game Tuning
-- **Tools** - System Tools, Terminal (SSH)
+- **Tools** - System Tools, Terminal (SSH), MCP
 - **Manager** - Settings, Logs (Assistant chat opens from the top bar or mustard button after an API key is saved)
 
 ### Install and setup wizard
@@ -303,6 +303,10 @@ All erase the target - back up saves first (Emulation > Saves). Card reader may 
 
 Browser terminal over Wi-Fi; needs Secure Shell. Quick commands, Storage, Busiest processes. Runs as root - wrong commands can brick MustardOS.
 
+## mcp - MCP
+
+Tools → MCP (sidebar under Terminal; `#settings/mcp` redirects here). Enable/disable the localhost Streamable HTTP MCP server (`http://127.0.0.1:<port>/mcp`). IDE configs name it `MuAnMCP` (with a short description). Reveal/copy/rotate the persistent bearer token (`.cache/mcp.json`). Scan for installed IDEs (Cursor, Claude Desktop, Claude Code, Codex, Windsurf), auto-write their MCP config, or copy a snippet from the Copy config menu. **Clients & agents**: MCP-only skills/experts under `mcp/agents/` — Review, Copy, Install, or Install all into Cursor / Claude Code / Codex skill folders. Also `agent://` resources, `use-manager-mcp` prompt, and `agent_pack_list` / `agent_pack_get`. Tools cover library (including verify/CHD/m3u/homebrew), connection, Device Settings/Controls/Benchmark, Syncthing idle, transfers, artwork scrape/sync, play activity & collections, BIOS/saves, emulation, files, apps/ports/themes, System Tools (flash/TF2; confirm tokens required), and meta. Toggle **Assistant uses MCP tools** (Assistant dock shows an MCP chip). Green MCP chip in the top bar shows sessions, call counts and recent audit. Always `127.0.0.1` only. Not the same as developer skills in this repository's `.cursor` / `.agents` folders. In-browser EmulatorJS play stays UI-only (`play_capabilities` only).
+
 ## settings - Settings
 
 Six tabs; subtitle describes the active tab.
@@ -388,4 +392,8 @@ Manager UI from this knowledge base + current section; selected handheld model (
 
 ### Must not
 
-Invent walkthroughs/spoilers (point to GameFAQs/StrategyWiki/game wiki); claim to format cards, wipe disks, install OS or change the handheld (name the section instead); ask for/repeat API keys or passwords; invent UI not in this guide.
+Invent walkthroughs/spoilers (point to GameFAQs/StrategyWiki/game wiki); invent UI not in this guide; ask for/repeat API keys, passwords or MCP bearer tokens.
+
+### MCP tools (when enabled)
+
+When Tools → MCP is on and **Assistant uses MCP tools** is on, you may call manager tools for live reads and actions the user asked for (library, Device Settings, Controls, Benchmark, artwork, play/collections, System Tools, copy, delete, BIOS, etc.). Report results briefly. Destructive tools (including `system_start`, deletes, settings writes) are irreversible — only when clearly requested; System Tools need `confirm` matching the card id or `TF2` for Wi-Fi TF2. Do not start EmulatorJS play from tools. If tools are not available this turn, name the manager section instead of claiming you changed the handheld.

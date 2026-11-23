@@ -181,11 +181,85 @@ test("smoke: workspace and activity endpoints respond", async () => {
   assert.equal((await api("status")).status, 200);
 });
 
+test("smoke: MCP settings, tools, stats and /mcp auth", async () => {
+  const settings = await api("mcp/settings");
+  assert.equal(settings.status, 200);
+  assert.equal(settings.json.enabled, true);
+  assert.equal(settings.json.listening, true);
+  assert.match(settings.json.url, /\/mcp$/);
+  assert.ok(settings.json.tokenHint);
+
+  const tools = await api("mcp/tools");
+  assert.equal(tools.status, 200);
+  assert.ok(tools.json.count >= 10);
+  assert.ok(tools.json.groups?.library?.length);
+
+  const stats = await api("mcp/stats");
+  assert.equal(stats.status, 200);
+  assert.ok(Array.isArray(stats.json.recent));
+  assert.ok(Array.isArray(stats.json.sessions));
+
+  const configs = await api("mcp/configs");
+  assert.equal(configs.status, 200);
+  assert.match(configs.json.cursor, /MuAnMCP/);
+  assert.match(configs.json.cursor, /muOS Anbernic Manager/);
+  assert.equal(configs.json.serverKey, "MuAnMCP");
+  assert.match(configs.json.claudeDesktop, /Bearer/);
+
+  const { mcpServerIcons } = await import("../src/mcp/icons.ts");
+  const icons = await mcpServerIcons();
+  assert.ok(icons.length >= 1);
+  assert.match(icons[0].src, /^data:image\//);
+  assert.ok(Array.isArray(configs.json.clients) && configs.json.clients.length >= 4);
+
+  const clients = await api("mcp/clients");
+  assert.equal(clients.status, 200);
+  assert.ok(Array.isArray(clients.json.clients));
+  assert.ok(clients.json.clients.some((c: { id: string }) => c.id === "cursor"));
+
+  const agents = await api("mcp/agents");
+  assert.equal(agents.status, 200);
+  assert.ok(Array.isArray(agents.json.packs));
+  assert.ok(agents.json.packs.length >= 6);
+  assert.ok(agents.json.packs.some((p: { id: string; kind: string }) => p.id === "manager-mcp" && p.kind === "skill"));
+  const content = await api("mcp/agents/content?id=manager-mcp");
+  assert.equal(content.status, 200);
+  assert.match(content.json.markdown || "", /Manager MCP skill/);
+  assert.equal((await api("mcp/agents/content?id=not-a-pack")).status, 400);
+  assert.equal((await api("mcp/agents/install", { id: "manager-mcp", clientId: "nope" })).status, 400);
+
+  const noAuth = await fetch(`${srv.base}/mcp`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  assert.equal(noAuth.status, 401);
+
+  const revealed = await api("mcp/settings?reveal=1");
+  assert.equal(revealed.status, 200);
+  assert.ok(revealed.json.token);
+  const badTok = await fetch(`${srv.base}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
+    body: "{}",
+  });
+  assert.equal(badTok.status, 401);
+
+  const off = await api("mcp/settings", { enabled: false });
+  assert.equal(off.status, 200);
+  assert.equal(off.json.enabled, false);
+  const disabled = await fetch(`${srv.base}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${revealed.json.token}` },
+    body: "{}",
+  });
+  assert.equal(disabled.status, 404);
+  const on = await api("mcp/settings", { enabled: true, assistantUsesTools: true });
+  assert.equal(on.status, 200);
+  assert.equal(on.json.enabled, true);
+});
+
 test("smoke: roadmap front-end modules parse", () => {
   const dir = path.join(managerDir, "public", "js");
   for (const f of [
     "profiles.js", "uptodate.js", "lists.js", "recipes.js", "free-homebrew.js", "play-browser.js", "tips.js",
-    "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js",
+    "device.js", "games.js", "saves.js", "checks.js", "logs.js", "settings.js", "overview.js", "mcp.js",
   ]) {
     execFileSync(process.execPath, ["--check", path.join(dir, f)], { stdio: "pipe" });
   }
@@ -226,6 +300,23 @@ test("smoke: index and source keep roadmap UI wiring", () => {
 
   const settings = fs.readFileSync(path.join(managerDir, "public", "js", "settings.js"), "utf8");
   assert.match(settings, /recipesPanelHtml|bindRecipes/);
+  assert.match(settings, /export function showMcp|bindMcpPage|mcpPanel/);
+  assert.match(settings, /mcp-scan|mcp-setup|mcp-tools-table|mcp-rotate|mcpAgentsSection|mcp-agent-review|Install all|mcp-agent-install-all|positionMcpMenus/);
+  const core = fs.readFileSync(path.join(managerDir, "public", "js", "core.js"), "utf8");
+  assert.match(core, /"ssh", "mcp", "settings"/);
+  const indexHtml = fs.readFileSync(path.join(managerDir, "public", "index.html"), "utf8");
+  assert.match(indexHtml, /data-section="mcp"|id="view-mcp"/);
+
+  const mcpUi = fs.readFileSync(path.join(managerDir, "public", "js", "mcp.js"), "utf8");
+  assert.match(mcpUi, /data-mcp-panel|sb-mcp-panel|Tools → MCP|assistantUsesMcp/);
+
+  const chatUi = fs.readFileSync(path.join(managerDir, "public", "js", "chat.js"), "utf8");
+  assert.match(chatUi, /chat-mcp-chip|assistantUsesMcp/);
+
+  assert.match(device, /mcpListening|data-mcp-panel|sb-mcp/);
+
+  const tipsMcp = fs.readFileSync(path.join(managerDir, "public", "js", "tips.js"), "utf8");
+  assert.match(tipsMcp, /id: "mcp"|Tools → MCP/);
 
   const logs = fs.readFileSync(path.join(managerDir, "public", "js", "logs.js"), "utf8");
   assert.match(logs, /support-pack|exportSupportPack/);
@@ -243,10 +334,16 @@ test("smoke: index and source keep roadmap UI wiring", () => {
   for (const route of [
     "games/flags", "homebrew/free", "disc-m3u/preview", "disc-m3u/write", "disc-m3u/batch",
     "saves/game", "logs/support-pack", "ssh/syncthing-idle", "games/rom",
+    "mcp/settings", "mcp/stats", "mcp/tools", "mcp/configs", "mcp/clients", "mcp/agents", "mcp/token/rotate",
   ]) {
     assert.match(server, new RegExp(route.replace(/\//g, "\\/")), `route ${route} missing from server.ts`);
   }
   assert.match(server, /GET \/api\/games\/rom/);
+  assert.match(server, /isMcpPath|handleMcpHttp/);
+
+  const appJs = fs.readFileSync(path.join(managerDir, "public", "js", "app.js"), "utf8");
+  assert.match(appJs, /"mcp"/);
+  assert.match(appJs, /loadMcpStatus/);
 });
 
 test("smoke: data/free-homebrew.json is valid curated catalogue", () => {

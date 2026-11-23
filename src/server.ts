@@ -50,6 +50,11 @@ import { previewM3u, writeM3uBatch, writeM3uPlaylist } from "./games/disc-m3u.ts
 import { gamesFlagsJson } from "./games/flags.ts";
 import { playBiosDownload, playBiosHead, playBiosList, playRomDownload, playRomHead } from "./games/play-rom.ts";
 import {
+  agentPackContent, closeAllMcpSessions, handleMcpHttp, installAgentPack, installAllAgentPacks, installMcpClient, isMcpPath,
+  listAgentPacks, mcpClientConfigs, mcpEnabled, mcpSettingsPublic, mcpStatsJson, rotateMcpToken, saveMcpSettings,
+  scanMcpClients, toolCatalogue,
+} from "./mcp/index.ts";
+import {
   deleteGameSave, gameSavesJson, pullGameSave, pruneGameStates, pushGameSave, revealPulled, trashPulledSave,
 } from "./saves-game.ts";
 import { chdJson, startChdConvert } from "./games/chd.ts";
@@ -246,6 +251,18 @@ const routes: Record<string, Handler> = {
   "POST /api/chat/settings": (_, body) => saveChatSettings(body),
   "GET /api/chat/knowledge": () => chatKnowledgePublic(),
   "POST /api/chat": (_, body) => runChat(body),
+  "GET /api/mcp/settings": (q) => mcpSettingsPublic({ revealToken: q.get("reveal") === "1" }),
+  "POST /api/mcp/settings": (_, body) => saveMcpSettings(body),
+  "POST /api/mcp/token/rotate": () => rotateMcpToken(),
+  "GET /api/mcp/stats": () => mcpStatsJson(),
+  "GET /api/mcp/tools": () => toolCatalogue(),
+  "GET /api/mcp/configs": () => mcpClientConfigs(),
+  "GET /api/mcp/clients": () => scanMcpClients(),
+  "POST /api/mcp/clients/install": (_, body) => installMcpClient(body),
+  "GET /api/mcp/agents": () => listAgentPacks(),
+  "GET /api/mcp/agents/content": (q) => agentPackContent(q),
+  "POST /api/mcp/agents/install": (_, body) => installAgentPack(body),
+  "POST /api/mcp/agents/install-all": (_, body) => installAllAgentPacks(body),
   "GET /api/manager": (q) => managerStatus(q.get("refresh") === "1"),
   "POST /api/manager/update": () => updateManager(),
   "GET /api/whats-new": () => whatsNewStatus(),
@@ -609,6 +626,10 @@ function handle(req: http.IncomingMessage, res: http.ServerResponse): void {
   } catch {
     return send(res, 400, "Bad request", "text/plain");
   }
+  if (isMcpPath(pathname)) {
+    void handleMcpHttp(req, res);
+    return;
+  }
   if (pathname.startsWith("/api/")) {
     void api(req, res, url);
     return;
@@ -630,6 +651,11 @@ let shutdownHook: () => void = () => {};
 /** What POST /api/shutdown runs: a newer manager for the same workspace asks this one to stop. */
 export function onShutdown(fn: () => void): void {
   shutdownHook = fn;
+}
+
+/** Close MCP sessions when the HTTP server is stopping. */
+export function shutdownMcp(): void {
+  closeAllMcpSessions();
 }
 
 export async function listen(first: number): Promise<http.Server> {

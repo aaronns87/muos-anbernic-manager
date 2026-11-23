@@ -18,7 +18,7 @@ import { bindArtworkView, showArtTab } from "./artwork-view.js";
 import { bindCopy, poll } from "./copy.js";
 import { bindArtwork } from "./artwork.js";
 import { showSsh } from "./ssh.js";
-import { showSettings } from "./settings.js";
+import { showMcp, showSettings } from "./settings.js";
 import { bindSystem, showSystem, watchSystemJob } from "./system.js";
 import { bindAddGames } from "./add-games.js";
 import { bindPlayBrowser } from "./play-browser.js";
@@ -36,18 +36,20 @@ import { openActivity } from "./activity.js";
 import { showLogs, stopLogsPoll } from "./logs.js";
 import { renderOverview } from "./overview.js";
 import { bindChat, loadChatConfig, onChatConfigured } from "./chat.js";
+import { loadMcpStatus, onMcpChanged } from "./mcp.js";
 import "./combo.js";
 import { bindUi } from "./ui.js";
 
 const TITLES = {
   overview: ["Overview", "grid"], games: ["Games", "handheld"], play: ["Play activity", "clock"], artwork: ["Artwork", "image"], os: ["OS", "sd"], apps: ["Apps", "package"],
   handheld: ["Device", "sliders"], themes: ["Themes", "palette"], emulation: ["Emulation", "gamepad"], files: ["Files", "folder"], tuning: ["Game Tuning", "gauge"], system: ["System Tools", "sd"],
-  ssh: ["Terminal", "chip"], settings: ["Settings", "wrench"], logs: ["Logs", "list"], wiki: ["Wiki", "book"],
+  ssh: ["Terminal", "chip"], mcp: ["MCP", "mcp"], settings: ["Settings", "wrench"], logs: ["Logs", "list"], wiki: ["Wiki", "book"],
 };
 
 let routeSequence = 0;
 async function showSection() {
   const sequence = ++routeSequence;
+  if (/^#settings\/mcp(\/|$|\?)/.test(location.hash)) history.replaceState(null, "", "#mcp");
   const s = section();
   const tab = location.hash.split("/")[1];
   if (!$("view-themes").hidden && store.get("themesTab", "browse") === "designer" && (s !== "themes" || (tab && tab !== "designer"))) {
@@ -105,6 +107,7 @@ async function showSection() {
   if (s === "themes") showThemes();
   if (s === "system") showSystem();
   if (s === "ssh") showSsh();
+  if (s === "mcp") showMcp();
   if (s === "settings") showSettings();
   if (s === "logs") showLogs();
   else stopLogsPoll();
@@ -237,6 +240,7 @@ window.addEventListener("unhandledrejection", (e) => {
 applyView();
 setSideMin(store.get("sideMin", false), false);
 onChatConfigured(() => renderStatusbar());
+onMcpChanged(() => renderStatusbar());
 bindShared();
 bindSideFlyout();
 bindProfiles();
@@ -266,6 +270,7 @@ if (!TOKEN) {
   startLibraryLoad();
   refreshDevice();
   loadChatConfig();
+  loadMcpStatus();
   checkWizard().then(() => checkWhatsNew().then(() => checkTips()));
   startManagerChecks();
   if (section() !== "apps") countApps();

@@ -28,6 +28,24 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **MCP server** (on by default): Streamable HTTP at `http://127.0.0.1:<port>/mcp` with a persistent bearer token
+  (`.cache/mcp.json`). IDE configs register it as **`MuAnMCP`** (with a short description). Tools → **MCP** (sidebar
+  section under Terminal; `#settings/mcp` redirects) to enable/disable, reveal/rotate the token, scan for installed IDEs
+  (Cursor, Claude Desktop, Claude Code, Codex, Windsurf) with auto-setup or a Copy config menu, browse tools in a
+  filterable table, and toggle Assistant tool use. Green **MCP** chip in the top bar opens a redesigned stats panel
+  (endpoint, usage, sessions, recent calls). The tool catalogue covers the manager’s main surfaces: library (including
+  No-Intro verify, CHD, disc `.m3u`, free homebrew), connection, Device Settings / Controls / Benchmark, Syncthing idle,
+  transfers, artwork scrape and device sync, play activity and collections, BIOS/saves, emulation, files, apps/ports/themes,
+  System Tools (flash OS / TF2 / reset with confirm tokens), OS market, and meta. The in-app Assistant uses the same
+  registry when MCP and Assistant tools are on (dock shows an **MCP** chip). In-browser EmulatorJS play stays UI-only.
+- **MCP agent packs**: skills and experts under `mcp/agents/` (separate from repo developer `.cursor`/`.agents` skills).
+  Review / copy / install (or **Install all**) into IDE skill folders from Tools → MCP; also exposed as MCP resources, the
+  `use-manager-mcp` prompt, and `agent_pack_list` / `agent_pack_get` tools. Tools → MCP merges clients and agents
+  with a prominent Scan for IDEs, fixed install menus, a full-height tools catalogue with longer blurbs, and an
+  **MCP** chip on the Assistant dock when tools are enabled for chat.
+
 ## [1.3.2] - 2026-11-17
 
 ### Added

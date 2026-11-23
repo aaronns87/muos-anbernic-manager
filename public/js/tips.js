@@ -115,6 +115,14 @@ export const TIPS = [
     goLabel: "Open Logs",
   },
   {
+    id: "mcp",
+    icon: "mcp",
+    title: "MCP for Cursor and chat",
+    body: "Tools → MCP runs a local MCP server (default on, registered in IDEs as MuAnMCP) with tools for library, Device Settings, artwork, play/collections, System Tools and more. Scan for IDEs, install agent packs, and watch the green MCP chip for stats.",
+    go: "#mcp",
+    goLabel: "Open MCP settings",
+  },
+  {
     id: "help",
     icon: "book",
     title: "Wiki and Assistant",

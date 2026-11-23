@@ -1186,3 +1186,117 @@ test("free homebrew catalogue lists legal entries", async () => {
   assert.ok(json.games.length >= 4);
   assert.ok(json.games.every((g: { system: string; file: string }) => g.system && g.file));
 });
+
+test("MCP settings create a token, rotate it, and gate auth", async (t) => {
+  const dir = tmp(t);
+  const before = { root: ctx.root, cache: ctx.cacheDir, port: ctx.port };
+  t.after(() => {
+    setRoot(before.root);
+    ctx.cacheDir = before.cache;
+    ctx.port = before.port;
+  });
+  setRoot(path.join(dir, "ws"));
+  ctx.cacheDir = path.join(dir, "cache");
+  ctx.port = 8765;
+  fs.mkdirSync(ctx.cacheDir, { recursive: true });
+
+  const {
+    loadMcpSettings, mcpSettings, mcpTokenOk, rotateMcpToken, saveMcpSettings, mcpSettingsPublic,
+  } = await import("../src/mcp/settings.ts");
+  const { mcpClientConfigs, scanMcpClients, installMcpClient } = await import("../src/mcp/clients.ts");
+  await loadMcpSettings();
+  const first = mcpSettings().token;
+  assert.ok(first.length >= 16);
+  assert.equal(mcpTokenOk(first), true);
+  assert.equal(mcpTokenOk("nope"), false);
+  assert.equal(mcpSettingsPublic().token, "");
+  assert.equal(mcpSettingsPublic({ revealToken: true }).token, first);
+
+  const rotated = await rotateMcpToken();
+  assert.notEqual(rotated.token, first);
+  assert.equal(mcpTokenOk(first), false);
+  assert.equal(mcpTokenOk(rotated.token!), true);
+
+  await saveMcpSettings({ enabled: false, assistantUsesTools: false });
+  assert.equal(mcpSettings().enabled, false);
+  assert.equal(mcpSettings().assistantUsesTools, false);
+  assert.equal(mcpTokenOk(rotated.token!), false);
+
+  await saveMcpSettings({ enabled: true, assistantUsesTools: true });
+  const cfg = mcpClientConfigs();
+  assert.match(cfg.cursor, /Bearer/);
+  assert.match(cfg.claudeDesktop, /"type": "http"/);
+  assert.ok(cfg.clients.some((c) => c.id === "cursor"));
+
+  const scan = await scanMcpClients();
+  assert.ok(scan.clients.length >= 4);
+  assert.ok(scan.clients.every((c) => c.id && c.snippet && c.configPath));
+  await assert.rejects(() => installMcpClient({ id: "not-a-client" }), /Unknown MCP client/);
+});
+
+test("MCP agent packs parse frontmatter and sandbox ids", async () => {
+  const { listAgentPacks, readAgentPack, parseSkillFrontmatter, installAgentPack } = await import("../src/mcp/agents.ts");
+  const parsed = parseSkillFrontmatter(`---
+name: demo
+description: >-
+  Line one
+  line two
+kind: expert
+---
+
+# Body
+`);
+  assert.equal(parsed.name, "demo");
+  assert.equal(parsed.kind, "expert");
+  assert.match(parsed.description, /Line one/);
+  assert.match(parsed.body, /# Body/);
+
+  const { packs } = await listAgentPacks();
+  assert.ok(packs.length >= 8);
+  assert.ok(packs.some((p) => p.id === "manager-mcp" && p.kind === "skill"));
+  assert.ok(packs.some((p) => p.id === "library-games" && p.kind === "expert"));
+  assert.ok(packs.some((p) => p.id === "artwork-play" && p.kind === "expert"));
+  assert.ok(packs.some((p) => p.id === "system-tools" && p.kind === "expert"));
+  const pack = await readAgentPack("manager-mcp");
+  assert.match(pack.markdown, /echo that token/i);
+  await assert.rejects(() => readAgentPack("../etc/passwd"), /Invalid|Unknown/);
+  await assert.rejects(() => installAgentPack({ id: "manager-mcp", clientId: "windsurf" }), /does not support skill install/);
+  const { installAllAgentPacks } = await import("../src/mcp/agents.ts");
+  await assert.rejects(() => installAllAgentPacks({ clientId: "windsurf" }), /does not support skill install/);
+});
+
+test("MCP tool registry and audit ring buffer", async () => {
+  const { ensureMcpTools, listTools, toolCatalogue, openaiTools, executeTool } = await import("../src/mcp/index.ts");
+  const { recordMcpToolCall, mcpStatsJson, mcpMarkStarted } = await import("../src/mcp/stats.ts");
+  ensureMcpTools();
+  const tools = listTools();
+  assert.ok(tools.length >= 100);
+  assert.ok(tools.some((t) => t.name === "library_list"));
+  assert.ok(tools.some((t) => t.name === "manager_status"));
+  assert.ok(tools.some((t) => t.name === "handheld_settings_get"));
+  assert.ok(tools.some((t) => t.name === "artwork_scrape_plan"));
+  assert.ok(tools.some((t) => t.name === "play_activity"));
+  assert.ok(tools.some((t) => t.name === "system_start"));
+  assert.ok(tools.some((t) => t.name === "checks_verify"));
+  const cat = toolCatalogue();
+  assert.equal(cat.count, tools.length);
+  assert.ok(cat.groups.library?.includes("library_list"));
+  assert.ok(cat.groups.artwork?.includes("artwork_start"));
+  assert.ok(cat.groups.play?.includes("collections_list"));
+  assert.ok(cat.groups.system?.includes("system_cards"));
+  const listed = cat.tools.find((t) => t.name === "library_list");
+  assert.ok(listed?.detail && listed.detail.length > listed.description.length);
+  const oa = openaiTools();
+  assert.equal(oa[0].type, "function");
+  assert.ok(oa[0].function.parameters);
+
+  mcpMarkStarted();
+  recordMcpToolCall({ tool: "unit_probe", client: "test", ok: true, ms: 1 });
+  recordMcpToolCall({ tool: "unit_probe", client: "test", ok: false, ms: 2, error: "boom" });
+  const stats = mcpStatsJson();
+  assert.ok(stats.callsSession >= 2);
+  assert.ok(stats.recent.some((r) => r.tool === "unit_probe" && !r.ok));
+
+  const missing = await executeTool("definitely_not_a_tool", {});
+  assert.equal(missing.ok, false);
+});

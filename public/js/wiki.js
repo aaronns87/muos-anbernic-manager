@@ -23,7 +23,7 @@ const ARTICLES = [
       Everything happens in this browser tab; keep the terminal window that started it open.</p>
       <p>The sidebar starts with <b>Overview</b> and the <b>Wiki</b> (this help), then groups the rest: <b>Library</b> (Games, Play, Artwork, OS)
       for your games and MustardOS images, <b>Handheld</b> (Apps, Device, Themes, Emulation, Files, Game Tuning) for what is on the device,
-      <b>Tools</b> (System Tools, Terminal) for cards and a shell, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
+      <b>Tools</b> (System Tools, Terminal, MCP) for cards, a shell and the local MCP server, and <b>Manager</b> (Settings, Logs) for how the manager looks and behaves
       and where application diagnostics are kept.
       Press <kbd>?</kbd> on any page for help without leaving it, or open the full Wiki from the sidebar.</p>`],
     ["Installing and the setup wizard", `<p><code>./muos-anbernic-manager/installer.sh</code> on macOS and Linux, or <code>installer.cmd</code>
@@ -555,7 +555,7 @@ const ARTICLES = [
   ]],
   ["settings", "wrench", "Settings", "settings", "Where the manager keeps things, and how it looks and behaves.", [
     ["The tabs", `<p>Settings is split into six tabs: <b>Folders</b>, <b>Behaviour</b>, <b>Appearance</b>, <b>Assistant</b>, <b>Data</b> and <b>Resets</b>. The line under the page
-      title describes the tab you are on.</p>`],
+      title describes the tab you are on. The local MCP server lives under Tools → <b>MCP</b> (sidebar, below Terminal).</p>`],
     ["Folders", `<p><b>Roms folder</b> is where your game library lives, for example on an external drive. <b>Other folders</b> use a card grid on wider screens
       and stack on phones. They set where apps, MustardOS
       images, BIOS files, save backups, themes you design and application logs are kept.</p>`],
@@ -629,8 +629,11 @@ const ARTICLES = [
     </ul>`],
     ["What it will not do", `<ul>
       <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
-      <li>Format cards, wipe disks or change the handheld. Use System Tools and the other sections for that.</li>
+      <li>When MCP tools are off, it will not change the handheld itself — use System Tools and the other sections. When tools are on
+        (Tools → MCP), it may call manager tools you ask for, including destructive ones, and report what it did.</li>
     </ul>`],
+    ["MCP tools", `<p>With Tools → MCP → <b>Assistant uses MCP tools</b> on, the Assistant dock shows a green <b>MCP</b> chip and chat can call the shared tool catalogue (library search,
+      device status, transfers, BIOS/saves, and more). Some free models reject tools; the manager falls back to text-only for that reply.</p>`],
     ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
       <ul>
         <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
@@ -641,6 +644,35 @@ const ARTICLES = [
       </ul>
       <p>Keys stay in the manager's <code>.cache</code> on this computer (file mode 600) and are sent only to the provider you chose.
         Free tiers rate-limit; if a reply fails, wait or switch provider. A factory reset removes the key with the rest of the cache.</p>`],
+  ]],
+  ["mcp", "mcp", "MCP", "mcp", "Local Model Context Protocol server for Cursor, Claude Desktop and the in-app Assistant.", [
+    ["What it is", `<p>While the manager is running, an MCP endpoint listens at <code>http://127.0.0.1:&lt;port&gt;/mcp</code> (Streamable HTTP).
+      In IDE configs the server is named <code>MuAnMCP</code> (with a short description). External clients authenticate with a persistent
+      <b>bearer token</b> (not the per-run UI <code>?token=</code>). The token lives in
+      <code>.cache/mcp.json</code> (mode 600) and can be revealed, copied or rotated under ${path("Tools", "MCP")}.</p>
+      <p>MCP is <b>on by default</b>. Turn it off on that page to stop serving <code>/mcp</code>. The bind address is always localhost in this version
+      (no LAN or Tailscale expose).</p>`],
+    ["Clients", `<p>On the MCP page, <b>Scan for IDEs</b> looks for Cursor, Claude Desktop, Claude Code, Codex and Windsurf. For each find you can
+      <b>Set up automatically</b> (merge the <code>MuAnMCP</code> entry into that app's config file) or use <b>Copy config</b> for a paste-ready snippet.
+      Authorization must be <code>Bearer &lt;token&gt;</code>. After rotating the token, update every client.</p>`],
+    ["Clients & agents", `<p>Tools → MCP keeps IDE connection and agent packs together. <b>Scan for IDEs</b> finds Cursor,
+      Claude Desktop, Claude Code, Codex and Windsurf so you can auto-write MCP config. MCP-only <b>skills</b> and
+      <b>experts</b> ship under <code>mcp/agents/</code> (not the developer skills in this repo's <code>.cursor</code> /
+      <code>.agents</code> folders): <b>Review</b>, <b>Copy</b>, <b>Install…</b>, or <b>Install all</b> into Cursor
+      (<code>~/.cursor/skills/</code>), Claude Code (<code>~/.claude/skills/</code>) or Codex (<code>~/.agents/skills/</code>)
+      after a scan. Connected MCP clients can also read them as <code>agent://</code> resources, the
+      <code>use-manager-mcp</code> prompt, or <code>agent_pack_list</code> / <code>agent_pack_get</code> tools.</p>`],
+    ["Tools", `<p>The tools table lists every registered tool by collection, name and a longer description (library including verify/CHD/m3u/homebrew, device settings/controls/benchmark, artwork, play/collections, System Tools, transfers, BIOS/saves,
+      emulation, files, apps, themes, OS, meta). Destructive tools say so in their descriptions and run without a second confirm; every call is audited.</p>`],
+    ["Header chip", `<p>When MCP is enabled, a green <b>MCP</b> chip appears in the top bar. Click it for endpoint status, session counts, today's call
+      totals and recent audit rows. Full setup lives under Tools → MCP.</p>`],
+    ["Assistant", `<p>The same tool catalogue powers the in-app Assistant when <b>Assistant uses MCP tools</b> is on (the dock shows a green
+      <b>MCP</b> chip). CONTEXT still orients the model; tools do the live work. Never paste the MCP token into chat.
+      System Tools and other destructive calls need clear user intent; flash/TF2 require a matching confirm token.</p>`],
+    ["Coverage", `<p>MCP mirrors the manager’s useful surfaces: Device Settings, Controls, Benchmark, Syncthing idle, artwork scrape/sync,
+      play activity and collections, library checks (No-Intro, CHD, disc playlists), free homebrew, and System Tools
+      (install / TF2 / reset). In-browser EmulatorJS play stays in the UI (<code>play_capabilities</code> only). Interactive
+      SSH terminal and full per-button remap editors are still UI-first.</p>`],
   ]],
   ["glossary", "book", "Glossary", "", "Words you will see around the manager.", [
     ["Terms", `<dl class="wiki-dl">

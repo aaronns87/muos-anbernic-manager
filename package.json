@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@emulatorjs/emulatorjs": "^4.2.3",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-search": "^0.16.0",
     "@xterm/addon-unicode11": "^0.9.0",
@@ -30,7 +31,8 @@
     "koffi": "^2.11.0",
     "saxes": "^6.0.0",
     "ssh2": "^1.17.0",
-    "yauzl": "^3.2.0"
+    "yauzl": "^3.2.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -109,6 +109,11 @@ per-session token. Nothing is uploaded anywhere.
   also run over Wi-Fi/SSH on the handheld's TF2 without touching SD1 (setup: exFAT named TF2 with ROMS folders; reset:
   FAT32 or exFAT with the name you choose, empty).
 - **SSH**: a terminal on the handheld in the browser, plus a quick look at its system.
+- **MCP**: a localhost Streamable HTTP MCP server (on by default; IDE configs name it `MuAnMCP`) so Cursor, Claude Desktop
+  and similar clients can drive the manager with a persistent bearer token (library, Device Settings/Controls/Benchmark,
+  artwork, play/collections, System Tools, transfers, emulation, and more). Tools → MCP has IDE scan/auto-setup, MCP
+  agent packs (skills/experts to review, copy or install), and a tools table; the green **MCP** header chip shows usage
+  stats. Bind address is always `127.0.0.1` in this version.
 
 **Manager**
 - **Wiki**: built-in help for every page, a glossary and troubleshooting. Sits under Overview in the sidebar
@@ -126,7 +131,8 @@ per-session token. Nothing is uploaded anywhere.
 - **Assistant**: optional chat (bring your own free API key under Settings → Assistant) grounded in a shipped knowledge
   base plus your library and LaunchBox game data. After a key is saved, open it from the mustard chat button in the
   bottom-right corner or **Assistant** in the top bar. View the knowledge base read-only from Settings → Assistant.
-  Replies support Markdown (including tables) and show timestamps; it will not invent walkthroughs.
+  Replies support Markdown (including tables) and show timestamps; it will not invent walkthroughs. When MCP tools are
+  enabled, the Assistant can call the same manager tools (read and mutate) and report results.
 - **Transfers**: a panel in the bottom-right corner with the running copy (progress, speed, time left, current file),
   the copies waiting their turn and a history of finished ones. **Show Transfers** appears when there is an active or
   finished transfer. Start more copies while one runs and they queue up; minimise the panel to a thin progress bar or

@@ -3,6 +3,7 @@
 import { $, app, api, esc, human, store, icon, ICONS, model, cardWord, EXCLUDED, handheldMode, devName, devWord, busy, toast, trustSshHostKey, section, formatDate, formatTime, syncSpinnerPhase } from "./core.js";
 import { confirmBox } from "./art-images.js";
 import { chatConfigured } from "./chat.js";
+import { mcpListening } from "./mcp.js";
 import { byId } from "./devices.js";
 import { renderModelPicker, checkCardModel } from "./model-pick.js";
 import { renderWizard } from "./wizard.js";
@@ -701,6 +702,9 @@ export function renderStatusbar() {
   const battery = app.overview.info?.identity?.battery;
   if (live && typeof battery === "number" && battery > 0) {
     parts.push(`<span class="sb-item sb-batt${battery <= 15 ? " low" : ""}" title="Battery ${battery}%"><span class="batt"><i style="width:${battery}%"></i></span>${battery}%</span>`);
+  }
+  if (mcpListening()) {
+    parts.push(`<button type="button" class="sb-item sb-mcp on" data-mcp-panel aria-expanded="false" aria-haspopup="dialog" title="MCP server (MuAnMCP) — click for stats">${icon("mcp")}<span>MCP</span></button>`);
   }
   if (chatConfigured()) {
     parts.push(`<button type="button" class="sb-item sb-chat" data-chat-open title="Open or hide the assistant">${icon("chat")}<span>Assistant</span></button>`);

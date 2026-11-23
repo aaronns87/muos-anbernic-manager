@@ -2,6 +2,7 @@
 
 import { $, api, esc, formatTime, icon, modelInfo, section, syncSpinnerPhase, toast } from "./core.js";
 import { openViewerGame } from "./game-view.js";
+import { assistantUsesMcp, onMcpChanged } from "./mcp.js";
 
 let onConfigured = () => {};
 
@@ -16,10 +17,11 @@ const C = {
   providerLabel: "",
 };
 
-const TIPS = [
+  const TIPS = [
   ["Keyboard", "Enter sends; Shift+Enter starts a new line."],
   ["What to ask", "Help with the manager, your library, or a retro game."],
   ["Walkthroughs", "Ask where to look online (GameFAQs, StrategyWiki, and so on)."],
+  ["MCP tools", "When MCP is on for the Assistant, chat can call the same manager tools as Cursor."],
   ["Clear", "The Clear button next to Send wipes this conversation."],
 ];
 
@@ -173,11 +175,14 @@ function gameKey() {
 }
 
 function emptyState() {
+  const mcp = assistantUsesMcp();
   return `<div class="chat-empty">
       <div class="chat-empty-ico">${icon("chat")}</div>
       <div class="chat-empty-copy">
         <b>Ready</b>
-        <p>Ask about the manager, your library, or a game. For walkthroughs, ask where to look online.</p>
+        <p>${mcp
+          ? "Ask about the manager, your library, or a game. Manager MCP tools are available for this chat."
+          : "Ask about the manager, your library, or a game. For walkthroughs, ask where to look online."}</p>
       </div>
     </div>`;
 }
@@ -242,12 +247,19 @@ export function renderChat() {
   dock.hidden = !C.shown;
   document.body.classList.toggle("has-chat", C.shown);
   dock.classList.toggle("min", C.min);
+  const mcpOn = assistantUsesMcp();
   const sub = C.sending ? "Thinking&hellip;" : esc(C.providerLabel || "Ready");
   if (C.min) C.tips = false;
   const tipList = TIPS.map(([k, v]) => `<li><b>${esc(k)}</b><span>${esc(v)}</span></li>`).join("");
+  const mcpChip = mcpOn
+    ? `<a class="chat-mcp-chip on" href="#mcp" title="Assistant can call manager MCP tools. Open Tools → MCP." aria-label="MCP tools on for Assistant">
+        <span class="live-dot"></span><span>MCP</span></a>`
+    : `<a class="chat-mcp-chip" href="#mcp" title="Assistant is not using MCP tools. Turn on under Tools → MCP." aria-label="MCP tools off for Assistant">
+        <span>MCP off</span></a>`;
   $("chat-head").innerHTML = `<button class="dock-toggle" data-chat="min" aria-expanded="${!C.min}" aria-controls="chat-body">
       <span class="tx-ico">${icon("chat")}</span>
       <span class="dock-title"><b>Assistant</b><small>${sub}</small></span></button>
+    ${mcpChip}
     <span class="chat-tips-wrap">
       <button type="button" class="btn icon small ghost chat-tips${C.tips ? " on" : ""}" data-chat="tips" aria-expanded="${C.tips}" aria-controls="chat-tips" title="Tips" aria-label="Tips for using the assistant">${icon("help")}</button>
       <div class="chat-tips-pop" id="chat-tips" role="dialog" aria-label="Assistant tips"${C.tips ? "" : " hidden"}>
@@ -292,6 +304,10 @@ async function sendMessage(text, { aboutGame = false } = {}) {
   renderChat();
   $("chat-input")?.focus();
 }
+
+onMcpChanged(() => {
+  if (C.configured) renderChat();
+});
 
 export function bindChat() {
   const dock = $("chat-dock");

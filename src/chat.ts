@@ -1,5 +1,6 @@
 // BYOK chat assistant: settings in .cache/chat.json, OpenAI-compatible providers, and a grounded context pack
-// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). Never invents walkthroughs; never mutates the handheld.
+// (docs/assistant-knowledge.md, library, LaunchBox metadata, connection). When MCP tools are enabled, may call
+// the shared manager tool registry. Never invents walkthroughs; never echoes API keys.
 
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -48,12 +49,13 @@ Rules:
 - You cannot search the web. If the user wants community per-game RetroArch tips, point them to the sites listed under finding settings in the knowledge base (Libretro docs/forums, Reddit r/RetroArch and r/SBCGaming, r/muOS for MustardOS). Suggest searching the game title plus the core name (e.g. PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP).
 - Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
 - Do NOT invent buttons, tabs or menus that are not in the knowledge base.
-- You cannot format cards, wipe disks, install OS images, or change the handheld. For those actions, tell the user which manager section to use (e.g. System Tools, Device).
+- When tools are available in this turn, you MAY call them to read the library/device or perform manager actions (copy, delete, send BIOS, change settings, etc.). Prefer tools over guessing live state. Report what you did briefly. Destructive tools are irreversible — only use them when the user clearly asked.
+- When tools are not available, you cannot mutate the handheld yourself; tell the user which manager section to use (e.g. System Tools, Device).
 - Keep answers concise and practical. Use plain language.
 - When CONTEXT names a selected handheld, tailor performance, screen, Wi-Fi and Game Tuning advice to that model (chip, screen size, Wi-Fi or not). Do not assume a different handheld.
 - Format with simple Markdown the UI can render: short ## headings, bullet or numbered lists, **bold** only for short phrases on one line (always close **), and pipe tables (| col | col |) with a separator row. Do not use tab-separated tables or leave unmatched ** markers.
 - Game Tuning and Core options save only when the user clicks Save (they are not applied automatically).
-- Never ask for or repeat API keys or passwords.`;
+- Never ask for or repeat API keys, passwords, or MCP bearer tokens.`;
 
 const PROVIDERS: ChatProvider[] = ["groq", "gemini", "openrouter"];
 
@@ -495,6 +497,89 @@ function endpoint(provider: ChatProvider): string {
   return "https://openrouter.ai/api/v1/chat/completions";
 }
 
+type ChatApiMessage = {
+  role: string;
+  content?: string | null;
+  tool_calls?: {
+    id: string;
+    type?: string;
+    function: { name: string; arguments: string };
+  }[];
+  tool_call_id?: string;
+  name?: string;
+};
+
+type ChatApiChoice = {
+  message?: ChatApiMessage;
+  finish_reason?: string;
+};
+
+const MAX_TOOL_ROUNDS = 6;
+const CHAT_DEADLINE_MS = 90_000;
+
+async function loadMcpApi() {
+  return import("./mcp/index.ts");
+}
+
+async function toolsEnabledForChat(): Promise<boolean> {
+  try {
+    const { mcpEnabled, mcpSettings, ensureMcpTools } = await loadMcpApi();
+    if (!mcpEnabled() || !mcpSettings().assistantUsesTools) return false;
+    ensureMcpTools();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function callChatApi(
+  provider: ChatProvider,
+  apiKey: string,
+  payload: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<{ data: {
+  error?: { message?: string } | string;
+  choices?: ChatApiChoice[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+}; status: number; statusText: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (provider === "openrouter") {
+    headers["HTTP-Referer"] = "https://github.com/aaronns87/muos-anbernic-manager";
+    headers["X-Title"] = "muOS Anbernic Manager";
+  }
+  let res: Response;
+  try {
+    res = await fetch(endpoint(provider), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (error) {
+    throw new UserError(`Could not reach the ${provider} API: ${(error as Error).message}`);
+  }
+  const data = await res.json().catch(() => ({})) as {
+    error?: { message?: string } | string;
+    choices?: ChatApiChoice[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  return { data, status: res.status, statusText: res.statusText };
+}
+
+function throwChatHttp(status: number, statusText: string, data: { error?: { message?: string } | string }) {
+  if (status === 401 || status === 403) {
+    throw new UserError("The API key was rejected. Check it under Settings > Assistant.");
+  }
+  if (status === 429) {
+    throw new UserError("The free quota for this key was hit. Wait a bit, or try another free provider under Settings > Assistant.");
+  }
+  const err = typeof data.error === "string" ? data.error : data.error?.message || statusText;
+  throw new UserError(`Chat API error: ${err}`);
+}
+
 export async function runChat(body: Record<string, unknown>) {
   const s = await loadSettings();
   if (!s.apiKey.trim()) throw new UserError("Add a free API key under Settings > Assistant before chatting.");
@@ -506,55 +591,102 @@ export async function runChat(body: Record<string, unknown>) {
   const gameKey = String(body.gameKey ?? "").trim();
   const deviceId = String(body.deviceId ?? "").trim();
   const context = await buildContext(section, lastUser.content, gameKey, s, deviceId);
-  const payload = {
-    model: s.model,
-    temperature: s.temperature,
-    max_tokens: s.maxTokens,
-    messages: [
-      { role: "system", content: `${effectivePrompt(s)}\n\nCONTEXT:\n${context}` },
-      ...messages,
-    ],
-  };
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${s.apiKey.trim()}`,
-  };
-  if (s.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://github.com/aaronns87/muos-anbernic-manager";
-    headers["X-Title"] = "muOS Anbernic Manager";
+
+  const useTools = await toolsEnabledForChat();
+  const mcp = useTools ? await loadMcpApi() : null;
+  const tools = useTools ? mcp!.openaiTools() : [];
+  const toolNote = useTools
+    ? "\n\nTools are available this turn. Call them when you need live data or to perform a manager action the user asked for."
+    : "";
+
+  const apiMessages: ChatApiMessage[] = [
+    { role: "system", content: `${effectivePrompt(s)}${toolNote}\n\nCONTEXT:\n${context}` },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
+
+  const started = Date.now();
+  const signal = AbortSignal.timeout(CHAT_DEADLINE_MS);
+  let usagePrompt = 0, usageCompletion = 0;
+  let toolsOffered = useTools;
+  let toolsRejected = false;
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    if (Date.now() - started > CHAT_DEADLINE_MS - 2_000) {
+      throw new UserError("The assistant timed out while using tools. Try a shorter question.");
+    }
+    const payload: Record<string, unknown> = {
+      model: s.model,
+      temperature: s.temperature,
+      max_tokens: s.maxTokens,
+      messages: apiMessages,
+    };
+    if (toolsOffered && tools.length) payload.tools = tools;
+
+    let { data, status, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal);
+
+    // Some free models reject tools — retry once without them.
+    if (!status.toString().startsWith("2") && toolsOffered && tools.length) {
+      const errText = typeof data.error === "string" ? data.error : data.error?.message || statusText;
+      if (/tool/i.test(errText) || status === 400) {
+        toolsOffered = false;
+        toolsRejected = true;
+        delete payload.tools;
+        ({ data, status, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+      }
+    }
+
+    if (status < 200 || status >= 300) throwChatHttp(status, statusText, data);
+    if (data.usage) {
+      usagePrompt += data.usage.prompt_tokens || 0;
+      usageCompletion += data.usage.completion_tokens || 0;
+    }
+
+    const msg = data.choices?.[0]?.message;
+    if (!msg) throw new UserError("The model returned an empty reply. Try again or pick another model.");
+
+    const toolCalls = msg.tool_calls?.filter((t) => t?.function?.name) || [];
+    if (toolsOffered && toolCalls.length && mcp) {
+      apiMessages.push({
+        role: "assistant",
+        content: msg.content ?? null,
+        tool_calls: toolCalls.map((t) => ({
+          id: t.id,
+          type: "function",
+          function: { name: t.function.name, arguments: t.function.arguments || "{}" },
+        })),
+      });
+      for (const call of toolCalls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
+        } catch {
+          args = {};
+        }
+        const out = await mcp.executeTool(call.function.name, args, "assistant");
+        const content = out.ok
+          ? (typeof out.result === "string" ? out.result : JSON.stringify(out.result))
+          : JSON.stringify({ error: out.error || "Tool failed" });
+        apiMessages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          name: call.function.name,
+          content: content.slice(0, 24_000),
+        });
+      }
+      continue;
+    }
+
+    const reply = (msg.content || "").trim();
+    if (!reply) throw new UserError("The model returned an empty reply. Try again or pick another model.");
+    return {
+      reply,
+      usage: (usagePrompt || usageCompletion)
+        ? { prompt: usagePrompt, completion: usageCompletion }
+        : null,
+      provider: s.provider,
+      model: s.model,
+      tools: useTools ? { offered: true, used: round > 0, rejectedByProvider: toolsRejected } : { offered: false },
+    };
   }
-  let res: Response;
-  try {
-    res = await fetch(endpoint(s.provider), {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(90_000),
-    });
-  } catch (error) {
-    throw new UserError(`Could not reach the ${s.provider} API: ${(error as Error).message}`);
-  }
-  const data = await res.json().catch(() => ({})) as {
-    error?: { message?: string } | string;
-    choices?: { message?: { content?: string } }[];
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-  if (res.status === 401 || res.status === 403) {
-    throw new UserError("The API key was rejected. Check it under Settings > Assistant.");
-  }
-  if (res.status === 429) {
-    throw new UserError("The free quota for this key was hit. Wait a bit, or try another free provider under Settings > Assistant.");
-  }
-  if (!res.ok) {
-    const err = typeof data.error === "string" ? data.error : data.error?.message || res.statusText;
-    throw new UserError(`Chat API error: ${err}`);
-  }
-  const reply = data.choices?.[0]?.message?.content?.trim();
-  if (!reply) throw new UserError("The model returned an empty reply. Try again or pick another model.");
-  return {
-    reply,
-    usage: data.usage ? { prompt: data.usage.prompt_tokens || 0, completion: data.usage.completion_tokens || 0 } : null,
-    provider: s.provider,
-    model: s.model,
-  };
+  throw new UserError("The assistant hit the tool-call limit. Ask again with a narrower request.");
 }
