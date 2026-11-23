@@ -59,20 +59,101 @@ export function toolCatalogue() {
   };
 }
 
-/** OpenAI-compatible tools array for the in-app chat completions loop. */
-export function openaiTools(): { type: "function"; function: { name: string; description: string; parameters: unknown } }[] {
-  return listTools().map((t) => {
+type OpenAiTool = { type: "function"; function: { name: string; description: string; parameters: unknown } };
+
+function toOpenAiTool(t: RegisteredTool): OpenAiTool {
+  const schema = z.toJSONSchema(t.inputSchema) as Record<string, unknown>;
+  delete schema.$schema;
+  return {
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: schema,
+    },
+  };
+}
+
+/** Full OpenAI-compatible tools array (IDE / MCP clients; may exceed host chat limits). */
+export function openaiTools(): OpenAiTool[] {
+  return listTools().map(toOpenAiTool);
+}
+
+/**
+ * Groq free tier is ~8k TPM and hard-caps 128 tools. Full JSON schemas for dozens of
+ * tools blow the budget before CONTEXT. Chat gets a small priority subset with compact
+ * schemas (Zod still validates on execute). IDE MCP clients keep the full catalogue.
+ */
+export const ASSISTANT_TOOL_LIMIT = 24;
+
+/** High-priority names the Assistant should always keep when capping. */
+const ASSISTANT_TOOL_PRIORITY = [
+  "apps_list", "ports_list", "market_list",
+  "library_list", "library_search", "library_rescan", "game_get", "homebrew_list",
+  "connection_status", "device_status", "web_services_status", "wifi_find",
+  "logs_list", "activity_list", "manager_status", "workspace_info",
+  "handheld_settings_get", "controls_snapshot", "benchmark_status",
+  "play_activity", "collections_list",
+  "bios_list", "saves_overview", "saves_game_list",
+  "job_list", "job_get", "transfer_plan",
+  "themes_list", "files_roots", "files_list", "files_read",
+  "artwork_get_plan", "artwork_scrape_plan", "checks_status",
+  "system_cards", "system_job_get", "os_images_list",
+  "cores_list", "tuning_list", "tuning_game_get", "retroarch_get",
+  "mcp_tool_catalogue", "mcp_stats",
+];
+
+const GROUP_PRIORITY: Record<ToolGroup, number> = {
+  meta: 0, apps: 1, library: 2, device: 3, play: 4, jobs: 5, bios: 6, saves: 7,
+  artwork: 8, emulation: 9, files: 10, themes: 11, os: 12, system: 13,
+};
+
+/** Compact parameters for chat: keeps prompt tokens down; handlers still Zod-parse args. */
+function compactChatParameters(t: RegisteredTool): Record<string, unknown> {
+  try {
     const schema = z.toJSONSchema(t.inputSchema) as Record<string, unknown>;
     delete schema.$schema;
+    const props = (schema.properties && typeof schema.properties === "object")
+      ? schema.properties as Record<string, unknown>
+      : {};
+    const slim: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(props)) {
+      const p = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+      slim[key] = { type: p.type || "string" };
+    }
     return {
-      type: "function" as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: schema,
-      },
+      type: "object",
+      properties: slim,
+      required: Array.isArray(schema.required) ? schema.required : [],
+      additionalProperties: true,
     };
+  } catch {
+    return { type: "object", properties: {}, additionalProperties: true };
+  }
+}
+
+/** OpenAI tools for the in-app chat loop, capped for provider limits. */
+export function openaiToolsForChat(limit = ASSISTANT_TOOL_LIMIT): OpenAiTool[] {
+  const cap = Math.max(8, Math.min(128, limit | 0));
+  const all = listTools();
+  const rank = new Map(ASSISTANT_TOOL_PRIORITY.map((n, i) => [n, i]));
+  const sorted = [...all].sort((a, b) => {
+    const ra = rank.has(a.name) ? rank.get(a.name)! : 1000;
+    const rb = rank.has(b.name) ? rank.get(b.name)! : 1000;
+    if (ra !== rb) return ra - rb;
+    const ga = GROUP_PRIORITY[a.group] ?? 50;
+    const gb = GROUP_PRIORITY[b.group] ?? 50;
+    if (ga !== gb) return ga - gb;
+    return a.name.localeCompare(b.name);
   });
+  return sorted.slice(0, cap).map((t) => ({
+    type: "function" as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: compactChatParameters(t),
+    },
+  }));
 }
 
 export async function executeTool(

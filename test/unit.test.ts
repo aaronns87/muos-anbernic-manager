@@ -1266,7 +1266,7 @@ kind: expert
 });
 
 test("MCP tool registry and audit ring buffer", async () => {
-  const { ensureMcpTools, listTools, toolCatalogue, openaiTools, executeTool } = await import("../src/mcp/index.ts");
+  const { ensureMcpTools, listTools, toolCatalogue, openaiTools, openaiToolsForChat, ASSISTANT_TOOL_LIMIT, executeTool } = await import("../src/mcp/index.ts");
   const { recordMcpToolCall, mcpStatsJson, mcpMarkStarted } = await import("../src/mcp/stats.ts");
   ensureMcpTools();
   const tools = listTools();
@@ -1289,6 +1289,17 @@ test("MCP tool registry and audit ring buffer", async () => {
   const oa = openaiTools();
   assert.equal(oa[0].type, "function");
   assert.ok(oa[0].function.parameters);
+  // Free Groq TPM is tight; Assistant must send a small priority subset with compact schemas.
+  assert.ok(tools.length > ASSISTANT_TOOL_LIMIT);
+  const chatTools = openaiToolsForChat();
+  assert.ok(chatTools.length <= ASSISTANT_TOOL_LIMIT);
+  assert.ok(chatTools.length <= 128);
+  assert.ok(chatTools.some((t) => t.function.name === "apps_list"));
+  assert.ok(chatTools.some((t) => t.function.name === "library_search"));
+  assert.ok(chatTools.some((t) => t.function.name === "logs_list"));
+  const sampleParams = chatTools[0].function.parameters as { type?: string; $schema?: string };
+  assert.equal(sampleParams.type, "object");
+  assert.equal(sampleParams.$schema, undefined);
 
   mcpMarkStarted();
   recordMcpToolCall({ tool: "unit_probe", client: "test", ok: true, ms: 1 });

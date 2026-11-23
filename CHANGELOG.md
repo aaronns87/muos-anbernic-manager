@@ -46,6 +46,21 @@ version.
   with a prominent Scan for IDEs, fixed install menus, a full-height tools catalogue with longer blurbs, and an
   **MCP** chip on the Assistant dock when tools are enabled for chat.
 
+### Changed
+
+- **Assistant + MCP tools**: default system prompt and per-turn tools note tell the model to call tools proactively for
+  live reads and requested actions (not only describe UI tabs); knowledge base wording matches. The in-app Assistant
+  sends a small priority subset with compact schemas (fits free Groq TPM; full catalogue stays for IDE MCP clients).
+- **Assistant dock**: taller panel with more room for the message log, a live status line (thinking / Calling
+  `tool_name`… / MCP tag), and streamed progress over NDJSON.
+
+### Fixed
+
+- **Assistant + MCP tools**: send `tool_choice: "auto"` with tools (Groq otherwise treats missing choice as none and
+  rejects with “Tool choice is none, but model called a tool”), strip the tools nudge when falling back to text-only,
+  and retry once on that intermittent Groq failure. Offering all 130+ tools (or large schemas) blew Groq’s ~8k TPM
+  budget and fell back to text-only — fixed by capping/compacting the chat tool list and shrinking further on 400s.
+
 ## [1.3.2] - 2026-11-17
 
 ### Added

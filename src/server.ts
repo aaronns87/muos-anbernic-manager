@@ -86,7 +86,8 @@ import type { Duplex } from "node:stream";
 type Body = Record<string, unknown>;
 type Reply = unknown | { raw: string } | { image: Buffer; name: string } | { download: Buffer; name: string; type?: string }
   | { head: { length: number; name: string; type?: string } }
-  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number };
+  | { downloadStream: NodeJS.ReadableStream; name: string; type?: string; length: number }
+  | { chatStream: Body };
 type Handler = (query: URLSearchParams, body: Body, req: http.IncomingMessage) => Promise<Reply> | Reply;
 
 const volumeOf = (query: URLSearchParams) => query.get("volume") ?? "";
@@ -250,7 +251,7 @@ const routes: Record<string, Handler> = {
   "GET /api/chat/settings": () => chatSettingsPublic(),
   "POST /api/chat/settings": (_, body) => saveChatSettings(body),
   "GET /api/chat/knowledge": () => chatKnowledgePublic(),
-  "POST /api/chat": (_, body) => runChat(body),
+  "POST /api/chat": (_, body) => (body.stream === true ? { chatStream: body } : runChat(body)),
   "GET /api/mcp/settings": (q) => mcpSettingsPublic({ revealToken: q.get("reveal") === "1" }),
   "POST /api/mcp/settings": (_, body) => saveMcpSettings(body),
   "POST /api/mcp/token/rotate": () => rotateMcpToken(),
@@ -579,6 +580,27 @@ async function api(req: http.IncomingMessage, res: http.ServerResponse, url: URL
       const { download, name, type } = result as { download: Buffer; name: string; type?: string };
       res.setHeader("Content-Disposition", `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`);
       return send(res, 200, download, type ?? "application/zip");
+    }
+    if (result && typeof result === "object" && "chatStream" in result) {
+      const chatBody = (result as { chatStream: Body }).chatStream;
+      res.writeHead(200, {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      const write = (row: unknown) => {
+        try { res.write(`${JSON.stringify(row)}\n`); } catch { /* client gone */ }
+      };
+      try {
+        const done = await runChat(chatBody, {
+          onStatus: (ev) => write({ type: "status", phase: ev.phase, detail: ev.detail }),
+        });
+        write({ type: "done", ...done });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        write({ type: "error", error: msg });
+      }
+      return void res.end();
     }
     sendJson(res, 200, result);
   } catch (error) {

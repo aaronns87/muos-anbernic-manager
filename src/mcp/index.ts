@@ -45,6 +45,6 @@ export {
 export { mcpClientConfigs, scanMcpClients, installMcpClient } from "./clients.ts";
 export { listAgentPacks, readAgentPack, agentPackContent, installAgentPack, installAllAgentPacks } from "./agents.ts";
 export { mcpStatsJson, mcpSessionCount } from "./stats.ts";
-export { toolCatalogue, openaiTools, executeTool, listTools } from "./registry.ts";
+export { toolCatalogue, openaiTools, openaiToolsForChat, ASSISTANT_TOOL_LIMIT, executeTool, listTools } from "./registry.ts";
 export { handleMcpHttp, isMcpPath, closeAllMcpSessions } from "./http.ts";
 export { MCP_SERVER_NAME, MCP_SERVER_DESCRIPTION } from "./names.ts";

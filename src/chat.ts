@@ -49,8 +49,8 @@ Rules:
 - You cannot search the web. If the user wants community per-game RetroArch tips, point them to the sites listed under finding settings in the knowledge base (Libretro docs/forums, Reddit r/RetroArch and r/SBCGaming, r/muOS for MustardOS). Suggest searching the game title plus the core name (e.g. PCSX-ReARMed, Mupen64Plus-Next, Flycast, PPSSPP).
 - Do NOT invent walkthroughs, puzzle solutions, boss strategies or detailed spoilers. If asked for a walkthrough or guide, briefly refuse to invent one and point the user to GameFAQs (gamefaqs.gamespot.com), StrategyWiki (strategywiki.org), or a well-known wiki for that game.
 - Do NOT invent buttons, tabs or menus that are not in the knowledge base.
-- When tools are available in this turn, you MAY call them to read the library/device or perform manager actions (copy, delete, send BIOS, change settings, etc.). Prefer tools over guessing live state. Report what you did briefly. Destructive tools are irreversible — only use them when the user clearly asked.
-- When tools are not available, you cannot mutate the handheld yourself; tell the user which manager section to use (e.g. System Tools, Device).
+- When tools are available this turn (see the tools note below the rules), use them for live facts and for actions the user asked for. Prefer tool results over guessing from CONTEXT alone for connection status, library contents, device settings, play activity, jobs, files on the handheld, and similar. Do not claim you cannot check or change something a tool can do — call the tool instead of only pointing at a sidebar section. Report results briefly. Destructive tools (deletes, settings writes, System Tools flash/TF2/reset) are irreversible — only when the user clearly asked; System Tools need the matching confirm token.
+- When tools are not available this turn, you cannot mutate the handheld yourself; tell the user which manager section to use (e.g. System Tools, Device).
 - Keep answers concise and practical. Use plain language.
 - When CONTEXT names a selected handheld, tailor performance, screen, Wi-Fi and Game Tuning advice to that model (chip, screen size, Wi-Fi or not). Do not assume a different handheld.
 - Format with simple Markdown the UI can render: short ## headings, bullet or numbered lists, **bold** only for short phrases on one line (always close **), and pipe tables (| col | col |) with a separator row. Do not use tab-separated tables or leave unmatched ** markers.
@@ -460,6 +460,8 @@ function libraryBlock(lib: Library, userText: string, gameKey: string): string {
 
 async function buildContext(
   section: string, userText: string, gameKey: string, opts: ChatSettings, deviceId: string,
+  /** When tools are on, keep CONTEXT smaller so tool defs fit free-tier TPM budgets. */
+  maxChars = 24_000,
 ): Promise<string> {
   const { sections } = await loadKnowledge();
   const parts = [knowledgeBlock(section || "start", sections)];
@@ -473,7 +475,7 @@ async function buildContext(
       parts.push(`## Library\nUnavailable: ${(error as Error).message}`);
     }
   }
-  return parts.join("\n\n").slice(0, 24_000);
+  return parts.join("\n\n").slice(0, Math.max(4_000, maxChars));
 }
 
 type Msg = { role: "user" | "assistant" | "system"; content: string };
@@ -580,7 +582,22 @@ function throwChatHttp(status: number, statusText: string, data: { error?: { mes
   throw new UserError(`Chat API error: ${err}`);
 }
 
-export async function runChat(body: Record<string, unknown>) {
+export type ChatStatusEvent = { phase: "preparing" | "thinking" | "tool" | "fallback" | "replying"; detail: string };
+
+export type ChatResult = {
+  reply: string;
+  usage: { prompt: number; completion: number } | null;
+  provider: ChatProvider;
+  model: string;
+  tools: { offered: boolean; used?: boolean; rejectedByProvider?: boolean; names?: string[] };
+};
+
+export async function runChat(
+  body: Record<string, unknown>,
+  opts?: { onStatus?: (ev: ChatStatusEvent) => void },
+): Promise<ChatResult> {
+  const status = (phase: ChatStatusEvent["phase"], detail: string) => opts?.onStatus?.({ phase, detail });
+  status("preparing", "Preparing…");
   const s = await loadSettings();
   if (!s.apiKey.trim()) throw new UserError("Add a free API key under Settings > Assistant before chatting.");
   const messages = normalizeMessages(body.messages);
@@ -590,25 +607,53 @@ export async function runChat(body: Record<string, unknown>) {
   const section = String(body.section ?? "").trim();
   const gameKey = String(body.gameKey ?? "").trim();
   const deviceId = String(body.deviceId ?? "").trim();
-  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId);
 
   const useTools = await toolsEnabledForChat();
   const mcp = useTools ? await loadMcpApi() : null;
-  const tools = useTools ? mcp!.openaiTools() : [];
-  const toolNote = useTools
-    ? "\n\nTools are available this turn. Call them when you need live data or to perform a manager action the user asked for."
-    : "";
+  // Cap + compact schemas so free Groq TPM (~8k) can fit tools + CONTEXT.
+  let tools = useTools ? mcp!.openaiToolsForChat() : [];
+  status("preparing", useTools ? "Loading context and MCP tools…" : "Loading context…");
+  const context = await buildContext(section, lastUser.content, gameKey, s, deviceId, useTools ? 10_000 : 24_000);
+  const TOOL_NOTE = `\n\nTools are available this turn (manager MCP catalogue). Use them proactively:
+- Live reads: call a tool before answering about connection/device status, library search or counts, Device Settings/Controls/Benchmark, play activity or collections, saves/BIOS, jobs, files, apps, themes, or System Tools state. Do not invent live numbers from memory.
+- Actions: if the user asks you to search, copy, send, delete, change a setting, scrape artwork, or run a manager job a tool covers, call that tool rather than only describing which UI tab to open.
+- After tools return, answer from their results in a short reply. Ask before destructive writes if the request was ambiguous.
+- Do not start in-browser EmulatorJS play from tools.`;
+  const TEXT_ONLY_NOTE = "\n\nTools are not available this turn. Answer in plain text only; do not call tools or invent tool calls. Point the user to the right manager section when they need a live action.";
 
   const apiMessages: ChatApiMessage[] = [
-    { role: "system", content: `${effectivePrompt(s)}${toolNote}\n\nCONTEXT:\n${context}` },
+    { role: "system", content: `${effectivePrompt(s)}${useTools ? TOOL_NOTE : ""}\n\nCONTEXT:\n${context}` },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  const setSystemToolsNote = (enabled: boolean) => {
+    const sys = apiMessages[0];
+    if (!sys || sys.role !== "system" || typeof sys.content !== "string") return;
+    sys.content = sys.content.replace(TOOL_NOTE, "").replace(TEXT_ONLY_NOTE, "");
+    if (!enabled) sys.content = sys.content.replace(/\n\nCONTEXT:/, `${TEXT_ONLY_NOTE}\n\nCONTEXT:`);
+  };
+
+  const chatErrText = (data: { error?: { message?: string } | string }, statusText: string) =>
+    typeof data.error === "string" ? data.error : data.error?.message || statusText;
+
+  const applyToolsPayload = (payload: Record<string, unknown>) => {
+    if (toolsOffered && tools.length) {
+      payload.tools = tools;
+      payload.tool_choice = "auto";
+    } else {
+      delete payload.tools;
+      delete payload.tool_choice;
+    }
+    payload.messages = apiMessages;
+  };
 
   const started = Date.now();
   const signal = AbortSignal.timeout(CHAT_DEADLINE_MS);
   let usagePrompt = 0, usageCompletion = 0;
   let toolsOffered = useTools;
   let toolsRejected = false;
+  let toolShrinkTried = false;
+  const usedTools: string[] = [];
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     if (Date.now() - started > CHAT_DEADLINE_MS - 2_000) {
@@ -620,22 +665,57 @@ export async function runChat(body: Record<string, unknown>) {
       max_tokens: s.maxTokens,
       messages: apiMessages,
     };
-    if (toolsOffered && tools.length) payload.tools = tools;
+    // Groq (and some OpenAI-compatible hosts) need an explicit "auto" or they treat
+    // missing tool_choice as none and reject when the model emits a tool call.
+    applyToolsPayload(payload);
+    status("thinking", round === 0 ? "Asking the model…" : "Thinking with tool results…");
 
-    let { data, status, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal);
+    let { data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal);
 
-    // Some free models reject tools — retry once without them.
-    if (!status.toString().startsWith("2") && toolsOffered && tools.length) {
-      const errText = typeof data.error === "string" ? data.error : data.error?.message || statusText;
-      if (/tool/i.test(errText) || status === 400) {
-        toolsOffered = false;
-        toolsRejected = true;
-        delete payload.tools;
-        ({ data, status, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+    // Groq gpt-oss can intermittently emit a native tool call while choice is none — retry once.
+    if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
+      if (toolsOffered && tools.length) applyToolsPayload(payload);
+      else {
+        setSystemToolsNote(false);
+        applyToolsPayload(payload);
+      }
+      status("thinking", "Retrying…");
+      ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+    }
+
+    // Provider tool limits / schema / TPM: shrink tools and retry before giving up.
+    if (!(httpStatus >= 200 && httpStatus < 300) && toolsOffered && tools.length && !toolShrinkTried) {
+      const errText = chatErrText(data, statusText);
+      if (/128|too many tools|maximum.*tool|request too large|tokens per minute|tpm|reduce your message|invalid.*tool/i.test(errText) || httpStatus === 400) {
+        toolShrinkTried = true;
+        const next = Math.max(8, Math.floor(tools.length / 2));
+        if (next < tools.length) {
+          tools = mcp!.openaiToolsForChat(next);
+          applyToolsPayload(payload);
+          status("thinking", `Retrying with fewer tools (${next})…`);
+          ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+        }
       }
     }
 
-    if (status < 200 || status >= 300) throwChatHttp(status, statusText, data);
+    // Some free models reject tools entirely — fall back to text-only (and strip the tools nudge).
+    if (!(httpStatus >= 200 && httpStatus < 300) && toolsOffered && tools.length) {
+      const errText = chatErrText(data, statusText);
+      if (/tool|request too large|tokens per minute|tpm|reduce your message/i.test(errText) || httpStatus === 400) {
+        toolsOffered = false;
+        toolsRejected = true;
+        setSystemToolsNote(false);
+        applyToolsPayload(payload);
+        status("fallback", "Model rejected tools — answering in text…");
+        ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+        // Text-only fallback can still hit the same Groq flake; one more try.
+        if (!(httpStatus >= 200 && httpStatus < 300) && /tool choice is none/i.test(chatErrText(data, statusText))) {
+          ({ data, status: httpStatus, statusText } = await callChatApi(s.provider, s.apiKey.trim(), payload, signal));
+        }
+      }
+    }
+
+    if (httpStatus < 200 || httpStatus >= 300) throwChatHttp(httpStatus, statusText, data);
     if (data.usage) {
       usagePrompt += data.usage.prompt_tokens || 0;
       usageCompletion += data.usage.completion_tokens || 0;
@@ -662,6 +742,8 @@ export async function runChat(body: Record<string, unknown>) {
         } catch {
           args = {};
         }
+        status("tool", `Calling ${call.function.name}…`);
+        usedTools.push(call.function.name);
         const out = await mcp.executeTool(call.function.name, args, "assistant");
         const content = out.ok
           ? (typeof out.result === "string" ? out.result : JSON.stringify(out.result))
@@ -670,12 +752,13 @@ export async function runChat(body: Record<string, unknown>) {
           role: "tool",
           tool_call_id: call.id,
           name: call.function.name,
-          content: content.slice(0, 24_000),
+          content: content.slice(0, 12_000),
         });
       }
       continue;
     }
 
+    status("replying", "Writing reply…");
     const reply = (msg.content || "").trim();
     if (!reply) throw new UserError("The model returned an empty reply. Try again or pick another model.");
     return {
@@ -685,7 +768,9 @@ export async function runChat(body: Record<string, unknown>) {
         : null,
       provider: s.provider,
       model: s.model,
-      tools: useTools ? { offered: true, used: round > 0, rejectedByProvider: toolsRejected } : { offered: false },
+      tools: useTools
+        ? { offered: true, used: usedTools.length > 0, rejectedByProvider: toolsRejected, names: usedTools }
+        : { offered: false },
     };
   }
   throw new UserError("The assistant hit the tool-call limit. Ask again with a narrower request.");

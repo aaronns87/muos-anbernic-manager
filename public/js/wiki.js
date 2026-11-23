@@ -630,10 +630,10 @@ const ARTICLES = [
     ["What it will not do", `<ul>
       <li>Invent walkthroughs or detailed spoilers. Ask it where to look online instead (GameFAQs, StrategyWiki, or a game wiki).</li>
       <li>When MCP tools are off, it will not change the handheld itself — use System Tools and the other sections. When tools are on
-        (Tools → MCP), it may call manager tools you ask for, including destructive ones, and report what it did.</li>
+        (Tools → MCP), it prefers calling manager tools for live reads and actions you ask for, including destructive ones when clearly requested, and reports what it did.</li>
     </ul>`],
-    ["MCP tools", `<p>With Tools → MCP → <b>Assistant uses MCP tools</b> on, the Assistant dock shows a green <b>MCP</b> chip and chat can call the shared tool catalogue (library search,
-      device status, transfers, BIOS/saves, and more). Some free models reject tools; the manager falls back to text-only for that reply.</p>`],
+    ["MCP tools", `<p>With Tools → MCP → <b>Assistant uses MCP tools</b> on, the Assistant dock shows a green <b>MCP</b> chip and chat is instructed to use the shared tool catalogue for live library search,
+      device status, transfers, BIOS/saves, and more (not only describe which tab to open). Some free models reject tools; the manager falls back to text-only for that reply.</p>`],
     ["Free API keys", `<p>On the <b>Assistant</b> tab in Settings, pick a provider and paste a key:</p>
       <ul>
         <li><b>Groq</b> — <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>: fast, OpenAI-compatible.
