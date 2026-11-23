@@ -180,7 +180,7 @@ function pipelineCard() {
     : `${p.resumable ? `<button class="btn small primary" data-ck="pipe-resume">${icon("play")}<span>Resume</span></button>
       <button class="btn small" data-ck="pipe-cancel">${icon("x")}<span>Cancel</span></button>` : ""}
       <button class="btn small ghost" data-ck="pipe-dismiss">Dismiss</button>`;
-  return `<div class="chk-pipe"><div class="chk-bar"><b>${esc(title)}</b><small>${games} &middot; ${done} of ${p.steps.length} steps</small><span class="grow"></span>${buttons}</div>
+  return `<div class="chk-pipe"><div class="toolbar-strip chk-bar"><b>${esc(title)}</b><small>${games} &middot; ${done} of ${p.steps.length} steps</small><span class="grow"></span>${buttons}</div>
     <div class="meter"><i style="width:${Math.round((done / Math.max(p.steps.length, 1)) * 100)}%"></i></div>
     <ul class="chk-pipe-steps">${steps}</ul>
     ${p.error && !running ? `<div class="notice err">${esc(p.error)}</div>` : ""}</div>`;
@@ -207,7 +207,7 @@ function chdTooling(d) {
     <b>Convert to CHD needs chdman</b> (${esc(install.os)}). ${esc(install.summary)}
     <ol class="chk-confirm">${install.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
     After installing, click <b>Refresh tooling</b>.</span></div>` : "";
-  const actions = `<div class="chk-bar">
+  const actions = `<div class="toolbar-strip chk-bar">
     ${chdChip}${zipChip}
     <button class="link-btn" data-ck="chd-refresh"${C.loading || busy ? " disabled" : ""}>Refresh tooling</button>
     <span class="grow"></span>
@@ -293,7 +293,7 @@ function dupesPanel(d) {
   return `<section class="panel chk-panel">${head}
     <p class="muted-note">Games that are in a folder more than once: other regions, revisions or file formats. The suggested one is kept by your region,
       then good dumps over betas and prototypes, then the newest revision. Arcade folders are skipped because clones need their parent sets.</p>
-    <div class="chk-bar">
+    <div class="toolbar-strip chk-bar">
       <span>${picked.length ? `<b>${plural(picked.length, "game")}</b> picked, ${human(bytes)}` : "Nothing picked"}</span>
       <button class="link-btn" data-ck="suggest">Pick the suggested</button>
       <button class="link-btn" data-ck="none">Pick none</button>

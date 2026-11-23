@@ -244,7 +244,7 @@ function bindBtn(index, role, face = "") {
 
 function saveBarHtml() {
   const syncCls = saveStatus.dirty ? "play-save-dirty" : "";
-  return `<div class="play-save-bar ${syncCls}" id="play-save-bar">
+  return `<div class="toolbar-strip play-save-bar ${syncCls}" id="play-save-bar">
     <span class="play-save-label" id="play-save-label">${esc(saveStatus.label)}</span>
     <div class="play-controls-actions">
       <button type="button" class="btn small" data-play="save-pull" ${saveStatus.reachable ? "" : "disabled"} title="Copy SRAM from the handheld into this session">Load from device</button>

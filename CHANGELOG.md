@@ -28,6 +28,12 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **UI spacing pass**: toolbars, Settings panels, MCP hero/tools/agents, Overview health, play save bar, Checks /
+  disc pipeline, command palette, recipe packs, netplay, Syncthing conflicts and profile bars now use `--space-*` /
+  `--radius-*` tokens so compact/soft density modes stay consistent.
+
 ### Added
 
 - **Play-in-browser SRAM sync.** EmulatorJS battery saves autosave to `backups/saves-browser/`; Load from device /
