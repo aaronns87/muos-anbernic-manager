@@ -29,6 +29,13 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **UI system pass.** Shared design tokens (type, icons, dialog widths, surfaces, touch targets) and Soft/Compact
+  rescales; unified pickable/metric/toolbar-strip/dialog-form primitives; legacy modals and viewers use the same head
+  / scroll / footer chrome and close icon; page heads and tool strips align across views; focus rings and mobile
+  touch targets use one scale.
+
 ## [1.3.3] - 2026-11-23
 
 ### Added
