@@ -696,8 +696,38 @@ a.sb-item:hover, button.sb-item:hover { background: var(--panel-2); }
 }
 .section-head h2, .mcp-section-head h2 { margin: 0 0 4px; }
 .section-head .muted-note, .mcp-section-head .muted-note { margin: 0; max-width: 56ch; }
-.mcp-token-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.mcp-url-row .set-path, .mcp-token-row #mcp-token { flex: 1 1 220px; min-width: 0; }
+.mcp-token-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* Shared columns so URL / bearer / guest fields line up and share one control size. */
+.mcp-url-row,
+.mcp-token-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(220px, 1.35fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.mcp-url-row > span:first-child,
+.mcp-token-row > span:first-child { flex: none; }
+.mcp-url-row > :last-child,
+.mcp-token-row > :last-child { margin-left: 0; }
+.mcp-url-row .set-path,
+.mcp-token-row #mcp-token,
+.mcp-token-row #mcp-guest-token {
+  width: 100%; min-width: 0; flex: none;
+}
+/* URL reuses .set-path for the bordered mono look, but match token control height. */
+.mcp-url-row .set-path {
+  display: inline-flex; align-items: center; box-sizing: border-box;
+  height: var(--ctl); padding: 0 12px; gap: 0;
+  border-radius: var(--radius-sm); font: 12.5px/1.2 var(--mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .mcp-url-row,
+  .mcp-token-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mcp-token-actions { justify-content: flex-start; }
+}
 .mcp-clients-empty {
   display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3);
   padding: 18px; border: 1px dashed var(--line-2); border-radius: var(--radius-lg); background: var(--panel-2);
